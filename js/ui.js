@@ -129,7 +129,11 @@ const UI = (() => {
         }
       }
       T_(ctx, '고르기 ←→ · 선택 ' + L('ok'), 480, 500, 14, '#8a7e88', 'center');
-      if (VER) T_(ctx, '판 ' + VER, 950, 532, 11, '#4a4048', 'right');  // 폰이 예전 파일을 붙잡고 있는지 보려고(2026-10-25)
+      // 폰이 예전 파일을 붙잡고 있는지 · 패드를 알아보는지 보려고(2026-10-25: 안드로이드에서 패드를 써도 가상패드가 안 숨겨짐)
+      const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
+      const IN = { key: '키보드', pad: '패드', touch: '터치' };
+      T_(ctx, (VER ? '판 ' + VER + ' · ' : '') + '패드 ' + (pads.length ? pads.map(g => g.id.slice(0, 28) + (g.mapping === 'standard' ? '' : ' (비표준)')).join(', ') : '안 보임') + ' · 마지막 입력 ' + (IN[Input.device] || Input.device),
+        950, 532, 11, '#5a5058', 'right');
     },
   };
 
@@ -1027,7 +1031,7 @@ const UI = (() => {
       }, i => ({ on: () => this.zone === 'scroll' && this.pick === i, pick: () => { this.zone = 'scroll'; this.pick = i; } }));
       const s = picking && list[this.pick];
       if (s) {
-        T_(ctx, scrollText(s, cur && cur.item.slot, cur && cur.item.ilvl), 508, 462, 12, '#c8b8a0');
+        T_(ctx, scrollText(s, cur && cur.item.slot, cur && cur.item.ilvl, cur && cur.item.ups), 508, 462, 12, '#c8b8a0');
         const why = cur && Items.canEnchant(cur.item, s);
         T_(ctx, why || '바르기 ' + L('ok'), 508, 482, 13, why ? '#ff8a6a' : '#7dff8a');
       }

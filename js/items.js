@@ -173,7 +173,7 @@ const Items = (() => {
     const why = canEnchant(item, s);
     if (why) return why;
     if (!item.ench) item.ench = {};
-    if (Math.random() * 100 < SCROLL_RATES[s.r]) {
+    if (Math.random() * 100 < enchantRate(s, item.ups)) {  // 지금 단계 성공률
       const g = SCROLL_GROUPS[scrollGroupOf(item.slot)];  // 바른 부위에 따라 오르는 능력치
       item.ench[g.stat] = (item.ench[g.stat] || 0) + Math.max(1, Math.round(g.gain[s.r] * POWER(item.ilvl)));  // 장비 레벨 곡선만큼
       item.ups = (item.ups || 0) + 1;
@@ -218,7 +218,7 @@ const Items = (() => {
   function takeScroll(prof, s) { const k = scrollKey(s); if (!(prof.scrolls[k] > 0)) return false; if (!--prof.scrolls[k]) delete prof.scrolls[k]; return true; }
   function scrollStacks(prof) {
     const out = [];
-    for (const g of SCROLL_ORDER) for (let r = 0; r < (g === 'inherit' ? 1 : SCROLL_RATES.length); r++) {
+    for (const g of SCROLL_ORDER) for (let r = 0; r < (g === 'inherit' ? 1 : SCROLL_NAMES.length); r++) {
       const n = prof.scrolls[g + ':' + r] || 0;
       if (n > 0) out.push({ g, r, n });
     }

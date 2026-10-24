@@ -437,20 +437,24 @@ const SCROLL_GROUPS = {
   acc: { name: '장신구', stat: 'atk', slots: ['amulet', 'ring'], gain: [1, 3] },
 };
 const SCROLL_ORDER = ['any', 'inherit'];
-const SCROLL_RATES = [10, 5];  // 2026-10-24 사용자: 5 · 3 은 너무 안 붙는다 → 10 · 5
+// 성공률은 지금 강화 단계마다 다르게(2026-10-25 사용자: 10% · 5% 로 똑같으니 너무 어렵다). ENCHANT_RATE[지금 +N] = 강화 주문서(보통) 성공률 %,
+// 축복받은 강화 주문서는 거기에 +3%. 보통으로 +10 까지 평균 약 98장(예전 5% 200장), 축복받은 약 65장(예전 10% 100장)
+const ENCHANT_RATE = [60, 50, 40, 30, 22, 15, 10, 7, 5, 3];
+const BLESS_BONUS = 3;
+const enchantRate = (s, ups) => ENCHANT_RATE[Math.min(ups || 0, ENCHANT_MAX - 1)] + (s.r === 0 ? BLESS_BONUS : 0);
 const SCROLL_NAMES = ['축복받은 강화 주문서', '강화 주문서'];
 const SCROLL_COLORS = ['#ffe08a', '#7dff8a'];
-const SCROLL_DROP = [0.65, 0.35];  // 떨어질 때 축복받은(10%) · 보통(5%) 비율
+const SCROLL_DROP = [0.65, 0.35];  // 떨어질 때 축복받은 · 보통 비율
 const INHERIT_CHANCE = 0.06;            // 주문서가 떨어질 때 계승 주문서일 확률
 const scrollKey = s => s.g + ':' + (s.r || 0);
 const scrollGroupOf = slot => Object.keys(SCROLL_GROUPS).find(g => SCROLL_GROUPS[g].slots.includes(slot));
 const scrollName = s => s.g === 'inherit' ? '계승 주문서' : SCROLL_NAMES[s.r];  // 이름 뒤 확률은 뺌(2026-10-24 사용자) — 성공률은 대장장이 설명 줄에
 const scrollColor = s => s.g === 'inherit' ? '#ff8ae0' : SCROLL_COLORS[s.r];
-// slot 을 주면 그 부위에 발랐을 때 오르는 것만. ilvl 을 주면 그 장비에 실제로 오르는 양(장비 레벨 곡선, items.js enchant 와 같은 식)
+// slot 을 주면 그 부위에 발랐을 때 오르는 것만. ilvl 을 주면 그 장비에 실제로 오르는 양(장비 레벨 곡선, items.js enchant 와 같은 식). ups = 그 장비 지금 +N
 const scrollGain = (s, slot, ilvl) => { const g = SCROLL_GROUPS[scrollGroupOf(slot)]; return STATS[g.stat].name + ' +' + (ilvl ? Math.max(1, Math.round(g.gain[s.r] * POWER(ilvl))) : g.gain[s.r]); };
-const scrollText = (s, slot, ilvl) => s.g === 'inherit' ? '강화(+N)를 같은 부위 새 장비로 옮길 때 1장 쓴다 (대장장이에서 Z)'
-  : slot ? '성공 ' + SCROLL_RATES[s.r] + '% · ' + SLOT_NAMES[slot] + '에 바르면 ' + scrollGain(s, slot, ilvl)
-  : '성공 ' + SCROLL_RATES[s.r] + '% · ' + Object.values(SCROLL_GROUPS).map(g => g.name + ' ' + STATS[g.stat].name + ' +' + g.gain[s.r]).join(' · ');
+const scrollText = (s, slot, ilvl, ups) => s.g === 'inherit' ? '강화(+N)를 같은 부위 새 장비로 옮길 때 1장 쓴다 (대장장이에서 Z)'
+  : slot ? '+' + (ups || 0) + ' → +' + ((ups || 0) + 1) + ' 성공 ' + enchantRate(s, ups) + '% · ' + SLOT_NAMES[slot] + '에 바르면 ' + scrollGain(s, slot, ilvl)
+  : '성공 ' + enchantRate(s, 0) + '%(+0) ~ ' + enchantRate(s, ENCHANT_MAX - 1) + '%(+' + (ENCHANT_MAX - 1) + ') · ' + Object.values(SCROLL_GROUPS).map(g => g.name + ' ' + STATS[g.stat].name + ' +' + g.gain[s.r]).join(' · ');
 
 
 // 능력치 이름 · 표시 방법. 랜덤 옵션 값 = [최소, 최대] × (1 + 0.35 × (단계 - 1))

@@ -98,8 +98,9 @@ function hitEnemy(e, def, p, w) {
 }
 
 // 몹 공격이 플레이어에 닿음. 결과: 'hit' · 'miss'(대시 무적 등). src = 공격한 몹(탄이면 탄)
+// p.safe = 보스를 쓰러뜨린 뒤 무적(2026-10-25 사용자: 보스 잡고 남은 탄 · 폭발에 죽는 일 없게)
 function hurtPlayer(p, src, dmgRaw, knock) {
-  if (p.dead || p.iframes > 0) return 'miss';
+  if (p.dead || p.safe || p.iframes > 0) return 'miss';
   const fx = p.stats.fx || {};
   // 유니크 잎사귀 방패: 준비돼 있으면 한 번 막는다
   if (fx.leaf && !(p.leafT > 0)) {
@@ -140,7 +141,7 @@ function downOrRevive(p) {
 
 // 함정 웅덩이 피해: 경직 없이 체력만(대시 무적 중엔 안 다침)
 function hazardDamage(p, dmg, col) {
-  if (p.dead || p.iframes > 0) return;
+  if (p.dead || p.safe || p.iframes > 0) return;
   dmg = Math.max(1, Math.round(dmg));
   p.hp -= dmg; p.flash = 0.06;
   World.number(p.x, p.y, 30, dmg, col);

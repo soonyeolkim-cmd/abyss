@@ -248,6 +248,7 @@ const World = (() => {
   }
 
   function bossCleared(b) {
+    p.safe = true;  // 보스를 잡은 순간부터 이 던전 끝까지 무적(남은 탄 · 죽을 때 폭발 · 함정)
     lv.chests.push({ x: b.x, y: b.y + 18, open: false, t: 0, big: true });
     lv.stairs = stairsSpot(b);
     msg = '보스를 쓰러뜨렸다!'; msgT = 2.5;
