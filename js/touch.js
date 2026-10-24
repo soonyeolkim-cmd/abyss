@@ -112,6 +112,20 @@ const Touch = (() => {
   window.addEventListener('gamepadconnected', () => setExt(true));
   window.addEventListener('keydown', () => setExt(true));  // 진짜 키보드(가상 버튼은 keydown 을 안 낸다)
   window.addEventListener('touchstart', () => { Input.touched(); lastDev = 'touch'; setExt(false); }, { capture: true, passive: true });
+  // 패드를 직접 본다(2026-10-25 폰에서 안 숨겨짐): 안드로이드 패드는 버튼 번호가 표준과 달라 Input 이 모르는 버튼일 수 있다.
+  // 어느 버튼이든 새로 눌리거나, 스틱 · 트리거 축이 처음 본 쉬는 자리에서 크게 움직이면 숨긴다(쉴 때 -1 인 트리거 축도 있어서 '처음 값'과 비교)
+  const padRest = {}, padHeld = {};
+  function padMoved() {
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    for (const p of pads) {
+      if (!p) continue;
+      const rest = padRest[p.index] || (padRest[p.index] = p.axes.slice()), held = padHeld[p.index] || (padHeld[p.index] = []);
+      let moved = p.axes.some((v, i) => Math.abs(v - (rest[i] || 0)) > 0.5);
+      p.buttons.forEach((b, i) => { const on = b.pressed || b.value > 0.5; if (on && !held[i]) moved = true; held[i] = on; });
+      if (moved) { setExt(true); return; }
+    }
+  }
+  window.addEventListener('gamepaddisconnected', e => { delete padRest[e.gamepad.index]; delete padHeld[e.gamepad.index]; });
 
   // 게임 중인가 메뉴 화면인가(창이 열렸거나 던전 · 마을 밖이면 메뉴)
   let menuMode = null;
@@ -121,6 +135,7 @@ const Touch = (() => {
       lastDev = Input.device;
       if (lastDev === 'pad') setExt(true);
     }
+    padMoved();
     const m = Game.overlays.length > 0 || (Game.scene !== 'run' && Game.scene !== 'town');
     if (m !== menuMode) {
       menuMode = m;

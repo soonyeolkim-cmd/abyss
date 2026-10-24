@@ -3,6 +3,8 @@
 const UI = (() => {
   const T_ = Gfx.text;
   const L = a => Input.label(a);
+  // 판 번호: index.html 스크립트 주소의 ?v=
+  const VER = (() => { const s = [...document.scripts].find(s => s.src.includes('?v=')); return s ? s.src.split('?v=')[1] : ''; })();
   // 고른 줄 표시(2026-10-24 사용자: 커서만 움직이고 글자는 제자리): 가운데 글은 그대로 두고 왼쪽에 ▶ 만 따로 그린다
   function centerItem(ctx, label, x, y, size, col, on, curCol) {
     T_(ctx, label, x, y, size, col, 'center');
@@ -127,6 +129,7 @@ const UI = (() => {
         }
       }
       T_(ctx, '고르기 ←→ · 선택 ' + L('ok'), 480, 500, 14, '#8a7e88', 'center');
+      if (VER) T_(ctx, '판 ' + VER, 950, 532, 11, '#4a4048', 'right');  // 폰이 예전 파일을 붙잡고 있는지 보려고(2026-10-25)
     },
   };
 
