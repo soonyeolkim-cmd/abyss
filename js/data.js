@@ -20,7 +20,7 @@ const CLASSES = {
     weapons: ['light', 'heavy'],  // 낄 수 있는 무기 종류
     slotNames: { basic: '기본 공격', charge: '회전베기', wave: '검기', dash: '대시' },
     slotShort: { basic: '기본', charge: '회전', wave: '검기', dash: '대시' },
-    icons: { charge: 'spin', wave: 'wave', dash: 'dash' },
+    icons: { basic: 'slash', charge: 'spin', wave: 'wave', dash: 'dash' },
     baseHp: 100, baseAtk: 4,  // × POWER(레벨) — 레벨 곡선
     speed: 82,
     // 기력(파란 구슬): 대시 · 특수기 · 차지 회전베기에 쓴다. 시간이 지나면 차오르고(쓴 직후 delay 초는 멈춤), 기본 공격을 맞히면 몹마다 onHit 만큼 찬다
@@ -52,7 +52,7 @@ const CLASSES = {
     weapons: ['wand', 'staff'],
     slotNames: { basic: '기본 공격', charge: '마법진', wave: '마력탄', dash: '대시' },
     slotShort: { basic: '기본', charge: '마법진', wave: '마력탄', dash: '대시' },
-    icons: { charge: 'circle', wave: 'orb', dash: 'dash' },
+    icons: { basic: 'spark', charge: 'circle', wave: 'orb', dash: 'dash' },
     baseHp: 100, baseAtk: 4, speed: 82,
     // 기술로 싸우는 직업이라 기력이 넉넉하다(2026-10-24 사용자: 기력이 모자라다) — 최대 100 → 140, 회복 9 → 12
     stamina: { base: 140, regen: 12, delay: 0.6, onHit: 4 },
@@ -333,11 +333,11 @@ const vaultKey = it => vaultCat(it) + ':' + tierOf(it.ilvl);
 const GOLD_MUL = 1.3;
 // ── 난이도(2026-10-24 사용자: 던파식, 던전마다 3단계. 처음 모험 ×2 · ×1.5 / 영웅 ×4 · ×2.2 는 너무 어려워서 낮춤) ──
 // hp · dmg = 몹 체력 · 공격 배율, rare = 노랑 이상 확률 배율, uniq = 유니크 확률 배율,
-// (장비 레벨은 안 올린다 — 같은 착용 레벨 · 등급이면 능력치가 같다, 2026-10-24 사용자), stone = 속성석 · 보석 크기 +, gold · exp = 골드 · 경험치 배율
+// (장비 레벨은 안 올린다 — 같은 착용 레벨 · 등급이면 능력치가 같다, 2026-10-24 사용자), stoneFavor · stoneSpill = 속성석 · 보석 큰 쪽이 잘 나옴 · 한 단계 위 아주 가끔 = 속성석 · 보석 크기 +, gold · exp = 골드 · 경험치 배율
 const DIFFS = [
-  { name: '보통', color: '#c8b8a0', hp: 1, dmg: 1, rare: 1, uniq: 1, stone: 0, gold: 1, exp: 1 },
-  { name: '모험', color: '#6fa8ff', hp: 1.6, dmg: 1.3, rare: 2, uniq: 1.5, stone: 0, gold: 1.2, exp: 1.2 },
-  { name: '영웅', color: '#ff9a3a', hp: 3, dmg: 1.8, rare: 3, uniq: 2, stone: 1, gold: 1.5, exp: 1.5 },
+  { name: '보통', color: '#c8b8a0', hp: 1, dmg: 1, rare: 1, uniq: 1, stoneFavor: 0, stoneSpill: 0, gold: 1, exp: 1 },
+  { name: '모험', color: '#6fa8ff', hp: 1.6, dmg: 1.3, rare: 2, uniq: 1.5, stoneFavor: 0.3, stoneSpill: 0.02, gold: 1.2, exp: 1.2 },
+  { name: '영웅', color: '#ff9a3a', hp: 3, dmg: 1.8, rare: 3, uniq: 2, stoneFavor: 0.6, stoneSpill: 0.05, gold: 1.5, exp: 1.5 },
 ];
 const RUN = { diff: 0 };  // 지금 던전 런의 난이도
 // 그 던전에서 보스를 잡은 가장 높은 난이도(-1 = 아직). 예전 저장의 cleared 는 보통으로 친다
@@ -347,6 +347,14 @@ const diffIlvl = (def, k) => def.ilvl.slice();  // 난이도와 상관없이 같
 // 장비 능력치 기준 레벨: 착용 레벨 10 단위 + 2(같은 착용 레벨 · 같은 등급이면 능력치가 다 같다).
 // +2 = 예전 떨어지던 장비 레벨(권장 ~ +4)의 평균이라 전체 세기는 그대로
 const bandLvl = i => tierOf(i) * 10 + 2;
+// 내 레벨보다 낮은 던전(2026-10-24 사용자): 착용 레벨 단계(10 단위)로 본다. 내 단계와 바로 아래 단계 던전은 그대로,
+// 그보다 아래면 한 단계마다 경험치 -30%(최소 ×0.1) · 유니크 +50%(최대 ×3). 예: Lv.63(60 단계) — 60 · 50 던전 그대로, 40 던전 ×0.7 · ×1.5, 30 ×0.4 · ×2, 20 ×0.1 · ×2.5, 10 이하 ×0.1 · ×3
+const lowGap = (plv, dlv) => Math.max(0, Math.floor(plv / 10) - Math.floor(dlv / 10) - 1);
+const lowExp = (plv, dlv) => Math.max(0.1, 1 - lowGap(plv, dlv) * 0.3);
+const lowUniq = (plv, dlv) => Math.min(3, 1 + lowGap(plv, dlv) * 0.5);
+// 타임어택(2026-10-24 사용자): 던전에 들어간 뒤 보스를 쓰러뜨릴 때까지 걸린 시간(창을 연 동안은 멈춤). 던전 · 난이도마다 최고 기록
+const fmtTime = sec => { const m = Math.floor(sec / 60), s = sec - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); };
+const timeKey = (id, diff) => id + ':' + diff;
 const UNIQUE_DROP = { boss: 0.1, unique: 0.03 };  // 보스 10% · 고유 몹 3%(2026-10-24 사용자: 보통 30% 는 너무 크다). 모험 · 영웅은 DIFFS.uniq 배
 const UNIQUE_FX = { echoMult: 0.5, echoHits: 2, leafCd: 12, skin: 0.88, ambush: 1.3, dashguard: 0.6, dashguardT: 1, secondHp: 0.4, vamp: 0.02, breath: 40 };
 // ── 장비 이름 · 능력치 규칙(2026-10-24 사용자: 무한히 늘리기 쉽게) ──
@@ -552,13 +560,16 @@ const EL_ABIL_MAGE = {
 };
 // 칸 능력 [이름, 설명]: 직업에 맞게
 const elAbil = (el, slot, prof) => (clsOf(prof).id === 'mage' && EL_ABIL_MAGE[el][slot]) || EL_ABIL[el][slot];
-// 떨어지는 크기: 던전마다 [크기별 확률]
+// 떨어지는 크기(2026-10-24 사용자): 완전한(5단계) 이상은 어디서도 안 떨어지고 세공사 합치기로만. 떨어지는 건 큰(4단계)까지(STONE_DROP_CAP).
+// 던전마다 보통 난이도의 [조각, 작은, 보통, 큰] 확률. 용암 지옥 영웅에서 아주 가끔 보통(3단계)이 나올 정도로 낮게 잡았다.
+// 모험 · 영웅은 크기를 올리지 않고 큰 쪽이 잘 나오게(DIFFS.stoneFavor), 그 던전 최대보다 한 단계 위는 아주 가끔만(DIFFS.stoneSpill)
+const STONE_DROP_CAP = 3;
 const STONE_DROP = {
-  chapel: [0.9, 0.1, 0, 0, 0], swamp: [0.75, 0.25, 0, 0, 0], crypt: [0.5, 0.4, 0.1, 0, 0],
-  ice: [0.35, 0.45, 0.2, 0, 0], fort: [0.2, 0.45, 0.3, 0.05, 0], hell: [0.1, 0.35, 0.4, 0.15, 0],
-  plague: [0.05, 0.3, 0.4, 0.2, 0.05], order: [0, 0.25, 0.4, 0.27, 0.08], temple: [0, 0.15, 0.4, 0.33, 0.12], abyss: [0, 0.1, 0.35, 0.38, 0.17],
+  chapel: [1, 0, 0, 0], swamp: [0.92, 0.08, 0, 0], crypt: [0.82, 0.18, 0, 0], ice: [0.74, 0.26, 0, 0],
+  fort: [0.66, 0.34, 0, 0], hell: [0.6, 0.4, 0, 0], plague: [0.5, 0.46, 0.04, 0], order: [0.4, 0.52, 0.08, 0],
+  temple: [0.3, 0.56, 0.14, 0], abyss: [0.2, 0.56, 0.21, 0.03],
 };
-const STONE_BOSS_SIZE = { chapel: 1, swamp: 1, crypt: 2, ice: 2, fort: 3, hell: 3, plague: 3, order: 4, temple: 4, abyss: 4 };
+const STONE_BOSS_BOOST = 0.8;  // 보스 · 큰 상자: 큰 쪽이 더 잘 나온다(크기 한도는 같음)
 
 // 레벨업에 필요한 경험치
 // 다음 레벨까지 경험치: 같은 레벨 몹 경험치(역할 × POWER)로 치면 Lv.1 은 약 18마리, Lv.40 은 약 135마리(던전 두 판쯤) — 천천히 오르게
@@ -566,4 +577,5 @@ const expToNext = lv => Math.round((150 + 30 * lv) * POWER(lv));
 const POTION_PRICE = 25;
 // 상점: 가장 작은(조각) 속성석 · 보석도 판다(2026-10-24 사용자). 조각 3개 + 합성 300G = 작은 돌 하나
 const SHARD_PRICE = 150;
+const SHARD_SELL = 50;  // 조각(1단계) 속성석 · 보석 팔 때(2026-10-24 사용자: 1단계만 팔 수 있게)
 const INHERIT_PRICE = 3000;  // 계승 주문서도 판다(복구 주문서 자리, 2026-10-24 사용자)

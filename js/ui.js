@@ -124,7 +124,10 @@ const UI = (() => {
     draw(ctx, prof, time) {
       backdrop(ctx, time);
       T_(ctx, '던전 고르기', 60, 58, 30, '#f0e0b8');
-      T_(ctx, '앞 던전 보스를 쓰러뜨리고 입장 레벨이 되면 열려요', 900, 58, 13, '#8a7e88', 'right');
+      // 고른 던전이 내 레벨보다 한참 낮으면: 경험치 · 유니크 배율
+      const sd = DUNGEONS[this.sel], gap = lowGap(prof.lv, sd.lv);
+      if (gap > 0) T_(ctx, '내 레벨보다 낮은 던전 — 경험치 ×' + lowExp(prof.lv, sd.lv).toFixed(1) + ' · 유니크 ×' + lowUniq(prof.lv, sd.lv).toFixed(1), 900, 58, 13, '#ffb86a', 'right');
+      else T_(ctx, '앞 던전 보스를 쓰러뜨리고 입장 레벨이 되면 열려요', 900, 58, 13, '#8a7e88', 'right');
       // 6개씩 보이고, 고른 줄을 따라 내려간다(던전 10개)
       const VISD = 6, top = Math.max(0, Math.min(DUNGEONS.length - VISD, this.sel - 3));
       if (top > 0) T_(ctx, '▲', 930, 100, 14, '#8a7e88', 'right');
@@ -158,7 +161,9 @@ const UI = (() => {
       });
       // 고른 난이도 설명
       const df = DIFFS[this.diff];
-      T_(ctx, df.name + (this.diff ? ' — 몹 체력 ×' + df.hp + ' · 공격 ×' + df.dmg + ' · 노랑 이상 ×' + df.rare + ' · 유니크 ×' + df.uniq + (df.stone ? ' · 속성석 한 단계 크게' : '') + ' · 골드 · 경험치 ×' + df.gold : ' — 기본 난이도'), 480, 516, 13, df.color, 'center');
+      const bt = prof.bestTimes && prof.bestTimes[timeKey(DUNGEONS[this.sel].id, this.diff)];
+      if (bt) T_(ctx, '최고 기록 ' + fmtTime(bt), 930, 535, 11, '#ffd36a', 'right');
+      T_(ctx, df.name + (this.diff ? ' — 몹 체력 ×' + df.hp + ' · 공격 ×' + df.dmg + ' · 노랑 이상 ×' + df.rare + ' · 유니크 ×' + df.uniq + (df.stoneFavor ? ' · 큰 속성석 · 보석이 더 잘' : '') + ' · 골드 · 경험치 ×' + df.gold : ' — 기본 난이도'), 480, 516, 13, df.color, 'center');
       T_(ctx, '던전 ↑↓ · 난이도 ←→ · 들어가기 ' + L('ok') + ' · 돌아가기 ' + L('back'), 480, 535, 11, '#6a6068', 'center');
     },
   };
@@ -188,6 +193,13 @@ const UI = (() => {
     // 대장장이 '장비 팔기'(2026-10-24 사용자): 왼쪽은 낀 장비, 가방 장비를 고르면 판다
     sell: [{ label: '좋은 것 일괄 착용', go: prof => bulkEquip(prof) }, { label: '약한 장비 일괄 판매', sell: true, go: prof => bulkSell(prof) }],
   };
+  // 장비를 벗을 때 낀 보석도 뺄지 묻는다(2026-10-24 사용자) — 예 = 주머니로, 아니요 = 장비에 그대로
+  function askGemsOff(prof, item) {
+    const gs = (item.gems || []).filter(Boolean);
+    if (!gs.length) return;
+    Game.overlay({ type: 'confirm', defaultYes: true, text: '벗은 ' + item.name + '에 낀 보석도 뺄까요?', sub: '뺀 보석은 주머니로 돌아가요: ' + gs.map(stoneName).join(' · '),
+      yes: () => { item.gems.forEach((g, i) => { if (g) { Elements.add(prof, g); item.gems[i] = null; } }); Game.toast('보석을 주머니로 뺐어요'); Game.changed(); } });
+  }
   function bulkEquip(prof) {
     const n = Items.equipBest(prof);
     Game.toast(n ? '더 좋은 장비 ' + n + '개로 바꿔 꼈어요' : '이미 가장 좋은 장비를 끼고 있어요');
@@ -201,6 +213,26 @@ const UI = (() => {
       yes: () => { const r = Items.sellAll(prof, idx); Game.toast(idx.length + '개 판매 +' + r.gold + 'G' + (r.gems ? ' · 보석 ' + r.gems + '개는 주머니로' : '')); Game.changed(); } });
   }
   // 상점 물건: 물약 + 가장 작은(조각) 속성석 · 보석
+  // 상점 물건 하나 사기(장비 창 '사기' · 아이템 사고팔기 창 공용)
+  function buyGood(prof, g) {
+    if (g.scroll) {
+      if (prof.gold < INHERIT_PRICE) { Game.toast('골드가 모자라요 (' + INHERIT_PRICE + 'G)'); return; }
+      prof.gold -= INHERIT_PRICE; Items.addScroll(prof, g.scroll);
+      Game.toast('계승 주문서를 샀어요 (-' + INHERIT_PRICE + 'G) · 가진 개수 ' + prof.scrolls[scrollKey(g.scroll)]);
+    } else if (!g.potion) {
+      if (prof.gold < SHARD_PRICE) { Game.toast('골드가 모자라요 (' + SHARD_PRICE + 'G)'); return; }
+      prof.gold -= SHARD_PRICE; Elements.add(prof, { el: g.el, size: 0 });
+      Game.toast(stoneName(g) + '을 샀어요 (-' + SHARD_PRICE + 'G) · 가진 개수 ' + prof.stones[Elements.key(g)]);
+    } else {
+      if (prof.potions >= clsOf(prof).potion.max) { Game.toast('물약은 ' + clsOf(prof).potion.max + '개까지 들 수 있어요'); return; }
+      if (prof.gold < POTION_PRICE) { Game.toast('골드가 모자라요'); return; }
+      prof.gold -= POTION_PRICE; prof.potions++; Game.toast('물약을 샀어요 (-' + POTION_PRICE + 'G)');
+    }
+    Sfx.gold();
+    Game.changed();
+  }
+  const goodName = g => (g.potion ? '체력 물약' : g.scroll ? scrollName(g.scroll) : stoneName(g));
+  const goodPrice = g => (g.potion ? POTION_PRICE : g.scroll ? INHERIT_PRICE : SHARD_PRICE);
   const SHOP_GOODS = () => [{ potion: true }, ...[...EL_ORDER, ...GEM_ORDER].map(el => ({ el, size: 0 })), { scroll: { g: 'inherit', r: 0 } }];
   const inv = {
     zone: 'bag', r: 0, c: 0, idx: 0, btn: 0, shop: 0,
@@ -271,13 +303,18 @@ const UI = (() => {
         prof.equip[it.slot] = it;
         prof.bag[this.idx] = old;
         Game.toast(it.name + ' 장착');
+        Game.changed();
+        if (old) askGemsOff(prof, old);  // 바꿔 끼워 벗겨진 장비에 보석이 있으면 뺄지 묻는다
+        return;
       } else {
         const empty = prof.bag.indexOf(null);
         if (empty < 0) { Game.toast('가방이 가득 찼어요'); return; }
         prof.bag[empty] = sel.item; prof.equip[sel.slot] = null;
         Game.toast(sel.item.name + ' 벗음');
+        Game.changed();
+        askGemsOff(prof, sel.item);
+        return;
       }
-      Game.changed();
     },
     navigate(mode) {
       if (this.zone === 'bag') {
@@ -988,6 +1025,69 @@ const UI = (() => {
     },
   };
 
+  // ── 상점 아이템 사고팔기(2026-10-24 사용자: 장비 / 아이템으로 나눔) ──
+  // 왼쪽 = 사는 물건(물약 · 조각 속성석 · 보석 · 계승 주문서), 오른쪽 = 내가 가진 속성석 · 보석. 파는 건 조각(1단계)만, 하나에 SHARD_SELL
+  const shopItems = {
+    zone: 'buy', buy: 0, mine: 0,
+    open() { this.zone = 'buy'; this.buy = 0; this.mine = 0; },
+    mineList(prof) { return Elements.stacks(prof, [...EL_ORDER, ...GEM_ORDER]); },
+    update(o, prof) {
+      if (Input.wasPressed('back') || Input.wasPressed('pause')) { Game.closeOverlay(); return; }
+      const goods = SHOP_GOODS(), mine = this.mineList(prof);
+      if (Input.nav('left') || Input.nav('right')) { this.zone = this.zone === 'buy' ? 'mine' : 'buy'; return; }
+      if (this.zone === 'buy') this.buy = menuNav(this.buy, goods.length);
+      else if (mine.length) this.mine = menuNav(Math.min(this.mine, mine.length - 1), mine.length);
+      if (!Input.wasPressed('ok')) return;
+      if (this.zone === 'buy') { buyGood(prof, goods[this.buy]); return; }
+      const st = mine[Math.min(this.mine, mine.length - 1)];
+      if (!st) return;
+      if (st.size > 0) { Game.toast('속성석 · 보석은 조각(1단계)만 팔 수 있어요 — 큰 것은 세공사에서 써 주세요'); return; }
+      Elements.take(prof, st);
+      prof.gold += SHARD_SELL;
+      Sfx.gold();
+      Game.toast(stoneName(st) + ' 판매 +' + SHARD_SELL + 'G · 남은 개수 ' + (prof.stones[Elements.key(st)] || 0));
+      Game.changed();
+    },
+    draw(ctx, o, prof) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = 'rgba(0,0,0,0.96)'; ctx.fillRect(0, 0, 960, 540);
+      const goods = SHOP_GOODS(), mine = this.mineList(prof);
+      ctx.imageSmoothingEnabled = false;
+      // 왼쪽: 사기
+      Gfx.panel(ctx, 24, 24, 440, 470, { border: this.zone === 'buy' ? '#ffd36a' : undefined });
+      T_(ctx, '사기', 44, 62, 22, '#f0e0b8');
+      T_(ctx, '골드 ' + prof.gold + 'G', 444, 62, 16, '#ffd34d', 'right');
+      goods.forEach((g, i) => {
+        const y = 78 + i * 44, on = this.zone === 'buy' && this.buy === i;
+        Gfx.panel(ctx, 40, y, 408, 40, { border: on ? '#ffd36a' : '#3a2e36', bg: '#1d151b' });
+        if (g.potion) Gfx.spr(ctx, 'flask_big_red', 64, y + 35, { scale: 1.8 });
+        else if (g.scroll) Gfx.scrollIcon(ctx, g.scroll, 64, y + 21, 24);
+        else Gfx.stoneIcon(ctx, g, 64, y + 20, 26);
+        const have = g.potion ? prof.potions + '/' + clsOf(prof).potion.max : g.scroll ? (prof.scrolls[scrollKey(g.scroll)] || 0) + '장' : (prof.stones[Elements.key(g)] || 0) + '개';
+        T_(ctx, goodName(g), 88, y + 27, 15, on ? '#ffd36a' : g.potion ? '#f0e0b8' : g.scroll ? scrollColor(g.scroll) : ELEMENTS[g.el].color);
+        T_(ctx, goodPrice(g) + 'G · 가진 것 ' + have, 436, y + 27, 12, '#9a8e96', 'right');
+      });
+      // 오른쪽: 내 속성석 · 보석(팔기)
+      Gfx.panel(ctx, 488, 24, 448, 470, { border: this.zone === 'mine' ? '#ffd36a' : undefined });
+      T_(ctx, '내 속성석 · 보석', 508, 62, 20, '#f0e0b8');
+      T_(ctx, '조각(1단계)만 팔기 ' + SHARD_SELL + 'G', 916, 62, 12, '#9a8e96', 'right');
+      if (!mine.length) T_(ctx, '가진 속성석 · 보석이 없어요', 508, 100, 13, '#6a6068');
+      const sel = Math.min(this.mine, Math.max(0, mine.length - 1));
+      listView(ctx, 488, 448, mine.length, sel, this.zone === 'mine', (i, y, on) => {
+        const r = mine[i], can = r.size === 0;
+        Gfx.stoneIcon(ctx, r, 526, y + 11, 20);
+        T_(ctx, stoneName(r), 546, y + 18, 14, on ? '#ffd36a' : can ? ELEMENTS[r.el].color : '#8a7e88');
+        T_(ctx, can ? '판매 ' + SHARD_SELL + 'G' : '못 팖', 860, y + 18, 11, can ? '#9a8e96' : '#5a5058', 'right');
+        T_(ctx, '×' + r.n, 912, y + 18, 14, '#e8e0d0', 'right');
+      });
+      // 아래 설명
+      const g = goods[this.buy], st = mine[sel];
+      if (this.zone === 'buy' && g) T_(ctx, g.potion ? '최대 체력의 40%를 바로 회복' : g.scroll ? '강화(+N)를 같은 부위 새 장비로 옮길 때 1장' : GEMS[g.el] ? gemText(g) + ' (' + GEMS[g.el].where + ')' : '세공사에서 3개를 합치면 한 단계 커져요', 44, 476, 12, '#c8b8a0');
+      if (this.zone === 'mine' && st) T_(ctx, st.size === 0 ? '조각 하나 판매 +' + SHARD_SELL + 'G' : '1단계(조각)만 팔 수 있어요', 508, 476, 12, st.size === 0 ? '#c8b8a0' : '#ff8a6a');
+      hintBar(ctx, '사기 ↔ 내 것 ←→ · 고르기 ↑↓ · ' + (this.zone === 'buy' ? '사기 ' : '팔기 ') + L('ok') + ' · 닫기 ' + L('back'));
+    },
+  };
+
   // ── 창고: 유니크 컬렉션(2026-10-24 사용자) ──
   // 줄 = 부위 갈래 8개(무기 경량 · 무기 중량 · 투구 · 갑옷 · 장갑 · 신발 · 목걸이 · 반지), 칸 = 재질 단계(착용 레벨 없음 · 10 … 90).
   // 가방의 유니크를 맞는 칸에 넣고, 갈래마다 달성률을 보여 준다. 넣은 유니크는 창고에 보관(꺼내면 가방으로, 칸은 다시 빈다).
@@ -1194,13 +1294,14 @@ const UI = (() => {
       Gfx.panel(ctx, 180, 150, 600, 320);
       const rows = [['처치', run.kills + '마리'], ['경험치', '+' + run.exp + (run.levelUps ? '  (레벨 업 ' + run.levelUps + '번!)' : '')],
         ['골드', '+' + run.gold + 'G' + (run.lostGold ? '  (쓰러져서 -' + run.lostGold + 'G)' : '')],
+        ['시간', run.clearTime !== undefined ? fmtTime(run.clearTime) + (run.newRecord ? '  ★ 새 기록!' + (run.bestPrev ? ' (예전 ' + fmtTime(run.bestPrev) + ')' : '') : '  (최고 ' + fmtTime(run.bestPrev) + ')') : '보스를 못 쓰러뜨림 — 기록 없음'],
         ['주운 장비', run.items.length + '개' + (run.stones ? '  · 속성석 · 보석 ' + run.stones + '개' : '') + (run.scrolls ? '  · 주문서 ' + run.scrolls + '개' : '') + (run.autoSold ? '  · 자동 판매 ' + run.autoSold + '개' : '')]];
-      rows.forEach(([k, v], i) => { T_(ctx, k, 220, 196 + i * 34, 17, '#9a8e96'); T_(ctx, v, 360, 196 + i * 34, 17, '#f0e8dc'); });
+      rows.forEach(([k, v], i) => { T_(ctx, k, 220, 190 + i * 30, 17, '#9a8e96'); T_(ctx, v, 360, 190 + i * 30, 17, k === '시간' && run.newRecord ? '#ffd36a' : '#f0e8dc'); });
       run.items.slice(0, 8).forEach((it, i) => T_(ctx, it.name, 220 + (i % 2) * 280, 352 + Math.floor(i / 2) * 26, 15, RARITY[it.rarity].color));
       if (run.items.length > 8) T_(ctx, '외 ' + (run.items.length - 8) + '개', 740, 452, 13, '#8a7e88', 'right');
       T_(ctx, '마을로 ' + L('ok'), 480, 510, 15, '#c8b8a0', 'center');
     },
   };
 
-  return { title, choice, select, inv, stones, gems, manage, smith, vault, pause, settings, confirm, result };
+  return { shopItems, title, choice, select, inv, stones, gems, manage, smith, vault, pause, settings, confirm, result };
 })();

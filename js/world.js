@@ -254,6 +254,12 @@ const World = (() => {
     prof.cleared[lv.def.id] = true;
     if (!prof.clearedDiff) prof.clearedDiff = {};
     prof.clearedDiff[lv.def.id] = Math.max(diffCleared(prof, lv.def.id), RUN.diff);  // 다음 난이도가 열린다
+    // 타임어택: 보스를 쓰러뜨린 시간 = 기록. 던전 · 난이도마다 최고 기록을 남긴다
+    run.clearTime = time;
+    if (!prof.bestTimes) prof.bestTimes = {};
+    const tk = timeKey(lv.def.id, RUN.diff);
+    run.bestPrev = prof.bestTimes[tk];
+    if (!run.bestPrev || time < run.bestPrev) { prof.bestTimes[tk] = time; run.newRecord = true; }
   }
 
   function finish(kind) {
@@ -340,15 +346,17 @@ const World = (() => {
   }
 
   // 속성석 굴리기: 이 던전의 크기 확률대로
-  function rollStone(size) {
+  // 속성석 · 보석 굴리기: 던전 표(STONE_DROP)에서. boost = 보스 · 큰 상자(큰 쪽이 더 잘). 난이도는 큰 쪽 가중치 · 한 단계 위 아주 가끔
+  function rollStone(boost = 0) {
     const pool = Math.random() < GEM_CHANCE ? GEM_ORDER : EL_ORDER;  // 가끔은 속성석 대신 보석
     const el = pool[rnd(0, pool.length - 1)];
-    if (size === undefined) {
-      const w = STONE_DROP[lv.def.id] || STONE_DROP.chapel;
-      let r = Math.random(); size = 0;
-      for (let i = 0; i < w.length; i++) { if (r < w[i]) { size = i; break; } r -= w[i]; }
-    }
-    size = Math.max(0, Math.min(STONE_SIZES.length - 1, size + DIFFS[RUN.diff].stone));  // 영웅: 한 단계 크게
+    const base = STONE_DROP[lv.def.id] || STONE_DROP.chapel, D = DIFFS[RUN.diff];
+    const top = base.reduce((m, p, i) => (p > 0 ? i : m), 0), cap = Math.min(STONE_DROP_CAP, top + (D.stoneSpill ? 1 : 0));
+    const f = 1 + D.stoneFavor + boost, w = [];
+    for (let i = 0; i <= cap; i++) w[i] = (base[i] || 0) * Math.pow(f, i);
+    if (cap > top) w[cap] = base[top] * D.stoneSpill * (1 + boost);
+    let r = Math.random() * w.reduce((a, b) => a + b, 0), size = 0;
+    for (let i = 0; i <= cap; i++) { if (r < w[i]) { size = i; break; } r -= w[i]; }
     return { el, size };
   }
   // 주문서 굴리기: 가끔 복구 주문서, 아니면 무기 · 방어구 · 장신구 중 하나(성공률 높은 게 잘 나옴)
@@ -439,7 +447,7 @@ const World = (() => {
         const items = [];
         // 장비 수 줄임(2026-10-24 사용자): 보물 상자 1개(좋은 등급 잘 나옴) · 작은 상자 60% 확률로 1개
         if (c.big || Math.random() < 0.6) items.push(mk(c.big ? lv.ilvlR[1] : ilvl(), { boost: c.big ? 0.8 : 0.4 }));
-        const stones = c.big ? [rollStone(STONE_BOSS_SIZE[lv.def.id] || 1)] : Math.random() < 0.5 ? [rollStone()] : [];
+        const stones = c.big ? [rollStone(STONE_BOSS_BOOST)] : Math.random() < 0.5 ? [rollStone()] : [];
         const scrolls = c.big || Math.random() < 0.3 ? [rollScroll()] : [];
         loot(c.x, c.y - 4, { gold: goldRoll(c.big ? [40, 70] : [15, 30]), items, stones, scrolls });
         text(c.x, c.y, 24, c.big ? '보물 상자!' : '상자', '#ffd36a');
@@ -455,15 +463,15 @@ const World = (() => {
     run.kills++;
     Sfx.kill();
     const rankExp = e.rank === 'unique' ? 5 : e.rank === 'elite' ? 2 : 1;
-    gainExp(Math.round(d.exp * rankExp * POWER(dlv()) * DIFFS[RUN.diff].exp));  // 역할 경험치 × 던전 레벨 곡선
+    gainExp(Math.round(d.exp * rankExp * POWER(dlv()) * DIFFS[RUN.diff].exp * lowExp(prof.lv, dlv())));  // 낮은 던전은 경험치 줄어듦  // 역할 경험치 × 던전 레벨 곡선
     if (p.stats.life) p.hp = Math.min(p.maxHp, p.hp + p.stats.life);
     if (p.stats.fx.vamp) p.hp = Math.min(p.maxHp, p.hp + Math.max(2, Math.round(p.maxHp * UNIQUE_FX.vamp)));  // 유니크 흡혈 칼날
     // 화염 강화: 죽은 자리에 잠시 뒤 불꽃 폭발(예고 원)
     if ((e.affixes && e.affixes.includes('fire')) || d.deathBlast) fields.push({ blast: true, x: e.x, y: e.y, r: 26, el: 'fire', t: 0, tick: 99, delay: 0.8, life: 1.1, dmg: 14 * e.dmgMul });
     if (d.boss) {
       const bossItems = [mk(lv.ilvlR[1], { boost: 0.8 })];
-      if (Math.random() < UNIQUE_DROP.boss * DIFFS[RUN.diff].uniq) bossItems.push(Items.makeUnique(lv.ilvlR[1]));
-      loot(e.x, e.y, { gold: goldRoll(d.gold), items: bossItems, stones: [rollStone(STONE_BOSS_SIZE[lv.def.id] || 1), rollStone((STONE_BOSS_SIZE[lv.def.id] || 1) - 1)], scrolls: [rollScroll(), rollScroll()] });
+      if (Math.random() < UNIQUE_DROP.boss * DIFFS[RUN.diff].uniq * lowUniq(prof.lv, dlv())) bossItems.push(Items.makeUnique(lv.ilvlR[1]));
+      loot(e.x, e.y, { gold: goldRoll(d.gold), items: bossItems, stones: [rollStone(STONE_BOSS_BOOST), rollStone(STONE_BOSS_BOOST)], scrolls: [rollScroll(), rollScroll()] });
       shake(5);
       bossCleared(e);
       // 보스가 쓰러지면 보스방 · 그 둘레의 적도 함께 쓰러진다(전리품 없이)
@@ -480,7 +488,7 @@ const World = (() => {
     }
     if (e.rank === 'unique') {
       const uItems = [mk(lv.ilvlR[1], { boost: 0.6 })];
-      if (Math.random() < UNIQUE_DROP.unique * DIFFS[RUN.diff].uniq) uItems.push(Items.makeUnique(lv.ilvlR[1]));
+      if (Math.random() < UNIQUE_DROP.unique * DIFFS[RUN.diff].uniq * lowUniq(prof.lv, dlv())) uItems.push(Items.makeUnique(lv.ilvlR[1]));
       loot(e.x, e.y, { gold: goldRoll(d.gold, 4), items: uItems, stones: [rollStone()], scrolls: [rollScroll()] });
       return;
     }
@@ -571,6 +579,7 @@ const World = (() => {
     get level() { return lv; },
     get prof() { return prof; },
     get time() { return time; },
+    get run() { return run; },
     get msg() { return msgT > 0 ? { s: msg, t: msgT } : null; },
     get comboInfo() { return comboN >= 2 ? { n: comboN, t: comboT } : null; },
     enemies: () => enemies,

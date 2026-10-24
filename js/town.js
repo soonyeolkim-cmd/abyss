@@ -25,10 +25,11 @@ const Town = (() => {
         EQUIP_ITEM,
       ] }) },
     { id: 'gate', name: '던전 입구', role: '던전 고르기', ...px(14, 3), x: 15 * T, go: () => Game.open('select') },
-    { id: 'shop', name: '상인 엘린', role: '사기 · 팔기 · 장비 관리', sprite: 'elf_m', ...px(23, 3), x: 24 * T,
+    { id: 'shop', name: '상인 엘린', role: '장비 팔기 · 아이템 사고팔기 · 장비 관리', sprite: 'elf_m', ...px(23, 3), x: 24 * T,
       go: () => Game.overlay({ type: 'choice', title: '상인 엘린', items: [
-        { label: '사기', go: () => Game.overlay({ type: 'inv', mode: 'shop' }) },
-        { label: '팔기', go: () => Game.overlay({ type: 'inv', mode: 'sell' }) },  // 장비 칸 + 가방(등급 보며 팔기), 대장장이 '장비 팔기'와 같은 창
+        // 2026-10-24 사용자: 장비 / 아이템으로 나눔
+        { label: '장비 팔기', go: () => Game.overlay({ type: 'inv', mode: 'sell' }) },
+        { label: '아이템 사고팔기', go: () => Game.overlay({ type: 'shopItems' }) },  // 장비 칸 + 가방(등급 보며 팔기), 대장장이 '장비 팔기'와 같은 창
         EQUIP_ITEM,
       ] }) },
     { id: 'jewel', name: '세공사 미라', role: '속성석 · 보석 합치기 · 관리', sprite: 'wizzard_f', ...px(2, 9), flip: false,

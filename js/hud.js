@@ -30,6 +30,23 @@ const Hud = (() => {
   // 기술 아이콘(2026-10-24 사용자 '게임과 어울리게'): 선 그림 대신 16x16 도트를 계산으로 찍고 검은 테두리를 둘러 2배로 그린다.
   // 칸 모양 = (x, y) → 0 없음 · 1 본색 · 2 밝은색. dash 화살 + 속도선, spin 도는 고리 + 화살촉, wave 초승달, circle 마법진, orb 빛 구슬 + 꼬리
   const PIX = {
+    // 검사 기본 공격: 오른쪽 위로 휘두른 칼질 — 양끝이 가늘고 가운데가 두꺼운 초승달, 바깥 날이 밝다
+    slash: (x, y) => {
+      const dx = x + 0.5 - 2, dy = y + 0.5 - 14, d = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
+      const u = (a + Math.PI / 2) / (Math.PI / 2);
+      if (u < 0 || u > 1) return 0;
+      const th = 4.2 * Math.pow(Math.sin(Math.PI * u), 0.8);
+      if (d <= 11.6 && d >= 11.6 - th) return d >= 10.4 ? 2 : 1;
+      return 0;
+    },
+    // 마법사 기본 공격: 빛나는 별 + 휘두른 자리 빛 구슬
+    spark: (x, y) => {
+      const dx = x + 0.5 - 10.5, dy = y + 0.5 - 5.5;
+      if ((Math.abs(dx) <= 0.6 && Math.abs(dy) <= 4.6) || (Math.abs(dy) <= 0.6 && Math.abs(dx) <= 4.6)) return 2;
+      if (Math.abs(dx) + Math.abs(dy) <= 2.2) return 2;
+      for (const [cx, cy, r] of [[6.5, 9.5, 1.6], [4, 12, 1.3], [2, 14, 1]]) if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= r) return 1;
+      return 0;
+    },
     dash: (x, y) => {
       if ((y === 3 || y === 12) && x <= 4) return 1;
       if ((y === 7 || y === 8) && x <= 9) return x > 4 ? 2 : 1;
@@ -184,9 +201,7 @@ const Hud = (() => {
       const x = 374 + i * 56, y = PY + 16, s = Elements.socket(prof, slot), col = s ? ELEMENTS[s.el].color : null;
       box(ctx, x, y, 44, col);
       // 기술 아이콘을 크게(2026-10-24 사용자), 낀 속성석은 오른쪽 아래에 작게. 속성석이 있으면 아이콘이 그 속성 색
-      if (slot === 'basic') {
-        if (prof.equip.weapon) { const wb = Items.base(prof.equip.weapon); Gfx.spr(ctx, wb.icon, x + 20, y + 22, { scale: 1.5, rot: 0.75, center: true, tint: wb.tint, tintAlpha: Gfx.WEAPON_TINT }); }
-      } else skillIcon(ctx, C.icons[slot], x + 22, y + 21, col || '#a89cb0');
+      skillIcon(ctx, C.icons[slot], x + 22, y + 21, col || '#a89cb0');  // 기본 칸도 도트 기술 아이콘(무기 그림 대신, 2026-10-24 사용자)
       if (s) {
         ctx.fillStyle = 'rgba(10,6,8,0.75)'; ctx.beginPath(); ctx.arc(x + 34, y + 33, 9, 0, Math.PI * 2); ctx.fill();
         Gfx.stoneIcon(ctx, s, x + 34, y + 33, 16);
@@ -221,7 +236,7 @@ const Hud = (() => {
     // ── 오른쪽 위: 자동 지도(가 본 곳) ──
     drawMap(ctx, lv, p);
     const c = World.comboInfo;
-    if (c) { ctx.globalAlpha = Math.min(1, c.t / 0.5); T_(ctx, c.n + ' 콤보', 930, 170, 26, '#ffd36a', 'right'); ctx.globalAlpha = 1; }
+    if (c) { ctx.globalAlpha = Math.min(1, c.t / 0.5); T_(ctx, c.n + ' 콤보', 930, 236, 26, '#ffd36a', 'right'); ctx.globalAlpha = 1; }
     const m = World.msg;
     if (m) { ctx.globalAlpha = Math.min(1, m.t / 0.4); T_(ctx, m.s, 480, 130, 28, '#f0e0b8', 'center'); ctx.globalAlpha = 1; }
   }
@@ -242,7 +257,15 @@ const Hud = (() => {
     if (lv.stairs) { ctx.fillStyle = '#7dd3ff'; ctx.fillRect(ox + lv.stairs.x / T * s - 2, oy + lv.stairs.y / T * s - 2, 4, 4); }
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(ox + p.x / T * s - 2, oy + p.y / T * s - 2, 4, 4);
-    T_(ctx, lv.def.name, 950, oy + lv.H * s + 18, 12, '#9a8e96', 'right');
+    const by = oy + lv.H * s + 18, df = DIFFS[RUN.diff], run = World.run, prof = World.prof;
+    T_(ctx, lv.def.name, 950, by, 12, '#9a8e96', 'right');
+    T_(ctx, df.name, 950, by + 16, 12, df.color, 'right');  // 난이도(2026-10-24 사용자)
+    // 타임어택: 보스를 쓰러뜨리면 그 시간에서 멈추고 새 기록이면 금색
+    const done = run && run.clearTime !== undefined, t = done ? run.clearTime : World.time;
+    T_(ctx, '시간 ' + fmtTime(t), 950, by + 34, 14, done ? (run.newRecord ? '#ffd36a' : '#7dff8a') : '#e8e0d0', 'right');
+    const best = prof.bestTimes && prof.bestTimes[timeKey(lv.def.id, RUN.diff)];
+    if (done && run.newRecord) T_(ctx, '★ 새 기록!', 950, by + 50, 12, '#ffd36a', 'right');
+    else if (best) T_(ctx, '최고 ' + fmtTime(done && run.bestPrev ? run.bestPrev : best), 950, by + 50, 11, '#8a7e88', 'right');
   }
 
   return { draw };

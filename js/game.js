@@ -32,6 +32,7 @@ const Game = (() => {
     if (o.type === 'manage') UI.manage.open(o.tab);
     if (o.type === 'smith') UI.smith.open();
     if (o.type === 'vault') UI.vault.open();
+    if (o.type === 'shopItems') UI.shopItems.open();
     if (o.type === 'pause') UI.pause.sel = 0;
     if (o.type === 'settings') UI.settings.sel = 0;
     if (o.type === 'confirm') UI.confirm.sel = o.defaultYes ? 0 : 1;
@@ -59,6 +60,7 @@ const Game = (() => {
       else if (top.type === 'manage') UI.manage.update(top, prof);
       else if (top.type === 'smith') UI.smith.update(top, prof);
       else if (top.type === 'vault') UI.vault.update(top, prof);
+      else if (top.type === 'shopItems') UI.shopItems.update(top, prof);
       else if (top.type === 'pause') UI.pause.update();
       else if (top.type === 'settings') UI.settings.update();
       else if (top.type === 'confirm') UI.confirm.update(top);
@@ -92,6 +94,7 @@ const Game = (() => {
       else if (o.type === 'manage') UI.manage.draw(ctx, o, prof);
       else if (o.type === 'smith') UI.smith.draw(ctx, o, prof);
       else if (o.type === 'vault') UI.vault.draw(ctx, o, prof);
+      else if (o.type === 'shopItems') UI.shopItems.draw(ctx, o, prof);
       else if (o.type === 'pause') UI.pause.draw(ctx);
       else if (o.type === 'settings') UI.settings.draw(ctx);
       else if (o.type === 'confirm') UI.confirm.draw(ctx, o);
