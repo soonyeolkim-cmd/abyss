@@ -438,8 +438,9 @@ const SCROLL_GROUPS = {
 };
 const SCROLL_ORDER = ['any', 'inherit'];
 // 성공률은 지금 강화 단계마다 다르게(2026-10-25 사용자: 10% · 5% 로 똑같으니 너무 어렵다). ENCHANT_RATE[지금 +N] = 강화 주문서(보통) 성공률 %,
-// 축복받은 강화 주문서는 거기에 +3%. 보통으로 +10 까지 평균 약 98장(예전 5% 200장), 축복받은 약 65장(예전 10% 100장)
-const ENCHANT_RATE = [60, 50, 40, 30, 22, 15, 10, 7, 5, 3];
+// 축복받은 강화 주문서는 거기에 +3%. 2026-10-25 사용자: 처음 50% · +9→10 은 10% 로 다시 — 그 사이는 단계마다 같은 비율로 줄게(×0.84).
+// 보통으로 +10 까지 평균 약 51장, 축복받은 약 43장(그 전 표 60 … 3%: 98 · 65장)
+const ENCHANT_RATE = [50, 42, 35, 29, 24, 20, 17, 14, 12, 10];
 const BLESS_BONUS = 3;
 const enchantRate = (s, ups) => ENCHANT_RATE[Math.min(ups || 0, ENCHANT_MAX - 1)] + (s.r === 0 ? BLESS_BONUS : 0);
 const SCROLL_NAMES = ['축복받은 강화 주문서', '강화 주문서'];
