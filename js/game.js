@@ -141,6 +141,13 @@ function fit() {
   canvas.style.height = Math.floor(540 * s) + 'px';
 }
 window.addEventListener('resize', fit);
+// 전화가 오거나 다른 앱 · 탭 · 창으로 가면 던전을 자동 일시정지(2026-10-25 사용자). 돌아오면 일시정지 창에서 이어 한다
+function autoPause() {
+  if (Game.scene === 'run' && !Game.overlays.length && !World.player.dead) Game.overlay({ type: 'pause' });
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
+window.addEventListener('pagehide', autoPause);
+window.addEventListener('blur', autoPause);
 fit();
 Input.attachMouse(canvas);
 Game.init();

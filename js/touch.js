@@ -125,6 +125,10 @@ const Touch = (() => {
       if (moved) { setExt(true); return; }
     }
   }
+  // 화면을 떠나면(전화 · 다른 앱) 손가락을 뗀 것으로 — 돌아왔을 때 스틱 · 버튼이 눌린 채 남지 않게
+  const letGo = () => { for (const b of root.querySelectorAll('.b.on')) { b.classList.remove('on'); } for (const k of ['KeyX', 'KeyC', 'KeyZ', 'KeyV', 'Digit1', 'KeyI', 'Escape', 'Backspace']) Input.virtualKey(k, false); stickEnd(); };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) letGo(); });
+  window.addEventListener('blur', letGo);
   window.addEventListener('gamepaddisconnected', e => { delete padRest[e.gamepad.index]; delete padHeld[e.gamepad.index]; });
 
   // 게임 중인가 메뉴 화면인가(창이 열렸거나 던전 · 마을 밖이면 메뉴)
