@@ -37,6 +37,14 @@ const UI = (() => {
     }
     lastKey = null;  // 빈 곳을 누르면 처음부터
   }
+  // 너비 maxW 안에 들게: 글자를 9px 까지 줄이고, 그래도 길면 끝을 … 로
+  function fitText(ctx, s, x, y, size, maxW, col) {
+    let sz = size;
+    const w = () => { ctx.font = 'bold ' + sz + 'px ' + Gfx.FONT; return ctx.measureText(s).width; };
+    while (sz > 9 && w() > maxW) sz--;
+    while (s.length > 1 && w() > maxW) s = s.slice(0, -2) + '…';
+    T_(ctx, s, x, y, sz, col);
+  }
   const menuNav = (sel, n) => {
     if (Input.nav('up')) sel = (sel + n - 1) % n;
     if (Input.nav('down')) sel = (sel + 1) % n;
@@ -670,17 +678,17 @@ const UI = (() => {
         if (!prof.equip.weapon) T_(ctx, '무기를 끼지 않아서 속성석이 잠들어 있어요', 44, 90, 13, '#ff8a6a');
         else {
           const ps = Elements.passives(prof), sb = Elements.setBonus(prof);
-          T_(ctx, '속성 패시브: ' + (ps.length ? ps.join(' · ') : '없음 — 완전한 크기부터 열려요'), 44, 90, 12, ps.length ? '#7dff8a' : '#8a7e88');
-          // 세트 효과: 마우스를 올릴 곳이 없으니 이름과 효과를 위쪽 오른쪽에 짧게
-          T_(ctx, sb ? '세트 ◆ ' + sb.name : '세트 없음(4칸 모두 보통 이상: 같은 속성 4 · 두 속성 2 + 2)', 454, 90, 11, sb ? '#ffd36a' : '#6a6068', 'right');
+          // 패시브 · 세트를 한 줄에 같이 쓰면 패시브가 길 때 겹쳐서(2026-10-25 사용자) 두 줄로, 넘치면 글자를 줄인다
+          fitText(ctx, '속성 패시브: ' + (ps.length ? ps.join(' · ') : '없음 — 완전한 크기부터 열려요'), 44, 88, 12, 410, ps.length ? '#7dff8a' : '#8a7e88');
+          fitText(ctx, sb ? '세트 ◆ ' + sb.name + ' — ' + sb.desc : '세트 없음(4칸 모두 보통 이상: 같은 속성 4 · 두 속성 2 + 2)', 44, 103, 11, 410, sb ? '#ffd36a' : '#6a6068');
         }
         // 칸 4개(기본 · 회전 · 검기 · 대시): 칸 이름 · 돌 이름 한 줄, 아래 설명 3줄
         STONE_SLOTS.forEach((slot, i) => {
-          const y = 100 + i * 97, on = this.slot === i, s = prof.sockets[slot];
-          zone(40, y, 418, 91, { pick: () => { this.zone = 'slot'; this.slot = i; }, now: true });  // 누르면 바로 주머니에서 고르기
-          Gfx.panel(ctx, 40, y, 418, 91, { border: on ? '#ffd36a' : '#3a2e36', bg: '#1d151b' });
-          ctx.fillStyle = 'rgba(40,30,36,0.95)'; ctx.fillRect(52, y + 18, 54, 54);
-          if (s) Gfx.stoneIcon(ctx, s, 79, y + 45, 44);
+          const y = 110 + i * 95, on = this.slot === i, s = prof.sockets[slot];
+          zone(40, y, 418, 88, { pick: () => { this.zone = 'slot'; this.slot = i; }, now: true });  // 누르면 바로 주머니에서 고르기
+          Gfx.panel(ctx, 40, y, 418, 88, { border: on ? '#ffd36a' : '#3a2e36', bg: '#1d151b' });
+          ctx.fillStyle = 'rgba(40,30,36,0.95)'; ctx.fillRect(52, y + 17, 54, 54);
+          if (s) Gfx.stoneIcon(ctx, s, 79, y + 44, 44);
           T_(ctx, clsOf(prof).slotNames[slot], 120, y + 24, 15, on ? '#ffd36a' : '#f0e0b8');
           T_(ctx, s ? stoneName(s) : '비어 있음', 446, y + 24, 14, s ? ELEMENTS[s.el].color : '#5a5058', 'right');
           if (s) Elements.describe(s, slot, prof).forEach((ln, k) => T_(ctx, ln, 120, y + 44 + k * 16, 12, k === 2 ? (ln[0] === '✦' ? '#7dff8a' : '#8a7e88') : '#c8b8a0'));
