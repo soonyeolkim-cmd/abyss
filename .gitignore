@@ -1,0 +1,9 @@
+# 게임에 필요 없는 것(받은 원본 압축 · 시험 캡처 · 예전판 · 개인 메모 · 시험 도구 · Claude 설정)
+_downloads/
+captures/
+_old_beltscroll/
+_old_iso/
+메모/
+tools/
+.claude/
+CLAUDE.md
