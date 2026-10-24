@@ -183,11 +183,14 @@ const Hud = (() => {
     STONE_SLOTS.forEach((slot, i) => {
       const x = 374 + i * 56, y = PY + 16, s = Elements.socket(prof, slot), col = s ? ELEMENTS[s.el].color : null;
       box(ctx, x, y, 44, col);
-      if (s) Gfx.stoneIcon(ctx, s, x + 22, y + 22, 30);
-      else if (slot === 'basic' && prof.equip.weapon) {
-        const wb = Items.base(prof.equip.weapon);
-        ctx.globalAlpha = 0.4; Gfx.spr(ctx, wb.icon, x + 22, y + 24, { scale: 1, rot: 0.75, center: true, tint: wb.tint, tintAlpha: Gfx.WEAPON_TINT }); ctx.globalAlpha = 1;
-      } else if (slot !== 'basic') skillIcon(ctx, C.icons[slot], x + 22, y + 22, '#6a6072');
+      // 기술 아이콘을 크게(2026-10-24 사용자), 낀 속성석은 오른쪽 아래에 작게. 속성석이 있으면 아이콘이 그 속성 색
+      if (slot === 'basic') {
+        if (prof.equip.weapon) { const wb = Items.base(prof.equip.weapon); Gfx.spr(ctx, wb.icon, x + 20, y + 22, { scale: 1.5, rot: 0.75, center: true, tint: wb.tint, tintAlpha: Gfx.WEAPON_TINT }); }
+      } else skillIcon(ctx, C.icons[slot], x + 22, y + 21, col || '#a89cb0');
+      if (s) {
+        ctx.fillStyle = 'rgba(10,6,8,0.75)'; ctx.beginPath(); ctx.arc(x + 34, y + 33, 9, 0, Math.PI * 2); ctx.fill();
+        Gfx.stoneIcon(ctx, s, x + 34, y + 33, 16);
+      }
       T_(ctx, L(SKILL_KEYS[slot]) + ' ' + C.slotShort[slot], x + 22, PY + 12, 11, col || '#c8b8a0', 'center');
       const n = costs[slot];
       T_(ctx, '기력 ' + n, x + 22, PY + 73, 10, !n ? '#6a7a90' : p.sp >= n ? '#8ab8ff' : '#ff7a6a', 'center');
