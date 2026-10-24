@@ -2,7 +2,7 @@
 // 게임 중(던전 · 마을 걷기): 왼쪽 절반 = 이동 스틱(누른 자리가 가운데), 오른쪽 = 기술 버튼(HUD 가운데 도트 기술 아이콘: 공격 · 대시 · 회전 · 특수),
 //   물약 = 왼쪽 체력 구슬 위, 위 = 가방 · 메뉴. 버튼은 반쯤 비치게(2026-10-25 사용자).
 // 메뉴 화면(캐릭터 선택 · 던전 고르기 · 가방 등 창): 스틱 · 기술 버튼을 숨기고 화면을 손가락으로 바로 누른다(ui.js 누를 곳). 오른쪽 아래 = 뒤로 (+ 그 창의 Z 일).
-// 버튼은 키보드 키를 누른 것처럼 Input 에 넣는다.
+// 버튼은 키보드 키를 누른 것처럼 Input 에 넣는다. 패드 · 키보드를 쓰면 가상패드를 숨기고, 화면을 만지면 다시 보인다.
 const Touch = (() => {
   const on = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
   if (!on) return { on: false };
@@ -19,6 +19,7 @@ const Touch = (() => {
     #tc .sq { border-radius: 10px; }
     #tc .pill { border-radius: 20px; flex-direction: row; font-size: 15px; }
     #tc.menu .play, #tc:not(.menu) .menu { display: none; }
+    #tc.ext > * { display: none !important; }
     #tc #stk { position: absolute; width: 120px; height: 120px; border-radius: 50%; border: 2px solid rgba(255, 220, 150, 0.22); background: rgba(40, 30, 36, 0.15); display: none; }
     #tc #knob { position: absolute; width: 52px; height: 52px; border-radius: 50%; background: rgba(255, 220, 150, 0.3); left: 34px; top: 34px; }
     #rot { position: fixed; inset: 0; z-index: 9; background: #000; color: #f0e0b8; display: none; align-items: center; justify-content: center; text-align: center; font: bold 20px sans-serif; }
@@ -100,10 +101,26 @@ const Touch = (() => {
   }
   setInterval(refresh, 500);
 
+  // 패드 · 키보드를 연결해 쓰면 가상패드를 모두 숨긴다(2026-10-25 사용자). 화면을 다시 만지면 나온다
+  let ext = false, lastDev = Input.device;
+  function setExt(v) {
+    if (v === ext) return;
+    ext = v;
+    root.classList.toggle('ext', v);
+    if (v) { for (const b of root.querySelectorAll('.b.on')) b.classList.remove('on'); stickEnd(); }
+  }
+  window.addEventListener('gamepadconnected', () => setExt(true));
+  window.addEventListener('keydown', () => setExt(true));  // 진짜 키보드(가상 버튼은 keydown 을 안 낸다)
+  window.addEventListener('touchstart', () => { Input.touched(); lastDev = 'touch'; setExt(false); }, { capture: true, passive: true });
+
   // 게임 중인가 메뉴 화면인가(창이 열렸거나 던전 · 마을 밖이면 메뉴)
   let menuMode = null;
   function mode() {
     if (typeof Game === 'undefined') return;
+    if (Input.device !== lastDev) {  // 패드 버튼 · 스틱을 움직였다
+      lastDev = Input.device;
+      if (lastDev === 'pad') setExt(true);
+    }
     const m = Game.overlays.length > 0 || (Game.scene !== 'run' && Game.scene !== 'town');
     if (m !== menuMode) {
       menuMode = m;

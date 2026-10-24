@@ -62,6 +62,8 @@ const Input = (() => {
   function setTouchStick(x, y) { touchStick = { x, y }; if (x || y) device = 'touch'; }
   // 메뉴 화면을 손가락으로 누름(ui.js 누를 곳): 그 동작을 한 번 누른 것으로
   function tapAction(a) { pressed[a] = true; device = 'touch'; }
+  // 화면을 만졌다(touch.js): 패드 · 키보드에서 터치로 돌아옴
+  function touched() { device = 'touch'; }
   window.addEventListener('blur', () => { keyHeld.clear(); mouseHeld.clear(); });
 
   function attachMouse(canvas) {
@@ -161,7 +163,7 @@ const Input = (() => {
   }
 
   return {
-    virtualKey, setTouchStick, tapAction, poll, endFrame, clear, move, label, labelFor, attachMouse, settings, saveSettings, mouse, rumble,
+    virtualKey, setTouchStick, tapAction, touched, poll, endFrame, clear, move, label, labelFor, attachMouse, settings, saveSettings, mouse, rumble,
     isDown: a => !!down[a],
     wasPressed: a => !!pressed[a],
     nav: d => !!navFire[d],
