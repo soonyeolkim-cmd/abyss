@@ -28,15 +28,24 @@ const Hud = (() => {
   }
 
   // 기술 아이콘(2026-10-24 사용자 '게임과 어울리게'): 선 그림 대신 16x16 도트를 계산으로 찍고 검은 테두리를 둘러 2배로 그린다.
-  // 칸 모양 = (x, y) → 0 없음 · 1 본색 · 2 밝은색. dash 화살 + 속도선, spin 도는 고리 + 화살촉, wave 초승달, circle 마법진, orb 빛 구슬 + 꼬리
+  // 칸 모양 = (x, y) → 0 없음 · 1 본색 · 2 밝은색 · 3 어두운색 · 4 흰색. dash 화살 + 속도선, spin 도는 고리 + 화살촉, wave 초승달, circle 마법진, orb 빛 구슬 + 꼬리
   const PIX = {
-    // 검사 기본 공격: 오른쪽 위로 휘두른 칼질 — 양끝이 가늘고 가운데가 두꺼운 초승달, 바깥 날이 밝다
+    // 검사 기본 공격: 오른쪽 위를 겨눈 도트 칼(2026-10-25 사용자 고름 — 예전 칼질 초승달은 잎사귀 같고 검기와 헷갈림).
+    // 칼날은 끝으로 갈수록 가늘고 위쪽 날이 밝다, 끝 가까이 흰 반짝, 날밑 밝게, 손잡이 어둡게, 끝 구슬
     slash: (x, y) => {
-      const dx = x + 0.5 - 2, dy = y + 0.5 - 14, d = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
-      const u = (a + Math.PI / 2) / (Math.PI / 2);
-      if (u < 0 || u > 1) return 0;
-      const th = 4.2 * Math.pow(Math.sin(Math.PI * u), 0.8);
-      if (d <= 11.6 && d >= 11.6 - th) return d >= 10.4 ? 2 : 1;
+      const px = x + 0.5, py = y + 0.5;
+      const seg = (x0, y0, x1, y1) => {
+        const vx = x1 - x0, vy = y1 - y0, t = Math.max(0, Math.min(1, ((px - x0) * vx + (py - y0) * vy) / (vx * vx + vy * vy)));
+        return [Math.hypot(px - x0 - vx * t, py - y0 - vy * t), t];
+      };
+      const [db, tb] = seg(6.2, 9.8, 14.2, 1.8);
+      if (db < 1.3 * (1 - tb * 0.5) && tb > 0) {
+        if (Math.hypot(px - 12.2, py - 3.8) < 0.8) return 4;
+        return px + py < 15.9 ? 2 : 1;
+      }
+      if (seg(3.7, 8.3, 7.7, 12.3)[0] < 0.75) return 2;
+      if (seg(2.7, 13.3, 5, 11)[0] < 0.7) return 3;
+      if (Math.hypot(px - 2, py - 14) < 1.1) return 2;
       return 0;
     },
     // 마법사 기본 공격: 빛나는 별 + 휘두른 자리 빛 구슬
@@ -81,13 +90,14 @@ const Hud = (() => {
   };
   const pixCache = {};
   function mixW(hex, k) { const n = parseInt(hex.slice(1), 16), c = [(n >> 16) & 255, (n >> 8) & 255, n & 255]; return 'rgb(' + c.map(v => Math.round(v + (255 - v) * k)).join(',') + ')'; }
+  function mixB(hex, k) { const n = parseInt(hex.slice(1), 16), c = [(n >> 16) & 255, (n >> 8) & 255, n & 255]; return 'rgb(' + c.map(v => Math.round(v * (1 - k))).join(',') + ')'; }
   function pixIcon(kind, col) {
     const key = kind + col;
     if (pixCache[key]) return pixCache[key];
     const f = PIX[kind], c = document.createElement('canvas');
     c.width = c.height = 18;
     const g = c.getContext('2d'), at = (x, y) => (x < 0 || y < 0 || x > 15 || y > 15 ? 0 : f(x, y));
-    const pal = { 1: col, 2: mixW(col, 0.4) };
+    const pal = { 1: col, 2: mixW(col, 0.4), 3: mixB(col, 0.35), 4: '#ffffff' };  // 3 어두운색 · 4 흰 반짝
     for (let y = -1; y <= 16; y++) for (let x = -1; x <= 16; x++) {
       const v = at(x, y);
       if (v) { g.fillStyle = pal[v]; g.fillRect(x + 1, y + 1, 1, 1); continue; }
