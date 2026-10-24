@@ -124,7 +124,8 @@ const ENEMIES = {
   // 역병 하수도 · 타락한 기사단 · 비늘 신전 · 심연 (2026-10-24 던전 4개 추가 — 0x72 의 남은 몸들: 호박 · 의사 · 기사 · 드워프 · 엘프 · 마법사 · 도마뱀 · 천사)
   pumpkin_dude: { name: '호박 머리', sprite: 'pumpkin_dude', idle: true, hp: 48, speed: 58, range: 17, poise: 4, exp: 14, gold: [5, 11],
     atk: { windup: 0.45, active: 0.1, recovery: 0.55, dmg: 12, knock: 120, reach: [0, 18], arc: 70, lunge: 150 } },
-  doc: { name: '역병 의사', sprite: 'doc', idle: true, hp: 40, speed: 38, range: 84, poise: 3, exp: 15, gold: [6, 12],
+  // 몸: 0x72 의사(doc)가 짱구 같아서(2026-10-25 사용자) 아직 안 쓴 마녀(wizzard_f)에 병든 초록을 옅게 입힘 → 역병 마녀
+  doc: { name: '역병 마녀', sprite: 'wizzard_f', tint: '#7ab83a', tintAlpha: 0.4, idle: true, hp: 40, speed: 38, range: 84, poise: 3, exp: 15, gold: [6, 12],
     ranged: true, atk: { windup: 0.6, active: 0.05, recovery: 0.85, dmg: 12, knock: 90, shot: 120, color: '#c8e05a' } },
   knight_f: { name: '타락한 기사', sprite: 'knight_f', idle: true, hp: 85, speed: 42, range: 20, poise: 6, superArmor: true, exp: 20, gold: [7, 14],
     atk: { windup: 0.7, active: 0.12, recovery: 0.7, dmg: 18, knock: 170, reach: [0, 22], arc: 80, lunge: 130 } },
@@ -275,7 +276,7 @@ const NAME_COLOR = { elite: '#7fa8ff', unique: '#e8c060', boss: '#ff7a5a' };
 // tint = 던전 그림에 곱해 입히는 색(같은 0x72 벽돌을 던전마다 다른 분위기로), wall = 벽 앞면에 가끔 넣는 꾸밈
 // 던파식 컨셉 던전(2026-10-24 사용자): 던전마다 풍경 · 함정 · 그곳 몬스터. lv = 권장 · 입장 레벨(10레벨 간격, 레벨이 모자라면 못 들어감),
 // ilvl = 떨어지는 장비 레벨 범위 — 권장 레벨 ~ +4(착용 레벨은 권장 레벨과 같은 10 단위). cols = 넓은 방에 기둥 넣을 확률, skulls = 바닥 해골 배수,
-// crates = 방마다 상자(관 · 바리케이드) 수, hazard = 함정 종류(HAZARDS)
+// crates = 방마다 상자(관 · 바리케이드) 수, hazard = 함정 종류(HAZARDS), ease = 그 던전 몹(보스 포함) 체력 · 공격 배율(모든 난이도)
 const DUNGEONS = [
   { id: 'chapel', name: '무너진 성당', lv: 1, ilvl: [1, 5], rooms: 9, pool: ['skelet', 'tiny_zombie', 'zombie', 'skel_archer'], boss: 'big_zombie',
     desc: '마을 밑 버려진 성당. 해골과 좀비가 떠돈다.', banner: 'wall_banner_red', wall: ['wall_hole_1', 'wall_hole_2'], cols: 0.7, skulls: 1.5 },
@@ -290,8 +291,8 @@ const DUNGEONS = [
   { id: 'hell', name: '용암 지옥', lv: 50, ilvl: [50, 54], rooms: 12, pool: ['chort', 'imp', 'lava_blob', 'fire_skel'], boss: 'big_demon',
     desc: '용암이 흐르는 불꽃 악마의 둥지. 용암을 밟으면 화상.', banner: 'wall_banner_red', wall: ['wall_fountain_mid_red_anim_f0'], tint: '#ff7a58', needs: 'fort', cols: 0.3, skulls: 2, hazard: 'lava' },
   // 2026-10-24 사용자 '던전 더 만들어줘' → 4개 추가(권장 Lv.19 · 22 · 25 · 28)
-  { id: 'plague', name: '역병 하수도', lv: 60, ilvl: [60, 64], rooms: 12, pool: ['doc', 'pumpkin_dude', 'zombie', 'swampy'], boss: 'plague_giant',
-    desc: '병든 오수가 흐르는 하수도. 독 웅덩이와 역병 의사의 독침.', banner: 'wall_banner_green', wall: ['wall_goo'], tint: '#b8c870', needs: 'hell', cols: 0.2, skulls: 1, crates: 1, hazard: 'poison' },
+  { id: 'plague', name: '역병 하수도', lv: 60, ilvl: [60, 64], rooms: 12, pool: ['doc', 'pumpkin_dude', 'zombie', 'swampy'], boss: 'plague_giant', ease: { hp: 0.75, dmg: 0.75 },
+    desc: '병든 오수가 흐르는 하수도. 독 웅덩이와 역병 마녀의 독침.', banner: 'wall_banner_green', wall: ['wall_goo'], tint: '#b8c870', needs: 'hell', cols: 0.2, skulls: 1, crates: 1, hazard: 'poison' },
   { id: 'order', name: '타락한 기사단 성채', lv: 70, ilvl: [70, 74], rooms: 13, pool: ['knight_f', 'dwarf_m', 'elf_f', 'wizzard_m'], boss: 'iron_ogre',
     desc: '심연에 무릎 꿇은 기사단. 기둥 늘어선 성채에 가시 함정.', banner: 'wall_banner_blue', wall: ['wall_banner_yellow', 'wall_hole_1'], tint: '#a0a8c8', needs: 'plague', cols: 0.9, skulls: 0.5, crates: 1, hazard: 'spikes' },
   { id: 'temple', name: '비늘 신전', lv: 80, ilvl: [80, 84], rooms: 13, pool: ['lizard_m', 'lizard_f', 'slug', 'temple_guard'], boss: 'scale_lord',

@@ -153,7 +153,7 @@ const Art = (() => {
     const name = e.state === 'frozen' ? (d.idle ? d.sprite + '_idle_anim_f0' : d.sprite + '_anim_f0') : Gfx.anim(base, time + e.walkT, e.state === 'charge' ? 16 : 8);
     const flip = e.fv.x < 0;
     let x = e.x, y = e.y - e.z;
-    const o = { flip, flash: e.flash > 0 ? '#ffffff' : false, scale: e.scale || 1, tint: d.tint };
+    const o = { flip, flash: e.flash > 0 ? '#ffffff' : false, scale: e.scale || 1, tint: d.tint, tintAlpha: d.tintAlpha };
     // 보스 예고
     if (e.state === 'slam') {
       const k = 1 - e.t / e.windupT;

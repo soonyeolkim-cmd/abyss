@@ -15,6 +15,7 @@ const World = (() => {
 
   function start(def, profile, diff = 0) {
     RUN.diff = diff;
+    RUN.ease = def.ease || null;  // 던전마다 몹 세기 낮춤(역병 하수도 2026-10-25)
     lv = Dungeon.generate(def);
     lv.ilvlR = diffIlvl(def, diff);  // 난이도에 따른 장비 레벨 범위
     dIdx = DUNGEONS.indexOf(def);

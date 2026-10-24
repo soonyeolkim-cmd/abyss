@@ -11,6 +11,7 @@ function createEnemy(type, x, y, lv, mods = {}) {
   const DF = DIFFS[RUN.diff] || DIFFS[0];  // 난이도 배율
   // 초반(Lv.30 까지) 약하게: 체력 · 공격 · 몹 방어 모두 처음 만든 때 느낌에서 천천히 올라감
   let hpMul = S.hp * POWER(lv) * ramp * DF.hp * EARLY_EASE(lv), dmgMul = S.dmg * POWER(lv) * Math.pow(ramp, RAMP_DMG) * DF.dmg * EARLY_EASE_DMG(lv), cut = ENEMY_CUT(lv) * earlyT(lv);
+  if (RUN.ease) { hpMul *= RUN.ease.hp || 1; dmgMul *= RUN.ease.dmg || 1; }  // 던전마다 낮춤(data.js DUNGEONS ease)
   if (rank === 'elite') { hpMul *= ELITE.hp; dmgMul *= ELITE.dmg; cut *= ELITE.def; }
   if (rank === 'unique') { hpMul *= UNIQUE.hp; dmgMul *= UNIQUE.dmg; cut *= UNIQUE.def; }
   if (rank === 'boss') cut *= S.bossDef;
