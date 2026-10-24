@@ -560,6 +560,23 @@ const EL_ABIL_MAGE = {
 };
 // 칸 능력 [이름, 설명]: 직업에 맞게
 const elAbil = (el, slot, prof) => (clsOf(prof).id === 'mage' && EL_ABIL_MAGE[el][slot]) || EL_ABIL[el][slot];
+// 속성석 세트 효과(2026-10-24 사용자): 칸 4개가 모두 보통(3단계) 이상일 때. 세기 sc = 가장 낮은 돌의 power ÷ 보통 power(보통 1 → 태초 약 2.7)
+// 같은 속성 4개 = 공명, 두 속성 2개씩 = 듀오. 그 밖의 조합(3:1 · 1:1:1:1 · 2:1:1)은 없음
+const SET_MIN = 2;
+const SET_RES = {
+  fire: { name: '업화', desc: sc => '화상 피해 +' + Math.round(50 * sc) + '% · 화상 걸린 적이 쓰러지면 늘 터짐' },
+  frost: { name: '절대영도', desc: sc => '냉기 1 더 · 빙결 시간 +' + Math.round(50 * sc) + '% · 빙결된 적이 받는 피해 +' + Math.round(20 * sc) + '%' },
+  thunder: { name: '뇌신', desc: sc => '감전된 적에게 3초마다 낙뢰(공격력의 ' + Math.round(50 * sc) + '%) · 연쇄 번개 2번 더' },
+  poison: { name: '역병', desc: sc => '독 최대 중첩 +6 · 독 걸린 적이 쓰러지면 둘레로 독이 옮음(' + Math.round(4 * sc) + '중첩)' },
+};
+const SET_DUO = {
+  'fire+frost': { name: '증기 폭발', desc: sc => '화상 · 냉기가 함께 걸리면 증기 폭발(둘레에 공격력의 ' + Math.round(120 * sc) + '%, 두 상태 풀림)' },
+  'fire+thunder': { name: '과부하', desc: sc => '감전된 적이 화상을 입으면(또는 반대) 폭발(공격력의 ' + Math.round(80 * sc) + '%) + 크게 밀려남' },
+  'fire+poison': { name: '독연', desc: sc => '독 걸린 적이 화상을 입으면 독안개가 터짐(쌓인 독 피해 ' + (2 * sc).toFixed(1) + '배 + 둘레 독)' },
+  'frost+thunder': { name: '초전도', desc: sc => '냉기 · 빙결된 적이 감전되면 받는 피해 +' + Math.round(25 * sc) + '% 더' },
+  'frost+poison': { name: '서리독', desc: sc => '독 걸린 적에게 냉기 2배 · 빙결되면 쌓인 독이 한 번에 터짐(' + (3 * sc).toFixed(1) + '배)' },
+  'poison+thunder': { name: '신경독', desc: sc => '감전된 적에게 독 2배 · 감전 1초 더' },
+};
 // 떨어지는 크기(2026-10-24 사용자): 완전한(5단계) 이상은 어디서도 안 떨어지고 세공사 합치기로만. 떨어지는 건 큰(4단계)까지(STONE_DROP_CAP).
 // 던전마다 보통 난이도의 [조각, 작은, 보통, 큰] 확률. 용암 지옥 영웅에서 아주 가끔 보통(3단계)이 나올 정도로 낮게 잡았다.
 // 모험 · 영웅은 크기를 올리지 않고 큰 쪽이 잘 나오게(DIFFS.stoneFavor), 그 던전 최대보다 한 단계 위는 아주 가끔만(DIFFS.stoneSpill)

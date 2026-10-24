@@ -17,12 +17,40 @@ const Elements = (() => {
     return m;
   }
   const has = (prof, el, tier) => best(prof, el) >= EL_UNLOCK[tier];
+  // ── 세트 효과(공명 · 듀오): 칸 4개 모두 보통 이상, 세기 = 가장 낮은 돌 ──
+  function setBonus(prof) {
+    if (!prof || !prof.equip.weapon) return null;
+    const ss = STONE_SLOTS.map(k => prof.sockets[k]);
+    if (ss.some(s => !s || s.size < SET_MIN)) return null;
+    const n = {};
+    for (const s of ss) n[s.el] = (n[s.el] || 0) + 1;
+    const els = Object.keys(n).sort(), sc = STONE_SIZES[Math.min(...ss.map(s => s.size))].power / STONE_SIZES[SET_MIN].power;
+    if (els.length === 1) return { res: els[0], name: SET_RES[els[0]].name, desc: SET_RES[els[0]].desc(sc), sc };
+    if (els.length === 2 && n[els[0]] === 2) { const key = els.join('+'), d = SET_DUO[key]; return { duo: key, name: d.name, desc: d.desc(sc), sc }; }
+    return null;
+  }
+  const P = () => World.player;
+  const setOf = () => { const p = P(); return p ? setBonus(p.prof) : null; };
+  const isRes = el => { const b = setOf(); return b && b.res === el ? b.sc : 0; };
+  const isDuo = key => { const b = setOf(); return b && b.duo === key ? b.sc : 0; };
   const pk = (prof, el) => STONE_SIZES[Math.max(0, best(prof, el))].power;  // 패시브 세기 = 가장 큰 돌
   const slotOpen = s => s.size >= EL_UNLOCK.slot;
   // 잠깐 뒤에 하기(뇌운 · 연쇄 폭발)
   let later = [];
   const after = (t, fn) => later.push({ t, fn });
+  let thorT = 0;
   function step(dt) {
+    const th = isRes('thunder');  // 뇌신
+    if (th) {
+      thorT += dt;
+      if (thorT >= 3) {
+        thorT = 0;
+        const p = P(), list = World.enemies().filter(e => live(e) && e.shockT > 0).slice(0, 4);
+        for (const e of list) { World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25 }); damage(e, p.stats.atk * 0.5 * th, 'thunder'); }
+        if (list.length) Sfx.zap();
+      }
+    }
+    for (const e of World.enemies()) if (e.duoCd > 0) e.duoCd -= dt;
     for (const l of later) { l.t -= dt; if (l.t <= 0 && !l.done) { l.done = true; l.fn(); } }
     later = later.filter(l => !l.done);
   }
@@ -40,11 +68,38 @@ const Elements = (() => {
   // ── 상태이상 걸기 ──
   function burn(e, p, k) {
     const ember = has(p.prof, 'fire', 'p2');  // 불씨
-    const dps = p.stats.atk * 0.3 * k * (ember ? 1.3 : 1);
+    const inferno = isRes('fire');  // 업화
+    const dps = p.stats.atk * 0.3 * k * (ember ? 1.3 : 1) * (1 + 0.5 * inferno);
     e.burn = { t: ember ? 5 : 3, dps: Math.max(e.burn ? e.burn.dps : 0, dps), tick: e.burn ? e.burn.tick : 0.5 };
+    duoReact(e);
+  }
+  // 듀오 반응: 두 상태가 함께 걸린 순간(몹마다 쿨타임 1초)
+  function duoReact(e) {
+    const p = P();
+    if (!p || e.dying || (e.duoCd || 0) > 0) return;
+    const b = setOf();
+    if (!b || !b.duo) return;
+    const atk = p.stats.atk, sc = b.sc;
+    if (b.duo === 'fire+frost' && e.burn && (e.chill > 0 || e.state === 'frozen')) {  // 증기 폭발
+      e.duoCd = 1; e.burn = null; e.chill = 0;
+      World.text(e.x, e.y, e.h + 8, '증기 폭발!', '#e8f4ff'); Sfx.blast(); World.shake(2);
+      explode(e.x, e.y, 34, atk * 1.2 * sc, 'frost');
+    } else if (b.duo === 'fire+thunder' && e.burn && e.shockT > 0) {  // 과부하
+      e.duoCd = 1;
+      World.text(e.x, e.y, e.h + 8, '과부하!', ELEMENTS.thunder.color); Sfx.zap();
+      explode(e.x, e.y, 30, atk * 0.8 * sc, 'thunder', o => { const dx = o.x - p.x, dy = o.y - p.y, d = Math.hypot(dx, dy) || 1; o.kx = (o.kx || 0) + dx / d * 220; o.ky = (o.ky || 0) + dy / d * 220; });
+    } else if (b.duo === 'fire+poison' && e.burn && e.poison && e.poison.n >= 2) {  // 독연
+      e.duoCd = 1.5;
+      World.text(e.x, e.y, e.h + 8, '독연!', ELEMENTS.poison.color);
+      damage(e, e.poison.n * e.poison.per * 2 * sc, 'poison');
+      World.field({ x: e.x, y: e.y, r: 26, el: 'poison', life: 2.5, k: sc, p });
+    }
   }
   function chill(e, n, k) {
+    if (isRes('frost')) n += 1;  // 절대영도: 냉기 1 더
+    if (isDuo('frost+poison') && e.poison) n *= 2;  // 서리독: 독 걸린 적에게 냉기 2배
     e.chill = (e.chill || 0) + n;
+    duoReact(e);
     e.chillT = 3;
     if (e.chill < FREEZE_AT || e.dying) return;
     e.chill = 0;
@@ -53,16 +108,21 @@ const Elements = (() => {
       if (e.state === 'move') { e.state = 'stagger'; e.t = 0.4; }
       World.text(e.x, e.y, e.h + 6, '얼음 균열!', '#bfefff');
     } else {
-      e.state = 'frozen'; e.t = 1 + 0.25 * k; e.kx = e.ky = 0;
+      e.state = 'frozen'; e.t = (1 + 0.25 * k) * (1 + 0.5 * isRes('frost')); e.kx = e.ky = 0;  // 절대영도: 빙결 시간 늘어남
+      // 서리독: 빙결되면 쌓인 독이 한 번에 터진다
+      const fp = isDuo('frost+poison');
+      if (fp && e.poison && e.poison.n > 0) { World.text(e.x, e.y, e.h + 14, '서리독!', ELEMENTS.poison.color); damage(e, e.poison.n * e.poison.per * 3 * fp, 'poison'); e.poison.n = Math.ceil(e.poison.n / 2); }
       Sfx.frost();
       World.text(e.x, e.y, e.h + 6, '빙결!', '#bfefff');
     }
   }
-  function shock(e, k) { e.shockT = 3; e.shockK = Math.max(e.shockK || 1, k); }
+  function shock(e, k) { e.shockT = isDuo('poison+thunder') ? 4 : 3; e.shockK = Math.max(e.shockK || 1, k); duoReact(e); }  // 신경독: 감전 1초 더
   function poison(e, n, p, k, noPop) {
     const venom = has(p.prof, 'poison', 'p2');  // 맹독
-    const max = POISON_MAX + (venom ? 6 : 0);
+    const max = POISON_MAX + (venom ? 6 : 0) + (isRes('poison') ? 6 : 0);  // 역병: 최대 중첩 +6
+    if (isDuo('poison+thunder') && e.shockT > 0) n *= 2;  // 신경독: 감전된 적에게 독 2배
     const per = p.stats.atk * 0.05 * k * (venom ? 1.25 : 1);
+    duoReact(e);
     e.poison = { n: Math.min(max, (e.poison ? e.poison.n : 0) + n), t: 4, per: Math.max(e.poison ? e.poison.per : 0, per), tick: e.poison ? e.poison.tick : 0.5 };
     // 독 폭발: 가득 차면 터져 둘레에 피해 · 독을 퍼뜨리고 절반 남는다
     if (!noPop && e.poison.n >= max && has(p.prof, 'poison', 'p1')) {
@@ -74,6 +134,7 @@ const Elements = (() => {
   }
   // 번개가 가까운 적에게 차례로 튄다
   function chain(from, p, count, dmg, k) {
+    if (isRes('thunder')) count += 2;  // 뇌신: 연쇄 번개 2번 더
     let cur = from;
     const hit = new Set([from]);
     for (let i = 0; i < count; i++) {
@@ -98,6 +159,10 @@ const Elements = (() => {
     let m = 1;
     if (e.shockT > 0) m *= 1 + SHOCK_VULN + 0.05 * Math.round((e.shockK || 1) - 1) + (World.player && has(World.player.prof, 'thunder', 'p2') ? 0.15 : 0);  // 고전압
     if (e.crackT > 0) m *= 1 + CRACK_VULN;
+    const scd = isDuo('frost+thunder');  // 초전도: 냉기 · 빙결 + 감전
+    if (scd && e.shockT > 0 && (e.chill > 0 || e.state === 'frozen' || e.crackT > 0)) m *= 1 + 0.25 * scd;
+    const az = isRes('frost');  // 절대영도: 빙결된 적
+    if (az && e.state === 'frozen') m *= 1 + 0.2 * az;
     if (e.state === 'frozen') m *= 1 + FROZEN_VULN;
     return m;
   }
@@ -187,7 +252,10 @@ const Elements = (() => {
   // 몹이 쓰러질 때(World.onKill): 연쇄 폭발
   function onDeath(e) {
     const p = World.player;
-    if (!p || !e.burn || !has(p.prof, 'fire', 'p1')) return;
+    if (!p) return;
+    const plague = isRes('poison');  // 역병: 독 걸린 적이 쓰러지면 둘레로 독이 옮는다
+    if (plague && e.poison) { const x = e.x, y = e.y; after(0.1, () => explode(x, y, 34, 0, 'poison', o => poison(o, Math.round(4 * plague), p, plague, true))); }
+    if (!e.burn || !(has(p.prof, 'fire', 'p1') || isRes('fire'))) return;  // 업화: 연쇄 폭발이 없어도 늘 터진다
     const k = pk(p.prof, 'fire'), x = e.x, y = e.y;
     after(0.15, () => { Sfx.blast(); explode(x, y, 30, p.stats.atk * 0.8 * k, 'fire', o => burn(o, p, k)); });
   }
@@ -398,5 +466,5 @@ const Elements = (() => {
     return true;
   }
 
-  return { socket, power, color, onHit, basicSwing, dashStart, dashMove, dashEnd, onDeath, step, reset, has, passives, best, chargeBurst, waveTrail, waveEnd, fieldTick, tick, vuln, describe, stacks, add, take, key };
+  return { setBonus, socket, power, color, onHit, basicSwing, dashStart, dashMove, dashEnd, onDeath, step, reset, has, passives, best, chargeBurst, waveTrail, waveEnd, fieldTick, tick, vuln, describe, stacks, add, take, key };
 })();

@@ -390,6 +390,8 @@ const UI = (() => {
           if (st) Gfx.stoneIcon(ctx, st, bx + 17, by + 18, 24);
           T_(ctx, clsOf(prof).slotShort[slot], bx + 17, by + 46, 10, col || '#6a6068', 'center');
         });
+        const sb = Elements.setBonus(prof);  // 속성석 세트 효과
+        if (sb) T_(ctx, '◆ ' + sb.name + ' — ' + sb.desc, 194, 352, 10, '#ffd36a', 'center');
         // 장비 칸(56): 끼는 자리대로
         for (const slot of SLOTS) {
           const [x, y] = EQUIP_POS[slot];
@@ -620,7 +622,12 @@ const UI = (() => {
       } else {
         if (!o.tabbed) T_(ctx, '속성석 관리', 44, 64, 24, '#f0e0b8');
         if (!prof.equip.weapon) T_(ctx, '무기를 끼지 않아서 속성석이 잠들어 있어요', 44, 90, 13, '#ff8a6a');
-        else { const ps = Elements.passives(prof); T_(ctx, '속성 패시브: ' + (ps.length ? ps.join(' · ') : '없음 — 완전한 크기부터 열려요'), 44, 90, 12, ps.length ? '#7dff8a' : '#8a7e88'); }
+        else {
+          const ps = Elements.passives(prof), sb = Elements.setBonus(prof);
+          T_(ctx, '속성 패시브: ' + (ps.length ? ps.join(' · ') : '없음 — 완전한 크기부터 열려요'), 44, 90, 12, ps.length ? '#7dff8a' : '#8a7e88');
+          // 세트 효과: 마우스를 올릴 곳이 없으니 이름과 효과를 위쪽 오른쪽에 짧게
+          T_(ctx, sb ? '세트 ◆ ' + sb.name : '세트 없음(4칸 모두 보통 이상: 같은 속성 4 · 두 속성 2 + 2)', 454, 90, 11, sb ? '#ffd36a' : '#6a6068', 'right');
+        }
         // 칸 4개(기본 · 회전 · 검기 · 대시): 칸 이름 · 돌 이름 한 줄, 아래 설명 3줄
         STONE_SLOTS.forEach((slot, i) => {
           const y = 100 + i * 97, on = this.slot === i, s = prof.sockets[slot];

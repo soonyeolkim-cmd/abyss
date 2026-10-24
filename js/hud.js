@@ -152,11 +152,12 @@ const Hud = (() => {
       T_(ctx, txt, x + 100, yy, size, keys.length ? '#e8e0d0' : '#6a6068');
     });
     // 남는 두 줄: 끼고 있는 유니크 효과(잎사귀 방패는 다시 생기기까지 남은 초)
-    const fx = SLOTS.map(s => prof.equip[s]).filter(it => it && it.uniq).map(it => {
+    const sbn = Elements.setBonus(prof);  // 속성석 세트 효과도 같은 줄에
+    const fx = (sbn ? ['◆' + sbn.name] : []).concat(SLOTS.map(s => prof.equip[s]).filter(it => it && it.uniq).map(it => {
       const u = UNIQUES[it.uniq];
       return u.fx + (it.uniq === 'leaf' && p && p.leafT > 0 ? ' ' + Math.ceil(p.leafT) + '초' : '');
-    });
-    T_(ctx, '★ 유니크', x, y + 24, 10, RARITY[3].color);
+    }));
+    T_(ctx, sbn ? '★ 효과' : '★ 유니크', x, y + 24, 10, RARITY[3].color);
     if (!fx.length) { T_(ctx, '없음', x + 60, y + 24, 10, '#6a6068'); return; }
     // 한 줄(폭 160)에 들어가는 만큼 담고 나머지는 다음 줄. 둘째 줄도 넘치면 글자를 줄인다
     const W = 160;
