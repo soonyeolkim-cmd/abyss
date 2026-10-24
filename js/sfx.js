@@ -14,12 +14,26 @@ const Sfx = (() => {
       const d = noiseBuf.getChannelData(0);
       for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     }
-    if (ac.state === 'suspended') ac.resume();
+    // 멈춤(suspended) · 끊김(아이폰 interrupted) 모두 다시 켠다. 손가락 동작 안에서 소리 없는 한 조각을 틀어야 아이폰이 장치를 열어 준다
+    if (ac.state !== 'running') {
+      const r = ac.resume();
+      if (r && r.catch) r.catch(() => {});
+      try {
+        const s = ac.createBufferSource();
+        s.buffer = ac.createBuffer(1, 1, 22050);
+        s.connect(ac.destination);
+        s.start(0);
+      } catch (e) { /* 아직 못 여는 때 */ }
+    }
     return ac;
   }
   window.addEventListener('keydown', ensure);
   window.addEventListener('pointerdown', ensure);
   window.addEventListener('touchstart', ensure);
+  // 폰 브라우저는 손가락을 뗄 때(touchend · pointerup)를 '사용자 동작'으로 쳐서 그때만 소리를 켜 준다(2026-10-24 폰에서 소리 안 남)
+  window.addEventListener('touchend', ensure, true);
+  window.addEventListener('pointerup', ensure, true);
+  window.addEventListener('click', ensure, true);
   // 소리를 낼 때마다 장치가 멈춰 있으면 다시 깨운다(2026-10-24: 패드로만 하면 장치가 안 열리거나 멈춘 채로 남아 강화 소리가 안 들림)
   const on = () => {
     if (Input.settings.sound === false) return false;

@@ -10,6 +10,31 @@ const UI = (() => {
     ctx.font = 'bold ' + size + 'px ' + Gfx.FONT;
     T_(ctx, '▶', x - ctx.measureText(label).width / 2 - 8, y, size * 0.8, curCol || col, 'right');
   }
+  // 폰 터치로 메뉴 고르기(2026-10-25 사용자: 커서 옮기고 X 를 눌러야 해서 불편). 그릴 때 누를 곳을 적어 두고, 터치(touch.js)한 자리를 찾는다.
+  // z = { pick 그 줄 · 칸 고르기, on 이미 골라져 있었나(그러면 한 번 더 누른 것 = 선택), now 누르자마자 선택, key 누를 동작(기본 ok, null = 고르기만) }
+  // 끼기 · 팔기 · 사기처럼 바로 일이 생기는 칸은 한 번 = 고르기(설명 보기), 한 번 더 = 선택. 메뉴 줄은 한 번에.
+  // '한 번 더' = 같은 칸을 손가락으로 연달아 누른 것만(창을 열자마자 커서가 있던 칸을 눌러 바로 끼거나 팔지 않게)
+  let zones = [], tapAt = null, lastKey = null;
+  const zone = (x, y, w, h, z) => { z.x = x; z.y = y; z.w = w; z.h = h; zones.push(z); };
+  function tapLayer() { zones = []; }
+  function tap(x, y) { tapAt = { x, y }; }
+  function resolveTap() {
+    if (!tapAt) return;
+    const { x, y } = tapAt;
+    tapAt = null;
+    for (let i = zones.length - 1; i >= 0; i--) {  // 나중에 그린 것(위에 겹친 것)부터
+      const z = zones[i];
+      if (x < z.x || y < z.y || x > z.x + z.w || y > z.y + z.h) continue;
+      const key = Game.scene + Game.overlays.length + ':' + z.x + ',' + z.y, again = lastKey === key;
+      lastKey = key;
+      const was = z.on ? z.on() && again : true;
+      if (z.pick) z.pick();
+      const act = 'key' in z ? z.key : 'ok';
+      if (act && (z.now || was)) Input.tapAction(act);
+      return;
+    }
+    lastKey = null;  // 빈 곳을 누르면 처음부터
+  }
   const menuNav = (sel, n) => {
     if (Input.nav('up')) sel = (sel + n - 1) % n;
     if (Input.nav('down')) sel = (sel + 1) % n;
@@ -84,6 +109,7 @@ const UI = (() => {
       T_(ctx, '캐릭터 선택', 480, 108, 16, '#9a8e96', 'center');
       for (let n = 0; n < Save.SLOTS_N; n++) {
         const x = 60 + n * 290, y = 134, w = 260, h = 320, on = this.sel === n, p = this.slots[n];
+        zone(x, y, w, h, { pick: () => { this.sel = n; }, now: true });
         Gfx.panel(ctx, x, y, w, h, { border: on ? '#ffd36a' : '#5a4650' });
         T_(ctx, '캐릭터 ' + (n + 1), x + w / 2, y + 34, 16, on ? '#ffd36a' : '#c8b8a0', 'center');
         if (p) {
@@ -129,12 +155,18 @@ const UI = (() => {
       if (gap > 0) T_(ctx, '내 레벨보다 낮은 던전 — 경험치 ×' + lowExp(prof.lv, sd.lv).toFixed(1) + ' · 유니크 ×' + lowUniq(prof.lv, sd.lv).toFixed(1), 900, 58, 13, '#ffb86a', 'right');
       else T_(ctx, '앞 던전 보스를 쓰러뜨리고 입장 레벨이 되면 열려요', 900, 58, 13, '#8a7e88', 'right');
       // 6개씩 보이고, 고른 줄을 따라 내려간다(던전 10개)
-      const VISD = 6, top = Math.max(0, Math.min(DUNGEONS.length - VISD, this.sel - 3));
+      // 보이는 창은 고른 줄이 끝에 닿을 때만 한 줄씩 움직인다(터치로 누른 줄이 손가락 밑에서 달아나지 않게)
+      const VISD = 6;
+      let top = this.top || 0;
+      if (this.sel < top + 1) top = this.sel - 1;
+      if (this.sel > top + VISD - 2) top = this.sel - VISD + 2;
+      top = this.top = Math.max(0, Math.min(DUNGEONS.length - VISD, top));
       if (top > 0) T_(ctx, '▲', 930, 100, 14, '#8a7e88', 'right');
       if (top + VISD < DUNGEONS.length) T_(ctx, '▼', 930, 500, 14, '#8a7e88', 'right');
       DUNGEONS.forEach((d, i) => {
         if (i < top || i >= top + VISD) return;
         const y = 76 + (i - top) * 72, on = i === this.sel;
+        zone(60, y, 840, 64, { on: () => this.sel === i, pick: () => { this.sel = i; } });
         const lowLv = prof.lv < d.lv, lockd = (d.needs && !prof.cleared[d.needs]) || lowLv;
         Gfx.panel(ctx, 60, y, 840, 64, { border: on ? '#ffd36a' : '#5a4650', bg: d.tint && !lockd ? '#1a1418' : undefined });
         // 던전 분위기 색 띠
@@ -148,6 +180,7 @@ const UI = (() => {
         // 고른 줄: 난이도 탭(잠긴 것은 흐리게)
         if (on && !lockd) DIFFS.forEach((df, k) => {
           const tx = 664 + k * 74, open = diffOpen(prof, d.id, k), cur = this.diff === k;
+          zone(tx, y + 34, 68, 28, { on: () => this.diff === k, pick: () => { this.diff = k; } });
           ctx.fillStyle = cur ? 'rgba(255,211,106,0.18)' : 'rgba(255,255,255,0.04)'; ctx.fillRect(tx, y + 38, 68, 20);
           ctx.strokeStyle = cur ? df.color : '#4a3a40'; ctx.lineWidth = cur ? 2 : 1; ctx.strokeRect(tx + 0.5, y + 38.5, 67, 19);
           T_(ctx, df.name, tx + 34, y + 53, 12, !open ? '#5a5058' : cur ? df.color : '#9a8e96', 'center');
@@ -360,6 +393,7 @@ const UI = (() => {
         ctx.imageSmoothingEnabled = false;
         SHOP_GOODS().forEach((g, i) => {
           const y = 78 + i * 44, on = this.zone === 'shop' && this.shop === i;
+          zone(40, y, 308, 40, { on: () => this.zone === 'shop' && this.shop === i, pick: () => { this.zone = 'shop'; this.shop = i; } });
           Gfx.panel(ctx, 40, y, 308, 40, { border: on ? '#ffd36a' : '#3a2e36', bg: '#1d151b' });
           if (g.potion) Gfx.spr(ctx, 'flask_big_red', 64, y + 35, { scale: 1.8 });
           else if (g.scroll) Gfx.scrollIcon(ctx, g.scroll, 64, y + 21, 24);
@@ -395,6 +429,7 @@ const UI = (() => {
         // 장비 칸(56): 끼는 자리대로
         for (const slot of SLOTS) {
           const [x, y] = EQUIP_POS[slot];
+          zone(x, y, 56, 56, { on: () => this.zone === 'equip' && this.eslot === slot, pick: () => { this.zone = 'equip'; this.eslot = slot; } });
           cell(ctx, x, y, 56, prof.equip[slot], this.zone === 'equip' && this.eslot === slot, SLOT_NAMES[slot], prof.lv);
         }
         const s = Items.playerStats(prof);
@@ -413,12 +448,14 @@ const UI = (() => {
       if (o.mode === 'equip') T_(ctx, '골드 ' + prof.gold + 'G', 916, 58, 16, '#ffd34d', 'right');  // 상점 · 팔기는 왼쪽에 골드
       INV_BTNS[o.mode].forEach((b, i) => {
         const x = 520 + i * 158, on = this.zone === 'btn' && this.btn === i;
+        zone(x, 36, 150, 32, { pick: () => { this.zone = 'btn'; this.btn = i; }, now: true });
         ctx.fillStyle = on ? 'rgba(255,211,106,0.18)' : 'rgba(255,255,255,0.05)'; ctx.fillRect(x, 38, 150, 28);
         ctx.strokeStyle = on ? '#ffd36a' : '#5a4650'; ctx.lineWidth = on ? 2 : 1; ctx.strokeRect(x + 0.5, 38.5, 149, 27);
         T_(ctx, b.label, x + 75, 57, 13, on ? '#ffd36a' : '#e8e0d0', 'center');
       });
       for (let i = 0; i < BAG_SIZE; i++) {
         const x = 400 + (i % BAG_COLS) * 44, y = 80 + Math.floor(i / BAG_COLS) * 46;
+        zone(x - 2, y - 3, 44, 46, { on: () => this.zone === 'bag' && this.idx === i, pick: () => { this.zone = 'bag'; this.idx = i; } });
         cell(ctx, x, y, 40, prof.bag[i], this.zone === 'bag' && this.idx === i, null, prof.lv);
       }
       T_(ctx, '가방이 가득 차면 낀 것보다 못한 장비는 주울 때 골드로 바뀌어요', 400, 300, 12, '#7a7078');
@@ -493,7 +530,8 @@ const UI = (() => {
   // 주머니 목록(오른쪽 판): rows 에 { empty } 가 있으면 '칸 비우기' 줄. 줄이 넘치면 고른 줄이 보이게 내려 보여 준다.
   const VIS = 14;
   // fits(r) 를 주면 false 인 줄은 흐리게(그 칸에 못 끼는 것)
-  function pouch(ctx, title, rows, picking, pick, emptyMsg, fits) {
+  // tapRow(i) = 그 줄을 눌렀을 때 누를 곳 설정(zone 의 z)
+  function pouch(ctx, title, rows, picking, pick, emptyMsg, fits, tapRow) {
     Gfx.panel(ctx, 488, 24, 448, 470);
     if (title) T_(ctx, title, 508, 64, 20, '#f0e0b8');
     if (!rows.some(r => !r.empty)) T_(ctx, emptyMsg, 508, rows.length ? 136 : 100, 13, '#6a6068');
@@ -504,6 +542,7 @@ const UI = (() => {
       if (i < top || i >= top + VIS) return;
       const y = 84 + (i - top) * 26;
       const on = picking && pick === i;
+      if (tapRow) zone(500, y, 424, 26, tapRow(i));
       if (on) { ctx.fillStyle = 'rgba(255,211,106,0.14)'; ctx.fillRect(500, y, 424, 24); }
       if (r.empty) { if (on) T_(ctx, '▶', 512, y + 18, 12, '#ffd36a'); T_(ctx, '칸 비우기', 528, y + 18, 14, on ? '#ffd36a' : '#9a8e96'); return; }
       const no = fits && !fits(r);
@@ -631,6 +670,7 @@ const UI = (() => {
         // 칸 4개(기본 · 회전 · 검기 · 대시): 칸 이름 · 돌 이름 한 줄, 아래 설명 3줄
         STONE_SLOTS.forEach((slot, i) => {
           const y = 100 + i * 97, on = this.slot === i, s = prof.sockets[slot];
+          zone(40, y, 418, 91, { pick: () => { this.zone = 'slot'; this.slot = i; }, now: true });  // 누르면 바로 주머니에서 고르기
           Gfx.panel(ctx, 40, y, 418, 91, { border: on ? '#ffd36a' : '#3a2e36', bg: '#1d151b' });
           ctx.fillStyle = 'rgba(40,30,36,0.95)'; ctx.fillRect(52, y + 18, 54, 54);
           if (s) Gfx.stoneIcon(ctx, s, 79, y + 45, 44);
@@ -644,9 +684,12 @@ const UI = (() => {
       const craft = o.mode === 'craft';
       const what = craft ? CRAFT_TABS[this.tab].name : '속성석';
       pouch(ctx, craft ? '' : '속성석 주머니', craft ? list : [{ empty: true }, ...list],
-        craft || this.zone === 'pick', this.pick, what + '이 없어요 — 던전에서 몹 · 상자 · 보스가 떨어뜨려요');
+        craft || this.zone === 'pick', this.pick, what + '이 없어요 — 던전에서 몹 · 상자 · 보스가 떨어뜨려요', null,
+        i => (craft ? { on: () => this.pick === i, pick: () => { this.pick = i; } }
+          : { on: () => this.zone === 'pick' && this.pick === i, pick: () => { this.zone = 'pick'; this.pick = i; } }));
       if (craft) CRAFT_TABS.forEach((t, i) => {  // 탭: 속성석 | 보석
         const x = 500 + i * 118, on = this.tab === i;
+        zone(x, 36, 110, 38, { pick: () => { if (this.tab !== i) { this.tab = i; this.pick = 0; } }, key: null });
         ctx.fillStyle = on ? 'rgba(255,211,106,0.16)' : 'rgba(255,255,255,0.04)'; ctx.fillRect(x, 38, 110, 34);
         ctx.strokeStyle = on ? '#ffd36a' : '#4a3a40'; ctx.lineWidth = 2; ctx.strokeRect(x + 1, 39, 108, 32);
         T_(ctx, t.name, x + 55, 62, 17, on ? '#ffd36a' : '#8a7e88', 'center');
@@ -697,6 +740,7 @@ const UI = (() => {
       ctx.imageSmoothingEnabled = false;
       rows.forEach((r, i) => {
         const y = 84 + i * 26, on = this.slot === i, g = r.item.gems[r.i];
+        zone(36, y, 426, 26, { pick: () => { this.zone = 'slot'; this.slot = i; }, now: true });
         if (on) { ctx.fillStyle = 'rgba(255,211,106,0.14)'; ctx.fillRect(36, y, 426, 25); }
         if (r.i === 0) Gfx.icon(ctx, r.item, 56, y + 12, 22);
         T_(ctx, SLOT_NAMES[r.slot] + (r.item.gems.length > 1 ? ' ' + (r.i + 1) : ''), 76, y + 18, 14, on ? '#ffd36a' : RARITY[r.item.rarity].color);
@@ -710,7 +754,8 @@ const UI = (() => {
         T_(ctx, g ? gemText(g) : '빈 칸 — 오른쪽 주머니에서 보석을 골라 끼워요', 44, 478, 13, g ? '#c8b8a0' : '#6a6068');
       }
       const picking = this.zone === 'pick';
-      pouch(ctx, '보석 주머니', [{ empty: true }, ...list], picking, this.pick, '보석이 없어요 — 던전에서 떨어져요', cur ? g => gemFits(g, cur.slot) : null);
+      pouch(ctx, '보석 주머니', [{ empty: true }, ...list], picking, this.pick, '보석이 없어요 — 던전에서 떨어져요', cur ? g => gemFits(g, cur.slot) : null,
+        i => ({ on: () => this.zone === 'pick' && this.pick === i, pick: () => { if (rows.length) { this.zone = 'pick'; this.pick = i; } } }));
       const sel = picking && list[this.pick - 1];
       if (sel) T_(ctx, gemText(sel), 508, 482, 13, '#c8b8a0');
       hintBar(ctx, this.zone === 'slot' ? '칸 고르기 ↑↓ · 바꾸기 ' + L('ok') + ' · 닫기 ' + L('back') : '보석 고르기 ↑↓ · 끼우기 ' + L('ok') + ' · 돌아가기 ' + L('back'));
@@ -733,6 +778,7 @@ const UI = (() => {
       sub.draw(ctx, { mode: 'socket', tabbed: true }, prof);
       MANAGE_TABS.forEach((name, i) => {
         const x = 40 + i * 118, on = this.tab === i;
+        zone(x, 34, 110, 38, { pick: () => { if (this.tab !== i) { this.tab = i; this.sub().open('socket'); } }, key: null });
         ctx.fillStyle = on ? 'rgba(255,211,106,0.16)' : 'rgba(255,255,255,0.04)'; ctx.fillRect(x, 36, 110, 34);
         ctx.strokeStyle = on ? '#ffd36a' : '#4a3a40'; ctx.lineWidth = 2; ctx.strokeRect(x + 1, 37, 108, 32);
         T_(ctx, name + ' 관리', x + 55, 60, 16, on ? '#ffd36a' : '#8a7e88', 'center');
@@ -743,12 +789,13 @@ const UI = (() => {
   };
 
   // 세로 목록(줄이 넘치면 고른 줄을 따라 내려감). drawRow(i, y, on)
-  function listView(ctx, x, w, n, sel, active, drawRow) {
+  function listView(ctx, x, w, n, sel, active, drawRow, tapRow) {
     const top = n > VIS ? Math.max(0, Math.min(n - VIS, sel - VIS + 2)) : 0;
     if (top > 0) T_(ctx, '▲', x + w - 12, 80, 11, '#8a7e88', 'right');  // 제목 줄 글과 안 겹치게 목록 바로 위
     if (top + VIS < n) T_(ctx, '▼', x + w - 12, 84 + VIS * 26 + 14, 12, '#8a7e88', 'right');
     for (let i = top; i < Math.min(n, top + VIS); i++) {
       const y = 84 + (i - top) * 26, on = sel === i;
+      if (tapRow) zone(x + 12, y, w - 24, 26, tapRow(i));
       if (on) { ctx.fillStyle = active ? 'rgba(255,211,106,0.14)' : 'rgba(255,255,255,0.06)'; ctx.fillRect(x + 12, y, w - 24, 24); }
       drawRow(i, y, on && active);
     }
@@ -854,6 +901,7 @@ const UI = (() => {
     // 강화 연출 그리기(대장장이 창 위에 덮어서)
     drawForge(ctx) {
       const a = this.anim, cx = 480, cy = 236, col = scrollColor(a.s), t = a.t;
+      zone(0, 0, 960, 540, { now: true });  // 아무 데나 누르면 닫기(잠긴 동안은 안 닫힘)
       ctx.save();
       // 시도 중에는 뒤 목록(이미 바뀐 +N)이 안 보이게 거의 가린다
       ctx.fillStyle = t < FORGE_TRY ? 'rgba(0,0,0,0.97)' : 'rgba(0,0,0,0.85)'; ctx.fillRect(0, 0, 960, 540);
@@ -956,7 +1004,7 @@ const UI = (() => {
       listView(ctx, 24, 450, rows.length, this.sel, this.zone === 'item', (i, y, on) => {
         const it = rows[i].item;
         itemRow(ctx, rows[i], y, on, '+' + (it.ups || 0) + ' / ' + ENCHANT_MAX);
-      });
+      }, i => ({ on: () => this.zone === 'item' && this.sel === i, pick: () => { this.zone = 'item'; this.sel = i; } }));
       if (cur) {
         const it = cur.item;
         T_(ctx, statLine(it), 44, 462, 13, '#c8b8a0');
@@ -973,7 +1021,7 @@ const UI = (() => {
         T_(ctx, scrollName(s), 546, y + 18, 14, on ? '#ffd36a' : ok ? scrollColor(s) : '#5a5058');
         if (cur && s.g === 'any') T_(ctx, scrollGain(s, cur.item.slot, cur.item.ilvl), 862, y + 18, 12, ok ? '#9a8e96' : '#5a5058', 'right');  // 고른 장비에 오르는 것
         T_(ctx, '×' + s.n, 912, y + 18, 14, ok ? '#e8e0d0' : '#5a5058', 'right');
-      });
+      }, i => ({ on: () => this.zone === 'scroll' && this.pick === i, pick: () => { this.zone = 'scroll'; this.pick = i; } }));
       const s = picking && list[this.pick];
       if (s) {
         T_(ctx, scrollText(s, cur && cur.item.slot, cur && cur.item.ilvl), 508, 462, 12, '#c8b8a0');
@@ -1002,7 +1050,7 @@ const UI = (() => {
         Gfx.icon(ctx, to, 516, y + 12, 20);
         T_(ctx, Items.nameOf(to), 534, y + 18, 14, on ? '#ffd36a' : ok ? RARITY[to.rarity].color : '#5a5058');
         T_(ctx, (tg[i].slot ? '낀 것 · ' : '') + '+' + (to.ups || 0), 918, y + 18, 12, ok ? '#9a8e96' : '#5a5058', 'right');
-      });
+      }, i => ({ on: () => this.pick === i, pick: () => { this.pick = i; } }));
       const t = tg[Math.min(this.pick, tg.length - 1)];
       if (t) {
         const to = t.item, why = Items.canTransfer(src, to);
@@ -1027,6 +1075,7 @@ const UI = (() => {
       const h = 96 + o.items.length * 40, top = 270 - h / 2;
       Gfx.panel(ctx, 320, top, 320, h, { border: '#ffd36a' });
       T_(ctx, o.title, 480, top + 42, 22, '#f0e0b8', 'center');
+      o.items.forEach((it, i) => zone(320, top + 86 + i * 40 - 28, 320, 40, { pick: () => { this.sel = i; }, now: true }));
       o.items.forEach((it, i) => centerItem(ctx, it.label, 480, top + 86 + i * 40, 18, i === this.sel ? '#ffd36a' : '#e8e0d0', i === this.sel));
       T_(ctx, '고르기 ' + L('ok') + ' · 닫기 ' + L('back'), 480, top + h - 14, 12, '#8a7e88', 'center');
     },
@@ -1066,6 +1115,7 @@ const UI = (() => {
       T_(ctx, '골드 ' + prof.gold + 'G', 444, 62, 16, '#ffd34d', 'right');
       goods.forEach((g, i) => {
         const y = 78 + i * 44, on = this.zone === 'buy' && this.buy === i;
+        zone(40, y, 408, 40, { on: () => this.zone === 'buy' && this.buy === i, pick: () => { this.zone = 'buy'; this.buy = i; } });
         Gfx.panel(ctx, 40, y, 408, 40, { border: on ? '#ffd36a' : '#3a2e36', bg: '#1d151b' });
         if (g.potion) Gfx.spr(ctx, 'flask_big_red', 64, y + 35, { scale: 1.8 });
         else if (g.scroll) Gfx.scrollIcon(ctx, g.scroll, 64, y + 21, 24);
@@ -1086,7 +1136,7 @@ const UI = (() => {
         T_(ctx, stoneName(r), 546, y + 18, 14, on ? '#ffd36a' : can ? ELEMENTS[r.el].color : '#8a7e88');
         T_(ctx, can ? '판매 ' + SHARD_SELL + 'G' : '못 팖', 860, y + 18, 11, can ? '#9a8e96' : '#5a5058', 'right');
         T_(ctx, '×' + r.n, 912, y + 18, 14, '#e8e0d0', 'right');
-      });
+      }, i => ({ on: () => this.zone === 'mine' && this.mine === i, pick: () => { this.zone = 'mine'; this.mine = i; } }));
       // 아래 설명
       const g = goods[this.buy], st = mine[sel];
       if (this.zone === 'buy' && g) T_(ctx, g.potion ? '최대 체력의 40%를 바로 회복' : g.scroll ? '강화(+N)를 같은 부위 새 장비로 옮길 때 1장' : GEMS[g.el] ? gemText(g) + ' (' + GEMS[g.el].where + ')' : '세공사에서 3개를 합치면 한 단계 커져요', 44, 476, 12, '#c8b8a0');
@@ -1165,6 +1215,7 @@ const UI = (() => {
         T_(ctx, cat.name, 44, y + 22, 15, this.r === r ? '#ffd36a' : '#f0e0b8');  // 유니크 이름 · 효과는 아래 설명 칸에만(2026-10-24 사용자)
         for (let c = 0; c < VAULT_COLS; c++) {
           const x = X0 + c * STEP, it = prof.vault[cat.id + ':' + c], on = this.r === r && this.c === c;
+          zone(x - 4, y - 2, STEP, RH, { on: () => this.r === r && this.c === c, pick: () => { this.r = r; this.c = c; } });
           if (it) { cell(ctx, x, y, CS, it, on); continue; }
           const can = vaultFind(prof, cat.id + ':' + c) >= 0;  // 가방에 넣을 수 있는 것이 있다
           ctx.fillStyle = 'rgba(24,18,22,0.95)'; ctx.fillRect(x, y, CS, CS);
@@ -1213,6 +1264,7 @@ const UI = (() => {
       ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, 960, 540);
       Gfx.panel(ctx, 330, 120, 300, 300);
       T_(ctx, '일시정지', 480, 166, 24, '#f0e0b8', 'center');
+      this.items.forEach((s, i) => zone(330, 208 + i * 34 - 24, 300, 34, { pick: () => { this.sel = i; }, now: true }));
       this.items.forEach((s, i) => centerItem(ctx, s, 480, 208 + i * 34, 18, i === this.sel ? '#ffd36a' : '#e8e0d0', i === this.sel));
     },
   };
@@ -1240,6 +1292,7 @@ const UI = (() => {
       T_(ctx, '설정 · 조작', 90, 72, 24, '#f0e0b8');
       this.rows().forEach((r, i) => {
         const y = 118 + i * 40, on = i === this.sel;
+        zone(84, y - 26, 792, 36, { pick: () => { this.sel = i; }, now: true });
         if (on) { ctx.fillStyle = 'rgba(255,211,106,0.12)'; ctx.fillRect(84, y - 26, 792, 36); }
         T_(ctx, r.label, 100, y, 17, r.dim ? '#5a5058' : on ? '#ffd36a' : '#e8e0d0');
         T_(ctx, '◀  ' + r.val + '  ▶', 560, y, 17, r.dim ? '#5a5058' : on ? '#ffd36a' : '#c8b8a0', 'center');
@@ -1284,6 +1337,7 @@ const UI = (() => {
       const locked = (o.frames || 0) <= CONFIRM_LOCK;  // 잠긴 동안은 흐리게
       ['예', '아니요'].forEach((s, i) => {
         const on = i === this.sel;
+        zone(400 + i * 160 - 75, 282, 150, 44, { pick: () => { this.sel = i; }, now: true });
         centerItem(ctx, s, 400 + i * 160, 310, 20, locked ? '#5a5058' : on ? (i === 0 && o.danger ? '#ff8a6a' : '#ffd36a') : '#e8e0d0', on);
       });
     },
@@ -1294,6 +1348,7 @@ const UI = (() => {
     update() { if (Input.wasPressed('ok') || Input.wasPressed('back')) Game.open('town'); },
     draw(ctx, res, prof, time) {
       backdrop(ctx, time);
+      zone(0, 0, 960, 540, { now: true });  // 아무 데나 누르면 마을로
       const { run, kind } = res;
       const title = kind === 'clear' ? '던전 클리어!' : kind === 'dead' ? '쓰러졌다…' : '던전을 나왔다';
       T_(ctx, title, 480, 90, 40, kind === 'clear' ? '#ffd36a' : kind === 'dead' ? '#d84a4a' : '#c8b8a0', 'center');
@@ -1310,5 +1365,14 @@ const UI = (() => {
     },
   };
 
-  return { shopItems, title, choice, select, inv, stones, gems, manage, smith, vault, pause, settings, confirm, result };
+  // 폰 메뉴 화면의 특수기(Z) 버튼 이름: 그 창에서 Z 가 하는 일(없으면 버튼을 숨긴다)
+  function touchSpecial() {
+    const o = Game.overlays[Game.overlays.length - 1];
+    if (!o) return null;
+    if (o.type === 'vault') return '모두 넣기';
+    if (o.type === 'smith' && smith.zone === 'item' && !smith.anim) return '강화 옮기기';
+    return null;
+  }
+
+  return { shopItems, title, choice, select, inv, stones, gems, manage, smith, vault, pause, settings, confirm, result, tap, tapLayer, resolveTap, touchSpecial };
 })();

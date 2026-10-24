@@ -52,6 +52,7 @@ const Game = (() => {
   function wipe() { Save.wipe(); prof = Save.fresh(); Save.write(prof); toast('기록을 지웠어요'); }
 
   function update(dt) {
+    UI.resolveTap();  // 폰: 지난 그림에서 누른 메뉴 줄 · 칸
     const top = overlays[overlays.length - 1];
     if (top) {
       if (top.type === 'inv') UI.inv.update(top, prof);
@@ -82,12 +83,14 @@ const Game = (() => {
   }
 
   function draw() {
+    UI.tapLayer();  // 누를 곳은 맨 위에 그린 화면 것만 남긴다
     if (scene === 'town') Town.draw(ctx);
     else if (scene === 'select') UI.select.draw(ctx, prof, time);
     else if (scene === 'title') UI.title.draw(ctx, time);
     else if (scene === 'result') UI.result.draw(ctx, res, prof, time);
     else if (scene === 'run') World.draw(ctx);
     for (const o of overlays) {
+      UI.tapLayer();
       if (o.type === 'inv') UI.inv.draw(ctx, o, prof, time);
       else if (o.type === 'stones') UI.stones.draw(ctx, o, prof);
       else if (o.type === 'gems') UI.gems.draw(ctx, o, prof);

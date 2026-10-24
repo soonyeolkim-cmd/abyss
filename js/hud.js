@@ -269,5 +269,5 @@ const Hud = (() => {
     else if (best) T_(ctx, '최고 ' + fmtTime(done && run.bestPrev ? run.bestPrev : best), 950, by + 50, 11, '#8a7e88', 'right');
   }
 
-  return { draw };
+  return { draw, pixIcon };
 })();
