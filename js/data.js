@@ -338,8 +338,8 @@ const GOLD_MUL = 1.3;
 // (장비 레벨은 안 올린다 — 같은 착용 레벨 · 등급이면 능력치가 같다, 2026-10-24 사용자), stoneFavor · stoneSpill = 속성석 · 보석 큰 쪽이 잘 나옴 · 한 단계 위 아주 가끔 = 속성석 · 보석 크기 +, gold · exp = 골드 · 경험치 배율
 const DIFFS = [
   { name: '보통', color: '#c8b8a0', hp: 1, dmg: 1, rare: 1, uniq: 1, stoneFavor: 0, stoneSpill: 0, gold: 1, exp: 1 },
-  { name: '모험', color: '#6fa8ff', hp: 1.6, dmg: 1.3, rare: 2, uniq: 1.5, stoneFavor: 0.3, stoneSpill: 0.02, gold: 1.2, exp: 1.2 },
-  { name: '영웅', color: '#ff9a3a', hp: 1.9, dmg: 1.35, rare: 3, uniq: 2, stoneFavor: 0.6, stoneSpill: 0.05, gold: 1.5, exp: 1.5 },  // 2026-10-25 사용자 '영웅 좀 낮춰' ×3 · ×1.8 → 2.4 · 1.5, 그래도 '너무 어렵다' → 1.9 · 1.35. 보상 그대로
+  { name: '모험', color: '#6fa8ff', hp: 1.3, dmg: 1.15, rare: 2, uniq: 1.5, stoneFavor: 0.3, stoneSpill: 0.02, gold: 1.2, exp: 1.2 },
+  { name: '영웅', color: '#ff9a3a', hp: 1.6, dmg: 1.3, rare: 3, uniq: 2, stoneFavor: 0.6, stoneSpill: 0.05, gold: 1.5, exp: 1.5 },  // 2026-10-25 사용자 '영웅 좀 낮춰' ×3 · ×1.8 → 2.4 · 1.5 → 1.9 · 1.35, 그 뒤 사용자가 정함: 체력 1 · 1.3 · 1.6, 공격 1 · 1.15 · 1.3. 보상 그대로
 ];
 const RUN = { diff: 0 };  // 지금 던전 런의 난이도
 // 그 던전에서 보스를 잡은 가장 높은 난이도(-1 = 아직). 예전 저장의 cleared 는 보통으로 친다
