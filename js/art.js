@@ -323,36 +323,49 @@ const Art = (() => {
     for (let i = 0; i < 8; i++) { const a = rot + i * Math.PI / 4, r = i % 2 ? R * 0.32 : R; if (i) ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); else ctx.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r); }
     ctx.closePath(); ctx.fill();
   }
-  function comet(ctx, s, y, len, w) {  // 날아온 쪽으로 가늘어지는 꼬리
+  function comet(ctx, s, y, len, w, alpha = 0.6) {  // 날아온 쪽으로 가늘어지는 꼬리
     const sp = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / sp, dy = s.vy / sp;
     const g = ctx.createLinearGradient(s.x, y, s.x - dx * len, y - dy * len);
     g.addColorStop(0, s.col); g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.globalAlpha = 0.6; ctx.fillStyle = g;
+    ctx.globalAlpha = alpha; ctx.fillStyle = g;
     ctx.beginPath(); ctx.moveTo(s.x - dy * w, y + dx * w); ctx.lineTo(s.x - dx * len, y - dy * len); ctx.lineTo(s.x + dy * w, y - dx * w); ctx.closePath(); ctx.fill();
   }
 
+  // 속성 탄은 보석과 같은 색으로 진하게(2026-10-25 사용자: 화염 탄이 보석보다 옅고 하얗다).
+  // 예전엔 '더하기' 빛으로 겹쳐 그려 색이 하얗게 떴다 → 몸은 보석 색 그대로 덮어 칠하고, 바깥은 보석의 어두운 색 테두리, 가운데만 작게 밝게
+  function glow(ctx, x, y, r, col, a) {
+    ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalAlpha = a; ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+  }
   // 섬광 검기: 날아가는 쪽으로 볼록한 초승달
   function wave(ctx, s) {
-    if (s.orb) {  // 마력탄: 빛 구슬 + 뒤로 흐려지는 꼬리
-      const sp = Math.hypot(s.vx, s.vy) || 1;
+    const hex = s.col && s.col[0] === '#' ? s.col : '#b39cff', dark = Gfx.mix(hex, 0.45, 'black'), light = Gfx.mix(hex, 0.45, 'white');
+    if (s.orb) {  // 마력탄: 보석 색 구슬(어두운 테두리 · 밝은 심) + 꼬리 + 도는 흰 별 = 내 것
+      const y = s.y - 8;
       ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      comet(ctx, s, s.y - 8, 22, s.r);
-      const g = ctx.createRadialGradient(s.x, s.y - 8, 0, s.x, s.y - 8, s.r + 5);
-      g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.45, s.col); g.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.globalAlpha = 1; ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(s.x, s.y - 8, s.r + 5, 0, Math.PI * 2); ctx.fill();
-      star4(ctx, s.x, s.y - 8, s.r + 4, (s.t || 0) * 8, '#ffffff', 0.6);  // 도는 흰 별 = 내 것
+      glow(ctx, s.x, y, s.r + 8, hex, 0.45);
+      comet(ctx, s, y, 22, s.r, 0.85);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = dark; ctx.beginPath(); ctx.arc(s.x, y, s.r + 3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = hex; ctx.beginPath(); ctx.arc(s.x, y, s.r + 2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = light; ctx.beginPath(); ctx.arc(s.x - 0.6, y - 0.6, s.r * 0.75, 0, Math.PI * 2); ctx.fill();
+      star4(ctx, s.x, y, s.r + 4, (s.t || 0) * 8, '#ffffff', 0.55);
       ctx.restore();
       return;
     }
-    if (s.ball) {  // 속성석 부과 능력의 탄(화염구 · 얼음 파편)
+    if (s.ball) {  // 속성석 부과 능력의 탄(화염구 · 얼음 파편): 혜성 꼬리 + 보석 색 4각 별(어두운 테두리) + 작은 밝은 심 — 둥근 몹 탄과 모양이 다르게
+      const y = s.y - 8, rot = (s.t || 0) * 10;
       ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      // 혜성 꼬리 + 색 4각 별 + 흰 별 심(돌아간다) — 둥근 몹 탄과 모양이 다르게
-      comet(ctx, s, s.y - 8, 16, s.r);
-      star4(ctx, s.x, s.y - 8, s.r + 4, (s.t || 0) * 10, s.col, 0.9);
-      star4(ctx, s.x, s.y - 8, s.r + 1, (s.t || 0) * 10, '#ffffff', 1);
+      glow(ctx, s.x, y, s.r + 8, hex, 0.4);
+      comet(ctx, s, y, 16, s.r, 0.85);
+      star4(ctx, s.x, y, s.r + 5.5, rot, dark, 1);
+      star4(ctx, s.x, y, s.r + 4, rot, hex, 1);
+      star4(ctx, s.x, y, s.r + 1.5, rot, light, 1);
+      star4(ctx, s.x, y, s.r * 0.6, rot, '#ffffff', 0.9);
       ctx.restore();
       return;
     }
@@ -365,8 +378,16 @@ const Art = (() => {
     if (s.def && s.def.wave && s.def.wave.scale) ctx.scale(s.def.wave.scale, s.def.wave.scale);  // 검기 크기
     ctx.globalCompositeOperation = 'lighter';
     for (let i = 2; i >= 1; i--) crescent(ctx, -8 - i * 6, 0, 13, -1.25, 1.25, 7 - i * 1.5, col, 0.22 / i * fade, 1, true);
-    crescent(ctx, -8, 0, 13, -1.3, 1.3, 8, col, (s.stone ? 0.75 : 0.55) * fade, 1, true);
-    crescent(ctx, -7, 0, 13, -1.05, 1.05, 3, '#ffffff', 0.95 * fade, 1, true);
+    if (s.stone) {  // 속성 검기: 보석 색 그대로(어두운 테두리 · 가는 밝은 날)
+      ctx.globalCompositeOperation = 'source-over';
+      crescent(ctx, -8, 0, 13, -1.34, 1.34, 10, dark, 0.95 * fade, 1, true);
+      crescent(ctx, -8, 0, 13, -1.3, 1.3, 8, hex, fade, 1, true);
+      crescent(ctx, -7, 0, 13, -1.05, 1.05, 3, light, fade, 1, true);
+      crescent(ctx, -6.5, 0, 13, -0.8, 0.8, 1.4, '#ffffff', 0.85 * fade, 1, true);
+    } else {
+      crescent(ctx, -8, 0, 13, -1.3, 1.3, 8, col, 0.55 * fade, 1, true);
+      crescent(ctx, -7, 0, 13, -1.05, 1.05, 3, '#ffffff', 0.95 * fade, 1, true);
+    }
     ctx.restore();
   }
 

@@ -264,5 +264,5 @@ const Gfx = (() => {
     ctx.fillStyle = fg; ctx.fillRect(x, y, Math.round(w * Math.max(0, Math.min(1, k))), h);
   }
 
-  return { WEAPON_TINT, FONT, ready, spr, anim, icon, stoneIcon, scrollIcon, text, panel, bar };
+  return { WEAPON_TINT, FONT, mix, ready, spr, anim, icon, stoneIcon, scrollIcon, text, panel, bar };
 })();
