@@ -4,7 +4,7 @@
 const SPEAKERS = {
   narr: { name: '', color: '#c8b8a0' },
   hero: { name: null, color: '#9cc4ff' },
-  kael: { name: '파수꾼 카엘', color: '#ffd36a', sprite: 'knight_m', bg: '#2a2418' },
+  kael: { name: '파수꾼 카엘', color: '#ffd36a', bg: '#2a2418' },  // 초상 = 따로 찍은 도트(kaelFace) — 0x72 몸은 모두 몹 · 우리 캐릭터와 겹쳐서(2026-10-25 사용자)
   boss: { name: null, color: '#ff7a5a', bg: '#2a1414' },
 };
 
@@ -163,6 +163,53 @@ const Story = (() => {
     });
   }
 
+  // 파수꾼 카엘 얼굴: 갈색 두건 · 흰 수염 · 오른쪽 눈 흉터 · 견갑 + 금 고리. 28x28 도트를 계산으로 찍고 검은 테두리
+  let kaelCanvas = null;
+  function kaelFace() {
+    if (kaelCanvas) return kaelCanvas;
+    const N = 28, cx = 13.5;
+    const P = { k: '#3a2c22', h: '#5e4834', H: '#7a5e42', s: '#dca67f', S: '#b47c5c', b: '#b4aea8', B: '#7c7671', e: '#1a1216', r: '#b44a46', m: '#6f7884', M: '#c8d0d8', n: '#9aa3ae', g: '#ffd36a', G: '#c8962e', o: '#120c10' };
+    const at = (x, y) => {
+      const px = x + 0.5, py = y + 0.5, ax = Math.abs(px - cx);
+      if (py >= 20.5) {  // 어깨 갑옷: 견갑 + 가운데 금 고리 + 리벳
+        const w = 7 + (py - 20.5) * 1.7;
+        if (ax <= w) {
+          if (ax <= 1.4 && py < 23.5) return py < 22 ? 'g' : 'G';
+          if (ax > 2 && ax < 3) return 'm';
+          if (py < 21.6) return 'M';
+          if (Math.abs(ax - 8) < 0.6 && py > 24 && py < 25) return 'M';
+          return py < 23.5 ? 'n' : 'm';
+        }
+      }
+      const hood = ((px - cx) / 9.4) ** 2 + ((py - 12) / 10.4) ** 2 <= 1 && py < 21.5;
+      const face = ((px - cx) / 5.6) ** 2 + ((py - 13) / 6.9) ** 2 <= 1;
+      const beard = ((px - cx) / 4.3) ** 2 + ((py - 17.2) / 3.4) ** 2 <= 1 && py >= 15.2;
+      if (beard) { if (py >= 15.6 && py < 16.6 && ax <= 1.3) return 'B'; return ax > 3 || py > 19.6 ? 'B' : 'b'; }
+      if (face) {
+        if (py < 7.4) return 'k';
+        if (py < 8.4) return 'S';  // 두건 그늘
+        if (Math.abs(ax - 2.3) < 0.6 && py >= 11 && py < 12.2) return 'e';
+        if (py >= 9.8 && py < 10.8 && Math.abs(ax - 2.4) < 1.2) return 'B';
+        if (px > cx + 1 && Math.abs(px - (cx + 2.3 + (py - 11) * 0.45)) < 0.6 && py >= 8.6 && py < 14.2) return 'r';  // 흉터
+        if (ax < 0.6 && py >= 12.2 && py < 14) return 'S';  // 코
+        return px > cx + 3.4 ? 'S' : 's';
+      }
+      if (hood) return px < cx - 1.5 ? 'H' : py > 16.5 ? 'k' : 'h';
+      return null;
+    };
+    const c = document.createElement('canvas');
+    c.width = c.height = N + 2;
+    const g = c.getContext('2d'), A = (x, y) => (x < 0 || y < 0 || x >= N || y >= N ? null : at(x, y));
+    for (let y = -1; y <= N; y++) for (let x = -1; x <= N; x++) {
+      const v = A(x, y);
+      if (v) { g.fillStyle = P[v]; g.fillRect(x + 1, y + 1, 1, 1); continue; }
+      let edge = false;
+      for (let j = -1; j <= 1 && !edge; j++) for (let i = -1; i <= 1; i++) if (A(x + i, y + j)) { edge = true; break; }
+      if (edge) { g.fillStyle = P.o; g.fillRect(x + 1, y + 1, 1, 1); }
+    }
+    return (kaelCanvas = c);
+  }
+
   function portrait(ctx, who, o, cx, cy, r, time) {
     const sp = SPEAKERS[who];
     ctx.save();
@@ -171,7 +218,7 @@ const Story = (() => {
     ctx.imageSmoothingEnabled = false;
     // 가슴 위로 크게(얼굴이 보이게, 아래는 원 밖으로 잘림)
     if (who === 'hero') Art.avatar(ctx, Game.prof, cx - 6, cy + r * 1.2, 5, time);
-    else if (who === 'kael') Gfx.spr(ctx, Gfx.anim('knight_m_idle_anim', time, 6), cx + 2, cy + r * 0.78, { scale: 5 });
+    else if (who === 'kael') ctx.drawImage(kaelFace(), Math.round(cx - 51), Math.round(cy - 48 + Math.sin(time * 2) * 1.5), 102, 102);  // 숨 쉬듯 살짝
     else if (who === 'boss' && o.boss) Gfx.spr(ctx, Gfx.anim(o.boss.sprite + '_idle_anim', time, 6), cx, cy + r * 1.15, { scale: 3.8, tint: o.boss.tint });
     ctx.restore();
     ctx.strokeStyle = sp.color; ctx.lineWidth = 3;
