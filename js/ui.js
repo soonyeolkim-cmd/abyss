@@ -257,7 +257,7 @@ const UI = (() => {
       Gfx.spr(ctx, Gfx.anim(boss.sprite + '_idle_anim', time, 6), 112, y + 60, { scale: 1.5 * Math.min(1.4, boss.scale || 1), tint: boss.tint, tintAlpha: boss.tintAlpha });
       T_(ctx, '∞ 끝없는 심연', 160, y + 28, 20, on ? '#ffd36a' : '#d8b0ff');
       T_(ctx, best ? '최고 ' + best + '층' : '아직 안 깸', 880, y + 28, 13, best ? '#ffd36a' : '#9a8e96', 'right');
-      T_(ctx, '방에 들어서면 문이 잠김 · 수호자를 잡으면 바로 다음 층 (지금은 ' + ENDLESS.max + '층까지)', 162, y + 52, 13, '#9a8e96');
+      T_(ctx, '방 하나 = 맵 하나 · 적을 다 잡으면 문이 열림 · 수호자 뒤 바로 다음 층', 162, y + 52, 13, '#9a8e96');
       if (!on) return;
       for (let f = 1; f <= ENDLESS.max; f++) {
         const tx = 664 + (f - 1) * 74, open = f <= top, cur = this.floor === f;

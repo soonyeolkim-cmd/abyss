@@ -30,6 +30,7 @@ function committed(e) {
 function hitEnemy(e, def, p, w) {
   if (World.mirror) return false;  // 파티 손님: 맞히기는 방장 쪽 내 몸이 한다(world.js)
   if (e.dying || e.state === 'dead' || e.state === 'getup' || e.spawnT > 0) return false;
+  if (e.ri !== undefined && World.roomOf(p) !== e.ri) return false;  // 방 하나 = 맵 하나: 다른 방 몹은 안 맞는다
   if (e.state === 'down') {
     if (e.otgUsed) return false;  // 쓰러진 몹은 추가타 한 번만
     e.otgUsed = true;

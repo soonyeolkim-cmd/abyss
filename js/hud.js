@@ -310,7 +310,40 @@ const Hud = (() => {
     if (m) { ctx.globalAlpha = Math.min(1, m.t / 0.4); T_(ctx, m.s, 480, 130, 28, '#f0e0b8', 'center'); ctx.globalAlpha = 1; }
   }
 
+  // 방 하나 = 맵 하나(끝없는 심연): 던파식 방 지도 — 네모 칸 = 방, 줄 = 문. 지금 방(금빛 깜빡) · 깬 방(보라) · 안 깬 방(붉게) · 안 가 본 방(어둡게),
+  // 수호자 방 = 붉은 테두리, 안 연 상자 = 노란 점(가 본 방만), 계단 = 하늘색, 파티원 = 그 방에 파티 색 점
+  function drawRoomMap(ctx, lv, p) {
+    const CWp = 24, CHp = 16, G = 6, gxs = lv.rooms.map(r => r.gx), gys = lv.rooms.map(r => r.gy);
+    const gx0 = Math.min(...gxs), gy0 = Math.min(...gys), nx = Math.max(...gxs) - gx0 + 1, ny = Math.max(...gys) - gy0 + 1;
+    const mw = nx * (CWp + G) - G, mh = ny * (CHp + G) - G, ox = 950 - mw, oy = 10, now = performance.now() / 1000;
+    const pos = r => [ox + (r.gx - gx0) * (CWp + G), oy + (r.gy - gy0) * (CHp + G)];
+    ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(ox - 5, oy - 5, mw + 10, mh + 10);
+    ctx.fillStyle = '#5a4a6a';  // 문(이음)
+    lv.rooms.forEach((r, i) => { for (const d of r.doors) if (d.to > i) { const [x, y] = pos(r); if (d.dir === 'r') ctx.fillRect(x + CWp, y + CHp / 2 - 1, G, 3); else if (d.dir === 'l') ctx.fillRect(x - G, y + CHp / 2 - 1, G, 3); else if (d.dir === 'd') ctx.fillRect(x + CWp / 2 - 1, y + CHp, 3, G); else ctx.fillRect(x + CWp / 2 - 1, y - G, 3, G); } });
+    const cur = World.roomOf(p);
+    lv.rooms.forEach((r, i) => {
+      const [x, y] = pos(r), seen = lv.visited.has(i), done = lv.cleared.has(i);
+      ctx.fillStyle = !seen ? '#1c1424' : done ? '#4a3270' : '#6a2a2a';
+      ctx.fillRect(x, y, CWp, CHp);
+      ctx.lineWidth = 1; ctx.strokeStyle = r.boss ? '#d83a3a' : seen ? '#8a78a0' : '#3a2e46';
+      ctx.strokeRect(x + 0.5, y + 0.5, CWp - 1, CHp - 1);
+      if (r.boss) { ctx.fillStyle = '#d83a3a'; ctx.fillRect(x + CWp / 2 - 2, y + CHp / 2 - 2, 4, 4); }
+      if (seen) for (const c of lv.chests) if (!c.open && Dungeon.roomIdx(lv, c.x, c.y) === i) { ctx.fillStyle = '#ffd34d'; ctx.fillRect(x + 3, y + 3, 3, 3); }
+      if (lv.stairs && Dungeon.roomIdx(lv, lv.stairs.x, lv.stairs.y) === i) { ctx.fillStyle = '#7dd3ff'; ctx.fillRect(x + CWp - 7, y + 3, 4, 4); }
+      if (i === cur && Math.sin(now * 6) > -0.4) { ctx.lineWidth = 2; ctx.strokeStyle = '#ffd36a'; ctx.strokeRect(x - 1, y - 1, CWp + 2, CHp + 2); }
+    });
+    World.mates.forEach((mt, k) => {  // 파티원: 그 방 아래쪽에 파티 색 점(쓰러졌으면 붉게 깜빡)
+      if (mt.dead && Math.sin(now * 8) < 0) return;
+      const [x, y] = pos(lv.rooms[World.roomOf(mt)]);
+      ctx.fillStyle = mt.dead ? '#ff6a5a' : Coop.colorOf(mt.pid); ctx.fillRect(x + 3 + k * 5, y + CHp - 6, 4, 4);
+    });
+    const [px, py] = pos(lv.rooms[cur]);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(px + CWp / 2 - 2, py + CHp / 2 - 2, 4, 4);
+    return oy + mh;
+  }
+
   function drawMap(ctx, lv, p) {
+    if (lv.roomMaps) return mapInfo(ctx, lv, drawRoomMap(ctx, lv, p) + 18);
     const s = Math.min(150 / lv.W, 120 / lv.H);
     const ox = 950 - lv.W * s, oy = 10;
     // 가 본 칸 그림은 따로 만들어 두고, 가 본 곳이 늘 때만 다시(2026-10-25 사용자: 폰에서 버벅임 — 예전엔 매 프레임 칸 수천 개를 칠했다)
@@ -337,7 +370,11 @@ const Hud = (() => {
     }
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(ox + p.x / T * s - 2, oy + p.y / T * s - 2, 4, 4);
-    const by = oy + lv.H * s + 18, df = DIFFS[RUN.diff], run = World.run, prof = World.prof;
+    mapInfo(ctx, lv, oy + lv.H * s + 18);
+  }
+  // 지도 아래: 던전 이름 · 난이도(끝없는 심연은 최고 층) · 시간
+  function mapInfo(ctx, lv, by) {
+    const df = DIFFS[RUN.diff], run = World.run, prof = World.prof;
     T_(ctx, lv.def.name, 950, by, 12, '#9a8e96', 'right');
     if (lv.def.endless) T_(ctx, '최고 ' + endlessBest(prof) + '층', 950, by + 16, 12, '#d8b0ff', 'right');  // 끝없는 심연은 난이도 대신 최고 층
     else T_(ctx, df.name, 950, by + 16, 12, df.color, 'right');  // 난이도(2026-10-24 사용자)

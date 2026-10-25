@@ -45,6 +45,21 @@ const Jar = (() => {
   const levels = prof => { const out = [Math.max(1, prof.lv)]; for (let b = Math.floor(prof.lv / 10) * 10 - 10; b >= 0; b -= 10) out.push(Math.max(1, b)); return out; };
   const jarLv = prof => { const ls = levels(prof); return ls[Math.min(lvSel, ls.length - 1)]; };
   const price = prof => JAR.price(jarLv(prof));
+  // 이 부위 · 단계 유니크를 이미 가졌나(2026-10-25 사용자: 컬렉션 · 가방 · 끼고 있는 것 모두 봄, 무기는 내 직업 무기 두 종류가 다 있어야 '있음')
+  // cats = 컬렉션 갈래(무기는 종류마다), skip = 빼고 볼 장비(방금 깬 것). 돌려줌: 갈래마다 어디 있는지 · 가진 갈래 수 · 모든 곳 이름
+  function owned(prof, slot, tier, cats, skip) {
+    cats = cats || (slot === 'weapon' ? clsOf(prof).weapons.map(k => 'weapon_' + k) : [slot]);
+    const same = (it, c) => it && it !== skip && it.uniq && it.slot === slot && vaultCat(it) === c && tierOf(it.ilvl) === tier;
+    const per = cats.map(c => ({
+      cat: c,
+      vault: !!(prof.vault && prof.vault[c + ':' + tier]),
+      bag: prof.bag.some(it => same(it, c)),
+      worn: same(prof.equip[slot], c),
+    }));
+    const where = [['vault', '컬렉션'], ['bag', '가방'], ['worn', '착용 중']].filter(([k]) => per.some(x => x[k])).map(([, n]) => n);
+    return { per, have: per.filter(x => x.vault || x.bag || x.worn).length, of: cats.length, where };
+  }
+  const catName = c => (VAULT_CATS.find(v => v.id === c) || {}).name || '';
   const slot = () => SLOTS[sel];
   function open() { st = 'ready'; t = 0; item = null; shards = []; last = performance.now(); lvSel = 0; }
   function pickLv(prof, k) {  // 레벨 바꾸기(결과를 보다가 바꾸면 새 항아리)
@@ -119,6 +134,13 @@ const Jar = (() => {
       Gfx.icon(ctx, previewOf(prof, s), 64, y + 20, 26);
       T_(ctx, SLOT_NAMES[s] + ' 항아리', 88, y + 27, 15, on ? '#ffd36a' : '#f0e0b8');
       T_(ctx, p + 'G · 착용 Lv.' + req, 436, y + 27, 12, prof.gold >= p ? '#9a8e96' : '#ff7a6a', 'right');
+      // 이 단계 유니크를 가졌나: 윗줄 '✔ 있음'(무기는 두 종류 다) 또는 '검만 있음', 아랫줄 어디 있는지(컬렉션 · 가방 · 착용 중)
+      const ow = owned(prof, s, tierOf(jl));
+      if (ow.have) {
+        const full = ow.have === ow.of, one = ow.per.find(x => x.vault || x.bag || x.worn);
+        T_(ctx, full ? '✔ 유니크 있음' : catName(one.cat) + '만 있음', 190, y + 18, 11, full ? '#7dff8a' : '#e0c870');
+        T_(ctx, ow.where.join(' · '), 190, y + 32, 10, '#8aa890');
+      }
     });
     const pc = v => Math.round(v * 100) + '%';
     T_(ctx, '일반 ' + pc(1 - JAR.uniq - JAR.rare - JAR.magic) + ' · 매직 ' + pc(JAR.magic) + ' · 레어 ' + pc(JAR.rare) + ' · 유니크 ' + pc(JAR.uniq), 44, 404, 13, '#c8b8a0');
@@ -172,6 +194,10 @@ const Jar = (() => {
     }
     if (st === 'result') {
       const lines = Items.describe(item, prof);  // 이름 · 등급 · 능력치 · 낀 것과 비교
+      if (item.uniq) {  // 유니크: 같은 것(무기는 같은 종류)이 컬렉션 · 가방 · 착용에 이미 있는지 — 방금 가방에 들어간 이 장비는 빼고
+        const ow = owned(prof, item.slot, tierOf(item.ilvl), [vaultCat(item)], item);
+        T_(ctx, ow.have ? '이미 있어요 (' + ow.where.join(' · ') + ')' : '★ 아직 없는 새 유니크!', CX, JY + 12, 13, ow.have ? '#9a8e96' : '#ffd36a', 'center');
+      }
       T_(ctx, Items.nameOf(item), CX, JY + 34, 20, rarCol, 'center');
       T_(ctx, (item.uniq ? '유니크' : RARITY[item.rarity].name) + ' · ' + SLOT_NAMES[item.slot] + ' · 착용 Lv.' + Items.req(item), CX, JY + 56, 13, '#c8b8a0', 'center');
       lines.slice(2, 7).forEach((l, i) => T_(ctx, l.t, CX, JY + 80 + i * 18, 13, l.c || '#e8dcc8', 'center'));

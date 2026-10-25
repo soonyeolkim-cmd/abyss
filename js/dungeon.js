@@ -8,12 +8,12 @@ const Dungeon = (() => {
   const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
   // 큰길: 셀 위를 겹치지 않게 걷는 길(mainLen 칸). 막히면 다시 굴린다
-  function walkPath(mainLen) {
+  function walkPath(mainLen, gc = GC, gr = GR) {
     for (let attempt = 0; attempt < 400; attempt++) {
-      const path = [[rnd(0, GC - 1), rnd(0, GR - 1)]], used = new Set([path[0].join()]);
+      const path = [[rnd(0, gc - 1), rnd(0, gr - 1)]], used = new Set([path[0].join()]);
       while (path.length < mainLen) {
         const [cx, cy] = path[path.length - 1];
-        const opts = DIRS.map(([dx, dy]) => [cx + dx, cy + dy]).filter(([x, y]) => x >= 0 && y >= 0 && x < GC && y < GR && !used.has(x + ',' + y));
+        const opts = DIRS.map(([dx, dy]) => [cx + dx, cy + dy]).filter(([x, y]) => x >= 0 && y >= 0 && x < gc && y < gr && !used.has(x + ',' + y));
         if (!opts.length) break;
         const n = opts[rnd(0, opts.length - 1)];
         path.push(n); used.add(n.join());
@@ -24,6 +24,7 @@ const Dungeon = (() => {
   }
 
   function generate(def) {
+    if (def.roomMaps) return generateRooms(def);
     const W = GC * CW + 2, H = GR * CH + 4;
     const tiles = new Uint8Array(W * H);
     const at = (x, y) => (x < 0 || y < 0 || x >= W || y >= H ? 0 : tiles[y * W + x]);
@@ -68,13 +69,7 @@ const Dungeon = (() => {
       if (at(x, y) === 0 && at(x, y - 1) === 1 && at(x, y + 1) === 1) set(x, y, 1);
       if (at(x, y) === 0 && at(x - 1, y) === 1 && at(x + 1, y) === 1) set(x, y, 1);
     }
-    // 방 문 칸 = 방 둘레 바로 바깥 한 줄 중 바닥인 칸(복도 입구). 끝없는 심연은 방을 잠글 때 이 칸을 막는다(world.js setLock)
-    for (const r of rooms) {
-      r.gates = [];
-      for (let x = r.x - 1; x <= r.x + r.w; x++) for (const y of [r.y - 1, r.y + r.h]) if (at(x, y) === 1) r.gates.push(y * W + x);
-      for (let y = r.y; y < r.y + r.h; y++) for (const x of [r.x - 1, r.x + r.w]) if (at(x, y) === 1) r.gates.push(y * W + x);
-    }
-    const lv = { def, W, H, tiles, rooms, at, drops: [], chests: [], columns: [], stairs: null, locked: new Set() };
+    const lv = { def, W, H, tiles, rooms, at, drops: [], chests: [], columns: [], stairs: null };
     lv.start = cells[0].room;
     lv.boss = cells[mainLen - 1].room;
     lv.explored = new Uint8Array(W * H);
@@ -103,6 +98,102 @@ const Dungeon = (() => {
     lv.canvas = paint(lv);
     return lv;
   }
+
+  // ── 방 하나 = 맵 하나(끝없는 심연, 2026-10-25 사용자: 던파식 '다음 방 = 다음 맵') ──
+  // 방 지도(던파 던전 지도): 작은 바둑판(RGC x RGR) 위 큰길(시작 → … → 수호자) + 샛길 방 2. 이음은 문으로만 — 실제 칸 위에서는 방마다 떨어진 섬이다.
+  // 섬끼리 RGAP 칸 떨어져 있어서 몹이 넘어오거나 벽 너머로 맞는 일이 없다. 문 = 방 둘레 가운데 3칸 틈(이웃 방 쪽만), 걸어 들어가면 그 방의 마주 보는 문 앞으로(world.js doorCheck).
+  // 방 = 화면보다 넓은 네모(가로 약 1.5 · 세로 약 1.3 화면) + 방마다 다른 기둥 배치. 시작 방은 작게, 수호자 방은 크게.
+  const RGC = 5, RGR = 4, RGAP = 12, ROW = 3;
+  const OPP = { r: 'l', l: 'r', u: 'd', d: 'u' };
+  function generateRooms(def) {
+    const branches = 2, mainLen = Math.max(3, def.rooms - branches);
+    const { path, used } = walkPath(mainLen, RGC, RGR);
+    const cells = path.map(([gx, gy], i) => ({ gx, gy, main: true, idx: i }));
+    for (let b = 0, tries = 0; b < branches && tries < 200; tries++) {
+      const parent = cells[rnd(1, mainLen - 2)];
+      const opts = DIRS.map(([dx, dy]) => [parent.gx + dx, parent.gy + dy]).filter(([x, y]) => x >= 0 && y >= 0 && x < RGC && y < RGR && !used.has(x + ',' + y));
+      if (!opts.length) continue;
+      const [gx, gy] = opts[rnd(0, opts.length - 1)];
+      used.add(gx + ',' + gy);
+      cells.push({ gx, gy, main: false, parent });
+      b++;
+    }
+    // 방 크기
+    cells.forEach(c => {
+      const boss = c.main && c.idx === mainLen - 1, start = c.main && c.idx === 0;
+      c.w = boss ? 40 : start ? 24 : rnd(30, 40);
+      c.h = boss ? 23 : start ? 14 : rnd(17, 22);
+      c.boss = boss;
+    });
+    // 실제 자리: ROW 개씩 줄로(줄 높이 = 그 줄 가장 큰 방), 섬 사이 RGAP 칸
+    let W = 0, y = RGAP;
+    for (let i = 0; i < cells.length; i += ROW) {
+      const row = cells.slice(i, i + ROW), rh = Math.max(...row.map(c => c.h));
+      let x = RGAP;
+      for (const c of row) { c.x = x; c.y = y + ((rh - c.h) >> 1); x += c.w + RGAP; }
+      W = Math.max(W, x);
+      y += rh + RGAP;
+    }
+    const H = y;
+    const tiles = new Uint8Array(W * H);
+    const at = (x, y) => (x < 0 || y < 0 || x >= W || y >= H ? 0 : tiles[y * W + x]);
+    const set = (x, y, v) => { if (x > 0 && y > 2 && x < W - 1 && y < H - 2) tiles[y * W + x] = v; };
+    const rooms = cells.map(c => {
+      const r = { x: c.x, y: c.y, w: c.w, h: c.h, cx: c.x + (c.w >> 1), cy: c.y + (c.h >> 1), boss: c.boss, main: c.main, branch: !c.main, order: c.main ? c.idx : -1, gx: c.gx, gy: c.gy, doors: [] };
+      c.room = r;
+      for (let yy = r.y; yy < r.y + r.h; yy++) for (let xx = r.x; xx < r.x + r.w; xx++) set(xx, yy, 1);
+      return r;
+    });
+    // 문: 이웃 두 방 사이 — 서로 마주 보는 변 가운데 3칸 틈(1칸 깊이). ax, ay = 이 문으로 들어올 때 서는 자리(방 안쪽)
+    const doorOn = (r, d, to) => {
+      const t = [];
+      for (let k = -1; k <= 1; k++) {
+        const tx = d === 'r' ? r.x + r.w : d === 'l' ? r.x - 1 : r.cx + k, ty = d === 'd' ? r.y + r.h : d === 'u' ? r.y - 1 : r.cy + k;
+        set(tx, ty, 1); t.push(ty * W + tx);
+      }
+      const x = (d === 'r' ? r.x + r.w : d === 'l' ? r.x - 1 : r.cx) * T + 8, y = (d === 'd' ? r.y + r.h : d === 'u' ? r.y - 1 : r.cy) * T + 8;
+      const v = { r: [-1, 0], l: [1, 0], u: [0, 1], d: [0, -1] }[d];
+      r.doors.push({ dir: d, to, tiles: t, x, y, ax: x + v[0] * 30, ay: y + v[1] * 30 + 4 });
+    };
+    const link = (a, b) => {
+      const d = b.gx > a.gx ? 'r' : b.gx < a.gx ? 'l' : b.gy > a.gy ? 'd' : 'u';
+      doorOn(a.room, d, rooms.indexOf(b.room)); doorOn(b.room, OPP[d], rooms.indexOf(a.room));
+    };
+    for (let i = 1; i < mainLen; i++) link(cells[i - 1], cells[i]);
+    for (const c of cells) if (!c.main) link(c.parent, c);
+    const lv = { def, W, H, tiles, rooms, at, drops: [], chests: [], columns: [], stairs: null, roomMaps: true, cleared: new Set([0]), visited: new Set([0]) };
+    lv.start = rooms[0];
+    lv.boss = cells[mainLen - 1].room;
+    lv.explored = new Uint8Array(W * H);
+    // 기둥 배치: 방마다 하나(없음 · 네 귀 · 두 줄 · 가운데 넷 · 흩어짐) — 문 앞 길(가운데 줄)은 비운다
+    const lane = (r, x, y) => Math.abs(x - r.cx) < 3 || Math.abs(y - r.cy) < 3;
+    for (const r of rooms) {
+      if (r === lv.start) continue;
+      const cs = [], kind = r.boss ? 1 : rnd(0, 4);
+      if (kind === 1) for (const c of [[r.x + 4, r.y + 3], [r.x + r.w - 5, r.y + 3], [r.x + 4, r.y + r.h - 3], [r.x + r.w - 5, r.y + r.h - 3]]) cs.push(c);
+      if (kind === 2) for (let x = r.x + 5; x < r.x + r.w - 4; x += 5) { cs.push([x, r.y + 4]); cs.push([x, r.y + r.h - 4]); }
+      if (kind === 3) for (const [dx, dy] of [[-5, -4], [5, -4], [-5, 4], [5, 4]]) cs.push([r.cx + dx, r.cy + dy]);
+      if (kind === 4) for (let k = 0; k < 6; k++) cs.push([rnd(r.x + 3, r.x + r.w - 4), rnd(r.y + 3, r.y + r.h - 3)]);
+      for (const c of cs) if (!lane(r, c[0], c[1]) && !lv.columns.some(o => Math.abs(o[0] - c[0]) < 2 && Math.abs(o[1] - c[1]) < 2)) lv.columns.push(c);
+    }
+    lv.crates = new Set();
+    for (const r of rooms) {
+      if (r === lv.start || r.boss) continue;
+      for (let k = 0; k < (def.crates || 0) * 2; k++) {
+        const cx = rnd(r.x + 1, r.x + r.w - 2), cy = Math.random() < 0.5 ? r.y + 1 : r.y + r.h - 2;
+        if (lane(r, cx, cy)) continue;
+        const key = cx + ',' + cy;
+        if (lv.crates.has(key)) continue;
+        lv.crates.add(key); lv.columns.push([cx, cy]);
+      }
+    }
+    lv.decor = { skulls: [], banners: new Set() };
+    for (let k = 0; k < Math.round(rooms.length * 5 * (def.skulls ?? 1)); k++) { const r = rooms[rnd(0, rooms.length - 1)]; lv.decor.skulls.push([(r.x + rnd(1, r.w - 2)) * T + 8, (r.y + rnd(1, r.h - 2)) * T + 12]); }
+    lv.canvas = paint(lv);  // 문은 열린 채로 그려 두고, 닫힌 문은 world.js 가 칸을 막고 위에 막을 그린다
+    return lv;
+  }
+  // 방 번호(그 방 바닥 네모 안이면), 아니면 -1
+  const roomIdx = (lv, x, y) => lv.rooms.findIndex(r => x >= r.x * T && x < (r.x + r.w) * T && y >= r.y * T && y < (r.y + r.h) * T);
 
   // 칸 거리(막히지 않은 칸으로만): 보스방 찾기 · 몹 길찾기
   function bfs(lv, sx, sy, limit = 1e9) {
@@ -221,5 +312,5 @@ const Dungeon = (() => {
 
   const roomAt = (lv, x, y) => lv.rooms.find(r => x >= r.x * T && x < (r.x + r.w) * T && y >= r.y * T && y < (r.y + r.h) * T);
 
-  return { generate, paint, bfs, walkable, move, los, spotIn, roomAt };
+  return { generate, paint, bfs, walkable, move, los, spotIn, roomAt, roomIdx };
 })();
