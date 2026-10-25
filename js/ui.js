@@ -261,26 +261,98 @@ const UI = (() => {
       yes: () => { const r = Items.sellAll(prof, idx); Game.toast(idx.length + '개 판매 +' + r.gold + 'G' + (r.gems ? ' · 보석 ' + r.gems + '개는 주머니로' : '')); Game.changed(); } });
   }
   // 상점 물건: 물약 + 가장 작은(조각) 속성석 · 보석
-  // 상점 물건 하나 사기(장비 창 '사기' · 아이템 사고팔기 창 공용)
-  function buyGood(prof, g) {
-    if (g.scroll) {
-      if (prof.gold < INHERIT_PRICE) { Game.toast('골드가 모자라요 (' + INHERIT_PRICE + 'G)'); return; }
-      prof.gold -= INHERIT_PRICE; Items.addScroll(prof, g.scroll);
-      Game.toast('계승 주문서를 샀어요 (-' + INHERIT_PRICE + 'G) · 가진 개수 ' + prof.scrolls[scrollKey(g.scroll)]);
-    } else if (!g.potion) {
-      if (prof.gold < SHARD_PRICE) { Game.toast('골드가 모자라요 (' + SHARD_PRICE + 'G)'); return; }
-      prof.gold -= SHARD_PRICE; Elements.add(prof, { el: g.el, size: 0 });
-      Game.toast(stoneName(g) + '을 샀어요 (-' + SHARD_PRICE + 'G) · 가진 개수 ' + prof.stones[Elements.key(g)]);
-    } else {
+  // 상점 물건 n개 사기(아이템 사고팔기 창 · 수량 창 공용)
+  function buyGood(prof, g, n = 1) {
+    const price = goodPrice(g) * n;
+    if (g.potion) {
       if (prof.potions >= clsOf(prof).potion.max) { Game.toast('물약은 ' + clsOf(prof).potion.max + '개까지 들 수 있어요'); return; }
-      if (prof.gold < POTION_PRICE) { Game.toast('골드가 모자라요'); return; }
-      prof.gold -= POTION_PRICE; prof.potions++; Game.toast('물약을 샀어요 (-' + POTION_PRICE + 'G)');
+      n = Math.min(n, clsOf(prof).potion.max - prof.potions);
+    }
+    if (prof.gold < goodPrice(g) * n) { Game.toast('골드가 모자라요 (' + price + 'G)'); return; }
+    prof.gold -= goodPrice(g) * n;
+    const cnt = n > 1 ? ' ' + n + '개' : '';
+    if (g.scroll) {
+      Items.addScroll(prof, g.scroll, n);
+      Game.toast('계승 주문서' + cnt + '를 샀어요 (-' + goodPrice(g) * n + 'G) · 가진 개수 ' + prof.scrolls[scrollKey(g.scroll)]);
+    } else if (!g.potion) {
+      Elements.add(prof, { el: g.el, size: 0 }, n);
+      Game.toast(stoneName(g) + cnt + '을 샀어요 (-' + goodPrice(g) * n + 'G) · 가진 개수 ' + prof.stones[Elements.key(g)]);
+    } else {
+      prof.potions += n;
+      Game.toast('물약' + cnt + '을 샀어요 (-' + POTION_PRICE * n + 'G) · ' + prof.potions + '/' + clsOf(prof).potion.max);
     }
     Sfx.gold();
     Game.changed();
   }
+  // 수량 정해 사기(2026-10-25 사용자: 패드 Y · 키보드 Z = 특수기 버튼). 물약은 수량 창 없이 그 버튼으로 가득 채우기(살 수 있는 만큼)
+  const QTY_MAX = 999;
+  const qtyMax = (prof, g) => Math.min(QTY_MAX, Math.floor(prof.gold / goodPrice(g)));
+  function buyMore(prof, g) {
+    if (g.potion) {
+      const want = clsOf(prof).potion.max - prof.potions;
+      if (want <= 0) { Game.toast('물약은 ' + clsOf(prof).potion.max + '개까지 들 수 있어요'); return; }
+      const n = Math.min(want, Math.floor(prof.gold / POTION_PRICE));
+      if (n <= 0) { Game.toast('골드가 모자라요 (' + POTION_PRICE + 'G)'); return; }
+      buyGood(prof, g, n);
+      return;
+    }
+    if (qtyMax(prof, g) < 1) { Game.toast('골드가 모자라요 (' + goodPrice(g) + 'G)'); return; }
+    Game.overlay({ type: 'qty', good: g, n: 1 });
+  }
   const goodName = g => (g.potion ? '체력 물약' : g.scroll ? scrollName(g.scroll) : stoneName(g));
   const goodPrice = g => (g.potion ? POTION_PRICE : g.scroll ? INHERIT_PRICE : SHARD_PRICE);
+  // 수량 창: ←→ 1개 · ↑↓ 10개 · 특수기 = 최대(다시 누르면 1개) · 확인 = 사기 · 취소. 폰은 −10 · −1 · +1 · +10 · 최대 · 사기 · 취소 버튼을 바로 누른다
+  const qty = {
+    update(o, prof) {
+      const max = Math.max(1, qtyMax(prof, o.good));
+      if (Input.wasPressed('back') || Input.wasPressed('pause')) { Game.closeOverlay(); return; }
+      let n = o.n;
+      if (Input.nav('right')) n++;
+      if (Input.nav('left')) n--;
+      if (Input.nav('up')) n += 10;
+      if (Input.nav('down')) n -= 10;
+      if (Input.wasPressed('special')) n = n === max ? 1 : max;
+      o.n = Math.max(1, Math.min(max, n));
+      if (Input.wasPressed('ok')) { Game.closeOverlay(); buyGood(prof, o.good, o.n); }
+    },
+    draw(ctx, o, prof) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, 960, 540);
+      zone(0, 0, 960, 540, { key: null });  // 창 밖을 눌러도 뒤의 상점 줄이 눌리지 않게
+      const g = o.good, max = Math.max(1, qtyMax(prof, g)), total = goodPrice(g) * o.n, X = 250, Y = 130, W = 460, H = 280;
+      Gfx.panel(ctx, X, Y, W, H, { border: '#ffd36a' });
+      // 물건 이름 · 하나 값
+      if (g.scroll) Gfx.scrollIcon(ctx, g.scroll, X + 40, Y + 38, 28);
+      else Gfx.stoneIcon(ctx, g, X + 40, Y + 38, 30);
+      T_(ctx, goodName(g), X + 66, Y + 36, 19, g.scroll ? scrollColor(g.scroll) : ELEMENTS[g.el].color);
+      T_(ctx, '하나 ' + goodPrice(g) + 'G', X + W - 20, Y + 36, 13, '#9a8e96', 'right');
+      T_(ctx, '가진 것 ' + (g.scroll ? (prof.scrolls[scrollKey(g.scroll)] || 0) + '장' : (prof.stones[Elements.key(g)] || 0) + '개'), X + 66, Y + 56, 12, '#8a7e88');
+      // 수량: −10 −1 [n] +1 +10
+      const cy = Y + 112;
+      const step = (label, bx, d) => {
+        zone(bx - 30, cy - 26, 60, 44, { pick: () => { o.n = Math.max(1, Math.min(max, o.n + d)); }, key: null, now: true });
+        Gfx.panel(ctx, bx - 28, cy - 24, 56, 40, { border: '#5a4650', bg: '#1d151b' });
+        T_(ctx, label, bx, cy + 3, 16, (d < 0 ? o.n > 1 : o.n < max) ? '#e8e0d0' : '#5a5058', 'center');
+      };
+      step('−10', X + 52, -10); step('−1', X + 120, -1); step('+1', X + W - 120, 1); step('+10', X + W - 52, 10);
+      T_(ctx, String(o.n), X + W / 2, cy + 10, 36, '#ffd36a', 'center');
+      T_(ctx, '/ ' + max, X + W / 2, cy + 30, 11, '#8a7e88', 'center');
+      // 최대 버튼 · 합계
+      zone(X + W / 2 - 50, cy + 38, 100, 32, { pick: () => { o.n = o.n === max ? 1 : max; }, key: null, now: true });
+      Gfx.panel(ctx, X + W / 2 - 48, cy + 40, 96, 28, { border: '#5a4650', bg: '#1d151b' });
+      T_(ctx, (o.n === max ? '1개' : '최대') + ' ' + L('special'), X + W / 2, cy + 59, 13, '#c8b8a0', 'center');
+      T_(ctx, '합계 ' + total + 'G', X + W / 2, Y + 210, 18, '#ffd34d', 'center');
+      T_(ctx, '남는 골드 ' + (prof.gold - total) + 'G', X + W / 2, Y + 230, 12, '#9a8e96', 'center');
+      // 사기 · 취소
+      [['사기 ' + L('ok'), 'ok', '#7dff8a'], ['취소 ' + L('back'), 'back', '#e8e0d0']].forEach(([s, k, c], i) => {
+        const bx = X + W / 2 - 110 + i * 120;
+        zone(bx, Y + H - 44, 100, 36, { key: k, now: true });
+        Gfx.panel(ctx, bx, Y + H - 44, 100, 34, { border: i ? '#5a4650' : '#4a8a50', bg: '#1d151b' });
+        T_(ctx, s, bx + 50, Y + H - 21, 14, c, 'center');
+      });
+      hintBar(ctx, '1개 ←→ · 10개 ↑↓ · 최대 ' + L('special') + ' · 사기 ' + L('ok') + ' · 취소 ' + L('back'));
+    },
+  };
   const SHOP_GOODS = () => [{ potion: true }, ...[...EL_ORDER, ...GEM_ORDER].map(el => ({ el, size: 0 })), { scroll: { g: 'inherit', r: 0 } }];
   const inv = {
     zone: 'bag', r: 0, c: 0, idx: 0, btn: 0, shop: 0,
@@ -1120,6 +1192,7 @@ const UI = (() => {
       if (Input.nav('left') || Input.nav('right')) { this.zone = this.zone === 'buy' ? 'mine' : 'buy'; return; }
       if (this.zone === 'buy') this.buy = menuNav(this.buy, goods.length);
       else if (mine.length) this.mine = menuNav(Math.min(this.mine, mine.length - 1), mine.length);
+      if (this.zone === 'buy' && Input.wasPressed('special')) { buyMore(prof, goods[this.buy]); return; }  // 수량 정해 사기 · 물약 가득
       if (!Input.wasPressed('ok')) return;
       if (this.zone === 'buy') { buyGood(prof, goods[this.buy]); return; }
       const st = mine[Math.min(this.mine, mine.length - 1)];
@@ -1168,7 +1241,7 @@ const UI = (() => {
       const g = goods[this.buy], st = mine[sel];
       if (this.zone === 'buy' && g) T_(ctx, g.potion ? '최대 체력의 40%를 바로 회복' : g.scroll ? '강화(+N)를 같은 부위 새 장비로 옮길 때 1장' : GEMS[g.el] ? gemText(g) + ' (' + GEMS[g.el].where + ')' : '세공사에서 3개를 합치면 한 단계 커져요', 44, 476, 12, '#c8b8a0');
       if (this.zone === 'mine' && st) T_(ctx, st.size === 0 ? '조각 하나 판매 +' + SHARD_SELL + 'G' : '1단계(조각)만 팔 수 있어요', 508, 476, 12, st.size === 0 ? '#c8b8a0' : '#ff8a6a');
-      hintBar(ctx, '사기 ↔ 내 것 ←→ · 고르기 ↑↓ · ' + (this.zone === 'buy' ? '사기 ' : '팔기 ') + L('ok') + ' · 닫기 ' + L('back'));
+      hintBar(ctx, '사기 ↔ 내 것 ←→ · 고르기 ↑↓ · ' + (this.zone === 'buy' ? '1개 사기 ' + L('ok') + ' · ' + (g && g.potion ? '가득 채우기 ' : '수량 정하기 ') + L('special') : '팔기 ' + L('ok')) + ' · 닫기 ' + L('back'));
     },
   };
 
@@ -1397,9 +1470,11 @@ const UI = (() => {
     const o = Game.overlays[Game.overlays.length - 1];
     if (!o) return null;
     if (o.type === 'vault') return '모두 넣기';
+    if (o.type === 'shopItems' && shopItems.zone === 'buy') return SHOP_GOODS()[shopItems.buy].potion ? '물약 가득' : '수량 정하기';
+    if (o.type === 'qty') return o.n === Math.max(1, qtyMax(Game.prof, o.good)) ? '1개로' : '최대';
     if (o.type === 'smith' && smith.zone === 'item' && !smith.anim) return '강화 옮기기';
     return null;
   }
 
-  return { shopItems, title, choice, select, inv, stones, gems, manage, smith, vault, pause, settings, confirm, result, tap, tapLayer, resolveTap, touchSpecial, zone };
+  return { shopItems, qty, title, choice, select, inv, stones, gems, manage, smith, vault, pause, settings, confirm, result, tap, tapLayer, resolveTap, touchSpecial, zone };
 })();

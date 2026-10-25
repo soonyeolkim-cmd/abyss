@@ -64,6 +64,7 @@ const Game = (() => {
       else if (top.type === 'smith') UI.smith.update(top, prof);
       else if (top.type === 'vault') UI.vault.update(top, prof);
       else if (top.type === 'shopItems') UI.shopItems.update(top, prof);
+      else if (top.type === 'qty') UI.qty.update(top, prof);
       else if (top.type === 'pause') UI.pause.update();
       else if (top.type === 'settings') UI.settings.update();
       else if (top.type === 'confirm') UI.confirm.update(top);
@@ -103,6 +104,7 @@ const Game = (() => {
       else if (o.type === 'smith') UI.smith.draw(ctx, o, prof);
       else if (o.type === 'vault') UI.vault.draw(ctx, o, prof);
       else if (o.type === 'shopItems') UI.shopItems.draw(ctx, o, prof);
+      else if (o.type === 'qty') UI.qty.draw(ctx, o, prof);
       else if (o.type === 'pause') UI.pause.draw(ctx);
       else if (o.type === 'settings') UI.settings.draw(ctx);
       else if (o.type === 'confirm') UI.confirm.draw(ctx, o);
