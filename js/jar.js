@@ -1,12 +1,13 @@
-// 장비 항아리(2026-10-25 사용자: 99 이후 콘텐츠의 도박을 지금 — 내 레벨대 장비 뽑기). 상인 엘린 → '장비 항아리 (도박)', overlay 'jar'.
-// 골드를 내고 항아리를 깨면 내 레벨 단계(바로 낄 수 있는) 장비가 하나 나온다. 등급은 무작위(data.js JAR: 유니크 3% · 레어 약 20% · 매직 35% · 일반 42%).
-// 흐름: 고르기(값 · 확률) → 흔들림(1.2초, 금이 가며 점점 세게) → 깨짐(조각이 튀고 등급 색 빛) → 결과(장비 설명 · 낀 것과 비교 · 한 번 더).
+// 장비 항아리(2026-10-25 사용자: 99 이후 콘텐츠의 도박을 지금 — 내 레벨대 장비 뽑기). 도박꾼 단지 → '항아리 깨기', overlay 'jar'.
+// 2026-10-25 사용자: 상인 엘린 → 도박꾼 NPC 로 옮김 · 값 절반 · 부위를 골라 뽑기 · 창은 물약 · 속성석 사기 창과 같은 꼴.
+// 왼쪽 = 부위 일곱 줄(무기 · 투구 · 갑옷 · 장갑 · 신발 · 목걸이 · 반지, 값 · 착용 레벨), 오른쪽 = 항아리 무대(흔들림 → 깨짐 → 나온 장비).
+// 등급은 무작위(data.js JAR: 유니크 3% · 레어 약 20% · 매직 35% · 일반 42%). 유니크도 고른 부위 것.
 // 장비는 깨는 순간 가방에 들어가고 저장된다(연출 중에 닫아도 잃지 않음). 가방이 가득 차면 못 산다.
 const Jar = (() => {
   const T_ = Gfx.text;
   const L = a => Input.label(a);
   const SHAKE = 1.2, POP = 0.5;  // 흔들림 · 깨지는 연출 시간(초)
-  let st = 'ready', t = 0, item = null, shards = [], last = performance.now();
+  let st = 'ready', t = 0, item = null, shards = [], last = performance.now(), sel = 0;
 
   // 항아리 도트(32x32, 칸마다 계산): 갈색 질그릇 몸 · 목 · 테두리 · 금빛 띠 · 위를 덮은 보라 천과 끈
   let jarCanvas = null;
@@ -40,18 +41,21 @@ const Jar = (() => {
   }
 
   const price = prof => JAR.price(prof.lv);
+  const slot = () => SLOTS[sel];
   function open() { st = 'ready'; t = 0; item = null; shards = []; last = performance.now(); }
 
-  // 사서 깨기: 골드 · 가방 확인 → 장비 만들어 가방에 → 흔들림 시작
+  // 사서 깨기: 골드 · 가방 확인 → 고른 부위 장비를 만들어 가방에 → 흔들림 시작
   function buy(prof) {
     const p = price(prof);
     if (prof.gold < p) { Sfx.deny(); Game.toast('골드가 모자라요 (' + p + 'G)'); return; }
-    const slot = prof.bag.indexOf(null);
-    if (slot < 0) { Sfx.deny(); Game.toast('가방이 가득 찼어요 — 장비를 팔거나 정리해 주세요'); return; }
+    const bagSlot = prof.bag.indexOf(null);
+    if (bagSlot < 0) { Sfx.deny(); Game.toast('가방이 가득 찼어요 — 장비를 팔거나 정리해 주세요'); return; }
     prof.gold -= p;
-    const il = Math.max(1, prof.lv);
-    item = Math.random() < JAR.uniq ? Items.makeUnique(il) : Items.make(il, { boost: JAR.boost });
-    prof.bag[slot] = item;
+    const il = Math.max(1, prof.lv), s = slot(), uniqs = Object.keys(UNIQUES).filter(u => UNIQUES[u].slot === s);
+    item = uniqs.length && Math.random() < JAR.uniq
+      ? Items.make(il, { slot: s, rarity: 3, uniq: uniqs[Math.floor(Math.random() * uniqs.length)] })
+      : Items.make(il, { slot: s, boost: JAR.boost });
+    prof.bag[bagSlot] = item;
     Game.changed();
     st = 'shake'; t = 0; shards = [];
     Sfx.forgeStart();
@@ -64,7 +68,7 @@ const Jar = (() => {
       if (Math.floor((t - dt) / 0.2) !== Math.floor(t / 0.2)) Sfx.forgeTap(Math.floor(t / 0.2));
       if (t >= SHAKE) {  // 깨짐: 조각이 튀고 등급 소리
         st = 'pop'; t = 0;
-        for (let i = 0; i < 26; i++) { const a = Math.random() * Math.PI * 2, s = 120 + Math.random() * 260; shards.push({ x: 0, y: 0, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 120, r: Math.random() * 6, s: 3 + Math.floor(Math.random() * 4) }); }
+        for (let i = 0; i < 26; i++) { const a = Math.random() * Math.PI * 2, s = 100 + Math.random() * 220; shards.push({ x: 0, y: 0, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 110, s: 3 + Math.floor(Math.random() * 4) }); }
         Sfx.blast();
         if (item.uniq) { Sfx.unique(); Coop.brag({ kind: 'unique', item }); }  // 파티면 머리 위 말풍선 · 친구에게도
         else Sfx.drop(item.rarity);
@@ -73,77 +77,99 @@ const Jar = (() => {
     }
     if (st === 'pop') { for (const s of shards) { s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 600 * dt; } if (t >= POP) { st = 'result'; t = 0; } return; }
     if (Input.wasPressed('back') || Input.wasPressed('pause')) { Game.closeOverlay(); return; }
+    // 부위 고르기(결과를 보다가 다른 부위로 가면 새 항아리)
+    const n = SLOTS.length, before = sel;
+    if (Input.nav('up')) sel = (sel + n - 1) % n;
+    if (Input.nav('down')) sel = (sel + 1) % n;
+    if (sel !== before && st === 'result') { st = 'ready'; item = null; }
     if (Input.wasPressed('ok')) buy(prof);
   }
 
-  const X = 180, Y = 40, W = 600, H = 450, CX = 480, JY = 230;
+  // 부위 줄 아이콘: 내 레벨 단계 재질의 기본 장비 그림(무기는 내 직업 첫 무기)
+  const previewOf = (prof, s) => ({ base: s + (s === 'weapon' ? '_' + clsOf(prof).weapons[0] : '') + '_' + tierOf(bandLvl(Math.max(1, prof.lv))) });
+
+  const CX = 712, JY = 236;  // 오른쪽 무대 가운데 · 항아리 바닥 높이
   function draw(ctx, o, prof) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, 960, 540);
+    ctx.fillStyle = 'rgba(0,0,0,0.96)'; ctx.fillRect(0, 0, 960, 540);
     UI.zone(0, 0, 960, 540, { key: null });
-    Gfx.panel(ctx, X, Y, W, H, { border: '#e8c040', bg: '#1a120c' });
-    T_(ctx, '장비 항아리', CX, Y + 36, 22, '#ffd36a', 'center');
-    T_(ctx, '깨 보기 전엔 몰라요! 내 레벨대(착용 Lv.' + reqLevel(Math.max(1, prof.lv)) + ') 장비가 하나 들어 있어요', CX, Y + 58, 12, '#c8b8a0', 'center');
-    const time = performance.now() / 1000;
     ctx.imageSmoothingEnabled = false;
-    const rarCol = item ? RARITY[item.rarity].color : '#ffd36a';
+    const busy = st === 'shake' || st === 'pop', p = price(prof), req = reqLevel(bandLvl(Math.max(1, prof.lv)));
+    // ── 왼쪽: 부위 고르기(상인 사기 창과 같은 꼴) ──
+    Gfx.panel(ctx, 24, 24, 440, 470, { border: '#ffd36a' });
+    T_(ctx, '항아리 고르기', 44, 62, 22, '#f0e0b8');
+    T_(ctx, '골드 ' + prof.gold + 'G', 444, 62, 16, '#ffd34d', 'right');
+    SLOTS.forEach((s, i) => {
+      const y = 78 + i * 44, on = sel === i;
+      if (!busy) UI.zone(40, y, 408, 40, { on: () => sel === i, pick: () => { if (sel !== i && st === 'result') { st = 'ready'; item = null; } sel = i; } });
+      Gfx.panel(ctx, 40, y, 408, 40, { border: on ? '#ffd36a' : '#3a2e36', bg: '#1d151b' });
+      Gfx.icon(ctx, previewOf(prof, s), 64, y + 20, 26);
+      T_(ctx, SLOT_NAMES[s] + ' 항아리', 88, y + 27, 15, on ? '#ffd36a' : '#f0e0b8');
+      T_(ctx, p + 'G · 착용 Lv.' + req, 436, y + 27, 12, prof.gold >= p ? '#9a8e96' : '#ff7a6a', 'right');
+    });
+    const u = JAR.uniq, yr = Math.min(0.9, 0.06 + JAR.boost * 0.3), m = 0.26 + JAR.boost * 0.2;  // items.js rollRarity 와 같은 계산
+    const pc = v => Math.round(v * 100) + '%';
+    T_(ctx, '일반 ' + pc((1 - yr - m) * (1 - u)) + ' · 매직 ' + pc(m * (1 - u)) + ' · 레어 ' + pc(yr * (1 - u)) + ' · 유니크 ' + pc(u), 44, 404, 13, '#c8b8a0');
+    const cur = prof.equip[slot()];
+    T_(ctx, '지금 낀 ' + SLOT_NAMES[slot()] + ': ' + (cur ? Items.nameOf(cur) + (cur.ups ? ' +' + cur.ups : '') : '없음'), 44, 428, 12, cur ? RARITY[cur.rarity].color : '#6a6068');
+    T_(ctx, '깨 보기 전엔 몰라요! 고른 부위의 내 레벨대 장비가 하나 들어 있어요', 44, 476, 12, '#9a8e96');
+
+    // ── 오른쪽: 항아리 무대 ──
+    Gfx.panel(ctx, 488, 24, 448, 470, { border: '#e8c040', bg: '#1a120c' });
+    T_(ctx, SLOT_NAMES[slot()] + ' 항아리', CX, 62, 20, '#ffd36a', 'center');
+    const time = performance.now() / 1000, rarCol = item ? RARITY[item.rarity].color : '#ffd36a';
     if (st === 'ready' || st === 'shake') {
       // 항아리(흔들림: 점점 세게 · 빨라지며, 금이 간다)
       const k = st === 'shake' ? t / SHAKE : 0, wob = st === 'shake' ? Math.sin(t * (18 + k * 30)) * (2 + k * 9) : Math.sin(time * 2) * 1;
-      ctx.save(); ctx.translate(CX, JY + 70); ctx.rotate(wob * 0.012); ctx.drawImage(jarArt(), -102, -204, 204, 204);
+      ctx.save(); ctx.translate(CX, JY + 50); ctx.rotate(wob * 0.012); ctx.drawImage(jarArt(), -85, -170, 170, 170);
       if (k > 0.25) {  // 금
         ctx.strokeStyle = '#1a0e08'; ctx.lineWidth = 4;
-        ctx.beginPath(); ctx.moveTo(-30, -120); ctx.lineTo(-12, -90); ctx.lineTo(-24, -60); if (k > 0.55) { ctx.lineTo(4, -34); ctx.lineTo(-6, -10); } ctx.stroke();
-        if (k > 0.7) { ctx.beginPath(); ctx.moveTo(40, -110); ctx.lineTo(22, -80); ctx.lineTo(34, -52); ctx.stroke(); }
+        ctx.beginPath(); ctx.moveTo(-25, -100); ctx.lineTo(-10, -75); ctx.lineTo(-20, -50); if (k > 0.55) { ctx.lineTo(3, -28); ctx.lineTo(-5, -8); } ctx.stroke();
+        if (k > 0.7) { ctx.beginPath(); ctx.moveTo(33, -92); ctx.lineTo(18, -67); ctx.lineTo(28, -43); ctx.stroke(); }
       }
       if (k > 0.6) {  // 틈으로 새는 빛(나올 등급 색)
         ctx.globalCompositeOperation = 'lighter';
-        const gl = ctx.createRadialGradient(0, -80, 4, 0, -80, 120);
+        const gl = ctx.createRadialGradient(0, -66, 4, 0, -66, 100);
         gl.addColorStop(0, hexA(rarCol, (k - 0.6) * 1.6)); gl.addColorStop(1, hexA(rarCol, 0));
-        ctx.fillStyle = gl; ctx.fillRect(-140, -220, 280, 260);
+        ctx.fillStyle = gl; ctx.fillRect(-120, -190, 240, 220);
       }
       ctx.restore();
     }
     if (st === 'pop' || st === 'result') {
-      // 깨진 자리: 등급 색 빛(유니크는 빛기둥) · 날아가는 조각
+      // 깨진 자리: 등급 색 빛(레어 이상은 빛기둥) · 날아가는 조각
       const k = st === 'pop' ? t / POP : 1;
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
-      const gl = ctx.createRadialGradient(CX, JY, 6, CX, JY, 150 + (1 - k) * 60);
+      const cy = JY - 50, gl = ctx.createRadialGradient(CX, cy, 6, CX, cy, 130 + (1 - k) * 50);
       gl.addColorStop(0, hexA(rarCol, 0.75)); gl.addColorStop(1, hexA(rarCol, 0));
-      ctx.fillStyle = gl; ctx.fillRect(CX - 220, JY - 220, 440, 440);
-      if (item.uniq || item.rarity >= 2) { ctx.fillStyle = hexA(rarCol, 0.18 + 0.08 * Math.sin(time * 5)); ctx.fillRect(CX - 26, Y + 70, 52, JY - Y - 40); }
+      ctx.fillStyle = gl; ctx.fillRect(CX - 210, cy - 190, 420, 380);
+      if (item.uniq || item.rarity >= 2) { ctx.fillStyle = hexA(rarCol, 0.18 + 0.08 * Math.sin(time * 5)); ctx.fillRect(CX - 26, 76, 52, cy - 46); }
       ctx.restore();
       ctx.fillStyle = '#a0522d';
-      for (const s of shards) if (st === 'pop') ctx.fillRect(Math.round(CX + s.x), Math.round(JY + s.y), s.s, s.s);
+      for (const s of shards) if (st === 'pop') ctx.fillRect(Math.round(CX + s.x), Math.round(JY - 50 + s.y), s.s, s.s);
       // 나온 장비: 커지며 나타남 + 천천히 떠오름
       const sc = st === 'pop' ? 0.4 + 0.6 * k : 1, bob = Math.sin(time * 2.5) * 4;
-      Gfx.icon(ctx, item, CX, JY - 10 + bob, Math.round(96 * sc));
+      Gfx.icon(ctx, item, CX, JY - 60 + bob, Math.round(96 * sc));
     }
     if (st === 'result') {
       const lines = Items.describe(item, prof);  // 이름 · 등급 · 능력치 · 낀 것과 비교
-      T_(ctx, Items.nameOf(item), CX, JY + 74, 20, rarCol, 'center');
-      T_(ctx, (item.uniq ? '유니크' : RARITY[item.rarity].name) + ' · ' + SLOT_NAMES[item.slot] + ' · 착용 Lv.' + Items.req(item), CX, JY + 96, 13, '#c8b8a0', 'center');
-      lines.slice(2, 6).forEach((l, i) => T_(ctx, l.t, CX, JY + 120 + i * 18, 13, l.c || '#e8dcc8', 'center'));
+      T_(ctx, Items.nameOf(item), CX, JY + 34, 20, rarCol, 'center');
+      T_(ctx, (item.uniq ? '유니크' : RARITY[item.rarity].name) + ' · ' + SLOT_NAMES[item.slot] + ' · 착용 Lv.' + Items.req(item), CX, JY + 56, 13, '#c8b8a0', 'center');
+      lines.slice(2, 7).forEach((l, i) => T_(ctx, l.t, CX, JY + 80 + i * 18, 13, l.c || '#e8dcc8', 'center'));
     } else if (st === 'ready') {
-      const p = price(prof), ok = prof.gold >= p;
-      T_(ctx, '값 ' + p + 'G', CX, JY + 98, 22, ok ? '#ffd34d' : '#ff7a6a', 'center');
-      T_(ctx, '가진 골드 ' + prof.gold + 'G', CX, JY + 120, 13, '#9a8e96', 'center');
-      const u = JAR.uniq, y = Math.min(0.9, 0.06 + JAR.boost * 0.3), m = 0.26 + JAR.boost * 0.2;  // items.js rollRarity 와 같은 계산
-      const pc = v => Math.round(v * 100) + '%';
-      T_(ctx, '일반 ' + pc((1 - y - m) * (1 - u)) + ' · 매직 ' + pc(m * (1 - u)) + ' · 레어 ' + pc(y * (1 - u)) + ' · 유니크 ' + pc(u), CX, JY + 146, 13, '#c8b8a0', 'center');
+      T_(ctx, '값 ' + p + 'G', CX, JY + 84, 22, prof.gold >= p ? '#ffd34d' : '#ff7a6a', 'center');
+      T_(ctx, '착용 Lv.' + req + ' ' + SLOT_NAMES[slot()] + ' · 가방 빈칸 ' + prof.bag.filter(b => !b).length, CX, JY + 108, 13, '#9a8e96', 'center');
     }
-    // 버튼(흔들리고 깨지는 동안은 없음)
-    if (st === 'ready' || st === 'result') {
-      const by = Y + H - 52, p = price(prof);
-      [[(st === 'ready' ? '항아리 깨기 ' : '한 번 더 ') + p + 'G ' + L('ok'), 'ok', '#ffd36a'], ['닫기 ' + L('back'), 'back', '#e8e0d0']].forEach(([s, k, c], i) => {
-        const bw = i ? 140 : 240, bx = i ? CX + 80 : CX - 230;
-        UI.zone(bx, by, bw, 38, { key: k, now: true });
-        Gfx.panel(ctx, bx, by, bw, 36, { border: i ? '#5a4650' : '#e8c040', bg: '#1d151b' });
-        T_(ctx, s, bx + bw / 2, by + 23, 14, c, 'center');
-      });
+    // 깨기 버튼(흔들리고 깨지는 동안은 없음)
+    if (!busy) {
+      const by = 432, bw = 300, bx = CX - bw / 2;
+      UI.zone(bx, by, bw, 40, { key: 'ok', now: true });
+      Gfx.panel(ctx, bx, by, bw, 38, { border: '#e8c040', bg: '#1d151b' });
+      T_(ctx, (st === 'result' ? '한 번 더 ' : '항아리 깨기 ') + p + 'G ' + L('ok'), CX, by + 25, 15, '#ffd36a', 'center');
     }
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 496, 960, 44);
+    T_(ctx, '부위 고르기 ↑↓ · 항아리 깨기 ' + L('ok') + ' · 닫기 ' + L('back'), 480, 522, 13, '#8a7e88', 'center');
   }
   const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + Math.max(0, Math.min(1, a)) + ')'; };
 
-  return { open, update, draw };
+  return { open, update, draw, jarArt };
 })();

@@ -11,6 +11,7 @@ const SPEAKERS = {
   smith: { name: '대장장이 브론', color: '#ff9a5a', bg: '#2a1a12', sprite: 'dwarf_f', dy: -22 },  // 드워프는 키가 작아 얼굴이 원 아래로 → 위로
   shop: { name: '상인 엘린', color: '#8aff9a', bg: '#142a1a', sprite: 'elf_m' },
   jewel: { name: '세공사 미라', color: '#7dd3ff', bg: '#141e2a', sprite: 'wizzard_f' },
+  gambler: { name: '도박꾼 단지', color: '#e8a050', bg: '#2a1a24', sprite: 'gambler' },
 };
 
 // 마을 NPC 대사(2026-10-25 사용자: 카엘이 마을에 · 지하 도시이고 바깥은 위험하다는 사람)
@@ -61,8 +62,15 @@ const NPC_TALK = {
     ['shop', '조각 속성석과 조각 보석도 팔아요. 하나에 ' + SHARD_PRICE + 'G. 세 개를 모아 미라에게 가져가면 합쳐 줘요.'],
     ['shop', '계승 주문서는 ' + INHERIT_PRICE + 'G예요. 강화한 장비를 새 장비로 바꿀 때 브론에게 가져가세요.'],
     ['shop', '남는 조각 속성석 · 보석은 하나에 ' + SHARD_SELL + 'G에 사 드려요. 장비는 장비 팔기에서 팔면 되고요.'],
-    ['shop', '장비 항아리도 있어요! 깨 보면 지금 레벨에 맞는 장비가 하나 나와요. 값은 레벨 따라 오르고, 운이 좋으면 유니크도요!'],
     ['shop', '가방이 가득 차면, 끼고 있는 것보다 약한 일반 · 매직 장비는 주울 때 저절로 골드가 돼요. 짐 걱정은 덜어도 돼요!'],
+    ['shop', '장비 항아리요? 그건 저기 항아리 쓴 단지 씨한테 가 보세요. 좀… 별난 사람이에요.'],
+  ],
+  gambler: () => [
+    ['gambler', '크흐흐, 항아리 속이 궁금한가? 이 머리 말이냐? 운이 달아나지 말라고 뚜껑을 덮어 둔 거다.'],
+    ['gambler', '골라 봐라. 무기, 투구, 갑옷, 장갑, 신발, 목걸이, 반지. 고른 부위 항아리에 네 레벨에 맞는 장비가 하나 들어 있지.'],
+    ['gambler', '값은 네 레벨 따라 오른다. 지금 너라면 ' + JAR.price(Game.prof.lv) + 'G. 깨 보기 전엔 아무도 모른다는 게 묘미지.'],
+    ['gambler', '대부분은 일반이나 매직이고, 레어는 다섯에 하나쯤. 유니크는… ' + Math.round(JAR.uniq * 100) + '%. 그래도 꿈은 공짜 아니냐, 크흐흐.'],
+    ['gambler', '가방은 비워 두고 와라. 빈칸이 없으면 항아리를 안 판다.'],
   ],
   minerPool: [
     '바깥 공기를 마셔 본 게 언제인지… 실베인의 하늘이 그립구먼.',
@@ -203,7 +211,7 @@ const Story = (() => {
   // 마을 NPC 말 걸기(town.js)
   const pick = a => a[Math.floor(Math.random() * a.length)];
   function talkNpc(id) {
-    if (id === 'smith' || id === 'shop' || id === 'jewel') { play(NPC_TALK[id]()); return; }  // 기존 NPC: 하는 일 설명
+    if (id === 'smith' || id === 'shop' || id === 'jewel' || id === 'gambler') { play(NPC_TALK[id]()); return; }  // 기존 NPC: 하는 일 설명
     if (id === 'miner') { if (!once('npc:miner', NPC_TALK.minerFirst)) play([['miner', pick(NPC_TALK.minerPool)]]); return; }
     if (id === 'kael') {
       const prof = Game.prof, next = DUNGEONS.find(d => !(prof.cleared || {})[d.id]);

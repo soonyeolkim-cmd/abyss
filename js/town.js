@@ -26,14 +26,20 @@ const Town = (() => {
         { label: '강화 이야기 듣기', go: () => Story.talkNpc('smith') },  // 2026-10-25 사용자: 기존 NPC도 대화로 설명
       ] }) },
     { id: 'gate', name: '던전 입구', role: '던전 고르기', ...px(14, 3), x: 15 * T, go: () => { if (!Coop.guestBlocked()) Game.open('select'); } },  // 파티 손님은 방장이 고른다
-    { id: 'shop', name: '상인 엘린', role: '장비 팔기 · 아이템 사고팔기 · 장비 항아리 · 관리', sprite: 'elf_m', ...px(23, 3), x: 24 * T,
+    { id: 'shop', name: '상인 엘린', role: '장비 팔기 · 아이템 사고팔기 · 관리', sprite: 'elf_m', ...px(23, 3), x: 24 * T,
       go: () => Game.overlay({ type: 'choice', title: '상인 엘린', items: [
         // 2026-10-24 사용자: 장비 / 아이템으로 나눔
         { label: '장비 팔기', go: () => Game.overlay({ type: 'inv', mode: 'sell' }) },
         { label: '아이템 사고팔기', go: () => Game.overlay({ type: 'shopItems' }) },  // 장비 칸 + 가방(등급 보며 팔기), 대장장이 '장비 팔기'와 같은 창
         EQUIP_ITEM,
-        { label: '장비 항아리 (도박)', go: () => Game.overlay({ type: 'jar' }) },  // 2026-10-25 사용자: 내 레벨대 장비 뽑기
         { label: '가게 이야기 듣기', go: () => Story.talkNpc('shop') },
+      ] }) },
+    // 도박꾼 단지(2026-10-25 사용자: 항아리는 도박꾼 NPC 를 따로, 항아리를 뒤집어쓴 도트) — 대장장이 아래, 둘레에 항아리 더미(JAR_PILE)
+    { id: 'gambler', name: '도박꾼 단지', role: '장비 항아리 (부위 골라 뽑기)', sprite: 'gambler', ...px(5, 7), flip: false,
+      go: () => Game.overlay({ type: 'choice', title: '도박꾼 단지', items: [
+        { label: '항아리 깨기 (장비 뽑기)', go: () => Game.overlay({ type: 'jar' }) },
+        EQUIP_ITEM,
+        { label: '항아리 이야기 듣기', go: () => Story.talkNpc('gambler') },
       ] }) },
     { id: 'jewel', name: '세공사 미라', role: '속성석 · 보석 합치기 · 관리', sprite: 'wizzard_f', ...px(2, 9), flip: false,
       go: () => Game.overlay({ type: 'choice', title: '세공사 미라', items: [
@@ -54,6 +60,7 @@ const Town = (() => {
     { id: 'miner', name: '늙은 광부 오르반', role: '지하 도시 이야기', sprite: 'miner', ...px(23, 13), flip: false, go: () => Story.talkNpc('miner') },
   ];
   const SHAFT = [26, 13];  // 무너진 옛 갱도 입구(광부 옆, 상자 둘 사이)
+  const JAR_PILE = [[7, 7, 1], [8, 7, 0.7], [4, 6, 0.7]];  // 도박꾼 둘레 항아리(칸 x, y, 크기) — 막히는 칸, 그림은 Jar.jarArt
   const TALK_R = 26;
   const TOWN_SPEED = 1.6;  // 마을에서는 던전보다 60% 빠르게 걷는다(2026-10-24 사용자)
 
@@ -73,6 +80,7 @@ const Town = (() => {
     // 꾸미기(2026-10-25 사용자: 마을을 예쁘게 · 창고 주변): 창고 양옆 상자 더미 · 무너진 옛 갱도(구멍 + 막아 둔 상자)
     for (const c of [[28, 7], [28, 11], [25, 13], [27, 13]]) { m.columns.push(c); m.crates.add(c.join()); }
     m.columns.push(SHAFT); m.hidden = new Set([SHAFT.join()]);  // 구멍: 막히지만 기둥 그림은 안 그림(바닥에 따로)
+    for (const [x, y] of JAR_PILE) { m.columns.push([x, y]); m.hidden.add(x + ',' + y); }  // 항아리: 막히고 그림은 따로
     m.canvas = Dungeon.paint(m);
     m.painted = Gfx.ready();  // 그림 파일이 아직 안 읽혔으면 그릴 때 다시
     return m;
@@ -151,6 +159,11 @@ const Town = (() => {
     list.push({ y: 9 * T + 6, draw: () => {
       [['weapon_golden_sword', -0.18], ['weapon_red_gem_sword', -0.06], ['weapon_lavish_sword', 0.06]].forEach(([w, r], i) =>
         Gfx.spr(ctx, w, 28 * T + 4 + i * 4, 10 * T + 4, { rot: r }));
+    } });
+    for (const [x, y, k] of JAR_PILE) list.push({ y: (y + 1) * T - 2, draw: () => {
+      const s = Math.round(17 * k);
+      Art.shadow(ctx, x * T + 8, (y + 1) * T - 2, 6 * k, 0, 1);
+      ctx.drawImage(Jar.jarArt(), Math.round(x * T + 8 - s / 2), (y + 1) * T - 1 - s, s, s);
     } });
     for (const s of STATIONS) if (s.prop) list.push({ y: s.y, draw: () => { Art.shadow(ctx, s.x, s.y, 7, 0, 1); Gfx.spr(ctx, s.prop, s.x, s.y); } });
     for (const s of STATIONS) if (s.sprite) list.push({ y: s.y, draw: () => {
