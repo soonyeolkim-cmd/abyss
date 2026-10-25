@@ -454,11 +454,13 @@ const reqLevel = ilvl => Math.floor(ilvl / 10) * 10;
 // 주문서 = { g: 'any' | 'inherit', r: 0 = 축복받은 · 1 = 보통 }
 const ENCHANT_MAX = 10;
 const SCROLL_GROUPS = {
-  weapon: { name: '무기', stat: 'atk', slots: ['weapon'], gain: [1, 3] },
+  // gain = 한 번 성공할 때 오르는 양(× 장비 레벨 곡선). 2026-10-25 사용자: 축복받은 · 보통은 확률만 다르고 오르는 양은 같게,
+  // 무기 · 목걸이 · 반지를 모두 +10 하면 공격력(대미지) 약 2배(예전 축복 1 · 보통 3 은 3.4배 · 8배였다)
+  weapon: { name: '무기', stat: 'atk', slots: ['weapon'], gain: 0.42 },
   // 방어구는 4부위라 주문서가 많이 드는데 효과가 가장 작았다 → 1.5배(2026-10-24 사용자). Lv.40 한 벌 +10: 축복받은 받는 피해 -38% → -48%, 보통 -56% → -65%
-  armor: { name: '방어구', stat: 'def', slots: ['helmet', 'armor', 'gloves', 'boots'], gain: [1.5, 3] },
+  armor: { name: '방어구', stat: 'def', slots: ['helmet', 'armor', 'gloves', 'boots'], gain: 0.63 },  // 무기의 1.5배(예전 비율 그대로)
   // 장신구도 무기와 똑같이 공격력(2026-10-24 사용자: 무기 · 장신구 = 공격, 방어구 = 방어로 정리. 예전엔 최대 체력 5 · 12)
-  acc: { name: '장신구', stat: 'atk', slots: ['amulet', 'ring'], gain: [1, 3] },
+  acc: { name: '장신구', stat: 'atk', slots: ['amulet', 'ring'], gain: 0.42 },
 };
 const SCROLL_ORDER = ['any', 'inherit'];
 // 성공률은 지금 강화 단계마다 다르게(2026-10-25 사용자: 10% · 5% 로 똑같으니 너무 어렵다). ENCHANT_RATE[지금 +N] = 강화 주문서(보통) 성공률 %,
@@ -479,10 +481,12 @@ const scrollGroupOf = slot => Object.keys(SCROLL_GROUPS).find(g => SCROLL_GROUPS
 const scrollName = s => s.g === 'inherit' ? '계승 주문서' : SCROLL_NAMES[s.r];  // 이름 뒤 확률은 뺌(2026-10-24 사용자) — 성공률은 대장장이 설명 줄에
 const scrollColor = s => s.g === 'inherit' ? '#ff8ae0' : SCROLL_COLORS[s.r];
 // slot 을 주면 그 부위에 발랐을 때 오르는 것만. ilvl 을 주면 그 장비에 실제로 오르는 양(장비 레벨 곡선, items.js enchant 와 같은 식). ups = 그 장비 지금 +N
-const scrollGain = (s, slot, ilvl) => { const g = SCROLL_GROUPS[scrollGroupOf(slot)]; return STATS[g.stat].name + ' +' + (ilvl ? Math.max(1, Math.round(g.gain[s.r] * POWER(ilvl))) : g.gain[s.r]); };
+// 그 부위 · 장비 레벨에 한 번 성공할 때 오르는 양(주문서 종류와 상관없음)
+const enchGain = (slot, ilvl) => Math.max(1, Math.round(SCROLL_GROUPS[scrollGroupOf(slot)].gain * POWER(ilvl)));
+const scrollGain = (s, slot, ilvl) => STATS[SCROLL_GROUPS[scrollGroupOf(slot)].stat].name + ' +' + enchGain(slot, ilvl || 1);
 const scrollText = (s, slot, ilvl, ups) => s.g === 'inherit' ? '강화(+N)를 같은 부위 새 장비로 옮길 때 1장 쓴다 (대장장이에서 Z)'
   : slot ? '+' + (ups || 0) + ' → +' + ((ups || 0) + 1) + ' 성공 ' + enchantRate(s, ups) + '% · ' + SLOT_NAMES[slot] + '에 바르면 ' + scrollGain(s, slot, ilvl)
-  : '성공 ' + enchantRate(s, 0) + '%(+0) ~ ' + enchantRate(s, ENCHANT_MAX - 1) + '%(+' + (ENCHANT_MAX - 1) + ') · ' + Object.values(SCROLL_GROUPS).map(g => g.name + ' ' + STATS[g.stat].name + ' +' + g.gain[s.r]).join(' · ');
+  : '성공 ' + enchantRate(s, 0) + '%(+0) ~ ' + enchantRate(s, ENCHANT_MAX - 1) + '%(+' + (ENCHANT_MAX - 1) + ') · ' + Object.values(SCROLL_GROUPS).map(g => g.name + ' ' + STATS[g.stat].name).join(' · ');
 
 
 // 능력치 이름 · 표시 방법. 랜덤 옵션 값 = [최소, 최대] × (1 + 0.35 × (단계 - 1))

@@ -47,6 +47,9 @@ const Save = (() => {
     // 장신구 강화 체력 → 공격력(2026-10-24): 오르는 양 비율(체력 5 · 12 → 공격력 1 · 3)로 한 번만 바꾼다
     const accEnch = !p.accEnchAtk;
     p.accEnchAtk = true;
+    // 강화 오르는 양 하나로(2026-10-25 사용자: 축복 · 보통 같게, 공격 장비 +10 = 대미지 약 2배): 이미 강화한 장비는 +N × 새 양으로 다시 계산(+N 은 그대로)
+    const enchOne = !p.enchOne;
+    p.enchOne = true;
     // 반지 기본 체력(2026-10-24): 예전 반지에는 체력이 없었다 → 한 번만 붙여 준다(새 반지와 같은 식)
     const ringHp = !p.ringHp;
     p.ringHp = true;
@@ -68,6 +71,7 @@ const Save = (() => {
       if (it && it.uniq) { const b = Items.base(it); it.name = uniqueName(it.uniq, b.kind, b.tier); }  // 유니크 레벨 단계 이름(2026-10-25)
       if (armorEnch && it && it.ench && it.ench.def && SCROLL_GROUPS.armor.slots.includes(it.slot)) it.ench.def = Math.round(it.ench.def * 1.5);
       if (accEnch && it && it.ench && it.ench.hp && SCROLL_GROUPS.acc.slots.includes(it.slot)) { it.ench.atk = (it.ench.atk || 0) + Math.max(it.ups || 1, Math.round(it.ench.hp * 0.25)); delete it.ench.hp; }
+      if (enchOne && it && it.ups > 0) { const g = SCROLL_GROUPS[scrollGroupOf(it.slot)]; it.ench = { [g.stat]: it.ups * enchGain(it.slot, it.ilvl) }; }
       if (ringHp && it && it.slot === 'ring' && !it.stats.hp) it.stats.hp = Math.max(1, Math.round(12 * POWER(it.ilvl) * (0.85 + Math.random() * 0.3) * RARITY[it.rarity].mult));
       Items.normalize(it);  // 같은 착용 레벨 · 등급 = 같은 능력치(2026-10-24)
       if (it) Items.removeHidden(p, it);  // 감정사 · 숨은 힘 없앰(2026-10-24): 미확인 표시 · 숨은 힘을 지운다

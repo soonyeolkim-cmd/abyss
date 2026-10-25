@@ -175,7 +175,7 @@ const Items = (() => {
     if (!item.ench) item.ench = {};
     if (Math.random() * 100 < enchantRate(s, item.ups)) {  // 지금 단계 성공률
       const g = SCROLL_GROUPS[scrollGroupOf(item.slot)];  // 바른 부위에 따라 오르는 능력치
-      item.ench[g.stat] = (item.ench[g.stat] || 0) + Math.max(1, Math.round(g.gain[s.r] * POWER(item.ilvl)));  // 장비 레벨 곡선만큼
+      item.ench[g.stat] = (item.ench[g.stat] || 0) + enchGain(item.slot, item.ilvl);  // 장비 레벨 곡선만큼(주문서 종류와 상관없이 같은 양)
       item.ups = (item.ups || 0) + 1;
       return 'ok';
     }
