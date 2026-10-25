@@ -133,9 +133,29 @@ const World = (() => {
     const mains = lv.rooms.filter(r => r.main && r !== lv.start && !r.boss);
     const chestRooms = [...lv.rooms.filter(r => r.branch), mains[rnd(0, mains.length - 1)]].filter(Boolean);
     for (const r of chestRooms) {
-      const s = Dungeon.spotIn(lv, r);
+      let s = Dungeon.spotIn(lv, r);
+      for (let k = 0; k < 30 && chestHidden(s.x, s.y, false); k++) s = Dungeon.spotIn(lv, r);
+      s = clearChestSpot(s.x, s.y, false);
       lv.chests.push({ x: s.x, y: s.y, open: false, t: 0, big: false });
     }
+  }
+  // 보물 상자가 기둥 · 상자 더미 그림 뒤에 가려지는 자리인가(2026-10-25 사용자: 가끔 기둥 뒤에 숨어 나옴).
+  // 기둥 그림은 16x48 이라 제 칸 위로 두 칸을, 상자 더미(16x24)는 위로 반 칸을 덮는다. 상자 발밑(x, y)이 그 그림보다 위(먼저 그려짐)이고 가로로 겹치면 가려짐
+  function chestHidden(x, y, big) {
+    const hw = big ? 24 : 16;  // 상자 그림 반폭 + 기둥 반폭
+    return lv.columns.some(c => {
+      const cx = c[0] * T + 8, bottom = (c[1] + 1) * T, ctop = bottom - (lv.crates && lv.crates.has(c.join()) ? 26 : 48);
+      return Math.abs(cx - x) < hw && y <= bottom + 2 && y > ctop - 4;
+    });
+  }
+  // 가려지면 가까운 빈 자리로(8px 씩 넓혀 가며, 걸을 수 있고 안 가려지는 곳)
+  function clearChestSpot(x, y, big) {
+    if (!chestHidden(x, y, big)) return { x, y };
+    for (let d = 8; d <= 96; d += 8) for (let a = 0; a < 16; a++) {
+      const an = a / 16 * Math.PI * 2, nx = x + Math.cos(an) * d, ny = y + Math.sin(an) * d;
+      if (Dungeon.walkable(lv, nx, ny, big ? 12 : 8) && !chestHidden(nx, ny, big)) return { x: nx, y: ny };
+    }
+    return { x, y };
   }
   function addPack(pack, e) { pack.members.push(e); addEnemy(e); }
 
@@ -427,7 +447,8 @@ const World = (() => {
   function bossCleared(b) {
     storyT = 1.6;
     p.safe = true;  // 보스를 잡은 순간부터 이 던전 끝까지 무적(남은 탄 · 죽을 때 폭발 · 함정)
-    lv.chests.push({ x: b.x, y: b.y + 18, open: false, t: 0, big: true });
+    const cs = clearChestSpot(b.x, b.y + 18, true);  // 보스 자리 아래 — 기둥에 가리면 옆으로
+    lv.chests.push({ x: cs.x, y: cs.y, open: false, t: 0, big: true });
     lv.stairs = stairsSpot(b);
     msg = '보스를 쓰러뜨렸다!'; msgT = 2.5;
     prof.cleared[lv.def.id] = true;
