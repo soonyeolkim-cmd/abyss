@@ -163,7 +163,7 @@ const Coop = (() => {
     mateOf(from).now = m;
     relay(m, from);
     const q = World.remotes.find(q => q.pid === from);
-    if (q && m.s === 'run' && m.r === World.partySeed) remotePos(q, m);
+    if (q && m.s === 'run' && m.r === World.partySeed && (m.fl || 0) === World.floorNo) remotePos(q, m);
   });
   const r1 = v => Math.round(v * 10) / 10, r2 = v => Math.round(v * 100) / 100;
 
@@ -191,7 +191,7 @@ const Coop = (() => {
       const m = tp ? { t: 'pos', s, x: r1(tp.x), y: r1(tp.y), fx: r1(tp.fv.x), fy: r1(tp.fv.y), st: BODY_STATES[tp.state] ? tp.state : 'idle' } : { t: 'pos', s };
       if (s === 'town') m.w = Town.where;  // 어느 마을(벨록 · 실베인) — 같은 마을일 때만 서로 보임
       if (tp && s === 'run') {
-        m.r = World.partySeed;
+        m.r = World.partySeed; m.fl = World.floorNo;
         const mv = moveInput(tp);  // 방장 쪽 내 몸이 다음 소식까지 같은 쪽으로 걷게
         if (mv) { m.mx = r2(mv.x); m.my = r2(mv.y); }
         if (tp.iframes > 0) m.ifr = 1;
@@ -199,7 +199,7 @@ const Coop = (() => {
       }
       if (s === 'select') {  // 방장 던전 고르기: 커서 · 난이도 · 깬 던전(손님 화면에 같은 고르기 창)
         const pr = Game.prof;
-        Object.assign(m, { sel: UI.select.sel, diff: UI.select.diff, cl: Object.keys(pr.cleared || {}), cd: pr.clearedDiff || {} });
+        Object.assign(m, { sel: UI.select.sel, diff: UI.select.diff, floor: UI.select.floor, cl: Object.keys(pr.cleared || {}), cd: pr.clearedDiff || {} });
       }
       const key = JSON.stringify(m);
       if (key !== lastSent || keepT <= 0) { Net.send(m); lastSent = key; keepT = 1; }
@@ -283,10 +283,10 @@ const Coop = (() => {
     if (q.dead) { q.state = 'dead'; q.act = null; } else if (wasDead) q.state = 'idle';
   }
   // 손님: 내 동작을 방장 쪽 내 몸에
-  function sendAct(a) { Net.send(Object.assign({ t: 'act' }, a)); }
+  function sendAct(a) { Net.send(Object.assign({ t: 'act', fl: World.floorNo }, a)); }
   Net.on('act', (m, from) => {
     const q = World.remotes.find(q => q.pid === from);
-    if (!q || Game.scene !== 'run') return;
+    if (!q || Game.scene !== 'run' || (m.fl || 0) !== World.floorNo) return;
     q.x = m.x; q.y = m.y;
     World.as(q, () => {
       if (m.k === 'dodge') { startDodge(q, { x: m.fx, y: m.fy }); return; }
@@ -368,6 +368,14 @@ const Coop = (() => {
     return runBodies().filter(m => m.dead).map(m => ({ m, k: m === tg && reviving === tg ? Math.min(1, reviveK / REVIVE_HOLD) : 0, near: m === tg }));
   }
   function leaveTogether() { Net.send({ t: 'leave' }); }
+  // 끝없는 심연: 방장이 계단을 내려가면 같은 런의 손님도 같이 다음 층으로(쓰러져 있던 손님도 일어나서)
+  function descendTogether(f) { Net.send({ t: 'descend', f, r: World.partySeed }); }
+  Net.on('descend', m => {
+    if (!World.mirror || Game.scene !== 'run' || m.r !== World.partySeed) return;
+    snapQ = [];
+    Game.toast('방장과 같이 ' + m.f + '층으로 내려가요');
+    World.descend(m.f);
+  });
   Net.on('leave', () => {
     if (!World.mirror || Game.scene !== 'run') return;
     Game.toast('방장과 같이 마을로 돌아가요');
@@ -538,7 +546,8 @@ const Coop = (() => {
   const ST_TEXT = { wait: ['묻는 중', '#b48cff'], yes: ['같이 가요!', '#7dff8a'], no: ['안 가요', '#ff8a6a'], lv: ['레벨 부족', '#ff8a6a'], busy: ['마을에 없음', '#9a8e96'] };
   let invite = null;  // 방장: { def, diff, seed, t, st: 피어 → 상태, kits: 피어 → 장비 }
   let lastInvite = null;
-  const diffName = diff => (diff ? ' · ' + DIFFS[diff].name : '');
+  const diffName = (diff, def) => (diff && !(def && def.endless) ? ' · ' + DIFFS[diff].name : '');
+  const runDef = m => (m.f ? endlessDef(m.f) : DUNGEONS.find(d => d.id === m.id));  // 초대 · 출발 소식 → 던전
   function askSolo(text, sub) {
     const iv = lastInvite;
     if (!iv || Game.scene !== 'select') { Game.toast(text); return; }
@@ -560,7 +569,7 @@ const Coop = (() => {
       return true;
     }
     invite = { def, diff, seed: 1 + Math.floor(Math.random() * 2e9), t: INVITE_WAIT, st, kits: new Map() };
-    for (const pid of asks) Net.sendTo(pid, { t: 'invite', id: def.id, diff, seed: invite.seed });
+    for (const pid of asks) Net.sendTo(pid, { t: 'invite', id: def.id, f: def.floor, diff, seed: invite.seed });
     Game.overlay({ type: 'coopwait' });
     return true;
   }
@@ -583,7 +592,7 @@ const Coop = (() => {
     inviteEnd();
     runKits = new Map(yes.map(pid => [pid, iv.kits.get(pid)]));
     const size = 1 + yes.length;
-    for (const pid of yes) Net.sendTo(pid, { t: 'go', id: iv.def.id, diff: iv.diff, seed: iv.seed, size });
+    for (const pid of yes) Net.sendTo(pid, { t: 'go', id: iv.def.id, f: iv.def.floor, diff: iv.diff, seed: iv.seed, size });
     Game.startRun(iv.def, iv.diff, iv.seed, size);
   }
   // 방장이 기다리는 창: 파티원마다 대답 · 출발(예가 한 명이라도 있으면) · 취소
@@ -604,7 +613,7 @@ const Coop = (() => {
     if (!invite) return;
     const rows = [...invite.st], h = 150 + rows.length * 26, top = 270 - h / 2;
     Gfx.panel(ctx, 230, top, 500, h, { border: '#b48cff' });
-    T_(ctx, invite.def.name + diffName(invite.diff), 480, top + 34, 19, '#f0e0b8', 'center');
+    T_(ctx, invite.def.name + diffName(invite.diff, invite.def), 480, top + 34, 19, '#f0e0b8', 'center');
     T_(ctx, '파티원에게 같이 들어갈지 묻는 중' + dots() + '  ' + Math.ceil(invite.t) + '초', 480, top + 58, 13, '#b48cff', 'center');
     rows.forEach(([pid, s], i) => {
       const m = Net.members().find(x => x.pid === pid), y = top + 88 + i * 26, [txt, col] = ST_TEXT[s];
@@ -622,13 +631,13 @@ const Coop = (() => {
   // 손님: 초대를 받음
   let goWait = null;  // 손님: 예라고 하고 출발을 기다리는 중 { def, diff, seed }
   Net.on('invite', m => {
-    const def = DUNGEONS.find(d => d.id === m.id);
+    const def = runDef(m);
     if (!def || Game.scene !== 'town') { Net.send({ t: 'inviteNo', why: 'busy' }); return; }
     const prof = Game.prof;
     if (prof.lv < def.lv) { Net.send({ t: 'inviteNo', why: 'lv' }); return; }
     Sfx.wake();
     Game.overlay({ type: 'confirm', invite: m.seed, defaultYes: true,
-      text: '방장이 ' + def.name + diffName(m.diff) + '에 들어가요',
+      text: '방장이 ' + def.name + diffName(m.diff, def) + '에 들어가요',
       sub: '같이 들어갈까요? (입장 Lv.' + def.lv + ')',
       yes: () => { Net.send({ t: 'inviteYes', seed: m.seed, kit: myKit() }); goWait = { def, diff: m.diff, seed: m.seed }; Game.overlay({ type: 'coopgo' }); },  // kit = 방장 쪽 내 몸 장비
       no: () => Net.send({ t: 'inviteNo', why: 'no' }) });
@@ -656,7 +665,7 @@ const Coop = (() => {
     UI.zone(0, 0, 960, 540, { key: null });
     Gfx.panel(ctx, 260, 200, 440, 140, { border: '#b48cff' });
     if (!goWait) return;
-    T_(ctx, goWait.def.name + diffName(goWait.diff), 480, 236, 18, '#f0e0b8', 'center');
+    T_(ctx, goWait.def.name + diffName(goWait.diff, goWait.def), 480, 236, 18, '#f0e0b8', 'center');
     T_(ctx, '방장이 출발하기를 기다리는 중' + dots(), 480, 264, 14, '#b48cff', 'center');
     UI.zone(420, 284, 120, 40, { key: 'back', now: true });
     Gfx.panel(ctx, 420, 288, 120, 32, { border: '#5a4650', bg: '#1d151b' });
@@ -705,12 +714,13 @@ const Coop = (() => {
   function viewDraw(ctx, prof, t) {
     const hn = hostNow();
     if (!hn || hn.sel === undefined) return;
-    const S = UI.select, keep = [S.sel, S.diff, S.top];
-    S.sel = hn.sel; S.diff = hn.diff;
+    const S = UI.select, keep = [S.sel, S.diff, S.top, S.floor];
+    S.sel = hn.sel; S.diff = hn.diff; S.floor = hn.floor || 1;
     const cl = {};
     for (const id of hn.cl || []) cl[id] = true;
-    S.draw(ctx, Object.assign({}, prof, { cleared: cl, clearedDiff: hn.cd || {} }), t);
-    [S.sel, S.diff, S.top] = keep;
+    const story = hn.sel >= DUNGEONS.length ? Object.assign({}, prof.story, { trueEnding: 1 }) : prof.story;  // 방장이 끝없는 심연 줄이면 내 화면에도 그 줄
+    S.draw(ctx, Object.assign({}, prof, { cleared: cl, clearedDiff: hn.cd || {}, story }), t);
+    [S.sel, S.diff, S.top, S.floor] = keep;
     UI.zone(0, 0, 960, 540, { key: null });  // 보기만: 눌러도 아무 일 없게
     const m = Net.members().find(x => x.host);
     Gfx.panel(ctx, 250, 6, 460, 30, { border: '#b48cff' });
@@ -735,5 +745,5 @@ const Coop = (() => {
 
   return { open, update, draw, tick, townMates, runMates, panelLines, colorOf, hostEnter, guestBlocked, waitUpdate, waitDraw, goUpdate, goDraw, viewUpdate, viewDraw,
     remotePlayers, remoteHurt, sendAct, hostKill, queue, applySnaps, kitChanged,
-    inParty, mateUp, canRevive, reviveTick, reviveInfo, leaveTogether, forgeShow, brag, drawBubbles };
+    inParty, mateUp, canRevive, reviveTick, reviveInfo, leaveTogether, descendTogether, forgeShow, brag, drawBubbles };
 })();

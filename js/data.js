@@ -332,18 +332,21 @@ const DUNGEONS = [
 
 // ── 끝없는 심연(2026-10-25 진엔딩 보상, 사용자: 나눠서 만들기 — 1차 = 1~3층) ──
 // 진엔딩(심연의 문 영웅)을 보면 던전 고르기 맨 아래에 열린다. 한 층 = 짧은 던전(방 rooms 개 + 층 끝 수호자 = 빌려 온 던전의 보스).
-// 층마다 지금 던전 하나의 풍경 · 몹 · 함정 · 보스를 빌리고(scenes), 보랏빛을 섞는다. 세기 = 심연의 문 보통에서 층마다 몹 · 보스 체력 ×hp · 공격 ×dmg(곱).
+// 층마다 지금 던전 하나의 풍경 · 몹 · 함정 · 보스를 빌리고(scenes), 보랏빛을 섞는다. 세기 = 1층이 심연의 문 영웅 × step(던전 규칙처럼, 2026-10-25 사용자: 보통 세기는 너무 쉬움),
+// 그다음 층마다 몹 · 보스 체력 ×hp · 공격 ×dmg(곱). 영웅 난이도(diff)로 들어가서 보상(노랑 · 유니크 · 속성석 크기 · 골드 · 경험치 배율)도 영웅과 같다.
+// 구조(2026-10-25 사용자: 다른 던전과 다르게): 방에 들어서면 문이 잠기고 그 방 몹을 다 잡아야 열린다(lockRooms, world.js updateLocks). 한 층 = 방 rooms 개(길게),
+// 층 끝 수호자를 잡고 계단을 내려가면 마을로 안 가고 바로 다음 층(world.js descend) — 런이 이어진다. 파티로도 들어감(흩어져 싸워도 됨).
 // 보상: 장비 단계 · 속성석은 심연의 문과 같고, 골드 · 경험치는 층마다 +reward. 깨면 최고 층(prof.endless.best) — 다음엔 깬 층 + 1 까지 고를 수 있음
-const ENDLESS = { max: 3, hp: 1.06, dmg: 1.04, reward: 0.05, rooms: 6, scenes: ['hell', 'ice', 'order'] };
+const ENDLESS = { max: 3, diff: 2, step: 1.04, hp: 1.06, dmg: 1.04, reward: 0.05, rooms: 16, scenes: ['hell', 'ice', 'order'] };
 const endlessBest = prof => (prof.endless && prof.endless.best) || 0;
 const endlessOpen = prof => !!(prof.story && prof.story.trueEnding);
 const mixColor = (a, b, k) => '#' + [1, 3, 5].map(i => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - k) + parseInt(b.slice(i, i + 2), 16) * k).toString(16).padStart(2, '0')).join('');
 function endlessDef(floor) {
   const base = DUNGEONS.find(d => d.id === ENDLESS.scenes[(floor - 1) % ENDLESS.scenes.length]), A = DUNGEONS.find(d => d.id === 'abyss').ease;
-  const fh = Math.pow(ENDLESS.hp, floor - 1), fd = Math.pow(ENDLESS.dmg, floor - 1);
+  const fh = ENDLESS.step * Math.pow(ENDLESS.hp, floor - 1), fd = ENDLESS.step * Math.pow(ENDLESS.dmg, floor - 1);  // 영웅 배율은 난이도(ENDLESS.diff)가 곱한다
   return Object.assign({}, base, {
     id: 'endless', endless: true, floor, timeId: 'endless' + floor, name: '끝없는 심연 ' + floor + '층',
-    lv: 90, ilvl: [90, 94], rooms: ENDLESS.rooms, needs: null, tint: mixColor(base.tint || '#c8b8a0', '#8a60e0', 0.45),
+    lv: 90, ilvl: [90, 94], rooms: ENDLESS.rooms, lockRooms: true, needs: null, tint: mixColor(base.tint || '#c8b8a0', '#8a60e0', 0.45),
     ease: { hp: A.hp * fh, dmg: A.dmg * fd, bhp: A.bhp * fh, bdmg: A.bdmg * fd }, gainMul: 1 + ENDLESS.reward * (floor - 1),
     desc: base.name + '의 모습을 한 심연의 틈.',
   });

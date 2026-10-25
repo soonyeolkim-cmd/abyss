@@ -68,7 +68,13 @@ const Dungeon = (() => {
       if (at(x, y) === 0 && at(x, y - 1) === 1 && at(x, y + 1) === 1) set(x, y, 1);
       if (at(x, y) === 0 && at(x - 1, y) === 1 && at(x + 1, y) === 1) set(x, y, 1);
     }
-    const lv = { def, W, H, tiles, rooms, at, drops: [], chests: [], columns: [], stairs: null };
+    // 방 문 칸 = 방 둘레 바로 바깥 한 줄 중 바닥인 칸(복도 입구). 끝없는 심연은 방을 잠글 때 이 칸을 막는다(world.js setLock)
+    for (const r of rooms) {
+      r.gates = [];
+      for (let x = r.x - 1; x <= r.x + r.w; x++) for (const y of [r.y - 1, r.y + r.h]) if (at(x, y) === 1) r.gates.push(y * W + x);
+      for (let y = r.y; y < r.y + r.h; y++) for (const x of [r.x - 1, r.x + r.w]) if (at(x, y) === 1) r.gates.push(y * W + x);
+    }
+    const lv = { def, W, H, tiles, rooms, at, drops: [], chests: [], columns: [], stairs: null, locked: new Set() };
     lv.start = cells[0].room;
     lv.boss = cells[mainLen - 1].room;
     lv.explored = new Uint8Array(W * H);

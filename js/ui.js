@@ -165,8 +165,8 @@ const UI = (() => {
         if (Input.nav('right')) this.floor = Math.min(top, this.floor + 1);
         if (Input.wasPressed('back')) { Game.open('town'); return; }
         if (Input.wasPressed('ok')) {
-          if (Net.linked) Game.toast('끝없는 심연은 아직 혼자만 들어갈 수 있어요');
-          else Game.startRun(endlessDef(this.floor), 0);
+          const d = endlessDef(this.floor);
+          if (!Coop.hostEnter(d, ENDLESS.diff)) Game.startRun(d, ENDLESS.diff);  // 파티 방장이면 친구에게 먼저 묻는다
         }
         return;
       }
@@ -231,9 +231,9 @@ const UI = (() => {
       });
       if (sd.endless) {  // 끝없는 심연: 고른 층 설명
         const f = this.floor, scene = DUNGEONS.find(x => x.id === ENDLESS.scenes[(f - 1) % ENDLESS.scenes.length]);
-        const bt = prof.bestTimes && prof.bestTimes[timeKey('endless' + f, 0)];
+        const bt = prof.bestTimes && prof.bestTimes[timeKey('endless' + f, ENDLESS.diff)];
         if (bt) T_(ctx, '최고 기록 ' + fmtTime(bt), 930, 535, 11, '#ffd36a', 'right');
-        T_(ctx, f + '층 (' + scene.name + '의 모습) — 몹 체력 ×' + Math.pow(ENDLESS.hp, f - 1).toFixed(2) + ' · 공격 ×' + Math.pow(ENDLESS.dmg, f - 1).toFixed(2) + ' · 골드 · 경험치 +' + Math.round(ENDLESS.reward * (f - 1) * 100) + '%  (1층 = 심연의 문 보통)', 480, 516, 13, '#d8b0ff', 'center');
+        T_(ctx, f + '층 (' + scene.name + '의 모습) — 몹 체력 ×' + (ENDLESS.step * Math.pow(ENDLESS.hp, f - 1)).toFixed(2) + ' · 공격 ×' + (ENDLESS.step * Math.pow(ENDLESS.dmg, f - 1)).toFixed(2) + ' · 골드 · 경험치 +' + Math.round(ENDLESS.reward * (f - 1) * 100) + '%  (심연의 문 영웅 대비, 보상은 영웅)', 480, 516, 13, '#d8b0ff', 'center');
         T_(ctx, '던전 ↑↓ · 층 ←→ · 들어가기 ' + L('ok') + ' · 돌아가기 ' + L('back'), 480, 535, 11, '#6a6068', 'center');
         return;
       }
@@ -257,7 +257,7 @@ const UI = (() => {
       Gfx.spr(ctx, Gfx.anim(boss.sprite + '_idle_anim', time, 6), 112, y + 60, { scale: 1.5 * Math.min(1.4, boss.scale || 1), tint: boss.tint, tintAlpha: boss.tintAlpha });
       T_(ctx, '∞ 끝없는 심연', 160, y + 28, 20, on ? '#ffd36a' : '#d8b0ff');
       T_(ctx, best ? '최고 ' + best + '층' : '아직 안 깸', 880, y + 28, 13, best ? '#ffd36a' : '#9a8e96', 'right');
-      T_(ctx, '진엔딩 보상 · 층마다 다른 던전의 모습 · 깬 층 + 1 까지 (지금은 ' + ENDLESS.max + '층까지)', 162, y + 52, 13, '#9a8e96');
+      T_(ctx, '방에 들어서면 문이 잠김 · 수호자를 잡으면 바로 다음 층 (지금은 ' + ENDLESS.max + '층까지)', 162, y + 52, 13, '#9a8e96');
       if (!on) return;
       for (let f = 1; f <= ENDLESS.max; f++) {
         const tx = 664 + (f - 1) * 74, open = f <= top, cur = this.floor === f;
@@ -1506,9 +1506,10 @@ const UI = (() => {
       const { run, kind } = res;
       const title = kind === 'clear' ? '던전 클리어!' : kind === 'dead' ? '쓰러졌다…' : '던전을 나왔다';
       T_(ctx, title, 480, 90, 40, kind === 'clear' ? '#ffd36a' : kind === 'dead' ? '#d84a4a' : '#c8b8a0', 'center');
-      if (run.dungeon.endless) {  // 끝없는 심연: 층 돌파 · 새 최고 층
-        const nb = kind === 'clear' && run.dungeon.floor > (run.endlessPrev || 0);
-        T_(ctx, run.dungeon.name + (kind === 'clear' ? ' 돌파!' + (nb ? '  ★ 새 최고 층' : '') : ''), 480, 122, 16, nb ? '#ffd36a' : '#d8b0ff', 'center');
+      if (run.dungeon.endless) {  // 끝없는 심연: 이번 런에서 깬 가장 깊은 층 · 새 최고 층(층이 이어지므로 쓰러져도 깬 층은 남는다)
+        const top = run.endlessCleared || 0, nb = top > (run.endlessPrev || 0);
+        const from = run.startFloor && run.startFloor < run.dungeon.floor ? '  (' + run.startFloor + '층부터)' : '';
+        T_(ctx, (top ? '끝없는 심연 ' + top + '층까지 돌파!' : run.dungeon.name) + from + (nb ? '  ★ 새 최고 층' : ''), 480, 122, 16, nb ? '#ffd36a' : '#d8b0ff', 'center');
       } else T_(ctx, run.dungeon.name + (run.diff ? ' · ' + DIFFS[run.diff].name : ''), 480, 122, 16, run.diff ? DIFFS[run.diff].color : '#9a8e96', 'center');
       Gfx.panel(ctx, 180, 150, 600, 320);
       const rows = [['처치', run.kills + '마리'], ['경험치', '+' + run.exp + (run.levelUps ? '  (레벨 업 ' + run.levelUps + '번!)' : '')],

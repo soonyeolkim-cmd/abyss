@@ -63,6 +63,7 @@ const World = (() => {
     p = createPlayer(prof);
     p.x = lv.start.cx * T + 8; p.y = lv.start.cy * T + 12;
     run = { gold: 0, exp: 0, items: [], kills: 0, levelUps: 0, dungeon: def, diff };
+    if (def.endless) { run.startFloor = def.floor; run.endlessPrev = endlessBest(profile); }  // 끝없는 심연: 들어올 때의 최고 층(★ 새 최고 층 판정)
     Game.setRun(run);
     ended = null; bossAwake = false;
     enemies = []; shots = []; pshots = []; fx = []; texts = []; fields = [];
@@ -73,7 +74,7 @@ const World = (() => {
     // 방장: 같이 들어온 손님마다 몸(손님이 보낸 장비로). 처음 자리는 내 옆, 손님 위치가 오면 그리로
     rps = seed && Net.role === 'host' ? Coop.remotePlayers() : [];
     rps.forEach((q, i) => { q.x = p.x + 14 * (i + 1); q.y = p.y; });
-    msg = def.name + (diff ? ' · ' + DIFFS[diff].name : ''); msgT = 2.4;
+    msg = def.name + (diff && !def.endless ? ' · ' + DIFFS[diff].name : ''); msgT = 2.4;  // 끝없는 심연은 늘 영웅이라 안 붙임
   }
   // 방장: 그 손님이 던전을 나감 · 끊김 → 그 몸을 뺀다(몹은 남은 사람을 노린다)
   function dropRemote(pid) { const q = rps.find(q => q.pid === pid); rps = rps.filter(q => q.pid !== pid); if (q) flows.delete(q); }
@@ -87,6 +88,83 @@ const World = (() => {
       if (e.poison && !e.poison.per) e.poison = null;
       e.kx = e.kx || 0; e.ky = e.ky || 0; e.vz = e.vz || 0; delete e.tx; delete e.ty;
     }
+  }
+
+  // ── 방 잠금(끝없는 심연, 2026-10-25 사용자: 방에 들어서면 문이 잠기고 몹을 다 잡아야 열림) ──
+  // 문 = 방 둘레 바로 바깥의 복도 입구 칸(r.gates). 잠그면 그 칸을 벽(0)으로 → 걷기 · 시야 · 길찾기 · 탄이 모두 막힌다.
+  // 잠그는 때: 산 몹이 있는 방 안쪽(벽에서 12px 넘게)에 산 사람이 들어서고, 문간에 사람이 없을 때. 여는 때: 방 안 산 몹이 없음, 또는 방 안 산 사람이 없음
+  // (파티: 방 안에서 쓰러지면 열려서 파티원이 살리러 들어올 수 있다). 파티 손님은 방장이 보낸 잠금(snap lk)을 따른다.
+  const inRoom = (r, o, m) => o.x > r.x * T + m && o.x < (r.x + r.w) * T - m && o.y > r.y * T + m && o.y < (r.y + r.h) * T - m;
+  const nearGate = (r, o, m) => r.gates.some(i => Math.abs(o.x - ((i % lv.W) * T + 8)) < 8 + m && Math.abs(o.y - (Math.floor(i / lv.W) * T + 8)) < 8 + m);
+  function unstick(o, rad) {  // 막힌 자리에 끼었으면 가까운 빈 자리로
+    if (Dungeon.walkable(lv, o.x, o.y, rad)) return;
+    for (let d = 4; d <= 64; d += 4) for (let a = 0; a < 16; a++) {
+      const an = a / 16 * Math.PI * 2, nx = o.x + Math.cos(an) * d, ny = o.y + Math.sin(an) * d;
+      if (Dungeon.walkable(lv, nx, ny, rad)) { o.x = nx; o.y = ny; return; }
+    }
+  }
+  function setLock(r, on) {
+    const i = lv.rooms.indexOf(r);
+    if (on === lv.locked.has(i)) return;
+    if (on) lv.locked.add(i); else lv.locked.delete(i);
+    for (const g of r.gates) lv.tiles[g] = on ? 0 : 1;
+    flowT = 0; lastTile = -1;  // 길찾기 · 자동 지도 다시
+    if (on) { unstick(p, BODY_R); for (const e of enemies) if (alive(e)) unstick(e, e.r); }
+    const here = inRoom(r, p, 0);
+    if (on && here) { Sfx.wake(); shake(2); msg = '문이 잠겼다 — 이 방의 적을 모두 쓰러뜨려라'; msgT = 1.8; }
+    if (!on && here && !p.dead) { Sfx.chest(); msg = '문이 열렸다'; msgT = 1.4; }
+  }
+  function updateLocks() {
+    if (!lv.def.lockRooms) return;
+    const people = [p, ...rps].filter(t => !t.dead);
+    lv.rooms.forEach((r, i) => {
+      if (r === lv.start || !r.gates.length) return;
+      const foes = enemies.some(e => alive(e) && inRoom(r, e, 0));
+      if (lv.locked.has(i)) { if (!foes || !people.some(t => inRoom(r, t, 0))) setLock(r, false); return; }
+      if (!foes || !people.some(t => inRoom(r, t, 12)) || people.some(t => nearGate(r, t, 10))) return;
+      setLock(r, true);
+    });
+  }
+  // 잠긴 문 그림: 보랏빛 심연의 막(일렁이는 줄 + 반짝임)
+  function drawLocks(ctx) {
+    if (!lv.locked.size) return;
+    for (const i of lv.locked) for (const g of lv.rooms[i].gates) {
+      const x = (g % lv.W) * T, y = Math.floor(g / lv.W) * T;
+      if (!inView(x + 8, y + 8, 20)) continue;
+      const k = 0.5 + 0.5 * Math.sin(time * 4 + x * 0.13 + y * 0.07);
+      ctx.fillStyle = 'rgba(90,40,170,' + (0.55 + 0.2 * k) + ')';
+      ctx.fillRect(x, y, T, T);
+      ctx.fillStyle = 'rgba(200,150,255,' + (0.35 + 0.4 * k) + ')';
+      for (let s = 2; s < T; s += 5) ctx.fillRect(x + s, y + ((s * 3 + Math.floor(time * 12)) % T), 1, 3);
+      ctx.fillStyle = 'rgba(240,220,255,' + (0.5 * k) + ')';
+      ctx.fillRect(x, y, T, 1); ctx.fillRect(x, y + T - 1, T, 1);
+    }
+  }
+
+  // ── 끝없는 심연: 다음 층(2026-10-25 사용자: 수호자를 잡고 계단을 내려가면 마을로 안 가고 바로 다음 층) ──
+  // 런(골드 · 경험치 · 주운 것 · 체력)은 이어지고 층만 새로. 층 씨앗 = 파티 씨앗 + 층 → 파티원 모두 같은 층(방장이 내려가면 손님도 descend 소식으로)
+  const floorSeed = f => (partySeed ? (partySeed + f * 7919) >>> 0 : 0);
+  function descend(floor) {
+    const def = endlessDef(floor), seed = floorSeed(floor);
+    RUN.ease = def.ease;
+    actor = null; nextId = 1; byId.clear(); flows.clear(); goneIds = [];
+    lv = seed ? seeded(seed, () => Dungeon.generate(def)) : Dungeon.generate(def);
+    lv.ilvlR = diffIlvl(def, RUN.diff);
+    p.x = lv.start.cx * T + 8; p.y = lv.start.cy * T + 12;
+    if (p.dead) { p.dead = false; p.downed = false; p.hp = Math.round(p.maxHp * REVIVE_HP); p.deadT = 0; }  // 쓰러져 있던 파티원도 일어나서 같이
+    p.state = 'idle'; p.act = null; p.charge = 0; p.safe = false; p.iframes = 1.5;
+    run.dungeon = def; delete run.clearTime; delete run.newRecord; delete run.bestPrev;
+    ended = null; bossAwake = false;
+    enemies = []; shots = []; pshots = []; fx = []; texts = []; fields = [];
+    Elements.reset();
+    hitstopT = 0; shakeT = 0; time = 0; storyT = 0; comboN = 0; flow = null; flowT = 0; lastTile = -1;
+    if (seed) seeded(seed + 7, () => { populate(); placeHazards(); });
+    else { populate(); placeHazards(); }
+    rps.forEach((q, i) => { q.x = p.x + 14 * (i + 1); q.y = p.y; });
+    while (Game.overlays.length) Game.closeOverlay();
+    Save.write(prof);
+    Sfx.stairs();
+    msg = def.name; msgT = 2.4;
   }
 
   // ── 몹 · 상자 배치 ──
@@ -250,6 +328,7 @@ const World = (() => {
   }
 
   const alive = e => !e.dying && e.state !== 'dead';
+  const floorNo = () => (lv && lv.def.floor) || 0;  // 끝없는 심연 층(파티 소식이 같은 층 것인지)
 
   function update(dt) {
     time += dt;
@@ -315,6 +394,7 @@ const World = (() => {
     Elements.step(dt);  // 뇌운 · 연쇄 폭발처럼 잠깐 뒤에 터지는 것
     updateDrops(dt);
     updateChests(dt);
+    updateLocks();
     }
 
     comboT -= dt;
@@ -333,9 +413,15 @@ const World = (() => {
         lv.stairs.asked = true;
         // 파티(4단계): 방장이 오르면 파티원도 같이 마을로, 손님은 혼자 먼저 갈 수 있다
         const party = Coop.inParty(), host = rps.length > 0;
-        Game.overlay({ type: 'confirm', defaultYes: true,
+        // 끝없는 심연: 아래 층이 있으면 내려가기 · 마을로 중 고르기(파티 손님은 방장이 정함)
+        const next = lv.def.endless && lv.def.floor < ENDLESS.max ? lv.def.floor + 1 : 0;
+        if (next && !(party && !host)) Game.overlay({ type: 'choice', title: lv.def.name + ' 돌파!', items: [
+          { label: next + '층으로 내려가기' + (host ? ' (파티 같이)' : ''), go: () => { if (host) Coop.descendTogether(next); descend(next); } },
+          { label: host ? '파티원과 같이 마을로' : '마을로 돌아가기', go: () => { Sfx.stairs(); if (host) Coop.leaveTogether(); finish('clear'); } },
+        ] });
+        else Game.overlay({ type: 'confirm', defaultYes: true,
           text: party ? (host ? '파티원과 같이 마을로 돌아갈까요?' : '혼자 먼저 마을로 돌아갈까요?') : '계단을 올라 마을로 돌아갈까요?',
-          sub: party ? (host ? '파티원도 같이 계단을 올라 결과 화면으로 가요' : '방장이 계단을 오르면 같이 나가요') : undefined,
+          sub: party ? (host ? '파티원도 같이 계단을 올라 결과 화면으로 가요' : next ? '방장이 계단을 내려가면 같이 ' + next + '층으로 가요' : '방장이 계단을 오르면 같이 나가요') : undefined,
           yes: () => { Sfx.stairs(); if (party && host) Coop.leaveTogether(); finish('clear'); } });
       }
       if (d > 22) lv.stairs.asked = false;
@@ -365,6 +451,8 @@ const World = (() => {
   // 손님: 방장 소식(snap) 적용 — 몹 [id, x, y, z, hp, maxHp, 상태, t, windupT, fx, fy, flash, 깃발, 냉기, 독, 종류, spawnT, 돌진 x, 돌진 y]
   const F_AWAKE = 1, F_DYING = 2, F_MOVING = 4, F_BURN = 8, F_SHOCK = 16, F_CRACK = 32, F_CUT = 64;
   function applySnap(m) {
+    if ((m.fl || 0) !== floorNo()) return;  // 다른 층 소식(층을 내려가는 사이)
+    if (m.lk) { const lk = new Set(m.lk); lv.rooms.forEach((r, i) => setLock(r, lk.has(i))); }
     // 방장 쪽에서 사라진 몹은 지운다(2026-10-25 사용자: 친구가 시야 밖에서 잡은 몹이 제자리 걷기로 남음)
     if (m.g && m.g.length) { const gone = new Set(m.g); for (const id of gone) byId.delete(id); enemies = enemies.filter(e => !gone.has(e.id)); }
     // 이번 소식에 없는 몹(내 둘레 밖) = 다음 소식까지 멈춰 있게(걷는 모습으로 남지 않게)
@@ -428,7 +516,7 @@ const World = (() => {
     const sh = shots.filter(near).map(s => [r1(s.x), r1(s.y), r1(s.vx), r1(s.vy), s.r, s.color]);
     const ps = pshots.filter(near).map(s => Object.assign(prim(s), { stone: !!s.stone, sc: s.def && s.def.wave && s.def.wave.scale || 1 }));
     const fd = fields.filter(near).map(prim);
-    return { t: 'snap', e, sh, ps, fd };  // g(사라진 몹)는 coop.js 가 takeGone 으로 손님 모두에게 같이 붙인다
+    return { t: 'snap', e, sh, ps, fd, fl: floorNo(), lk: [...lv.locked] };  // g(사라진 몹)는 coop.js 가 takeGone 으로 손님 모두에게 같이 붙인다
   }
 
   // 계단 자리: 보스방 안에서 보스가 쓰러진 곳(전리품 · 상자가 흩어지는 곳)에서 가장 먼 빈 칸(2026-10-24 사용자: 낙템 줍다 계단 밟지 않게)
@@ -452,8 +540,8 @@ const World = (() => {
     lv.stairs = stairsSpot(b);
     msg = '보스를 쓰러뜨렸다!'; msgT = 2.5;
     if (lv.def.endless) {  // 끝없는 심연: 깬 던전 수(10개)에는 안 들어가고 최고 층만
-      run.endlessPrev = endlessBest(prof);
-      prof.endless = { best: Math.max(run.endlessPrev, lv.def.floor) };
+      run.endlessCleared = Math.max(run.endlessCleared || 0, lv.def.floor);
+      prof.endless = { best: Math.max(endlessBest(prof), lv.def.floor) };
     } else {
       prof.cleared[lv.def.id] = true;
       if (!prof.clearedDiff) prof.clearedDiff = {};
@@ -818,6 +906,7 @@ const World = (() => {
     ctx.translate(-cam.x + Math.round((Math.random() - 0.5) * shakeT * 2), -cam.y + Math.round((Math.random() - 0.5) * shakeT * 2));
     ctx.drawImage(lv.canvas, cam.x, cam.y, VIEW_W, VIEW_H, cam.x, cam.y, VIEW_W, VIEW_H);
     drawHazards(ctx);
+    drawLocks(ctx);
     if (lv.stairs) Art.stairs(ctx, lv.stairs, time);
     for (const f of fields) if (inView(f.x, f.y)) Art.field(ctx, f, time);
     for (const d of lv.drops) if (inView(d.x, d.y)) Art.drop(ctx, d, time);
@@ -899,7 +988,8 @@ const World = (() => {
   }
 
   return {
-    start, update, draw, wake, flowDir, cam,
+    start, update, draw, wake, flowDir, cam, descend,
+    get floorNo() { return floorNo(); },
     get player() { return p; },
     get level() { return lv; },
     get prof() { return prof; },
