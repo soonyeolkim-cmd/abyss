@@ -44,13 +44,14 @@ const Game = (() => {
     Input.clear();
   }
   function closeOverlay() { overlays.pop(); Input.clear(); }
-  function startRun(def, diff = 0) { World.start(def, prof, diff); scene = 'run'; overlays = []; acc = 0; Input.clear(); Story.trigger('start', def); }
+  // seed = 파티로 들어갈 때 방장이 정한 씨앗(같은 층). 파티 던전에서는 이야기 대화창을 띄우지 않는다(story.js)
+  function startRun(def, diff = 0, seed = 0) { World.start(def, prof, diff, seed); scene = 'run'; overlays = []; acc = 0; Input.clear(); Story.trigger('start', def); }
   function endRun(run, kind) { res = { run, kind }; scene = 'result'; overlays = []; Save.write(prof); Input.clear(); }
   function quitRun() { World.player.dead = false; endRun(currentRun(), 'quit'); }
   let runRef = null;
   const currentRun = () => runRef;
   // 장비 · 골드가 바뀌면 능력치 다시 계산하고 저장
-  function changed() { if (scene === 'run') refreshStats(World.player); if (scene === 'town') Town.refresh(); Save.write(prof); Net.refresh(); }
+  function changed() { if (scene === 'run') refreshStats(World.player); if (scene === 'town') Town.refresh(); Save.write(prof); Net.refresh(); Coop.kitChanged(); }
   function toast(s) { toastMsg = s; toastT = 2; }
   function wipe() { Save.wipe(); prof = Save.fresh(); Save.write(prof); toast('기록을 지웠어요'); }
 
@@ -72,6 +73,16 @@ const Game = (() => {
       else if (top.type === 'choice') UI.choice.update(top);
       else if (top.type === 'talk') Story.update(top);
       else if (top.type === 'coop') Coop.update(top);
+      else if (top.type === 'coopwait') Coop.waitUpdate();
+      else if (top.type === 'coopview') Coop.viewUpdate();
+      // 파티 던전은 창(가방 · 일시정지 · 계단 확인)을 열어도 멈추지 않는다 — 친구는 계속 싸우고 있음. 내 몸만 입력 없이
+      if (scene === 'run' && World.partySeed && overlays.length) {
+        World.inputLock = true;
+        acc += dt;
+        while (acc >= STEP && scene === 'run') { World.update(STEP); acc -= STEP; }
+        World.inputLock = false;
+        return;
+      }
       acc = 0;
       return;
     }
@@ -113,6 +124,8 @@ const Game = (() => {
       else if (o.type === 'choice') UI.choice.draw(ctx, o);
       else if (o.type === 'talk') Story.draw(ctx, o);
       else if (o.type === 'coop') Coop.draw(ctx, o, prof);
+      else if (o.type === 'coopwait') Coop.waitDraw(ctx);
+      else if (o.type === 'coopview') Coop.viewDraw(ctx, prof, time);
     }
     if (toastT > 0 && toastMsg) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -156,6 +169,7 @@ function fit() {
 window.addEventListener('resize', fit);
 // 전화가 오거나 다른 앱 · 탭 · 창으로 가면 던전을 자동 일시정지(2026-10-25 사용자). 돌아오면 일시정지 창에서 이어 한다
 function autoPause() {
+  if (World.partySeed && Game.scene === 'run') return;  // 파티 던전은 멈추지 않는다(친구는 계속 하고 있음)
   if (Game.scene === 'run' && !Game.overlays.length && !World.player.dead) Game.overlay({ type: 'pause' });
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });

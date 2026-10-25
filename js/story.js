@@ -116,6 +116,7 @@ const Story = (() => {
   }
   // kind: opening · start · boss · down
   function trigger(kind, def) {
+    if (kind !== 'opening' && World.partySeed) return;  // 파티 던전에서는 대화창 없음(안 본 장면은 혼자 할 때 나온다)
     if (kind === 'opening') { once('opening', [...STORY.opening, ...STORY.welcome]); return; }
     const S = STORY.dungeons[def.id];
     if (!S) return;

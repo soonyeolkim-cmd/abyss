@@ -20,6 +20,7 @@ function createEnemy(type, x, y, lv, mods = {}) {
   if (rank === 'unique') { hpMul *= UNIQUE.hp; dmgMul *= UNIQUE.dmg; cut *= UNIQUE.def; }
   if (rank === 'boss') cut *= S.bossDef;
   if (aff.includes('tough')) hpMul *= 1.5;
+  hpMul *= RUN.party || 1;  // 파티 던전: 체력 ×1.6
   const f = FRAMES[(d.idle ? d.sprite + '_idle_anim' : d.sprite + '_anim') + '_f0'];
   const uScale = rank === 'unique' ? UNIQUE.scale : 1, scale = (d.scale || 1) * uScale;  // d.scale = 그림 배율(거인 보스 · 작은 몹, 2026-10-25)
   const name = rank === 'unique' ? mods.unique : rank === 'elite' ? aff.map(a => AFFIXES[a].name).join(' ') + ' ' + d.name : d.name;
@@ -266,9 +267,10 @@ function assignRoles(list, p) {
   }
 }
 
-function separateEnemies(list, room, p) {
-  // 화면 근처에서 깨어 있는 몹끼리만(멀리서 자는 몹은 계산하지 않는다)
-  const live = list.filter(e => e.awake && e.state !== 'dead' && e.state !== 'air' && e.state !== 'down' && !e.dying && Math.abs(e.x - p.x) < 320 && Math.abs(e.y - p.y) < 220);
+function separateEnemies(list, room, p, p2) {
+  // 화면 근처에서 깨어 있는 몹끼리만(멀리서 자는 몹은 계산하지 않는다). p2 = 파티 손님 몸(그 둘레도)
+  const by = (e, q) => q && Math.abs(e.x - q.x) < 320 && Math.abs(e.y - q.y) < 220;
+  const live = list.filter(e => e.awake && e.state !== 'dead' && e.state !== 'air' && e.state !== 'down' && !e.dying && (by(e, p) || by(e, p2)));
   for (let i = 0; i < live.length; i++) for (let j = i + 1; j < live.length; j++) {
     const a = live[i], b = live[j];
     const dx = b.x - a.x, dy = b.y - a.y, dist = Math.hypot(dx, dy), min = a.r + b.r + 2;

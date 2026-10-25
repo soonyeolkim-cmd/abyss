@@ -159,7 +159,7 @@ const UI = (() => {
         if (d.needs && !prof.cleared[d.needs]) Game.toast('먼저 ' + DUNGEONS.find(x => x.id === d.needs).name + ' 보스를 쓰러뜨려야 해요');
         else if (prof.lv < d.lv) Game.toast('Lv.' + d.lv + '부터 들어갈 수 있어요 (지금 Lv.' + prof.lv + ')');
         else if (!diffOpen(prof, d.id, this.diff)) Game.toast(DIFFS[this.diff].name + '은 이 던전 ' + DIFFS[this.diff - 1].name + ' 보스를 쓰러뜨리면 열려요');
-        else Game.startRun(d, this.diff);
+        else if (!Coop.hostEnter(d, this.diff)) Game.startRun(d, this.diff);  // 파티 방장이면 친구에게 먼저 묻는다
       }
     },
     draw(ctx, prof, time) {
@@ -206,6 +206,8 @@ const UI = (() => {
         T_(ctx, '입장 Lv.' + d.lv + ' · 보스 ' + boss.name + ' · 나오는 장비 ' + gear, 880, y + 28, 13, lockd ? '#5a5058' : '#c8b8a0', 'right');
         const why = d.needs && !prof.cleared[d.needs] ? DUNGEONS.find(x => x.id === d.needs).name + ' 보스를 쓰러뜨리면 열려요' : 'Lv.' + d.lv + '부터 들어갈 수 있어요 (지금 Lv.' + prof.lv + ')';
         T_(ctx, lockd ? '잠김 — ' + why : d.desc, 162, y + 52, 13, lockd ? '#8a6060' : '#9a8e96');
+        // 파티 방장: 친구 레벨이 모자란 던전 표시
+        if (!lockd && Net.linked && Net.role === 'host' && Net.mate.lv < d.lv) T_(ctx, '친구 Lv.' + Net.mate.lv + ' — 같이 못 가요', 880, y + 52, 12, '#d88aff', 'right');
       });
       // 고른 난이도 설명
       const df = DIFFS[this.diff];
@@ -1425,8 +1427,8 @@ const UI = (() => {
       o.frames = (o.frames || 0) + 1;
       if (o.frames <= CONFIRM_LOCK) return;
       if (Input.nav('left') || Input.nav('right') || Input.nav('up') || Input.nav('down')) this.sel = 1 - this.sel;
-      if (Input.wasPressed('back')) { Game.closeOverlay(); return; }
-      if (Input.wasPressed('ok')) { Game.closeOverlay(); if (this.sel === 0) o.yes(); }
+      if (Input.wasPressed('back')) { Game.closeOverlay(); if (o.no) o.no(); return; }  // o.no = 아니요 · 닫기 때 할 일(파티 초대 거절)
+      if (Input.wasPressed('ok')) { Game.closeOverlay(); if (this.sel === 0) o.yes(); else if (o.no) o.no(); }
     },
     draw(ctx, o) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);

@@ -386,7 +386,9 @@ const DIFFS = [
   { name: '모험', color: '#6fa8ff', hp: 1.3, dmg: 1.15, rare: 2, uniq: 1.5, stoneFavor: 0.3, stoneSpill: 0.02, gold: 1.2, exp: 1.2 },
   { name: '영웅', color: '#ff9a3a', hp: 1.6, dmg: 1.3, rare: 3, uniq: 2, stoneFavor: 0.6, stoneSpill: 0.05, gold: 1.5, exp: 1.5 },  // 2026-10-25 사용자 '영웅 좀 낮춰' ×3 · ×1.8 → 2.4 · 1.5 → 1.9 · 1.35, 그 뒤 사용자가 정함: 체력 1 · 1.3 · 1.6, 공격 1 · 1.15 · 1.3. 보상 그대로
 ];
-const RUN = { diff: 0 };  // 지금 던전 런의 난이도
+const RUN = { diff: 0, party: 1 };  // 지금 던전 런의 난이도 · 파티 몹 체력 배율
+const PARTY_HP = 1.6;  // 파티(2명) 던전 몹 · 보스 체력 배율(2026-10-25 ★ 규칙, 공격은 그대로)
+const REVIVE_HOLD = 2, REVIVE_HP = 0.5, REVIVE_R = 24;  // 파티 살리기: 쓰러진 친구 옆(REVIVE_R)에서 공격 버튼 2초 → 체력 절반으로(★ 규칙)
 // 그 던전에서 보스를 잡은 가장 높은 난이도(-1 = 아직). 예전 저장의 cleared 는 보통으로 친다
 const diffCleared = (prof, id) => (prof.clearedDiff && prof.clearedDiff[id] !== undefined ? prof.clearedDiff[id] : prof.cleared[id] ? 0 : -1);
 const diffOpen = (prof, id, k) => k === 0 || diffCleared(prof, id) >= k - 1;  // 아래 난이도 보스를 잡으면 열림

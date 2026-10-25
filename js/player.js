@@ -39,7 +39,10 @@ function spend(p, n) {
   return true;
 }
 
-function moveInput() {
+// p = 누구의 입력인가: 파티 방장 쪽 손님 몸(remote)은 손님이 보낸 스틱 값, 내 몸은 키보드 · 패드 · 터치(창이 열려 있으면 없음)
+function moveInput(p) {
+  if (p && p.remote) return p.rmove || null;
+  if (World.inputLock) return null;
   const m = Input.move();
   if (!m.x && !m.y) return null;
   const l = Math.hypot(m.x, m.y);
@@ -50,9 +53,18 @@ function moveInput() {
 // 입력은 화면 프레임마다 받아 둔다(경직 · 히트스톱 중에도 다음 동작이 씹히지 않게)
 function bufferPlayerInput(p) {
   for (const a of ['attack', 'dodge', 'charge', 'special']) {
+    if (a === 'attack' && Coop.canRevive()) continue;  // 파티: 쓰러진 친구 옆에서는 공격 버튼 = 살리기(누르고 있기)
     if (Input.wasPressed(a)) { p.buffer = a; p.bufferT = 0.2; }
   }
   if (Input.wasPressed('potion')) p.potionReq = 0.2;  // 물약은 동작과 따로: 공격 · 대시 · 경직 중에도 바로 마신다
+}
+// 동작 이름 → 기술(파티: 손님이 보낸 동작을 방장 쪽 손님 몸이 할 때)
+function actDef(C, kind, idx) {
+  if (kind === 'combo') return C.combo[idx] || C.combo[0];
+  if (kind === 'dashAtk') return C.dashAttack;
+  if (kind === 'charge') return C.charge.def;
+  if (kind === 'special') return C.special;
+  return null;
 }
 
 function updatePlayer(p, dt, room, gates) {
@@ -105,7 +117,7 @@ function updatePlayer(p, dt, room, gates) {
 
 function freeControl(p, dt, room, gates) {
   if (p.buffer && tryStart(p, p.buffer)) return;
-  const m = moveInput();
+  const m = moveInput(p);
   if (m) {
     const sp = p.cls.speed * (1 + p.stats.move / 100) * (p.charge > 0 ? p.cls.charge.move : 1) * (p.slowT > 0 ? 0.6 : 1);
     Dungeon.move(room, p, m.x * sp * dt, m.y * sp * dt, BODY_R, gates);
@@ -126,17 +138,8 @@ function tryStart(p, b) {
   if (b === 'dodge') {
     // 쿨타임 없음(2026-10-24 사용자: 기력이 있으니까) — 대시가 끝나면 기력만 있으면 바로 또
     if (p.dodgeCd > 0 || !spend(p, dashCost(p))) return false;
-    const m = moveInput();
-    p.dodgeV = m ? unit(m.x, m.y, p.fv) : { x: p.fv.x, y: p.fv.y };
-    p.fv = p.dodgeV;
-    p.state = 'dodge'; p.act = null;
-    p.t = C.dodge.time;
-    p.iframes = C.dodge.iframes;
-    p.dodgeCd = C.dodge.time;  // 지금 대시가 끝날 때까지만 막는다
-    p.guardT = C.dodge.time + UNIQUE_FX.dashguardT;
-    p.charge = 0;
-    Elements.dashStart(p);  // 대시 칸 속성석
-    Sfx.dash();
+    const m = moveInput(p);
+    startDodge(p, m ? unit(m.x, m.y, p.fv) : { x: p.fv.x, y: p.fv.y });
     return true;
   }
   if (b === 'charge') {  // 회전베기 · 마법진: 누르면 바로(기력 cost)
@@ -144,7 +147,7 @@ function tryStart(p, b) {
     if (C.charge.def.circle && World.magicActive()) { if (p.spWarnT <= 0) { World.text(p.x, p.y, 40, '마법진이 이미 있어요', '#c9b8ff'); p.spWarnT = 0.6; } return false; }
     if (!spend(p, C.charge.cost)) return false;
     startAct(p, C.charge.def, 'charge', 0);
-    Input.rumble(0.35, 60);
+    if (!p.remote) Input.rumble(0.35, 60);
     return true;
   }
   if (b === 'special') {
@@ -154,6 +157,22 @@ function tryStart(p, b) {
     return true;
   }
   return false;
+}
+
+// 대시 시작(dir 쪽으로). 파티 방장 쪽 손님 몸도 손님이 보낸 방향으로 이걸 부른다
+function startDodge(p, dir) {
+  const C = p.cls;
+  p.dodgeV = dir;
+  p.fv = p.dodgeV;
+  p.state = 'dodge'; p.act = null;
+  p.t = C.dodge.time;
+  p.iframes = C.dodge.iframes;
+  p.dodgeCd = C.dodge.time;  // 지금 대시가 끝날 때까지만 막는다
+  p.guardT = C.dodge.time + UNIQUE_FX.dashguardT;
+  p.charge = 0;
+  Elements.dashStart(p);  // 대시 칸 속성석
+  Sfx.dash();
+  if (World.mirror && p === World.player) Coop.sendAct({ k: 'dodge', x: p.x, y: p.y, fx: dir.x, fy: dir.y });  // 파티 손님: 방장 쪽 내 몸도 대시
 }
 
 function updateEcho(p, dt) {
@@ -184,7 +203,7 @@ function drinkPotion(p) {
 // 방향을 안 누르면 둘레(사거리 + AIM_EXTRA) 안 가장 가까운 몹, 누르고 있으면 그 방향 ±75° 안에서 가장 가까운 몹
 const AIM_EXTRA = 40;
 function aimAt(p, reach) {
-  const m = moveInput();
+  const m = moveInput(p);
   const want = m ? unit(m.x, m.y, p.fv) : p.fv;
   let best = null, bestD = 1e9;
   for (const e of World.enemies()) {
@@ -209,11 +228,13 @@ function startAct(p, def, kind, idx) {
   p.state = 'act';
   p.act = {
     def, hd, kind, idx, time: 0, hit: new Set(), wave: -1, fxDone: false, x0: p.x, y0: p.y,
-    push: !!moveInput(),  // 방향키를 누른 채 공격하면 그쪽으로 내딛는다(중립이면 제자리)
+    push: !!moveInput(p),  // 방향키를 누른 채 공격하면 그쪽으로 내딛는다(중립이면 제자리)
     s: def.startup / sp, a: def.active / sp, r: def.recovery / sp,
   };
   if (def.iframes) p.iframes = p.act.s + p.act.a + 0.05;
   if (def.heavy || def.spin) Sfx.heavySwing(); else Sfx.swing();
+  // 파티 손님: 방장 쪽 내 몸도 같은 동작을(맞히기 · 속성석 효과는 거기서)
+  if (World.mirror && p === World.player) Coop.sendAct({ k: kind, i: idx, x: p.x, y: p.y, fx: p.fv.x, fy: p.fv.y, push: p.act.push ? 1 : 0 });
 }
 
 function updateAct(p, dt, room) {

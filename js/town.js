@@ -24,7 +24,7 @@ const Town = (() => {
         { label: '장비 팔기', go: () => Game.overlay({ type: 'inv', mode: 'sell' }) },
         EQUIP_ITEM,
       ] }) },
-    { id: 'gate', name: '던전 입구', role: '던전 고르기', ...px(14, 3), x: 15 * T, go: () => Game.open('select') },
+    { id: 'gate', name: '던전 입구', role: '던전 고르기', ...px(14, 3), x: 15 * T, go: () => { if (!Coop.guestBlocked()) Game.open('select'); } },  // 파티 손님은 방장이 고른다
     { id: 'shop', name: '상인 엘린', role: '장비 팔기 · 아이템 사고팔기 · 장비 관리', sprite: 'elf_m', ...px(23, 3), x: 24 * T,
       go: () => Game.overlay({ type: 'choice', title: '상인 엘린', items: [
         // 2026-10-24 사용자: 장비 / 아이템으로 나눔
@@ -91,7 +91,7 @@ const Town = (() => {
   }
 
   const TOWN_MENU = () => [
-    { label: '함께하기 (온라인 협동)', go: () => Game.overlay({ type: 'coop' }) },  // 2026-10-25 사용자: 방 코드로 2명
+    { label: '파티 (온라인 협동)', go: () => Game.overlay({ type: 'coop' }) },  // 2026-10-25 사용자: 방 코드로 2명
     { label: '장비 스테이터스', go: () => Game.overlay({ type: 'inv', mode: 'equip' }) },
     { label: '속성석 · 보석 관리', go: () => Game.overlay({ type: 'manage' }) },
     { label: '설정 · 조작', go: () => Game.overlay({ type: 'settings' }) },
@@ -170,7 +170,7 @@ const Town = (() => {
     // 함께하기 방이 열려 있으면 그 위에 방 코드 · 친구(창을 닫아도 방은 그대로)
     if (Net.state !== 'off' && Net.state !== 'error') {
       const m = Net.mate, where = Coop.mateWhere();
-      const s = Net.state === 'ready' ? '함께 · ' + clsOf(m).name + ' Lv.' + m.lv + (where ? ' · ' + where : Net.ping ? ' · ' + Net.ping + 'ms' : '')
+      const s = Net.state === 'ready' ? '파티 · ' + clsOf(m).name + ' Lv.' + m.lv + (where ? ' · ' + where : Net.ping ? ' · ' + Net.ping + 'ms' : '')
         : Net.state === 'joining' ? '방 ' + Net.code + ' 들어가는 중' : '방 ' + Net.code + ' · 친구 기다리는 중';
       Gfx.panel(ctx, 12, by - 38, 250, 32, { border: '#b48cff' });
       Gfx.text(ctx, s, 26, by - 17, 13, '#e0d0ff');

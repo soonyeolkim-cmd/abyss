@@ -29,7 +29,7 @@ const Elements = (() => {
     if (els.length === 2 && n[els[0]] === 2) { const key = els.join('+'), d = SET_DUO[key]; return { duo: key, name: d.name, desc: d.desc(sc), sc }; }
     return null;
   }
-  const P = () => World.player;
+  const P = () => World.actor || World.player;  // 지금 친 사람(파티: 방장 쪽 손님 몸일 수도)
   const setOf = () => { const p = P(); return p ? setBonus(p.prof) : null; };
   const isRes = el => { const b = setOf(); return b && b.res === el ? b.sc : 0; };
   const isDuo = key => { const b = setOf(); return b && b.duo === key ? b.sc : 0; };
@@ -40,6 +40,7 @@ const Elements = (() => {
   const after = (t, fn) => later.push({ t, fn });
   let thorT = 0;
   function step(dt) {
+    if (World.mirror) return;  // 파티 손님: 속성석 효과는 방장 쪽 내 몸이 낸다(그림은 방장이 보내 줌)
     const th = isRes('thunder');  // 뇌신
     if (th) {
       thorT += dt;
@@ -157,7 +158,7 @@ const Elements = (() => {
   // 받는 피해 배수(감전 · 균열 · 빙결)
   function vuln(e) {
     let m = 1;
-    if (e.shockT > 0) m *= 1 + SHOCK_VULN + 0.05 * Math.round((e.shockK || 1) - 1) + (World.player && has(World.player.prof, 'thunder', 'p2') ? 0.15 : 0);  // 고전압
+    if (e.shockT > 0) m *= 1 + SHOCK_VULN + 0.05 * Math.round((e.shockK || 1) - 1) + (P() && has(P().prof, 'thunder', 'p2') ? 0.15 : 0);  // 고전압
     if (e.crackT > 0) m *= 1 + CRACK_VULN;
     if (e.cutT > 0) m *= 1 + WAVE_CUT.vuln;  // 검기 베인 상처
     const scd = isDuo('frost+thunder');  // 초전도: 냉기 · 빙결 + 감전
@@ -170,7 +171,7 @@ const Elements = (() => {
 
   // 속성 피해(상태이상 · 폭발 · 번개): 숫자를 띄우고, 쓰러지면 처치
   function damage(e, amount, el) {
-    if (e.dying || e.state === 'dead') return;
+    if (e.dying || e.state === 'dead' || World.mirror) return;  // 파티 손님: 피해는 방장 쪽에서
     const d = Math.max(1, Math.round(amount * vuln(e)));
     e.hp -= d;
     World.number(e.x + (Math.random() - 0.5) * 6, e.y, e.h + 2, d, ELEMENTS[el].color);
@@ -184,6 +185,7 @@ const Elements = (() => {
 
   // 칸 기술이 맞았을 때(hitEnemy 에서 부른다). fin = 마무리 · 회전베기는 더 세게
   function onHit(e, def, p) {
+    if (World.mirror) return;  // 파티 손님: 속성석 효과는 방장 쪽 내 몸이 낸다(그림은 방장이 보내 줌)
     if (e.dying) return;
     passiveHit(e, p);
     if (!def.slot || e.dying) return;
@@ -230,6 +232,7 @@ const Elements = (() => {
   }
   // 기본 공격을 휘두를 때(보통부터): 화염구 · 얼음 파편 · 독 분사
   function basicSwing(p, d) {
+    if (World.mirror) return;  // 파티 손님: 속성석 효과는 방장 쪽 내 몸이 낸다(그림은 방장이 보내 줌)
     const s = socket(p.prof, 'basic');
     if (!s || !slotOpen(s)) return;
     const k = power(s), col = ELEMENTS[s.el].color, a0 = Math.atan2(p.fv.y, p.fv.x);
@@ -254,8 +257,8 @@ const Elements = (() => {
   }
   // 몹이 쓰러질 때(World.onKill): 연쇄 폭발
   function onDeath(e) {
-    const p = World.player;
-    if (!p) return;
+    const p = P();
+    if (!p || World.mirror) return;
     const plague = isRes('poison');  // 역병: 독 걸린 적이 쓰러지면 둘레로 독이 옮는다
     if (plague && e.poison) { const x = e.x, y = e.y; after(0.1, () => explode(x, y, 34, 0, 'poison', o => poison(o, Math.round(4 * plague), p, plague, true))); }
     if (!e.burn || !(has(p.prof, 'fire', 'p1') || isRes('fire'))) return;  // 업화: 연쇄 폭발이 없어도 늘 터진다
@@ -265,6 +268,7 @@ const Elements = (() => {
 
   // 회전베기를 휘두를 때(차지 칸): 둘레에 속성 폭발
   function chargeBurst(p) {
+    if (World.mirror) return;  // 파티 손님: 속성석 효과는 방장 쪽 내 몸이 낸다(그림은 방장이 보내 줌)
     const s = socket(p.prof, 'charge');
     if (!s) return;
     const k = power(s), atk = p.stats.atk, R = 40 + s.size * 4, col = ELEMENTS[s.el].color;
@@ -302,6 +306,7 @@ const Elements = (() => {
   // ── 대시 칸: 지나간 길(불길 · 얼음 · 독), 끝(벼락 · 부과 능력) ──
   function dashStart(p) { p.dashStone = socket(p.prof, 'dash'); p.dashTrail = 0; p.dashHit = new Set(); }
   function dashMove(p, step) {
+    if (World.mirror) return;  // 파티 손님: 속성석 효과는 방장 쪽 내 몸이 낸다(그림은 방장이 보내 줌)
     const s = p.dashStone;
     if (!s) return;
     const k = power(s);
@@ -316,6 +321,7 @@ const Elements = (() => {
     }
   }
   function dashEnd(p) {
+    if (World.mirror) return;  // 파티 손님: 속성석 효과는 방장 쪽 내 몸이 낸다(그림은 방장이 보내 줌)
     const s = p.dashStone;
     p.dashStone = null;
     if (!s) return;
@@ -356,6 +362,7 @@ const Elements = (() => {
 
   // 검기 칸: 날아가는 동안 꼬리(불길 · 독 · 얼음 길), 끝에서 얼음 파편
   function waveTrail(shot, p) {
+    if (World.mirror) return;  // 파티 손님: 속성석 효과는 방장 쪽 내 몸이 낸다(그림은 방장이 보내 줌)
     if (!shot.stone) return;
     const k = power(shot.stone);
     if (shot.stone.el === 'fire') World.field({ x: shot.x, y: shot.y, r: 10, el: 'fire', life: 2, k, p });
@@ -363,6 +370,7 @@ const Elements = (() => {
     if (shot.stone.el === 'frost' && slotOpen(shot.stone)) World.field({ x: shot.x, y: shot.y, r: 11, el: 'frost', life: 2, k, p });  // 얼음 길
   }
   function waveEnd(shot, p) {
+    if (World.mirror) return;  // 파티 손님: 속성석 효과는 방장 쪽 내 몸이 낸다(그림은 방장이 보내 줌)
     if (!shot.stone || shot.stone.el !== 'frost') return;
     const k = power(shot.stone), frostOrb = shot.orb && slotOpen(shot.stone), R = frostOrb ? 40 : 28;  // 마법사 서리 구슬(보통부터): 넓게 + 냉기
     World.fx({ type: 'burst', x: shot.x, y: shot.y, r: R, col: ELEMENTS.frost.color, t: 0, life: 0.3 });
@@ -376,6 +384,7 @@ const Elements = (() => {
 
   // 장판: 0.5초마다 안에 있는 몹에게
   function fieldTick(f) {
+    if (World.mirror) return;  // 파티 손님: 속성석 효과는 방장 쪽 내 몸이 낸다(그림은 방장이 보내 줌)
     for (const e of World.enemies()) {
       if (!live(e) || Math.hypot(e.x - f.x, (e.y - f.y) * 1.6) > f.r + e.r) continue;
       if (f.el === 'fire') burn(e, f.p, f.k);

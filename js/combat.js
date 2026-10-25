@@ -28,6 +28,7 @@ function committed(e) {
 
 // 플레이어 공격이 몹에 맞음. 맞았으면 true
 function hitEnemy(e, def, p, w) {
+  if (World.mirror) return false;  // 파티 손님: 맞히기는 방장 쪽 내 몸이 한다(world.js)
   if (e.dying || e.state === 'dead' || e.state === 'getup' || e.spawnT > 0) return false;
   if (e.state === 'down') {
     if (e.otgUsed) return false;  // 쓰러진 몹은 추가타 한 번만
@@ -101,7 +102,7 @@ function hitEnemy(e, def, p, w) {
   World.impact(hx, hy, hz, crit ? 14 : heavy ? 11 : 8);
   World.shake(crit ? 3 : heavy ? 2.5 : 1.5);
   if (crit) World.hitstop(0.07);
-  Input.rumble(crit || heavy ? 0.5 : 0.25, crit || heavy ? 90 : 50);
+  if (!p.remote) Input.rumble(crit || heavy ? 0.5 : 0.25, crit || heavy ? 90 : 50);
   World.number(e.x, e.y, (e.z || 0) + e.h + 4, dmg, crit ? '#ffd34d' : stag > 1 ? '#7fe3ff' : '#ffffff', crit);
   return true;
 }
@@ -109,6 +110,7 @@ function hitEnemy(e, def, p, w) {
 // 몹 공격이 플레이어에 닿음. 결과: 'hit' · 'miss'(대시 무적 등). src = 공격한 몹(탄이면 탄)
 // p.safe = 보스를 쓰러뜨린 뒤 무적(2026-10-25 사용자: 보스 잡고 남은 탄 · 폭발에 죽는 일 없게)
 function hurtPlayer(p, src, dmgRaw, knock) {
+  if (p.remote) return Coop.remoteHurt(p, src, dmgRaw, knock);  // 파티 방장: 손님 몸이 맞음 → 손님 기기에서 무적 · 피해 계산
   if (p.dead || p.safe || p.iframes > 0) return 'miss';
   const fx = p.stats.fx || {};
   // 유니크 잎사귀 방패: 준비돼 있으면 한 번 막는다
@@ -145,7 +147,8 @@ function downOrRevive(p) {
     World.text(p.x, p.y, 40, '두 번째 기회!', '#ff9a3a');
     World.sparks(p.x, p.y, 16, 14, '#ff9a3a');
     Sfx.levelUp();
-  } else World.playerDied();
+  } else if (Coop.mateUp()) World.playerDown();  // 파티: 친구가 살아 있으면 쓰러져서 기다린다(친구가 살려 줌, 4단계)
+  else World.playerDied();
 }
 
 // 함정 웅덩이 피해: 경직 없이 체력만(대시 무적 중엔 안 다침)

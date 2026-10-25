@@ -202,6 +202,8 @@ const Splash = (() => {
     const touch = (typeof Touch !== 'undefined' && Touch.on && Input.device !== 'pad') || Input.device === 'touch';
     if (Math.sin(t * 4) > -0.2) Gfx.text(ctx, (touch ? '화면을 눌러서' : '아무 버튼이나 눌러서') + ' 시작', 480, 474, 20, '#e0b8ff', 'center');
     Gfx.text(ctx, '© 2026 웨폰마스터. All rights reserved.', 480, 528, 10, 'rgba(220,210,235,0.7)', 'center', '600');
+    // 판 번호(2026-10-25 사용자: 인트로에 버전) — index.html 스크립트 주소의 ?v=. 폰이 새 판인지 바로 보이게
+    if (Net.VER) Gfx.text(ctx, '판 ' + Net.VER, 948, 528, 11, 'rgba(220,210,235,0.75)', 'right', '600');
   }
 
   return { scene, backdrop, update, draw };
