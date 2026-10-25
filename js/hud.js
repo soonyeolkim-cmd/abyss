@@ -339,11 +339,12 @@ const Hud = (() => {
     ctx.fillRect(ox + p.x / T * s - 2, oy + p.y / T * s - 2, 4, 4);
     const by = oy + lv.H * s + 18, df = DIFFS[RUN.diff], run = World.run, prof = World.prof;
     T_(ctx, lv.def.name, 950, by, 12, '#9a8e96', 'right');
-    T_(ctx, df.name, 950, by + 16, 12, df.color, 'right');  // 난이도(2026-10-24 사용자)
+    if (lv.def.endless) T_(ctx, '최고 ' + endlessBest(prof) + '층', 950, by + 16, 12, '#d8b0ff', 'right');  // 끝없는 심연은 난이도 대신 최고 층
+    else T_(ctx, df.name, 950, by + 16, 12, df.color, 'right');  // 난이도(2026-10-24 사용자)
     // 타임어택: 보스를 쓰러뜨리면 그 시간에서 멈추고 새 기록이면 금색
     const done = run && run.clearTime !== undefined, t = done ? run.clearTime : World.time;
     T_(ctx, '시간 ' + fmtTime(t), 950, by + 34, 14, done ? (run.newRecord ? '#ffd36a' : '#7dff8a') : '#e8e0d0', 'right');
-    const best = prof.bestTimes && prof.bestTimes[timeKey(lv.def.id, RUN.diff)];
+    const best = prof.bestTimes && prof.bestTimes[timeKey(lv.def.timeId || lv.def.id, RUN.diff)];
     if (done && run.newRecord) T_(ctx, '★ 새 기록!', 950, by + 50, 12, '#ffd36a', 'right');
     else if (best) T_(ctx, '최고 ' + fmtTime(done && run.bestPrev ? run.bestPrev : best), 950, by + 50, 11, '#8a7e88', 'right');
   }

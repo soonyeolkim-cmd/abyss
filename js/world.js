@@ -58,7 +58,7 @@ const World = (() => {
     actor = null; nextId = 1; byId.clear(); flows.clear(); goneIds = [];
     lv = seed ? seeded(seed, () => Dungeon.generate(def)) : Dungeon.generate(def);
     lv.ilvlR = diffIlvl(def, diff);  // 난이도에 따른 장비 레벨 범위
-    dIdx = DUNGEONS.indexOf(def);
+    dIdx = def.endless ? DUNGEONS.length - 1 : DUNGEONS.indexOf(def);  // 끝없는 심연은 마지막 던전만큼 큰 무리
     prof = profile;
     p = createPlayer(prof);
     p.x = lv.start.cx * T + 8; p.y = lv.start.cy * T + 12;
@@ -451,13 +451,18 @@ const World = (() => {
     lv.chests.push({ x: cs.x, y: cs.y, open: false, t: 0, big: true });
     lv.stairs = stairsSpot(b);
     msg = '보스를 쓰러뜨렸다!'; msgT = 2.5;
-    prof.cleared[lv.def.id] = true;
-    if (!prof.clearedDiff) prof.clearedDiff = {};
-    prof.clearedDiff[lv.def.id] = Math.max(diffCleared(prof, lv.def.id), RUN.diff);  // 다음 난이도가 열린다
-    // 타임어택: 보스를 쓰러뜨린 시간 = 기록. 던전 · 난이도마다 최고 기록을 남긴다
+    if (lv.def.endless) {  // 끝없는 심연: 깬 던전 수(10개)에는 안 들어가고 최고 층만
+      run.endlessPrev = endlessBest(prof);
+      prof.endless = { best: Math.max(run.endlessPrev, lv.def.floor) };
+    } else {
+      prof.cleared[lv.def.id] = true;
+      if (!prof.clearedDiff) prof.clearedDiff = {};
+      prof.clearedDiff[lv.def.id] = Math.max(diffCleared(prof, lv.def.id), RUN.diff);  // 다음 난이도가 열린다
+    }
+    // 타임어택: 보스를 쓰러뜨린 시간 = 기록. 던전 · 난이도마다(끝없는 심연은 층마다) 최고 기록을 남긴다
     run.clearTime = time;
     if (!prof.bestTimes) prof.bestTimes = {};
-    const tk = timeKey(lv.def.id, RUN.diff);
+    const tk = timeKey(lv.def.timeId || lv.def.id, RUN.diff);
     run.bestPrev = prof.bestTimes[tk];
     if (!run.bestPrev || time < run.bestPrev) { prof.bestTimes[tk] = time; run.newRecord = true; }
   }
@@ -593,7 +598,7 @@ const World = (() => {
   }
 
   function goldRoll(range, mul = 1) {
-    return Math.round(rnd(range[0], range[1]) * mul * GOLD_MUL * DIFFS[RUN.diff].gold * POWER(dlv()) * (1 + p.stats.gold / 100));
+    return Math.round(rnd(range[0], range[1]) * mul * GOLD_MUL * DIFFS[RUN.diff].gold * (lv.def.gainMul || 1) * POWER(dlv()) * (1 + p.stats.gold / 100));  // gainMul = 끝없는 심연 층 보너스
   }
   const ilvl = () => rnd(lv.ilvlR[0], lv.ilvlR[1]);
   const mk = (il, o) => Items.make(il, Object.assign({ rare: DIFFS[RUN.diff].rare }, o));  // 난이도만큼 좋은 등급이 잘 나온다
@@ -704,7 +709,7 @@ const World = (() => {
     run.kills++;
     Sfx.kill();
     const rankExp = e.rank === 'unique' ? 5 : e.rank === 'elite' ? 2 : 1;
-    gainExp(Math.round(d.exp * rankExp * POWER(dlv()) * DIFFS[RUN.diff].exp * lowExp(prof.lv, dlv())));  // 낮은 던전은 경험치 줄어듦  // 역할 경험치 × 던전 레벨 곡선
+    gainExp(Math.round(d.exp * rankExp * POWER(dlv()) * DIFFS[RUN.diff].exp * (lv.def.gainMul || 1) * lowExp(prof.lv, dlv())));  // 낮은 던전은 경험치 줄어듦  // 역할 경험치 × 던전 레벨 곡선
     if (p.stats.life) p.hp = Math.min(p.maxHp, p.hp + p.stats.life);
     if (p.stats.fx.vamp) p.hp = Math.min(p.maxHp, p.hp + Math.max(2, Math.round(p.maxHp * UNIQUE_FX.vamp)));  // 유니크 흡혈 칼날
     if (d.boss) {
