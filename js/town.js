@@ -34,9 +34,9 @@ const Town = (() => {
         EQUIP_ITEM,
         { label: '가게 이야기 듣기', go: () => Story.talkNpc('shop') },
       ] }) },
-    // 도박꾼 단지(2026-10-25 사용자: 항아리는 도박꾼 NPC 를 따로, 항아리를 뒤집어쓴 도트) — 오른쪽 광장(상점 아래 · 창고 왼쪽, 처음엔 대장장이 아래였는데 이름표가 겹쳐서),
+    // 도박꾼 단지(2026-10-25 사용자: 항아리는 도박꾼 NPC 를 따로, 항아리를 뒤집어쓴 도트) — 가운데 아래 빈 곳(2026-10-25 사용자, 처음 대장장이 아래 → 상점 아래 → 여기),
     // 양옆 항아리 더미(JAR_PILE) · 위에 '대박 기원' 현수막 · 항아리에 부적 · 가끔 뽑기를 꼬드기는 속삭임(GAMBLER_LINES)
-    { id: 'gambler', name: '도박꾼 단지', role: '장비 항아리 (부위 골라 뽑기)', sprite: 'gambler', ...px(22, 10), flip: false,
+    { id: 'gambler', name: '도박꾼 단지', role: '장비 항아리 (부위 골라 뽑기)', sprite: 'gambler', ...px(14, 12), x: 15 * T, flip: false,
       go: () => Game.overlay({ type: 'choice', title: '도박꾼 단지', items: [
         { label: '항아리 깨기 (장비 뽑기)', go: () => Game.overlay({ type: 'jar' }) },
         EQUIP_ITEM,
@@ -61,8 +61,8 @@ const Town = (() => {
     { id: 'miner', name: '늙은 광부 오르반', role: '지하 도시 이야기', sprite: 'miner', ...px(23, 13), flip: false, go: () => Story.talkNpc('miner') },
   ];
   const SHAFT = [26, 13];  // 무너진 옛 갱도 입구(광부 옆, 상자 둘 사이)
-  const JAR_PILE = [[21, 10, 1], [23, 10, 0.8], [24, 10, 0.65]];  // 도박꾼 양옆 항아리(칸 x, y, 크기) — 막히는 칸, 그림은 Jar.jarArt
-  const BANNER = { x0: 21 * T + 2, x1: 24 * T + 6, y: 6 * T + 4, h: 15 };  // 현수막(게임 좌표): 양 끝 기둥 · 붉은 천
+  const JAR_PILE = [[13, 12, 1], [16, 12, 0.8], [17, 12, 0.65]];  // 도박꾼 양옆 항아리(칸 x, y, 크기) — 막히는 칸, 그림은 Jar.jarArt
+  const BANNER = { x0: 13 * T + 2, x1: 17 * T - 2, y: 8 * T + 4, h: 15 };  // 현수막(게임 좌표): 양 끝 기둥 · 붉은 천
   const GAMBLER_LINES = ['오늘은 왠지 유니크 각인데…', '한 번만 더? 크흐흐', '깨 보기 전엔 아무도 몰라~', '유니크 3%! 오늘은 너다', '방금 누가 유니크 떴다던데?', '꽝도 추억이지, 크흐흐'];
   const TALK_R = 26;
   const TOWN_SPEED = 1.6;  // 마을에서는 던전보다 60% 빠르게 걷는다(2026-10-24 사용자)
@@ -94,7 +94,7 @@ const Town = (() => {
     prof = pr;
     if (!lv) lv = build();
     p = createPlayer(prof);
-    const s = fromGate ? px(14, 5) : px(14, 13);
+    const s = fromGate ? px(14, 5) : px(14, 7);  // 아래 가운데는 도박꾼 가판(현수막)이라 광장 위쪽에서
     p.x = 15 * T; p.y = s.y; p.fv = { x: 0, y: fromGate ? 1 : -1 };
     if (prof.story && prof.story.openingAgain) { delete prof.story.openingAgain; Save.write(prof); Story.replay(); }  // 예전 캐릭터: 오프닝 한 번
     else if (fromGate) Story.townArrive();  // 보스를 쓰러뜨리고 돌아왔으면 카엘이 한마디
@@ -173,10 +173,10 @@ const Town = (() => {
       ctx.fillStyle = '#c02020'; ctx.fillRect(fx + sw + 1, fy + 1, 1, 1); ctx.fillRect(fx + sw, fy + 3, 3, 1); ctx.fillRect(fx + sw + 1, fy + 4, 1, 1);
     } });
     // 현수막: 양 끝 나무 기둥(바닥까지) + 붉은 천 · 금 테두리(글자는 아래 화면 좌표에서)
-    list.push({ y: 10 * T + 2, draw: () => {
+    list.push({ y: 12 * T + 2, draw: () => {
       const { x0, x1, y, h } = BANNER, sag = Math.sin(time * 1.6) * 0.6;
-      ctx.fillStyle = '#5a3a22'; ctx.fillRect(x0 - 2, y - 3, 2, 11 * T - y + 3); ctx.fillRect(x1, y - 3, 2, 11 * T - y + 3);
-      ctx.fillStyle = '#8a5a32'; ctx.fillRect(x0 - 2, y - 3, 1, 11 * T - y + 3); ctx.fillRect(x1, y - 3, 1, 11 * T - y + 3);
+      ctx.fillStyle = '#5a3a22'; ctx.fillRect(x0 - 2, y - 3, 2, 13 * T - y + 3); ctx.fillRect(x1, y - 3, 2, 13 * T - y + 3);
+      ctx.fillStyle = '#8a5a32'; ctx.fillRect(x0 - 2, y - 3, 1, 13 * T - y + 3); ctx.fillRect(x1, y - 3, 1, 13 * T - y + 3);
       ctx.fillStyle = '#e8c040'; ctx.fillRect(x0 - 3, y - 4, 4, 2); ctx.fillRect(x1 - 1, y - 4, 4, 2);  // 기둥 머리 금 장식
       ctx.fillStyle = '#7a1418'; ctx.fillRect(x0, Math.round(y + sag), x1 - x0, h);
       ctx.fillStyle = '#b02028'; ctx.fillRect(x0, Math.round(y + sag) + 1, x1 - x0, h - 3);
