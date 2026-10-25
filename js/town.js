@@ -51,7 +51,8 @@ const Town = (() => {
     const tiles = new Uint8Array(W * H);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) tiles[y * W + x] = MAP[y][x] === '.' ? 1 : 0;
     const at = (x, y) => (x < 0 || y < 0 || x >= W || y >= H ? 0 : tiles[y * W + x]);
-    const def = { banner: 'wall_banner_yellow', wall: ['wall_banner_red', 'wall_banner_blue', 'wall_banner_green'], tint: '#d8c8b0' };
+    // 깃발은 던전 입구 양옆 벽에만(2026-10-25 사용자: 위쪽 벽에 무작위로 붙은 깃발이 이상함) — 입구 구멍 바로 옆 칸(12, 3) · (17, 3)
+    const def = { plain: true, banners: [[12, 3, 'wall_banner_red'], [17, 3, 'wall_banner_red']], tint: '#d8c8b0' };
     const m = { def, W, H, tiles, at, rooms: [], columns: [], crates: new Set(), decor: { skulls: [] }, start: null };
     // 광장 기둥 넷 + 상점 · 대장장이 앞 상자(막히는 것)
     for (const c of [[9, 7], [20, 7], [9, 12], [20, 12]]) m.columns.push(c);
@@ -159,7 +160,7 @@ const Town = (() => {
     }
     // 친구 머리 위 이름표
     if (mate) Gfx.text(ctx, '친구 · ' + clsOf(mate.prof).name + ' Lv.' + Net.mate.lv, sx(mate.x), sy(mate.y) - 62, 12, '#d8c0ff', 'center');
-    Coop.drawForge(ctx, p, sx, sy);  // 파티 강화 결과 말풍선(내 머리 위 · 친구 머리 위)
+    Coop.drawBubbles(ctx, p, mate, sx, sy);  // 파티 말풍선: 강화 · 합치기 · 유니크(내 머리 위 · 친구 머리 위)
     // 아래 왼쪽: 마을 이름 · 캐릭터
     const by = 438;
     Gfx.panel(ctx, 12, by, 250, 66);

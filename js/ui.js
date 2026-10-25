@@ -697,6 +697,7 @@ const UI = (() => {
           Elements.add(prof, big);
           prof.gold -= cost;
           Sfx.combine(big.size);
+          Coop.brag({ kind: 'stone', stone: big });  // 파티: 머리 위에 합친 속성석 · 보석(친구 화면에도)
           Game.toast(stoneName(big) + ' 완성! (-' + cost + 'G)');
           Game.changed();
         }

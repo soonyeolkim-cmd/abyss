@@ -332,6 +332,8 @@ const Hud = (() => {
     if (lv.explored[b.cy * lv.W + b.cx]) { ctx.strokeStyle = '#d83a3a'; ctx.lineWidth = 1; ctx.strokeRect(ox + b.x * s, oy + b.y * s, b.w * s, b.h * s); }
     for (const c of lv.chests) if (!c.open && lv.explored[Math.floor(c.y / T) * lv.W + Math.floor(c.x / T)]) { ctx.fillStyle = '#ffd34d'; ctx.fillRect(ox + c.x / T * s - 1.5, oy + c.y / T * s - 1.5, 3, 3); }
     if (lv.stairs) { ctx.fillStyle = '#7dd3ff'; ctx.fillRect(ox + lv.stairs.x / T * s - 2, oy + lv.stairs.y / T * s - 2, 4, 4); }
+    const mt = World.mate;  // 파티 친구: 보라 점(쓰러졌으면 붉게 깜빡)
+    if (mt && (!mt.dead || Math.sin(performance.now() / 120) > 0)) { ctx.fillStyle = mt.dead ? '#ff6a5a' : '#c9a8ff'; ctx.fillRect(ox + mt.x / T * s - 2, oy + mt.y / T * s - 2, 4, 4); }
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(ox + p.x / T * s - 2, oy + p.y / T * s - 2, 4, 4);
     const by = oy + lv.H * s + 18, df = DIFFS[RUN.diff], run = World.run, prof = World.prof;

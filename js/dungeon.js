@@ -136,9 +136,11 @@ const Dungeon = (() => {
       const below = at(x, y + 1) === 1, above = at(x, y - 1) === 1;
       const left = at(x - 1, y) === 1, right = at(x + 1, y) === 1;
       if (below) {
-        // 벽 앞면(+ 가끔 깃발 · 구멍)
+        // 벽 앞면(+ 가끔 깃발 · 구멍). def.banners = 정해 둔 자리 깃발, def.plain = 무작위 장식 없음(마을, 2026-10-25 사용자: 깃발은 던전 입구 양옆만)
         const k = Math.random();
-        put(k < 0.07 ? lv.def.banner : k < 0.13 ? wallDecor[Math.floor(Math.random() * wallDecor.length)] : 'wall_mid', x, y);
+        const fixed = lv.def.banners && lv.def.banners.find(b => b[0] === x && b[1] === y);
+        const deco = k < 0.07 ? lv.def.banner : k < 0.13 ? wallDecor[Math.floor(Math.random() * wallDecor.length)] : 'wall_mid';
+        put(fixed ? fixed[2] : lv.def.plain ? 'wall_mid' : deco, x, y);
         if (left) put('wall_outer_mid_right', x, y);
         if (right) put('wall_outer_mid_left', x, y);
         continue;

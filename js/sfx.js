@@ -116,6 +116,13 @@ const Sfx = (() => {
       noise({ dur: 0.5, vol: 0.12, freq: 3000, sweep: 6000, q: 1, delay: 0.27 });
       [1320, 1760, 2640].forEach((f, i) => tone({ type: 'sine', f: f * b, dur: 0.5 + size * 0.05, vol: 0.13, delay: 0.3 + i * 0.05 }));
     },
+    // 유니크 획득(2026-10-25 사용자: 유니크 먹으면 소리): 쨍 + 올라가는 팡파르 + 낮은 울림 + 높은 반짝. k = 크기(친구가 얻었을 때는 작게)
+    unique: (k = 1) => {
+      noise({ dur: 0.12, vol: 0.3 * k, freq: 3000, q: 2 });
+      [523, 659, 784, 1046, 1318].forEach((f, i) => tone({ type: 'square', f, dur: 0.16, vol: 0.12 * k, delay: 0.05 + i * 0.07 }));
+      tone({ type: 'triangle', f: 262, dur: 0.8, vol: 0.14 * k, delay: 0.4 });
+      [1568, 2093, 2637, 3136].forEach((f, i) => tone({ type: 'sine', f, dur: 0.6, vol: 0.1 * k, delay: 0.42 + i * 0.05 }));
+    },
     // 합칠 수 없을 때(개수 · 골드 부족)
     deny: () => tone({ type: 'square', f: 180, f2: 140, dur: 0.12, vol: 0.12 }),
     reveal: () => [660, 880, 1320, 1760].forEach((f, i) => tone({ type: 'sine', f, dur: 0.35, vol: 0.1, delay: i * 0.08 })),
