@@ -47,9 +47,10 @@ const Save = (() => {
     // 장신구 강화 체력 → 공격력(2026-10-24): 오르는 양 비율(체력 5 · 12 → 공격력 1 · 3)로 한 번만 바꾼다
     const accEnch = !p.accEnchAtk;
     p.accEnchAtk = true;
-    // 강화 오르는 양 하나로(2026-10-25 사용자: 축복 · 보통 같게, 공격 장비 +10 = 대미지 약 2배): 이미 강화한 장비는 +N × 새 양으로 다시 계산(+N 은 그대로)
-    const enchOne = !p.enchOne;
-    p.enchOne = true;
+    // 강화 오르는 양 하나로(2026-10-25 사용자: 축복 · 보통 같게, 공격 장비 +10 = 대미지 약 2배 → 4배): 이미 강화한 장비는 +N × 새 양으로 다시 계산(+N 은 그대로).
+    // 2배 판(enchOne)으로 한 번 계산한 저장도 4배 판(enchOne4)으로 다시
+    const enchOne = !p.enchOne4;
+    p.enchOne = true; p.enchOne4 = true;
     // 반지 기본 체력(2026-10-24): 예전 반지에는 체력이 없었다 → 한 번만 붙여 준다(새 반지와 같은 식)
     const ringHp = !p.ringHp;
     p.ringHp = true;

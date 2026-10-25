@@ -455,12 +455,12 @@ const reqLevel = ilvl => Math.floor(ilvl / 10) * 10;
 const ENCHANT_MAX = 10;
 const SCROLL_GROUPS = {
   // gain = 한 번 성공할 때 오르는 양(× 장비 레벨 곡선). 2026-10-25 사용자: 축복받은 · 보통은 확률만 다르고 오르는 양은 같게,
-  // 무기 · 목걸이 · 반지를 모두 +10 하면 공격력(대미지) 약 2배(예전 축복 1 · 보통 3 은 3.4배 · 8배였다)
-  weapon: { name: '무기', stat: 'atk', slots: ['weapon'], gain: 0.42 },
+  // 무기 · 목걸이 · 반지를 모두 +10 하면 공격력(대미지) 약 4배(예전 축복 1 · 보통 3 은 3.4배 · 8배, 2배(0.42)는 '말도 안 되게 어렵다' → 4배)
+  weapon: { name: '무기', stat: 'atk', slots: ['weapon'], gain: 1.26 },
   // 방어구는 4부위라 주문서가 많이 드는데 효과가 가장 작았다 → 1.5배(2026-10-24 사용자). Lv.40 한 벌 +10: 축복받은 받는 피해 -38% → -48%, 보통 -56% → -65%
-  armor: { name: '방어구', stat: 'def', slots: ['helmet', 'armor', 'gloves', 'boots'], gain: 0.63 },  // 무기의 1.5배(예전 비율 그대로)
+  armor: { name: '방어구', stat: 'def', slots: ['helmet', 'armor', 'gloves', 'boots'], gain: 1.89 },  // 무기의 1.5배(예전 비율 그대로)
   // 장신구도 무기와 똑같이 공격력(2026-10-24 사용자: 무기 · 장신구 = 공격, 방어구 = 방어로 정리. 예전엔 최대 체력 5 · 12)
-  acc: { name: '장신구', stat: 'atk', slots: ['amulet', 'ring'], gain: 0.42 },
+  acc: { name: '장신구', stat: 'atk', slots: ['amulet', 'ring'], gain: 1.26 },
 };
 const SCROLL_ORDER = ['any', 'inherit'];
 // 성공률은 지금 강화 단계마다 다르게(2026-10-25 사용자: 10% · 5% 로 똑같으니 너무 어렵다). ENCHANT_RATE[지금 +N] = 강화 주문서(보통) 성공률 %,
