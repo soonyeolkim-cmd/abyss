@@ -128,6 +128,7 @@ const UI = (() => {
           ctx.fillStyle = g; ctx.fillRect(x, y + 40, w, 220);
           Art.avatar(ctx, p, x + w / 2 - 6, y + 210, 4, on ? time : 0);
           T_(ctx, clsOf(p).name + ' Lv.' + p.lv, x + w / 2, y + 250, 20, '#f0e0b8', 'center');
+          if (p.story && p.story.trueEnding) T_(ctx, '★ 진엔딩', x + w / 2, y + 62, 14, '#ffd36a', 'center');  // 2026-10-25 심연의 문 영웅 클리어
           T_(ctx, '골드 ' + p.gold + 'G · 깬 던전 ' + Object.keys(p.cleared || {}).length + '/' + DUNGEONS.length, x + w / 2, y + 278, 13, '#9a8e96', 'center');
           if (p.equip.weapon) T_(ctx, Items.nameOf(p.equip.weapon), x + w / 2, y + 300, 12, RARITY[p.equip.weapon.rarity].color, 'center');
         } else {

@@ -212,7 +212,7 @@ const Town = (() => {
     p = createPlayer(prof);
     spawn();
     if (prof.story && prof.story.openingAgain) { delete prof.story.openingAgain; Save.write(prof); Story.replay(); }  // 예전 캐릭터: 오프닝 한 번
-    else if (fromGate) Story.townArrive();  // 보스를 쓰러뜨리고 돌아왔으면 카엘이 한마디
+    else Story.townArrive();  // 보스를 쓰러뜨리고 돌아왔으면 카엘이 한마디 · 엔딩 · 진엔딩(켤 때도 — 못 본 엔딩이 있으면)
   }
 
   function update(dt) {
@@ -240,6 +240,7 @@ const Town = (() => {
     { label: '속성석 · 보석 관리', go: () => Game.overlay({ type: 'manage' }) },
     { label: '설정 · 조작', go: () => Game.overlay({ type: 'settings' }) },
     { label: '이야기 다시 보기', go: () => Story.replay() },  // 오프닝 · 카엘의 인사(2026-10-25)
+    ...(prof.story && prof.story.trueEnding ? [{ label: '진엔딩 다시 보기', go: () => Story.replayTrue() }] : []),
     { label: '캐릭터 선택 화면으로', go: () => Game.toTitle() },  // 지우기 · 코드는 캐릭터 선택 화면에서(2026-10-24)
   ];
 

@@ -108,7 +108,27 @@ const STORY = {
     ['kael', '길이 열렸다. 저 위 실베인이 어떻게 됐는지는 아무도 모른다. 아직 누군가 버티고 있을지도.'],
     ['kael', '누군가 먼저 올라가 길을 열어야 한다. …충분히 강해지면, 그때 가라. 벨록 사람들은 네 뒤를 따르겠다.'],
     ['miner', '허허, 내 광차가 드디어 쓸모가 생겼구먼! 왕의 갱도 철길만 살아 있으면 땅 위까지 단숨이지. 준비되면 수레에 올라타게.'],  // 2026-10-25 광차로 실베인
+    ['kael', '…그런데 이상하군. 문은 닫혔는데, 땅 밑 어딘가가 아직 꿈틀댄다. 봉인을 지키던 놈들이 더 깊은 어둠 속에서 무언가 알고 있을지도 모르지.'],  // 진엔딩 힌트(영웅)
   ],
+  // 진엔딩(2026-10-25 사용자: 심연의 문 영웅 클리어) — 영웅에서 군주를 쓰러뜨리고 마을로 돌아오면
+  trueEnding: [
+    ['narr', '가장 깊은 어둠 속에서 군주가 마지막 숨을 거두자, 심연의 문 가장 깊은 곳에서 얼음과 불과 피의 빛이 하나로 엉켰다.'],
+    ['narr', '세 봉인이 문의 심장에 스며들고, 끝없이 울리던 땅의 숨소리가 마침내 멎었다.'],
+    ['kael', '…느껴지나? 땅이 조용하다. 몇 년 만인지 모르겠군.'],
+    ['jewel', '봉인석에서 금이 사라졌어. 이번엔 진짜야. 문은 다시는 열리지 않아.'],
+    ['miner', '허허, 이제 갱도엔 광차 소리만 남겠구먼. 새 철길이나 깔아 볼까!'],
+    ['narr', '그날 아침, 실베인의 하늘 위로 오랜만에 새벽이 밝아 왔다.'],
+    ['kael', '고맙다. 벨록도, 실베인도 네 이름을 잊지 않을 거다.'],
+    ['kael', '…다만 문 아래로 갈라진 틈은 끝이 없다고 하더군. 언젠가 그 밑바닥을 들여다볼 날이 올지도 모르지.'],
+    ['narr', '— 심연속으로 · 진엔딩 —'],
+  ],
+  // 진엔딩 단서(봉인 셋을 지키던 보스를 영웅으로 쓰러뜨리면 한 번씩) · 심연 영웅 군주의 마지막 말
+  clues: {
+    ice: [['boss', '…얼음 봉인은… 문만 얼릴 뿐… 군주의 심장은… 얼지 않는다…'], ['hero', '군주의 심장? 문을 닫아도 끝이 아니었던 건가.']],
+    fort: [['boss', '크크… 피의 봉인은… 군주의 피와 이어져 있다… 군주가 숨 쉬는 한… 문은 언젠가 다시 열린다…'], ['hero', '군주를 완전히 쓰러뜨려야 한다는 거군.']],
+    hell: [['boss', '…불은 꺼지지 않아… 가장 깊은 어둠 속에서… 진짜 군주가… 기다린다…'], ['hero', '가장 깊은 어둠… 심연의 문, 가장 험한 길(영웅)에서 끝을 내야 해.']],
+    abyss: [['boss', '…이 어둠 속에서까지… 나를… 이번엔… 문의 심장까지… 닫히는구나…'], ['hero', '얼음, 불, 피… 세 봉인의 빛이 문 깊은 곳으로 스며든다.']],
+  },
   dungeons: {
     chapel: {
       start: [['hero', '도시 바로 옆에 이런 성당이 묻혀 있었다니…'], ['hero', '해골과 좀비가 돌아다닌다. 죽은 자들까지 깨어난 건가.']],
@@ -195,20 +215,33 @@ const Story = (() => {
     const S = STORY.dungeons[def.id];
     if (!S) return;
     const boss = ENEMIES[def.boss];
-    if (kind === 'down') { if (once(def.id + ':down', S.down, boss)) Game.prof.story.pending = def.id; return; }
+    if (kind === 'down') {
+      // 처음 깬 대사 + 영웅이면 진엔딩 단서(봉인 셋 · 심연) — 둘 다 한 번씩, 이어서 한 창에
+      const prof = Game.prof, st = prof.story || (prof.story = {}), lines = [];
+      if (S.down && !st[def.id + ':down']) { st[def.id + ':down'] = 1; st.pending = def.id; lines.push(...S.down); }
+      const clue = RUN.diff >= 2 && STORY.clues[def.id];
+      if (clue && !st[def.id + ':clue']) { st[def.id + ':clue'] = 1; lines.push(...clue); }
+      if (lines.length) { Save.write(prof); play(lines, boss); }
+      return;
+    }
     once(def.id + ':' + kind, S[kind], boss);
   }
-  // 보스를 쓰러뜨리고 마을로 돌아오면 카엘이 한마디(마지막 던전이면 엔딩까지)
+  // 마을로 돌아오면: 보스를 쓰러뜨린 뒤 카엘의 한마디(마지막 던전이면 엔딩까지), 그리고 진엔딩.
+  // 엔딩 · 진엔딩은 열리는 것(광차 · 진엔딩)이 걸려 있어서 파티로만 깨 대사를 못 봤어도 깬 기록(clearedDiff)으로 꼭 보여 준다
   function townArrive() {
-    const st = Game.prof.story;
-    if (!st || !st.pending) return;
-    const id = st.pending;
-    delete st.pending;
-    const S = STORY.dungeons[id];
-    if (S) once(id + ':town', id === 'abyss' ? [...S.town, ...STORY.ending] : S.town);
+    const prof = Game.prof, st = prof.story || (prof.story = {}), lines = [];
+    if (st.pending) {
+      const id = st.pending, S = STORY.dungeons[id];
+      delete st.pending;
+      if (S && !st[id + ':town']) { st[id + ':town'] = 1; lines.push(...(id === 'abyss' ? [...S.town, ...STORY.ending] : S.town)); }
+    }
+    if (diffCleared(prof, 'abyss') >= 0 && !st['abyss:town']) { st['abyss:town'] = 1; lines.push(...STORY.dungeons.abyss.town, ...STORY.ending); }
+    if (diffCleared(prof, 'abyss') >= 2 && !st.trueEnding) { st.trueEnding = 1; lines.push(...STORY.trueEnding); }
+    if (lines.length) { Save.write(prof); play(lines); }
   }
-  // 마을 메뉴 '이야기 다시 보기'
+  // 마을 메뉴 '이야기 다시 보기' · '진엔딩 다시 보기'
   function replay() { play([...STORY.opening, ...STORY.welcome]); }
+  function replayTrue() { play([...STORY.trueEnding]); }
   // 마을 NPC 말 걸기(town.js)
   const pick = a => a[Math.floor(Math.random() * a.length)];
   function talkNpc(id) {
@@ -217,7 +250,8 @@ const Story = (() => {
     if (id === 'miner') { if (!once('npc:miner', NPC_TALK.minerFirst)) play([['miner', pick(NPC_TALK.minerPool)]]); return; }
     if (id === 'kael') {
       const prof = Game.prof, next = DUNGEONS.find(d => !(prof.cleared || {})[d.id]);
-      const tips = [...NPC_TALK.kaelTips, next ? '다음 목적지는 ' + next.name + ', 입장 레벨은 Lv.' + next.lv + '. 준비가 됐다면 입구로 가라.' : '심연의 문은 닫혔다. 그래도 왕의 갱도엔 아직 마물이 남아 있다. 방심하지 마라.'];
+      const st = prof.story || {}, hint = st['abyss:town'] && !st.trueEnding ? ['얼음 · 피 · 불의 봉인을 지키던 놈들… 영웅의 길에서 다시 쓰러뜨리면 무언가 털어놓을지도 모른다. 그리고 문 앞, 가장 험한 길에서 끝을 내라.'] : [];  // 진엔딩 힌트
+      const tips = [...NPC_TALK.kaelTips, ...hint, ...hint, next ?'다음 목적지는 ' + next.name + ', 입장 레벨은 Lv.' + next.lv + '. 준비가 됐다면 입구로 가라.' : '심연의 문은 닫혔다. 그래도 왕의 갱도엔 아직 마물이 남아 있다. 방심하지 마라.'];
       play([['kael', pick(NPC_TALK.kaelHello)], ['kael', pick(tips)]]);
     }
   }
@@ -355,5 +389,5 @@ const Story = (() => {
     T_(ctx, '넘기기 ' + L('ok') + ' · 건너뛰기 ' + L('back'), 950, 532, 11, '#6a6068', 'right');
   }
 
-  return { trigger, townArrive, replay, talkNpc, update, draw };
+  return { trigger, townArrive, replay, replayTrue, talkNpc, update, draw };
 })();
