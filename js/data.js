@@ -278,28 +278,29 @@ const NAME_COLOR = { elite: '#7fa8ff', unique: '#e8c060', boss: '#ff7a5a' };
 // tint = 던전 그림에 곱해 입히는 색(같은 0x72 벽돌을 던전마다 다른 분위기로), wall = 벽 앞면에 가끔 넣는 꾸밈
 // 던파식 컨셉 던전(2026-10-24 사용자): 던전마다 풍경 · 함정 · 그곳 몬스터. lv = 권장 · 입장 레벨(10레벨 간격, 레벨이 모자라면 못 들어감),
 // ilvl = 떨어지는 장비 레벨 범위 — 권장 레벨 ~ +4(착용 레벨은 권장 레벨과 같은 10 단위). cols = 넓은 방에 기둥 넣을 확률, skulls = 바닥 해골 배수,
-// crates = 방마다 상자(관 · 바리케이드) 수, hazard = 함정 종류(HAZARDS), ease = 그 던전 몹(보스 포함) 체력 · 공격 배율(모든 난이도)
+// crates = 방마다 상자(관 · 바리케이드) 수, hazard = 함정 종류(HAZARDS), ease = 그 던전 몹 체력 · 공격(hp · dmg) · 보스 체력 · 공격(bhp · bdmg) 배율(모든 난이도)
+// ease 규칙(2026-10-25 사용자): 다음 던전 보통 = 앞 던전 영웅의 약 1.1배(몹 · 보스 각각, 체력 ÷ (1 − 방어) · 공격을 던전 레벨 곡선 POWER 로 나눠 비교). 성당은 그대로
 const DUNGEONS = [
   { id: 'chapel', name: '무너진 성당', lv: 1, ilvl: [1, 5], rooms: 9, pool: ['skelet', 'tiny_zombie', 'zombie', 'skel_archer'], boss: 'big_zombie',
     desc: '마을 밑 버려진 성당. 해골과 좀비가 떠돈다.', banner: 'wall_banner_red', wall: ['wall_hole_1', 'wall_hole_2'], cols: 0.7, skulls: 1.5 },
-  { id: 'swamp', name: '독안개 늪', lv: 10, ilvl: [10, 14], rooms: 10, pool: ['muddy', 'swampy', 'slug', 'tiny_slug'], boss: 'ogre_swamp',
+  { id: 'swamp', name: '독안개 늪', lv: 10, ilvl: [10, 14], rooms: 10, pool: ['muddy', 'swampy', 'slug', 'tiny_slug'], boss: 'ogre_swamp', ease: { hp: 0.87, dmg: 0.88, bhp: 0.87, bdmg: 0.88 },
     desc: '물에 잠긴 지하. 독 웅덩이를 밟으면 독에 걸리고 느려진다.', banner: 'wall_banner_green', wall: ['wall_goo', 'wall_goo'], tint: '#8fc070', needs: 'chapel', cols: 0.2, skulls: 0.5, hazard: 'poison' },
-  { id: 'crypt', name: '지하 묘지', lv: 20, ilvl: [20, 24], rooms: 11, pool: ['skelet', 'zombie', 'necromancer', 'wraith'], boss: 'zombie_lord',
+  { id: 'crypt', name: '지하 묘지', lv: 20, ilvl: [20, 24], rooms: 11, pool: ['skelet', 'zombie', 'necromancer', 'wraith'], boss: 'zombie_lord', ease: { hp: 0.59, dmg: 0.64, bhp: 0.6, bdmg: 0.67 },
     desc: '해골이 쌓인 무덤 미로. 가시 함정과 네크로맨서를 조심하라.', banner: 'wall_banner_yellow', wall: ['wall_hole_1', 'wall_hole_2'], tint: '#a090d0', needs: 'swamp', cols: 0.5, skulls: 4, crates: 2, hazard: 'spikes' },
-  { id: 'ice', name: '얼어붙은 동굴', lv: 30, ilvl: [30, 34], rooms: 11, pool: ['ice_zombie', 'frost_skel', 'yeti', 'ice_imp'], boss: 'ogre_frost',
+  { id: 'ice', name: '얼어붙은 동굴', lv: 30, ilvl: [30, 34], rooms: 11, pool: ['ice_zombie', 'frost_skel', 'yeti', 'ice_imp'], boss: 'ogre_frost', ease: { hp: 0.34, dmg: 0.45, bhp: 0.41, bdmg: 0.54 },
     desc: '모든 것이 얼어붙은 동굴. 얼음 가시와 냉기 공격에 맞으면 느려진다.', banner: 'wall_banner_blue', wall: ['wall_fountain_mid_blue_anim_f0'], tint: '#8cb4f0', needs: 'crypt', cols: 0.4, skulls: 0.5, hazard: 'icespike' },
-  { id: 'fort', name: '오크 요새', lv: 40, ilvl: [40, 44], rooms: 12, pool: ['orc_warrior', 'masked_orc', 'orc_shaman', 'goblin'], boss: 'ogre_blood',
+  { id: 'fort', name: '오크 요새', lv: 40, ilvl: [40, 44], rooms: 12, pool: ['orc_warrior', 'masked_orc', 'orc_shaman', 'goblin'], boss: 'ogre_blood', ease: { hp: 0.5, dmg: 0.6, bhp: 0.48, bdmg: 0.63 },
     desc: '나무 바리케이드와 가시 함정으로 지키는 오크 요새.', banner: 'wall_banner_yellow', wall: ['wall_banner_red'], tint: '#e0a878', needs: 'ice', cols: 0.3, skulls: 1, crates: 4, hazard: 'spikes' },
-  { id: 'hell', name: '용암 지옥', lv: 50, ilvl: [50, 54], rooms: 12, pool: ['chort', 'imp', 'lava_blob', 'fire_skel'], boss: 'big_demon',
+  { id: 'hell', name: '용암 지옥', lv: 50, ilvl: [50, 54], rooms: 12, pool: ['chort', 'imp', 'lava_blob', 'fire_skel'], boss: 'big_demon', ease: { hp: 0.91, dmg: 0.91, bhp: 0.55, bdmg: 0.74 },
     desc: '용암이 흐르는 불꽃 악마의 둥지. 용암을 밟으면 화상.', banner: 'wall_banner_red', wall: ['wall_fountain_mid_red_anim_f0'], tint: '#ff7a58', needs: 'fort', cols: 0.3, skulls: 2, hazard: 'lava' },
   // 2026-10-24 사용자 '던전 더 만들어줘' → 4개 추가(권장 Lv.19 · 22 · 25 · 28)
-  { id: 'plague', name: '역병 하수도', lv: 60, ilvl: [60, 64], rooms: 12, pool: ['doc', 'pumpkin_dude', 'zombie', 'swampy'], boss: 'plague_giant', ease: { hp: 0.75, dmg: 0.75 },
+  { id: 'plague', name: '역병 하수도', lv: 60, ilvl: [60, 64], rooms: 12, pool: ['doc', 'pumpkin_dude', 'zombie', 'swampy'], boss: 'plague_giant', ease: { hp: 0.72, dmg: 0.8, bhp: 0.63, bdmg: 0.87 },
     desc: '병든 오수가 흐르는 하수도. 독 웅덩이와 역병 사제의 독침.', banner: 'wall_banner_green', wall: ['wall_goo'], tint: '#b8c870', needs: 'hell', cols: 0.2, skulls: 1, crates: 1, hazard: 'poison' },
-  { id: 'order', name: '타락한 기사단 성채', lv: 70, ilvl: [70, 74], rooms: 13, pool: ['knight_f', 'dwarf_m', 'elf_f', 'wizzard_m'], boss: 'iron_ogre', ease: { hp: 0.85, dmg: 0.85 },  /* 2026-10-25 사용자: 하수도 영웅보다 약간 어렵게(약 1.1배) */
+  { id: 'order', name: '타락한 기사단 성채', lv: 70, ilvl: [70, 74], rooms: 13, pool: ['knight_f', 'dwarf_m', 'elf_f', 'wizzard_m'], boss: 'iron_ogre', ease: { hp: 0.79, dmg: 0.89, bhp: 0.71, bdmg: 1.02 },
     desc: '심연에 무릎 꿇은 기사단. 기둥 늘어선 성채에 가시 함정.', banner: 'wall_banner_blue', wall: ['wall_banner_yellow', 'wall_hole_1'], tint: '#a0a8c8', needs: 'plague', cols: 0.9, skulls: 0.5, crates: 1, hazard: 'spikes' },
-  { id: 'temple', name: '비늘 신전', lv: 80, ilvl: [80, 84], rooms: 13, pool: ['lizard_m', 'lizard_f', 'slug', 'temple_guard'], boss: 'scale_lord',
+  { id: 'temple', name: '비늘 신전', lv: 80, ilvl: [80, 84], rooms: 13, pool: ['lizard_m', 'lizard_f', 'slug', 'temple_guard'], boss: 'scale_lord', ease: { hp: 0.74, dmg: 0.94, bhp: 0.79, bdmg: 1.19 },
     desc: '물에 잠긴 도마뱀 일족의 신전. 물웅덩이에서는 느려진다.', banner: 'wall_banner_green', wall: ['wall_fountain_mid_blue_anim_f0'], tint: '#70c8a8', needs: 'order', cols: 0.8, skulls: 0.3, hazard: 'water' },
-  { id: 'abyss', name: '심연의 문', lv: 90, ilvl: [90, 94], rooms: 14, pool: ['angel', 'abyss_chort', 'void_imp', 'wizzard_m'], boss: 'abyss_lord',
+  { id: 'abyss', name: '심연의 문', lv: 90, ilvl: [90, 94], rooms: 14, pool: ['angel', 'abyss_chort', 'void_imp', 'wizzard_m'], boss: 'abyss_lord', ease: { hp: 1.57, dmg: 1.44, bhp: 0.86, bdmg: 1.39 },
     desc: '모든 것이 시작된 곳. 공허 웅덩이가 몸을 갉아먹는다.', banner: 'wall_banner_red', wall: ['wall_fountain_mid_red_anim_f0', 'wall_hole_2'], tint: '#a080e0', needs: 'temple', cols: 0.3, skulls: 2, hazard: 'void' },
 ];
 
