@@ -20,6 +20,7 @@ const Game = (() => {
     Save.write(prof);
     scene = 'town'; overlays = []; Input.clear();
     Town.enter(prof, false);
+    if (fresh) Story.trigger('opening');  // 새 캐릭터: 오프닝 · 카엘의 인사(2026-10-25)
   }
   function toTitle() { Save.write(prof); scene = 'title'; overlays = []; Input.clear(); UI.title.open(); }
 
@@ -41,7 +42,7 @@ const Game = (() => {
     Input.clear();
   }
   function closeOverlay() { overlays.pop(); Input.clear(); }
-  function startRun(def, diff = 0) { World.start(def, prof, diff); scene = 'run'; overlays = []; acc = 0; Input.clear(); }
+  function startRun(def, diff = 0) { World.start(def, prof, diff); scene = 'run'; overlays = []; acc = 0; Input.clear(); Story.trigger('start', def); }
   function endRun(run, kind) { res = { run, kind }; scene = 'result'; overlays = []; Save.write(prof); Input.clear(); }
   function quitRun() { World.player.dead = false; endRun(currentRun(), 'quit'); }
   let runRef = null;
@@ -66,6 +67,7 @@ const Game = (() => {
       else if (top.type === 'settings') UI.settings.update();
       else if (top.type === 'confirm') UI.confirm.update(top);
       else if (top.type === 'choice') UI.choice.update(top);
+      else if (top.type === 'talk') Story.update(top);
       acc = 0;
       return;
     }
@@ -102,6 +104,7 @@ const Game = (() => {
       else if (o.type === 'settings') UI.settings.draw(ctx);
       else if (o.type === 'confirm') UI.confirm.draw(ctx, o);
       else if (o.type === 'choice') UI.choice.draw(ctx, o);
+      else if (o.type === 'talk') Story.draw(ctx, o);
     }
     if (toastT > 0 && toastMsg) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);

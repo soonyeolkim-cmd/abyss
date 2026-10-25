@@ -68,6 +68,7 @@ const Town = (() => {
     p = createPlayer(prof);
     const s = fromGate ? px(14, 5) : px(14, 13);
     p.x = 15 * T; p.y = s.y; p.fv = { x: 0, y: fromGate ? 1 : -1 };
+    if (fromGate) Story.townArrive();  // 보스를 쓰러뜨리고 돌아왔으면 카엘이 한마디
   }
 
   function update(dt) {
@@ -92,6 +93,7 @@ const Town = (() => {
     { label: '장비 스테이터스', go: () => Game.overlay({ type: 'inv', mode: 'equip' }) },
     { label: '속성석 · 보석 관리', go: () => Game.overlay({ type: 'manage' }) },
     { label: '설정 · 조작', go: () => Game.overlay({ type: 'settings' }) },
+    { label: '이야기 다시 보기', go: () => Story.replay() },  // 오프닝 · 카엘의 인사(2026-10-25)
     { label: '캐릭터 선택 화면으로', go: () => Game.toTitle() },  // 지우기 · 코드는 캐릭터 선택 화면에서(2026-10-24)
   ];
 

@@ -1394,5 +1394,5 @@ const UI = (() => {
     return null;
   }
 
-  return { shopItems, title, choice, select, inv, stones, gems, manage, smith, vault, pause, settings, confirm, result, tap, tapLayer, resolveTap, touchSpecial };
+  return { shopItems, title, choice, select, inv, stones, gems, manage, smith, vault, pause, settings, confirm, result, tap, tapLayer, resolveTap, touchSpecial, zone };
 })();

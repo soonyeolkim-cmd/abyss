@@ -8,7 +8,7 @@ const Save = (() => {
   const keyOf = n => (n ? KEY + '-s' + n : KEY);
 
   function fresh(cls = 'swordsman') {
-    const p = { cls, lv: 1, exp: 0, gold: 30, potions: 3, equip: {}, bag: new Array(BAG_SIZE).fill(null), cleared: {} };
+    const p = { cls, lv: 1, exp: 0, gold: 30, potions: 3, equip: {}, bag: new Array(BAG_SIZE).fill(null), cleared: {}, story: {} };
     for (const s of SLOTS) p.equip[s] = null;
     p.equip.weapon = Items.make(1, { slot: 'weapon', kind: CLASSES[cls].weapons[0], rarity: 0 });
     p.equip.armor = Items.make(1, { slot: 'armor', rarity: 0 });
@@ -18,6 +18,8 @@ const Save = (() => {
 
   // 예전 저장에 없던 칸 채우기(속성석: 처음엔 속성마다 조각 1개씩 — 써 보라고)
   function upgrade(p) {
+    // 이야기(2026-10-25): 예전 캐릭터는 오프닝 · 이미 깬 던전 이야기를 본 것으로(새 던전부터 나온다)
+    if (!p.story) { p.story = { opening: 1 }; for (const id in p.cleared || {}) for (const k of ['start', 'boss', 'down', 'town']) p.story[id + ':' + k] = 1; }
     if (!p.stones) { p.stones = {}; for (const el of EL_ORDER) p.stones[el + ':0'] = 1; }
     if (!p.sockets) p.sockets = { basic: null, charge: null, wave: null };
     if (!('dash' in p.sockets)) p.sockets.dash = null;  // 대시 칸(2026-10-24)

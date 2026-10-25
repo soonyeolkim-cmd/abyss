@@ -3,7 +3,7 @@
 const World = (() => {
   let lv = null, p = null, prof = null, dIdx = 0;
   let enemies = [], shots = [], pshots = [], fx = [], texts = [], fields = [];  // shots = 몹 탄, pshots = 플레이어 검기
-  let hitstopT = 0, shakeT = 0, time = 0;
+  let hitstopT = 0, shakeT = 0, time = 0, storyT = 0;  // storyT = 보스를 쓰러뜨리고 이야기가 나올 때까지
   let comboN = 0, comboT = 0, msg = null, msgT = 0, bagFullT = 0;
   let run = null, ended = null, bossAwake = false;
   let flow = null, flowT = 0, lastTile = -1;
@@ -27,7 +27,7 @@ const World = (() => {
     ended = null; bossAwake = false;
     enemies = []; shots = []; pshots = []; fx = []; texts = []; fields = [];
     Elements.reset();
-    hitstopT = 0; shakeT = 0; time = 0; comboN = 0; flow = null; flowT = 0; lastTile = -1;
+    hitstopT = 0; shakeT = 0; time = 0; storyT = 0; comboN = 0; flow = null; flowT = 0; lastTile = -1;
     populate();
     placeHazards();
     msg = def.name + (diff ? ' · ' + DIFFS[diff].name : ''); msgT = 2.4;
@@ -183,6 +183,7 @@ const World = (() => {
     shakeT = Math.max(0, shakeT - dt * 14);
     msgT -= dt; bagFullT -= dt;
     if (hitstopT > 0) { hitstopT -= dt; return; }
+    if (storyT > 0 && (storyT -= dt) <= 0) Story.trigger('down', lv.def);  // 보스가 쓰러지는 모습을 보고 나서 이야기
 
     // 탐험한 칸 표시(자동 지도) · 길찾기 거리표
     const tile = Math.floor(p.y / T) * lv.W + Math.floor(p.x / T);
@@ -221,7 +222,7 @@ const World = (() => {
     if (!bossAwake && Dungeon.roomAt(lv, p.x, p.y) === lv.boss) {
       bossAwake = true;
       const b = enemies.find(e => e.rank === 'boss');
-      if (b) { b.awake = true; b.spawnT = 0.8; msg = b.name; msgT = 2.2; Sfx.roar(); shake(4); }
+      if (b) { b.awake = true; b.spawnT = 0.8; msg = b.name; msgT = 2.2; Sfx.roar(); shake(4); Story.trigger('boss', lv.def); }
     }
     // 계단: 밟으면 물어본다(실수로 나가지 않게). 내려섰다가 다시 밟으면 또 묻는다
     if (lv.stairs && !p.dead) {
@@ -249,6 +250,7 @@ const World = (() => {
   }
 
   function bossCleared(b) {
+    storyT = 1.6;
     p.safe = true;  // 보스를 잡은 순간부터 이 던전 끝까지 무적(남은 탄 · 죽을 때 폭발 · 함정)
     lv.chests.push({ x: b.x, y: b.y + 18, open: false, t: 0, big: true });
     lv.stairs = stairsSpot(b);
