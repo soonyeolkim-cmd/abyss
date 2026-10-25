@@ -139,5 +139,8 @@ const Sfx = (() => {
     zap: () => { noise({ dur: 0.12, vol: 0.22, freq: 3000, q: 3 }); tone({ type: 'square', f: 900, f2: 200, dur: 0.12, vol: 0.08 }); },
     blast: () => { noise({ dur: 0.4, vol: 0.35, freq: 400, sweep: 80, q: 0.7 }); tone({ type: 'triangle', f: 90, f2: 40, dur: 0.4, vol: 0.25 }); },
     stairs: () => [392, 523, 659].forEach((f, i) => tone({ type: 'sine', f, dur: 0.3, vol: 0.12, delay: i * 0.12 })),
+    // 광차(2026-10-25): 출발 = 쇠 삐걱 + 덜컹, 달리는 동안 = 철길 이음매 덜컹(rail 을 0.22초마다)
+    cartGo: () => { tone({ type: 'sawtooth', f: 180, f2: 320, dur: 0.35, vol: 0.06 }); noise({ dur: 0.25, vol: 0.25, freq: 260, q: 1.2 }); },
+    rail: () => { noise({ dur: 0.05, vol: 0.16, freq: 340, q: 1.6 }); noise({ dur: 0.04, vol: 0.1, freq: 900, q: 2, delay: 0.07 }); },
   };
 })();

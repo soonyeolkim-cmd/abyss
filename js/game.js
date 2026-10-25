@@ -78,6 +78,7 @@ const Game = (() => {
       else if (top.type === 'coopview') Coop.viewUpdate();
       else if (top.type === 'coopgo') Coop.goUpdate();
       else if (top.type === 'jar') Jar.update(top, prof);
+      else if (top.type === 'ride') Town.rideUpdate(top);  // 광차 타는 장면
       // 파티 던전은 창(가방 · 일시정지 · 계단 확인)을 열어도 멈추지 않는다 — 친구는 계속 싸우고 있음. 내 몸만 입력 없이
       if (scene === 'run' && World.partySeed && overlays.length) {
         World.inputLock = true;
@@ -131,6 +132,7 @@ const Game = (() => {
       else if (o.type === 'coopview') Coop.viewDraw(ctx, prof, time);
       else if (o.type === 'coopgo') Coop.goDraw(ctx);
       else if (o.type === 'jar') Jar.draw(ctx, o, prof);
+      else if (o.type === 'ride') Town.rideDraw(ctx, o);
     }
     if (toastT > 0 && toastMsg) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);

@@ -107,6 +107,7 @@ const STORY = {
     ['narr', '왕의 갱도를 막던 어둠이 걷히자, 아득히 높은 곳에서 한 줄기 빛이 내려왔다.'],
     ['kael', '길이 열렸다. 저 위 실베인이 어떻게 됐는지는 아무도 모른다. 아직 누군가 버티고 있을지도.'],
     ['kael', '누군가 먼저 올라가 길을 열어야 한다. …충분히 강해지면, 그때 가라. 벨록 사람들은 네 뒤를 따르겠다.'],
+    ['miner', '허허, 내 광차가 드디어 쓸모가 생겼구먼! 왕의 갱도 철길만 살아 있으면 땅 위까지 단숨이지. 준비되면 수레에 올라타게.'],  // 2026-10-25 광차로 실베인
   ],
   dungeons: {
     chapel: {
@@ -212,6 +213,7 @@ const Story = (() => {
   const pick = a => a[Math.floor(Math.random() * a.length)];
   function talkNpc(id) {
     if (id === 'smith' || id === 'shop' || id === 'jewel' || id === 'gambler') { play(NPC_TALK[id]()); return; }  // 기존 NPC: 하는 일 설명
+    if (id === 'cartLocked') { play([['miner', '그 광차 말인가? 왕의 갱도 끝은 아직 심연의 문이 막고 있다네. 문부터 닫고 오게, 그럼 땅 위까지 태워 주지. 허허.']]); return; }  // 엔딩 전 광차
     if (id === 'miner') { if (!once('npc:miner', NPC_TALK.minerFirst)) play([['miner', pick(NPC_TALK.minerPool)]]); return; }
     if (id === 'kael') {
       const prof = Game.prof, next = DUNGEONS.find(d => !(prof.cleared || {})[d.id]);

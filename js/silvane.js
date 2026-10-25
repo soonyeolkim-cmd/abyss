@@ -15,6 +15,7 @@ const Silvane = (() => {
     vault: px(35, 13),                             // 창고 앞 아랫길의 보물 상자(문 앞이면 이름표가 간판과 겹침)
     kael: { ...px(16, 5), flip: false },           // 갱도 입구 왼쪽을 지킴
     miner: { ...px(29, 6), flip: false },          // 광산 마당 철길 아래
+    cart: { x: 24 * T + 8, y: 6 * T + 2, role: '왕의 갱도를 따라 벨록으로' },  // 갱도에 가장 가까운 광석 수레 = 광차(town.js rideCart)
   };
   const SPAWN = { x: 20 * T, y: 6 * T + 12 };      // 갱도 입구 앞
 

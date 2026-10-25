@@ -60,6 +60,8 @@ const Town = (() => {
       ] }) },
     // 늙은 광부 오르반(2026-10-25 사용자: 여기는 지하 도시이고 바깥은 위험하다는 사람) — 오른쪽 아래 무너진 옛 갱도 입구 옆(왼쪽 아래는 마을 패널이 가림)
     { id: 'miner', name: '늙은 광부 오르반', role: '지하 도시 이야기', sprite: 'miner', ...px(23, 13), flip: false, go: () => Story.talkNpc('miner') },
+    // 오르반의 광차(2026-10-25 사용자: 마을 사이 이동 = 광차 타기, 엔딩 뒤에 열림) — 벨록은 오르반 옆 수레, 실베인은 광산 마당 수레(Silvane.POS.cart)
+    { id: 'cart', name: '광차', role: '왕의 갱도를 따라 실베인으로', x: 21 * T + 8, y: 14 * T - 3, go: () => rideCart() },
   ];
   const SHAFT = [26, 13];  // 무너진 옛 갱도 입구(광부 옆, 상자 둘 사이)
   const JAR_PILE = [[13, 3, 1], [16, 3, 0.85]];  // 도박꾼 양옆 항아리(칸 x, y, 크기) — 막히는 칸, 그림은 Jar.jarArt
@@ -82,23 +84,96 @@ const Town = (() => {
 
   let lv = null, p = null, prof = null, time = 0, near = null;
   const cam = { x: 0, y: 0 };
-  // 마을 지도 둘(2026-10-25 사용자: 다음 마을 실베인을 미리): belloc = 지하 도시 벨록, silvane = 땅 위 광산 도시 실베인(js/silvane.js).
-  // NPC 는 같은 사람들, 서는 자리만 지도마다(벨록 자리는 STATIONS 에 적힌 것, 실베인 자리는 Silvane.POS). 고른 마을은 저장하지 않음(켤 때는 벨록)
+  // 마을 지도 둘(2026-10-25 사용자: 다음 마을 실베인): belloc = 지하 도시 벨록, silvane = 땅 위 광산 도시 실베인(js/silvane.js).
+  // NPC 는 같은 사람들, 서는 자리만 지도마다(벨록 자리는 STATIONS 에 적힌 것, 실베인 자리는 Silvane.POS).
+  // 오가기 = 오르반의 광차(엔딩을 본 뒤 = story['abyss:town']). 마지막에 있던 마을은 prof.where 에 저장 — 켜면 거기서
   let where = 'belloc';
   const maps = {}, HOME = {};
-  for (const s of STATIONS) HOME[s.id] = { x: s.x, y: s.y, flip: s.flip };
+  for (const s of STATIONS) HOME[s.id] = { x: s.x, y: s.y, flip: s.flip, role: s.role };
   const mapOf = w => maps[w] || (maps[w] = w === 'belloc' ? build() : Silvane.build());
+  const silvaneOpen = pr => !!(pr && pr.story && pr.story['abyss:town']);
   function place(w) {
     where = w; lv = mapOf(w);
     for (const s of STATIONS) Object.assign(s, w === 'belloc' ? HOME[s.id] : Silvane.POS[s.id]);
   }
-  // 다른 마을로 가기(미리 보기 — 마을 메뉴): 그 마을 시작 자리로
+  // 다른 마을로 가기: 그 마을 시작 자리로(광차가 도착한 곳)
   function travel(w) {
     place(w);
     spawn();
+    prof.where = w; Save.write(prof);
     Sfx.stairs();
-    Game.toast(w === 'silvane' ? '광산 도시 실베인 (미리 보기)' : '지하 도시 벨록');
+    Game.toast(w === 'silvane' ? '광산 도시 실베인' : '지하 도시 벨록');
     Net.refresh();
+  }
+  // 광차 타기: 엔딩 전이면 오르반이 말림, 뒤면 갱도를 달리는 장면(ride) → 다른 마을
+  function rideCart() {
+    if (!silvaneOpen(prof)) { Story.talkNpc('cartLocked'); return; }
+    Game.overlay({ type: 'ride', to: where === 'belloc' ? 'silvane' : 'belloc', t: 0, last: performance.now(), clack: 0 });
+    Sfx.cartGo();
+  }
+  // 광차 장면(2.8초, 확인 · 뒤로 = 건너뛰기): 어두운 갱도 · 다가오는 나무 버팀목과 등불 · 철길 · 앞에 내가 탄 수레.
+  // 위로(실베인) = 끝에서 햇빛이 쏟아져 하얗게, 아래로(벨록) = 점점 어두워져 까맣게 → 마을에서 그 색이 걷히며 나타남(fade)
+  const RIDE_T = 2.8;
+  let fade = null;  // { col: 'rgb', t } 도착한 마을에서 걷히는 빛 · 어둠
+  function rideUpdate(o) {
+    const now = performance.now(), dt = Math.min(0.1, (now - o.last) / 1000);
+    o.last = now; o.t += dt;
+    if ((o.clack -= dt) <= 0) { o.clack = 0.22; Sfx.rail(); }
+    if (o.t >= RIDE_T || Input.wasPressed('ok') || Input.wasPressed('back') || Input.wasPressed('pause')) {
+      Game.closeOverlay();
+      fade = { col: o.to === 'silvane' ? '255,250,235' : '0,0,0', t: 0.7 };
+      travel(o.to);
+    }
+  }
+  function rideDraw(ctx, o) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    UI.zone(0, 0, 960, 540, { key: 'ok', now: true });  // 화면 누르면 건너뛰기
+    const t = o.t, k = Math.min(1, t / RIDE_T), up = o.to === 'silvane', vx = 480, vy = 220, shake = Math.round(Math.sin(t * 43) * 2);
+    ctx.fillStyle = '#0a0806'; ctx.fillRect(0, 0, 960, 540);
+    const g = ctx.createRadialGradient(vx, vy, 0, vx, vy, 520);  // 바위 벽(가운데로 갈수록 어둡게)
+    g.addColorStop(0, '#050403'); g.addColorStop(0.5, '#1e1812'); g.addColorStop(1, '#3a2e24');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 960, 540);
+    // 철길 · 침목(앞으로 흘러옴)
+    ctx.strokeStyle = '#8a92a0'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(vx - 4, vy + 6); ctx.lineTo(300, 540); ctx.moveTo(vx + 4, vy + 6); ctx.lineTo(660, 540); ctx.stroke();
+    for (let i = 0; i < 12; i++) {
+      const d = ((i + t * 6) % 12) / 12, e = d * d, y = vy + 6 + e * 334, hw = 6 + e * 230;
+      ctx.fillStyle = 'rgba(106,74,42,' + (0.3 + d * 0.7) + ')'; ctx.fillRect(vx - hw, y, hw * 2, 2 + e * 12);
+    }
+    // 나무 버팀목(가까워지며 커짐) + 왼쪽 기둥 등불
+    for (let i = 0; i < 7; i++) {
+      const d = ((i + t * 2.4) % 7) / 7, e = Math.pow(d, 2.2), w = 30 + e * 1500, h = w * 0.62, th = Math.max(2, w * 0.05);
+      const x0 = vx - w / 2, y0 = vy - h * 0.55, a = 0.25 + d * 0.75;
+      ctx.fillStyle = 'rgba(90,60,34,' + a + ')';
+      ctx.fillRect(x0, y0, th, h); ctx.fillRect(x0 + w - th, y0, th, h); ctx.fillRect(x0, y0, w, th);
+      ctx.fillStyle = 'rgba(140,100,60,' + a * 0.6 + ')'; ctx.fillRect(x0, y0, th * 0.35, h); ctx.fillRect(x0, y0, w, th * 0.3);
+      if (i % 2 === 0) {
+        const lx = x0 + th * 1.6, ly = y0 + h * 0.35, r = 6 + e * 60;
+        const lg = ctx.createRadialGradient(lx, ly, 0, lx, ly, r * 3);
+        lg.addColorStop(0, 'rgba(255,200,110,' + 0.5 * a + ')'); lg.addColorStop(1, 'rgba(255,200,110,0)');
+        ctx.fillStyle = lg; ctx.fillRect(lx - r * 3, ly - r * 3, r * 6, r * 6);
+        ctx.fillStyle = 'rgba(255,230,150,' + a + ')'; ctx.fillRect(lx - r * 0.3, ly - r * 0.4, r * 0.6, r * 0.8);
+      }
+    }
+    // 끝의 빛(위로 = 점점 커지는 햇빛)
+    if (up) {
+      const r = 20 + k * k * 700, lg = ctx.createRadialGradient(vx, vy, 0, vx, vy, r);
+      lg.addColorStop(0, 'rgba(255,250,230,' + (0.6 + 0.4 * k) + ')'); lg.addColorStop(1, 'rgba(255,240,200,0)');
+      ctx.fillStyle = lg; ctx.fillRect(0, 0, 960, 540);
+    }
+    // 내가 탄 수레(앞) + 머리 · 어깨
+    const cy = 452 + shake;
+    Gfx.spr(ctx, clsOf(prof).sprite + '_idle_anim_f0', 480, cy + 40, { scale: 7 });
+    ctx.fillStyle = '#16181e'; ctx.fillRect(300, cy - 6, 360, 110);
+    ctx.fillStyle = '#5a5e68'; ctx.fillRect(310, cy + 4, 340, 100);
+    ctx.fillStyle = '#8a92a0'; ctx.fillRect(300, cy - 6, 360, 8);
+    ctx.fillStyle = '#3a3e48'; ctx.fillRect(310, cy + 40, 340, 6); ctx.fillRect(420, cy + 4, 6, 100); ctx.fillRect(534, cy + 4, 6, 100);
+    ctx.fillStyle = '#c8962e'; for (const x of [326, 404, 556, 634]) { ctx.fillRect(x, cy + 16, 6, 6); ctx.fillRect(x, cy + 68, 6, 6); }
+    // 글 · 끝 무렵 하얗게(위) / 까맣게(아래)
+    Gfx.text(ctx, '왕의 갱도 — ' + (up ? '광산 도시 실베인으로' : '지하 도시 벨록으로'), 480, 60, 20, up ? '#ffe8a0' : '#c8b8a0', 'center');
+    Gfx.text(ctx, '건너뛰기 ' + L('ok'), 940, 528, 12, '#8a7e88', 'right');
+    const endA = Math.max(0, (k - 0.75) / 0.25);
+    if (endA > 0) { ctx.fillStyle = 'rgba(' + (up ? '255,250,235' : '0,0,0') + ',' + endA + ')'; ctx.fillRect(0, 0, 960, 540); }
   }
   function spawn() {
     const s = where === 'belloc' ? { x: 15 * T, y: px(14, 12).y } : Silvane.SPAWN;  // 벨록: 아래 입구 바로 위(분수 아래) — 광장 위쪽은 카엘 자리
@@ -133,7 +208,7 @@ const Town = (() => {
   // 들어오기: fromGate = 던전 · 고르기에서 돌아올 때(입구 앞에서 시작)
   function enter(pr, fromGate) {
     prof = pr;
-    if (!lv) place(where);
+    if (!fromGate || !lv) place(silvaneOpen(prof) && prof.where === 'silvane' ? 'silvane' : 'belloc');  // 켤 때 = 마지막에 있던 마을, 던전에서 오면 있던 마을 그대로
     p = createPlayer(prof);
     spawn();
     if (prof.story && prof.story.openingAgain) { delete prof.story.openingAgain; Save.write(prof); Story.replay(); }  // 예전 캐릭터: 오프닝 한 번
@@ -142,6 +217,7 @@ const Town = (() => {
 
   function update(dt) {
     time += dt;
+    if (fade && (fade.t -= dt) <= 0) fade = null;
     if (Input.wasPressed('pause')) { Game.overlay({ type: 'choice', title: '마을 메뉴', items: TOWN_MENU() }); return; }
     if (Input.wasPressed('inv')) { Game.overlay({ type: 'inv', mode: 'equip' }); return; }
     const m = moveInput();
@@ -164,7 +240,6 @@ const Town = (() => {
     { label: '속성석 · 보석 관리', go: () => Game.overlay({ type: 'manage' }) },
     { label: '설정 · 조작', go: () => Game.overlay({ type: 'settings' }) },
     { label: '이야기 다시 보기', go: () => Story.replay() },  // 오프닝 · 카엘의 인사(2026-10-25)
-    where === 'belloc' ? { label: '실베인 미리 가 보기', go: () => travel('silvane') } : { label: '벨록으로 돌아가기', go: () => travel('belloc') },  // 2026-10-25 다음 마을 미리 보기
     { label: '캐릭터 선택 화면으로', go: () => Game.toTitle() },  // 지우기 · 코드는 캐릭터 선택 화면에서(2026-10-24)
   ];
 
@@ -215,6 +290,7 @@ const Town = (() => {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     const sx = x => (x - cam.x) * SCALE, sy = y => (y - cam.y) * SCALE;
     drawLabels(ctx, sx, sy, mates);
+    if (fade) { ctx.fillStyle = 'rgba(' + fade.col + ',' + Math.min(1, fade.t / 0.7) + ')'; ctx.fillRect(0, 0, 960, 540); }  // 광차로 도착: 빛 · 어둠이 걷힘
   }
 
   // 지하 도시 벨록의 바닥 · 벽 장식과 앞뒤 정렬 물건(지도 그림 위, 사람과 섞어 그림)
@@ -281,8 +357,11 @@ const Town = (() => {
 
   // 글자(960x540 화면 좌표): 이름표 · 말 걸기 · 현수막 글 · 혼잣말 · 파티 · 아래 왼쪽 패널 · 안내
   function drawLabels(ctx, sx, sy, mates) {
+    const labelY = s => sy(s.y) - (s.sprite ? 62 : 44);
     for (const s of STATIONS) {
-      const on = s === near, hy = sy(s.y) - (s.sprite ? 62 : 44);
+      const on = s === near, hy = labelY(s);
+      // 말 걸 곳의 '말 걸기' · 설명이 옆 이름표를 덮지 않게, 가까운 이웃 이름표는 그동안 숨김(벨록 광차 ↔ 오르반)
+      if (near && !on && Math.abs(sx(s.x) - sx(near.x)) < 130 && Math.abs(hy - labelY(near)) < 60) continue;
       Gfx.text(ctx, s.name, sx(s.x), hy, on ? 15 : 12, on ? '#ffd36a' : '#e8dcc0', 'center');
       if (on) {
         Gfx.text(ctx, s.role, sx(s.x), hy + 18, 11, '#c8b8a0', 'center');
@@ -528,5 +607,5 @@ const Town = (() => {
   // 장비가 바뀌면 걷는 속도 등 다시
   function refresh() { if (p) p.stats = Items.playerStats(prof); }
 
-  return { enter, update, draw, refresh, travel, get where() { return where; }, get player() { return p; }, get near() { return near; }, STATIONS };
+  return { enter, update, draw, refresh, travel, rideUpdate, rideDraw, get where() { return where; }, get player() { return p; }, get near() { return near; }, STATIONS };
 })();

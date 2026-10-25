@@ -147,7 +147,7 @@ const Touch = (() => {
       if (m) { for (const b of root.querySelectorAll('.b.on')) b.classList.remove('on'); stickEnd(); refresh(); }
     }
     back.style.display = m && (Game.scene === 'title' || Game.scene === 'splash') && !Game.overlays.length ? 'none' : '';  // 캐릭터 선택은 뒤로 갈 곳이 없다
-    const top = Game.overlays[Game.overlays.length - 1], bl = top && top.type === 'talk' ? '건너뛰기 ▶' : '◀ 뒤로';  // 이야기 중에는 건너뛰기
+    const top = Game.overlays[Game.overlays.length - 1], bl = top && (top.type === 'talk' || top.type === 'ride') ? '건너뛰기 ▶' : '◀ 뒤로';  // 이야기 · 광차 장면은 건너뛰기
     if (back.textContent !== bl) back.textContent = bl;
     const sl = m ? UI.touchSpecial() : null;
     spec.style.display = sl ? '' : 'none';
