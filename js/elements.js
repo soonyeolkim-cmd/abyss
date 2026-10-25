@@ -159,6 +159,7 @@ const Elements = (() => {
     let m = 1;
     if (e.shockT > 0) m *= 1 + SHOCK_VULN + 0.05 * Math.round((e.shockK || 1) - 1) + (World.player && has(World.player.prof, 'thunder', 'p2') ? 0.15 : 0);  // 고전압
     if (e.crackT > 0) m *= 1 + CRACK_VULN;
+    if (e.cutT > 0) m *= 1 + WAVE_CUT.vuln;  // 검기 베인 상처
     const scd = isDuo('frost+thunder');  // 초전도: 냉기 · 빙결 + 감전
     if (scd && e.shockT > 0 && (e.chill > 0 || e.state === 'frozen' || e.crackT > 0)) m *= 1 + 0.25 * scd;
     const az = isRes('frost');  // 절대영도: 빙결된 적
@@ -189,20 +190,21 @@ const Elements = (() => {
     const s = socket(p.prof, def.slot);
     if (!s) return;
     const k = power(s), big = !!def.fin || def.slot === 'dash', wave = def.slot === 'wave', open = slotOpen(s);
+    const sw = wave && def.id === 'wave' ? 2 : 1;  // 검사 검기는 속성 효과 약 2배(2026-10-25, 마법사 마력탄은 그대로)
     switch (s.el) {
       case 'fire':
         burn(e, p, k * (big ? 1.5 : 1));
-        if (wave && open) explode(e.x, e.y, 24, p.stats.atk * 0.4 * k, 'fire', o => burn(o, p, k));  // 작열 검기
+        if (wave && open) explode(e.x, e.y, 24, p.stats.atk * 0.4 * sw * k, 'fire', o => burn(o, p, k));  // 작열 검기
         break;
-      case 'frost': chill(e, wave || big ? 2 : 1, k); break;
+      case 'frost': chill(e, wave ? 1 + sw : big ? 2 : 1, k); break;
       case 'thunder':
         shock(e, k);
         // 연쇄 번개 베기(보통부터): 모든 기본 공격에서 튄다. 그 전에는 마무리 · 검기만
-        if ((big && def.slot === 'basic') || wave) chain(e, p, 1 + Math.floor(s.size / 2), p.stats.atk * (wave ? 0.5 : 0.4) * k, k);
+        if ((big && def.slot === 'basic') || wave) chain(e, p, 1 + Math.floor(s.size / 2), p.stats.atk * (wave ? 0.5 * sw : 0.4) * k, k);
         else if (def.slot === 'basic' && open) chain(e, p, 1, p.stats.atk * 0.3 * k, k);
-        if (wave && open) { World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25 }); damage(e, p.stats.atk * 0.6 * k, 'thunder'); }  // 벼락 검기
+        if (wave && open) { World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25 }); damage(e, p.stats.atk * 0.6 * sw * k, 'thunder'); }  // 벼락 검기
         break;
-      case 'poison': poison(e, wave ? (open ? 3 : 2) : big ? 2 : 1, p, k); break;  // 독침 검기 = 3중첩
+      case 'poison': poison(e, wave ? (open ? 3 : 2) + (sw > 1 ? 2 : 0) : big ? 2 : 1, p, k); break;  // 독침 검기 = 3중첩(검사 검기는 5)
     }
   }
   // 속성 패시브(완전한부터): 어떤 공격이 맞아도
@@ -365,7 +367,7 @@ const Elements = (() => {
     World.fx({ type: 'burst', x: shot.x, y: shot.y, r: R, col: ELEMENTS.frost.color, t: 0, life: 0.3 });
     for (const e of World.enemies()) {
       if (!live(e) || Math.hypot(e.x - shot.x, e.y - shot.y) > R + e.r) continue;
-      damage(e, p.stats.atk * 0.4 * k, 'frost');
+      damage(e, p.stats.atk * (shot.orb ? 0.4 : 0.8) * k, 'frost');  // 검사 검기 끝 얼음 파편은 2배(2026-10-25)
       if (frostOrb) chill(e, 2, k);
       chill(e, 1, k);
     }
@@ -383,6 +385,7 @@ const Elements = (() => {
 
   // 상태이상 시간 흐름(몹 업데이트 앞에서)
   function tick(e, dt) {
+    if (e.cutT > 0) e.cutT -= dt;
     if (e.burn) {
       e.burn.t -= dt; e.burn.tick -= dt;
       if (e.burn.tick <= 0) { e.burn.tick += 0.5; damage(e, e.burn.dps * 0.5, 'fire'); }
@@ -414,19 +417,19 @@ const Elements = (() => {
       frost: {
         basic: ['맞히면 냉기 1 (마무리 2)', '냉기 ' + FREEZE_AT + ' = 빙결 ' + (1 + 0.25 * k).toFixed(1) + '초 · 보스는 균열(피해 +25%)'],
         charge: ['회전베기 때 냉기 폭발: 공격력의 ' + pc(0.4 * k), '냉기 3 — 거의 바로 빙결'],
-        wave: ['맞히면 냉기 2', '끝에서 얼음 파편 폭발(공격력의 ' + pc(0.4 * k) + ')'],
+        wave: ['맞히면 냉기 3', '끝에서 얼음 파편 폭발(공격력의 ' + pc(0.8 * k) + ')'],
         dash: ['대시한 길이 얼어붙음(냉기)', '대시 찌르기에 냉기 2'],
       },
       thunder: {
         basic: ['맞히면 감전 3초: 받는 피해 +' + Math.round((SHOCK_VULN + 0.05 * Math.round(k - 1)) * 100) + '%', '마무리 때 번개가 ' + (1 + Math.floor(s.size / 2)) + '번 튐(공격력의 ' + pc(0.4 * k) + ')'],
         charge: ['회전베기 때 가까운 적 ' + (2 + s.size) + '마리에 낙뢰', '공격력의 ' + pc(0.7 * k) + ' + 감전'],
-        wave: ['맞힌 적에서 번개가 ' + (1 + Math.floor(s.size / 2)) + '번 튐', '공격력의 ' + pc(0.5 * k) + ' + 감전'],
+        wave: ['맞힌 적에서 번개가 ' + (1 + Math.floor(s.size / 2)) + '번 튐', '공격력의 ' + pc((mage ? 0.5 : 1) * k) + ' + 감전'],
         dash: ['대시가 끝나면 가까운 적에게 벼락(공격력의 ' + pc(0.6 * k) + ')', '대시 찌르기에 감전'],
       },
       poison: {
         basic: ['맞히면 독 1 (마무리 2), 최대 ' + POISON_MAX + '중첩', '0.5초마다 중첩당 공격력의 ' + pc(0.05 * k)],
         charge: ['회전베기 때 독안개(3초)', '안에 있으면 독이 계속 쌓임'],
-        wave: ['지나간 자리에 독 꼬리(2.5초)', '맞히면 독 2'],
+        wave: ['지나간 자리에 독 꼬리(2.5초)', '맞히면 독 4'],
         dash: ['대시한 길에 독 웅덩이', '대시 찌르기에 독 2'],
       },
     };

@@ -88,6 +88,8 @@ function hitEnemy(e, def, p, w) {
     else { e.state = 'air'; e.vz = Math.max(e.vz, 130); e.kx = dir.x * Math.max(90, knock); e.ky = dir.y * Math.max(90, knock); }
     World.onKill(e);
   }
+  // 검사 검기: 베인 상처(2026-10-25) — 4초 동안 받는 피해 +25%
+  if (def.id === 'wave') { if (!(e.cutT > 0) && !e.dying) World.text(e.x, e.y, e.h + 10, '베인 상처', '#ff8a7a'); e.cutT = WAVE_CUT.t; }
   Elements.onHit(e, def, p);  // 그 기술 칸에 끼운 속성석 효과
   if (def.slot === 'basic') p.sp = Math.min(p.maxSp, p.sp + p.cls.stamina.onHit);  // 기본 공격이 맞으면 기력이 찬다
   World.combo();

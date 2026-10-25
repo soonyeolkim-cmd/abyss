@@ -198,6 +198,9 @@ const Art = (() => {
     }
     Gfx.spr(ctx, name, x, y, o);
     if (d.acc && e.state !== 'dead') bossAcc(ctx, d.acc, x, y, o.scale, flip, time);
+    if (e.cutT > 0 && e.state !== 'dead') {  // 베인 상처: 머리 위 붉은 사선 두 줄(깜빡)
+      if (e.cutT > 1 || Math.floor(time * 8) % 2) { ctx.fillStyle = '#ff5a4a'; const hx = Math.round(e.x), hy = Math.round(y - e.h - 4); for (let i = 0; i < 4; i++) { ctx.fillRect(hx - 3 + i, hy + 2 - i, 1, 1); ctx.fillRect(hx + i, hy + 2 - i, 1, 1); } }
+    }
     if ((e.state === 'windup' && committed(e) && !d.boss) && Math.floor(time * 12) % 2 === 0) {
       ctx.font = 'bold 10px ' + FONT; ctx.textAlign = 'center'; ctx.fillStyle = '#ff4a3a';
       ctx.fillText('!', e.x, y - e.h - 2);
