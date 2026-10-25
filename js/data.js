@@ -134,8 +134,9 @@ const ENEMIES = {
     atk: { windup: 0.4, active: 0.1, recovery: 0.5, dmg: 15, knock: 140, reach: [0, 19], arc: 75, lunge: 160 } },
   elf_f: { name: '그림자 궁수', sprite: 'elf_f', idle: true, hp: 42, speed: 56, range: 96, poise: 3, exp: 16, gold: [6, 13],
     ranged: true, atk: { windup: 0.55, active: 0.05, recovery: 0.75, dmg: 13, knock: 90, shot: 150, color: '#d8e0ff' } },
-  wizzard_m: { name: '흑마법사', sprite: 'wizzard_m', idle: true, hp: 45, speed: 36, range: 90, poise: 3, exp: 18, gold: [7, 14],
-    ranged: true, atk: { windup: 0.75, active: 0.05, recovery: 0.9, dmg: 16, knock: 100, shot: 115, color: '#c06aff' } },
+  // 몸: 예전엔 우리 마법사와 같은 wizzard_m 이라 헷갈림(2026-10-25 사용자) → 두건 쓴 네크로맨서 몸에 핏빛을 입힘, 탄도 핏빛
+  wizzard_m: { name: '흑마법사', sprite: 'necromancer', tint: '#c03050', tintAlpha: 0.45, idle: false, hp: 45, speed: 36, range: 90, poise: 3, exp: 18, gold: [7, 14],
+    ranged: true, atk: { windup: 0.75, active: 0.05, recovery: 0.9, dmg: 16, knock: 100, shot: 115, color: '#ff4a6a' } },
   lizard_m: { name: '도마뱀 전사', sprite: 'lizard_m', idle: true, hp: 80, speed: 54, range: 19, poise: 5, exp: 19, gold: [7, 14],
     atk: { windup: 0.45, active: 0.1, recovery: 0.55, dmg: 17, knock: 150, reach: [0, 20], arc: 75, lunge: 165 } },
   lizard_f: { name: '도마뱀 주술사', sprite: 'lizard_f', idle: true, hp: 50, speed: 44, range: 86, poise: 3, exp: 18, gold: [7, 14],
