@@ -20,6 +20,8 @@ const Save = (() => {
   function upgrade(p) {
     // 이야기(2026-10-25): 예전 캐릭터는 오프닝 · 이미 깬 던전 이야기를 본 것으로(새 던전부터 나온다)
     if (!p.story) { p.story = { opening: 1 }; for (const id in p.cleared || {}) for (const k of ['start', 'boss', 'down', 'town']) p.story[id + ':' + k] = 1; }
+    // 오프닝을 '본 것으로' 넘겼던 예전 캐릭터도 다음에 마을에 들어갈 때 한 번 보여 준다(2026-10-25 사용자)
+    if (!p.story.opening2) { p.story.opening2 = 1; if (p.story.opening) p.story.openingAgain = 1; }
     if (!p.stones) { p.stones = {}; for (const el of EL_ORDER) p.stones[el + ':0'] = 1; }
     if (!p.sockets) p.sockets = { basic: null, charge: null, wave: null };
     if (!('dash' in p.sockets)) p.sockets.dash = null;  // 대시 칸(2026-10-24)

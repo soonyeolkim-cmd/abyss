@@ -68,7 +68,8 @@ const Town = (() => {
     p = createPlayer(prof);
     const s = fromGate ? px(14, 5) : px(14, 13);
     p.x = 15 * T; p.y = s.y; p.fv = { x: 0, y: fromGate ? 1 : -1 };
-    if (fromGate) Story.townArrive();  // 보스를 쓰러뜨리고 돌아왔으면 카엘이 한마디
+    if (prof.story && prof.story.openingAgain) { delete prof.story.openingAgain; Save.write(prof); Story.replay(); }  // 예전 캐릭터: 오프닝 한 번
+    else if (fromGate) Story.townArrive();  // 보스를 쓰러뜨리고 돌아왔으면 카엘이 한마디
   }
 
   function update(dt) {
