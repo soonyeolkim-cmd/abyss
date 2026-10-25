@@ -34,9 +34,9 @@ const CLASSES = {
       { name: '찌르기', slot: 'basic', fin: true, startup: 0.12, active: 0.1, recovery: 0.36, mult: 1.8, knock: 200, stun: 0.55, reach: [0, 32], arc: 26, lunge: 16, thrust: true, heavy: true },
     ],
     // 특수기 = 섬광 검기: 휘두르면 앞으로 날아가며 꿰뚫는 검기(봉인의 숲 검의 특수와 같은 결, 쿨타임 5초)
-    // 검기 개편(2026-10-25 사용자 B안): 회전베기에 밀려 쓸 일이 없었다 → 배율 1.6 → 3.0 · 기력 30 → 24 → 18 · 검기 칸 속성 효과 약 2배 ·
+    // 검기 개편(2026-10-25 사용자 B안): 회전베기에 밀려 쓸 일이 없었다 → 배율 1.6 → 3.0 · 기력 30 → 24 → 18 → 9(사용자 '절반으로') · 검기 칸 속성 효과 약 2배 ·
     // 맞은 적은 베인 상처(WAVE_CUT: 4초 동안 받는 피해 +25%, 보스 포함) — 검기로 열고 회전베기 · 기본 공격으로 마무리
-    special: { id: 'wave', name: '섬광 검기', short: '검기', slot: 'wave', cd: 0.6, cost: 18,
+    special: { id: 'wave', name: '섬광 검기', short: '검기', slot: 'wave', cd: 0.6, cost: 9,
       startup: 0.1, active: 0.06, recovery: 0.3, mult: 3.0, knock: 90, stun: 0.45, reach: [0, 22], arc: 60, swing: [-80, 80],
       wave: { speed: 260, range: 150, r: 12, scale: 1.35 } },  // 검기 크기(2026-10-24 사용자: 좀 더 크게) — 판정 9 → 12, 그림 1.35배
     // 대시 찌르기: 대시 → 공격. 앞으로 파고들며 꿰뚫는다(무적)
