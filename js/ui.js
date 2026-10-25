@@ -398,10 +398,14 @@ const UI = (() => {
     },
     draw(ctx, o, prof, time) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.fillStyle = 'rgba(0,0,0,0.96)'; ctx.fillRect(0, 0, 960, 540);
+      // 장비 팔기 창은 장비 관리 창과 한눈에 다르게(2026-10-25 사용자): 붉은 갈색 바탕 · 구리빛 테두리 · 맨 위 '판매' 띠 · 가방 칸마다 판매가 · 고른 칸 붉은 테두리
+      const SELL = o.mode === 'sell', B = SELL ? { border: '#d8703a' } : undefined;
+      sellView = SELL;
+      ctx.fillStyle = SELL ? 'rgba(30,12,6,0.97)' : 'rgba(0,0,0,0.96)'; ctx.fillRect(0, 0, 960, 540);
+      if (SELL) { T_(ctx, '◆ 판매 창 — 가방 장비를 골라 팔아요 ◆', 480, 17, 13, '#ffb86a', 'center'); }
       const sel = this.selected(prof);
       // 왼쪽: 장비 또는 상점
-      Gfx.panel(ctx, 24, 24, 340, 470);
+      Gfx.panel(ctx, 24, 24, 340, 470, B);
       if (o.mode === 'shop') {
         T_(ctx, '상점 — 사기', 44, 62, 24, '#f0e0b8');
         // 파는 물건: 물약 + 조각 속성석 4 + 조각 보석 2
@@ -422,7 +426,7 @@ const UI = (() => {
         T_(ctx, '가방은 보기만(등급 · 비교) · 팔기는 「팔기」에서', 44, 446, 12, '#9a8e96');
         T_(ctx, '골드 ' + prof.gold + 'G', 44, 478, 20, '#ffd34d');
       } else {
-        T_(ctx, o.mode === 'sell' ? '장비 팔기' : '장비 스테이터스', 44, 62, 24, '#f0e0b8');
+        T_(ctx, SELL ? '장비 팔기' : '장비 스테이터스', 44, 62, 24, SELL ? '#ffb86a' : '#f0e0b8');
         if (o.mode === 'sell') T_(ctx, '골드 ' + prof.gold + 'G', 344, 62, 16, '#ffd34d', 'right');  // 위 오른쪽은 버튼 둘이라 골드는 여기
         else T_(ctx, clsOf(prof).name + ' Lv.' + prof.lv, 344, 62, 15, '#c8b8a0', 'right');
         // 가운데 아바타: 은은한 받침 빛 + 큰 캐릭터
@@ -457,7 +461,7 @@ const UI = (() => {
         });
       }
       // 오른쪽 위: 가방
-      Gfx.panel(ctx, 380, 24, 556, 300);
+      Gfx.panel(ctx, 380, 24, 556, 300, B);
       const used = prof.bag.filter(Boolean).length;
       T_(ctx, '가방 ' + used + '/' + BAG_SIZE, 400, 58, 20, '#f0e0b8');
       if (o.mode === 'equip') T_(ctx, '골드 ' + prof.gold + 'G', 916, 58, 16, '#ffd34d', 'right');  // 상점 · 팔기는 왼쪽에 골드
@@ -475,7 +479,8 @@ const UI = (() => {
       }
       T_(ctx, '가방이 가득 차면 낀 것보다 못한 장비는 주울 때 골드로 바뀌어요', 400, 300, 12, '#7a7078');
       // 오른쪽 아래: 설명 + 비교
-      Gfx.panel(ctx, 380, 334, 556, 160);
+      Gfx.panel(ctx, 380, 334, 556, 160, B);
+      if (SELL && sel.from === 'bag' && sel.item) T_(ctx, '판매 가격 +' + sel.item.value + 'G', 916, 364, 16, '#ffd34d', 'right');
       if (sel.item) {
         const lines = Items.describe(sel.item, prof);
         let y = 364;
@@ -517,13 +522,15 @@ const UI = (() => {
       hintBar(ctx, hint + ' · 일괄 착용 ' + L('special') + ' · 맨 윗줄에서 ↑ = 버튼 · 닫기 ' + L('back') + ' / ' + L('inv'));
     },
   };
+  let sellView = false;  // 장비 팔기 창을 그리는 중(가방 칸에 판매가 · 붉은 고름 테두리)
   function cell(ctx, x, y, s, item, on, label, plv) {
     ctx.fillStyle = 'rgba(40,30,36,0.95)'; ctx.fillRect(x, y, s, s);
     ctx.strokeStyle = item ? RARITY[item.rarity].color : '#3a2e36';
     ctx.lineWidth = item && item.rarity ? 2 : 1;
     ctx.strokeRect(x + 1, y + 1, s - 2, s - 2);
-    if (on) { ctx.strokeStyle = '#ffd36a'; ctx.lineWidth = 3; ctx.strokeRect(x - 2, y - 2, s + 4, s + 4); }
+    if (on) { ctx.strokeStyle = sellView && s === 40 ? '#ff6a4a' : '#ffd36a'; ctx.lineWidth = 3; ctx.strokeRect(x - 2, y - 2, s + 4, s + 4); }
     if (item) Gfx.icon(ctx, item, x + s / 2, y + s / 2, s * 0.7);
+    if (item && sellView && s === 40) T_(ctx, item.value >= 10000 ? Math.round(item.value / 1000) + 'k' : String(item.value), x + 3, y + s - 3, 9, '#ffd34d');  // 판매가
     // 어느 부위인지: 오른쪽 위에 작게(무기는 검 · 망치 · 롯드 · 스태프, 2026-10-25 사용자)
     if (item && s >= 40) {
       const b = Items.base(item), part = item.slot === 'weapon' ? (GEAR_FORMS.weapon.find(f => f.kind === b.kind) || {}).noun || '무기' : SLOT_NAMES[item.slot];
@@ -532,7 +539,7 @@ const UI = (() => {
     // 레벨이 모자라 못 끼는 장비: 붉게 덮고 착용 레벨
     if (item && plv !== undefined && plv < Items.req(item)) {
       ctx.fillStyle = 'rgba(150,20,20,0.35)'; ctx.fillRect(x + 2, y + 2, s - 4, s - 4);
-      T_(ctx, 'Lv' + Items.req(item), x + 3, y + s - 4, 10, '#ff8a7a');
+      if (!(sellView && s === 40)) T_(ctx, 'Lv' + Items.req(item), x + 3, y + s - 4, 10, '#ff8a7a');  // 팔기 창에서는 그 자리에 판매가
     }
     // 강화 단계(왼쪽 위)
     if (item && item.ups) T_(ctx, '+' + item.ups, x + 4, y + 13, 11, '#ffd36a');

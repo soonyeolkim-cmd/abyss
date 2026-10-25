@@ -191,18 +191,19 @@ const Elements = (() => {
     if (!s) return;
     const k = power(s), big = !!def.fin || def.slot === 'dash', wave = def.slot === 'wave', open = slotOpen(s);
     const sw = wave && def.id === 'wave' ? 2 : 1;  // 검사 검기는 속성 효과 약 2배(2026-10-25, 마법사 마력탄은 그대로)
+    const swd = sw > 1 ? 3 : 1;  // 검사 검기 속성 피해는 3배(2배에서 50% 더, 2026-10-25 사용자)
     switch (s.el) {
       case 'fire':
         burn(e, p, k * (big ? 1.5 : 1));
-        if (wave && open) explode(e.x, e.y, 24, p.stats.atk * 0.4 * sw * k, 'fire', o => burn(o, p, k));  // 작열 검기
+        if (wave && open) explode(e.x, e.y, 24, p.stats.atk * 0.4 * swd * k, 'fire', o => burn(o, p, k));  // 작열 검기
         break;
       case 'frost': chill(e, wave ? 1 + sw : big ? 2 : 1, k); break;
       case 'thunder':
         shock(e, k);
         // 연쇄 번개 베기(보통부터): 모든 기본 공격에서 튄다. 그 전에는 마무리 · 검기만
-        if ((big && def.slot === 'basic') || wave) chain(e, p, 1 + Math.floor(s.size / 2), p.stats.atk * (wave ? 0.5 * sw : 0.4) * k, k);
+        if ((big && def.slot === 'basic') || wave) chain(e, p, 1 + Math.floor(s.size / 2), p.stats.atk * (wave ? 0.5 * swd : 0.4) * k, k);
         else if (def.slot === 'basic' && open) chain(e, p, 1, p.stats.atk * 0.3 * k, k);
-        if (wave && open) { World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25 }); damage(e, p.stats.atk * 0.6 * sw * k, 'thunder'); }  // 벼락 검기
+        if (wave && open) { World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25 }); damage(e, p.stats.atk * 0.6 * swd * k, 'thunder'); }  // 벼락 검기
         break;
       case 'poison': poison(e, wave ? (open ? 3 : 2) + (sw > 1 ? 2 : 0) : big ? 2 : 1, p, k); break;  // 독침 검기 = 3중첩(검사 검기는 5)
     }
@@ -367,7 +368,7 @@ const Elements = (() => {
     World.fx({ type: 'burst', x: shot.x, y: shot.y, r: R, col: ELEMENTS.frost.color, t: 0, life: 0.3 });
     for (const e of World.enemies()) {
       if (!live(e) || Math.hypot(e.x - shot.x, e.y - shot.y) > R + e.r) continue;
-      damage(e, p.stats.atk * (shot.orb ? 0.4 : 0.8) * k, 'frost');  // 검사 검기 끝 얼음 파편은 2배(2026-10-25)
+      damage(e, p.stats.atk * (shot.orb ? 0.4 : 1.2) * k, 'frost');  // 검사 검기 끝 얼음 파편은 2배(2026-10-25)
       if (frostOrb) chill(e, 2, k);
       chill(e, 1, k);
     }
@@ -417,13 +418,13 @@ const Elements = (() => {
       frost: {
         basic: ['맞히면 냉기 1 (마무리 2)', '냉기 ' + FREEZE_AT + ' = 빙결 ' + (1 + 0.25 * k).toFixed(1) + '초 · 보스는 균열(피해 +25%)'],
         charge: ['회전베기 때 냉기 폭발: 공격력의 ' + pc(0.4 * k), '냉기 3 — 거의 바로 빙결'],
-        wave: ['맞히면 냉기 3', '끝에서 얼음 파편 폭발(공격력의 ' + pc(0.8 * k) + ')'],
+        wave: ['맞히면 냉기 3', '끝에서 얼음 파편 폭발(공격력의 ' + pc(1.2 * k) + ')'],
         dash: ['대시한 길이 얼어붙음(냉기)', '대시 찌르기에 냉기 2'],
       },
       thunder: {
         basic: ['맞히면 감전 3초: 받는 피해 +' + Math.round((SHOCK_VULN + 0.05 * Math.round(k - 1)) * 100) + '%', '마무리 때 번개가 ' + (1 + Math.floor(s.size / 2)) + '번 튐(공격력의 ' + pc(0.4 * k) + ')'],
         charge: ['회전베기 때 가까운 적 ' + (2 + s.size) + '마리에 낙뢰', '공격력의 ' + pc(0.7 * k) + ' + 감전'],
-        wave: ['맞힌 적에서 번개가 ' + (1 + Math.floor(s.size / 2)) + '번 튐', '공격력의 ' + pc((mage ? 0.5 : 1) * k) + ' + 감전'],
+        wave: ['맞힌 적에서 번개가 ' + (1 + Math.floor(s.size / 2)) + '번 튐', '공격력의 ' + pc((mage ? 0.5 : 1.5) * k) + ' + 감전'],
         dash: ['대시가 끝나면 가까운 적에게 벼락(공격력의 ' + pc(0.6 * k) + ')', '대시 찌르기에 감전'],
       },
       poison: {
