@@ -376,8 +376,11 @@ const Coop = (() => {
 
   // ── 머리 위 말풍선(파티): 강화 결과 · 속성석/보석 합치기 · 유니크 획득 ──
   // 내 머리 위에 띄우고 파티원 모두에게도 보낸다(bubble, 방장이 전함). BUBBLE_SHOW 초 동안, 새 일이 생기면 바뀜. 파티원이 유니크를 얻으면 소리 · 알림 글도.
-  // b = { kind: 'forge', item, ok, n(도전한 단계) } · { kind: 'stone', stone } · { kind: 'unique', item }
+  // b = { kind: 'forge', item, ok, n(도전한 단계) } · { kind: 'stone', stone } · { kind: 'unique', item } · { kind: 'jar', item }(도박꾼 항아리 결과)
   const BUBBLE_SHOW = 4;
+  // 항아리 말풍선(2026-10-25 사용자: 유니크는 화려하게, 레어는 적당히, 매직 · 일반은 망했다는 느낌) — 등급마다 보이는 시간도 다름
+  const jarTier = it => (it.uniq ? 'jackpot' : it.rarity >= 2 ? 'good' : 'bad');
+  const showFor = f => (f.kind !== 'jar' ? BUBBLE_SHOW : { jackpot: 6, good: 4, bad: 3.5 }[jarTier(f.item)]);
   let bubMine = null;
   const bubs = new Map();  // 피어 이름 → 말풍선
   function brag(b) {
@@ -392,15 +395,23 @@ const Coop = (() => {
     const b = m.b;
     bubs.set(from, Object.assign({ t: 0 }, b));
     const who = Net.members().find(x => x.pid === from);
-    if (b.kind === 'unique') { Sfx.unique(0.6); Game.toast((who ? clsOf(who).name + ' 친구' : '친구') + '가 유니크를 얻었어요 — ' + b.item.name); }
+    const name = who ? clsOf(who).name + ' 친구' : '친구';
+    if (b.kind === 'unique') { Sfx.unique(0.6); Game.toast(name + '가 유니크를 얻었어요 — ' + b.item.name); }
+    else if (b.kind === 'jar') {
+      const tier = jarTier(b.item);
+      if (tier === 'jackpot') { Sfx.unique(0.6); Game.toast(name + '가 항아리에서 유니크를 뽑았어요! — ' + b.item.name); }
+      else if (tier === 'good') Sfx.drop(2);
+      else Sfx.forgeFail();  // 꽝: 둔탁한 쿵 + 내려가는 소리
+    }
     else if (b.ok !== false && Game.scene === 'town') Sfx.stone();
   });
   function bubbleTick(dt) {
-    if (bubMine && (bubMine.t += dt) > BUBBLE_SHOW) bubMine = null;
-    for (const [pid, f] of [...bubs]) if ((f.t += dt) > BUBBLE_SHOW) bubs.delete(pid);
+    if (bubMine && (bubMine.t += dt) > showFor(bubMine)) bubMine = null;
+    for (const [pid, f] of [...bubs]) if ((f.t += dt) > showFor(f)) bubs.delete(pid);
   }
   // 말풍선 하나: (x, y) = 머리 위 끝(화면 좌표). 톡 튀어나와 살짝 떠오르고 끝에 흐려진다
   function bubble(ctx, f, x, y) {
+    if (f.kind === 'jar') { jarBubble(ctx, f, x, y); return; }
     const k = f.t, a = k > BUBBLE_SHOW - 0.6 ? Math.max(0, (BUBBLE_SHOW - k) / 0.6) : 1;
     const s = Math.min(1, 0.5 + k / 0.15 * 0.5) + (k < 0.35 ? Math.sin(k / 0.35 * Math.PI) * 0.12 : 0);
     // 종류별 글 · 색
@@ -431,6 +442,67 @@ const Coop = (() => {
     }
     T_(ctx, top, -w / 2 + 44, -h + 15, 12, f.kind === 'unique' ? '#ffb86a' : '#e8dcc8');
     T_(ctx, main, -w / 2 + 44, -h + 33, f.kind === 'forge' ? 16 : 15, col);
+    ctx.restore();
+  }
+  // 항아리 결과 말풍선. 대박(유니크) = 크게 튀어나옴 · 뒤에서 도는 금빛 빛살 · 무지개 테두리 · 둘레를 도는 별,
+  // 쏠쏠(레어) = 금빛 테두리 · 아이콘 뒤 빛 · 반짝 둘, 꽝(매직 · 일반) = 잿빛 · 아이콘에 금 · 축 처지며 가라앉음 · 식은땀 한 방울
+  function jarBubble(ctx, f, x, y) {
+    const k = f.t, dur = showFor(f), tier = jarTier(f.item), it = f.item;
+    const a = k > dur - 0.6 ? Math.max(0, (dur - k) / 0.6) : 1;
+    const big = tier === 'jackpot' ? 1.2 : 1, pop = tier === 'bad' ? 0.06 : tier === 'good' ? 0.14 : 0.3;
+    const s = big * (Math.min(1, 0.5 + k / 0.15 * 0.5) + (k < 0.4 ? Math.sin(k / 0.4 * Math.PI) * pop : 0));
+    const rc = RARITY[it.rarity].color;
+    const top = tier === 'jackpot' ? '★ 항아리 대박! ★' : tier === 'good' ? '항아리 쏠쏠!' : it.rarity ? '항아리 꽝…' : '항아리 대꽝…';
+    const hue = (k * 160) % 360;
+    const edge = tier === 'jackpot' ? 'hsl(' + hue + ',95%,65%)' : tier === 'good' ? '#ffd34d' : '#5a5058';
+    const bg = tier === 'jackpot' ? '#2a1a0c' : tier === 'good' ? '#2a220e' : '#151216';
+    ctx.font = 'bold 15px ' + Gfx.FONT;
+    const w = Math.max(140, Math.ceil(ctx.measureText(it.name).width) + 58), h = 40;
+    ctx.save();
+    ctx.globalAlpha = a;
+    // 대박 · 쏠쏠은 떠오르고, 꽝은 축 처져 내려가며 살짝 기운다
+    const dy = tier === 'bad' ? Math.min(8, k * 5) : -6 * Math.min(1, k / 0.4);
+    ctx.translate(Math.round(x), Math.round(y + dy));
+    if (tier === 'bad') ctx.rotate(-0.06 * Math.min(1, k / 0.8));
+    ctx.scale(s, s);
+    if (tier === 'jackpot') {  // 뒤에서 도는 빛살(밝게 더하기)
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(0, -h / 2 - 2); ctx.rotate(k * 0.9);
+      for (let i = 0; i < 10; i++) {
+        ctx.rotate(Math.PI / 5);
+        ctx.fillStyle = 'hsla(' + ((hue + i * 36) % 360) + ',95%,62%,' + (0.16 + 0.06 * Math.sin(k * 6 + i)) + ')';
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-9, -w * 0.75); ctx.lineTo(9, -w * 0.75); ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+    }
+    ctx.fillStyle = edge;  // 꼬리
+    ctx.beginPath(); ctx.moveTo(-6, -2); ctx.lineTo(6, -2); ctx.lineTo(0, 6); ctx.closePath(); ctx.fill();
+    Gfx.panel(ctx, -w / 2, -h - 2, w, h, { border: edge, bg });
+    const ix = -w / 2 + 22, iy = -h / 2 - 2;
+    if (tier !== 'bad') {  // 아이콘 뒤 빛
+      const glow = tier === 'jackpot' ? '255,170,80' : '255,211,77', r = tier === 'jackpot' ? 22 + Math.sin(k * 10) * 3 : 18;
+      const g = ctx.createRadialGradient(ix, iy, 0, ix, iy, r);
+      g.addColorStop(0, 'rgba(' + glow + ',' + (tier === 'jackpot' ? 0.7 : 0.45) + ')'); g.addColorStop(1, 'rgba(' + glow + ',0)');
+      ctx.fillStyle = g; ctx.fillRect(-w / 2 + 2, -h, 40, h - 4);
+    }
+    if (tier === 'bad') ctx.globalAlpha = a * 0.6;
+    Gfx.icon(ctx, it, ix, iy, 26);
+    ctx.globalAlpha = a;
+    if (tier === 'bad') {  // 아이콘 위 금 · 식은땀
+      ctx.strokeStyle = 'rgba(160,150,160,0.9)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(ix - 8, iy - 12); ctx.lineTo(ix + 1, iy - 2); ctx.lineTo(ix - 3, iy + 3); ctx.lineTo(ix + 8, iy + 12); ctx.stroke();
+      const sy = -h - 4 + Math.min(6, k * 4);
+      ctx.fillStyle = '#8ac8ff';
+      ctx.beginPath(); ctx.moveTo(w / 2 - 6, sy - 7); ctx.quadraticCurveTo(w / 2 - 1, sy, w / 2 - 6, sy + 2); ctx.quadraticCurveTo(w / 2 - 11, sy, w / 2 - 6, sy - 7); ctx.fill();
+    }
+    T_(ctx, top, -w / 2 + 44, -h + 15, 12, tier === 'jackpot' ? 'hsl(' + ((hue + 40) % 360) + ',95%,72%)' : tier === 'good' ? '#ffe08a' : '#8a7e88');
+    T_(ctx, it.name, -w / 2 + 44, -h + 33, 15, tier === 'bad' ? (it.rarity ? '#5a7ab0' : '#9a9298') : rc);
+    // 반짝이는 별(대박 = 둘레를 도는 여섯, 쏠쏠 = 모서리 둘)
+    const star = (sx, sy, r, col) => { ctx.fillStyle = col; ctx.fillRect(sx - r, sy - 1, r * 2, 2); ctx.fillRect(sx - 1, sy - r, 2, r * 2); };
+    if (tier === 'jackpot') for (let i = 0; i < 6; i++) {
+      const an = k * 1.6 + i * Math.PI / 3, tw = 0.5 + 0.5 * Math.sin(k * 8 + i * 2);
+      star(Math.cos(an) * (w / 2 + 8), -h / 2 - 2 + Math.sin(an) * (h / 2 + 12), 2 + tw * 3, 'hsl(' + ((hue + i * 60) % 360) + ',100%,80%)');
+    }
+    else if (tier === 'good') { const tw = Math.sin(k * 5); if (tw > 0) { star(w / 2 - 4, -h - 2, 1 + tw * 3, '#fff6c0'); star(-w / 2 + 6, -4, 1 + (1 - tw) * 2, '#fff6c0'); } }
     ctx.restore();
   }
   // 마을(town.js) · 던전(world.js) 그림: 내 머리 위 · 파티원 머리 위. sx/sy = 게임 좌표 → 화면 좌표, off = 발에서 머리 위까지

@@ -70,8 +70,8 @@ const Jar = (() => {
         st = 'pop'; t = 0;
         for (let i = 0; i < 26; i++) { const a = Math.random() * Math.PI * 2, s = 100 + Math.random() * 220; shards.push({ x: 0, y: 0, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 110, s: 3 + Math.floor(Math.random() * 4) }); }
         Sfx.blast();
-        if (item.uniq) { Sfx.unique(); Coop.brag({ kind: 'unique', item }); }  // 파티면 머리 위 말풍선 · 친구에게도
-        else Sfx.drop(item.rarity);
+        if (item.uniq) Sfx.unique(); else Sfx.drop(item.rarity);
+        Coop.brag({ kind: 'jar', item });  // 파티면 머리 위 말풍선 · 친구에게도(유니크 = 대박, 레어 = 쏠쏠, 매직 · 일반 = 꽝)
       }
       return;
     }
