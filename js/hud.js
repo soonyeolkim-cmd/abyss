@@ -237,11 +237,16 @@ const Hud = (() => {
     ctx.strokeStyle = on || '#4a3a30'; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, s - 2, s - 2);
   }
 
+  // 쿨타임(2026-10-25 사용자: 쿨타임인 줄 몰라 안 나가는 걸 조건으로 착각): 칸이 어두워졌다가 12시부터 시계 방향으로 밝아진다. k = 남은 비율, 1초 넘게 남으면 초도
   function cool(ctx, x, y, s, k, sec) {
     if (k <= 0) return;
+    const cx = x + s / 2, cy = y + s / 2, a0 = -Math.PI / 2 + (1 - k) * Math.PI * 2;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x + 2, y + 2, s - 4, s - 4); ctx.clip();
     ctx.fillStyle = 'rgba(0,0,0,0.62)';
-    ctx.fillRect(x + 2, y + 2, s - 4, Math.round((s - 4) * k));
-    T_(ctx, sec.toFixed(1), x + s / 2, y + s / 2 + 5, 12, '#ffffff', 'center');
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, s, a0, Math.PI * 1.5); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    if (sec >= 1) T_(ctx, sec.toFixed(1), cx, cy + 5, 12, '#ffffff', 'center');
   }
 
   // 보석 합계: 묶음마다 이름 · 칸(낀 보석 색 네모, 빈 칸은 테두리만) · 합친 효과(장비 레벨 곡선 반영 = 가방 창과 같은 값)
@@ -338,6 +343,7 @@ const Hud = (() => {
         ctx.fillStyle = 'rgba(10,6,8,0.75)'; ctx.beginPath(); ctx.arc(x + 34, y + 33, 9, 0, Math.PI * 2); ctx.fill();
         Gfx.stoneIcon(ctx, s, x + 34, y + 33, 16);
       }
+      if (slot === 'wave' && C.special.cd) cool(ctx, x, y, 44, p.specialCd / C.special.cd, p.specialCd);  // 특수기 쿨타임
       T_(ctx, (Input.touchMode() ? '' : L(SKILL_KEYS[slot]) + ' ') + C.slotShort[slot], x + 22, PY + 12, 11, col || '#c8b8a0', 'center');
       const n = costs[slot];
       T_(ctx, '기력 ' + n, x + 22, PY + 73, 10, !n ? '#6a7a90' : p.sp >= n ? '#8ab8ff' : '#ff7a6a', 'center');

@@ -25,6 +25,7 @@ const Touch = (() => {
     #tc .side { border-radius: 10px; background: rgba(40, 30, 36, 0.45); }
     #tc.menu .play, #tc:not(.menu) .menu, #tc.town .fight { display: none; }
     #tc .b.far { opacity: 0.45; }
+    #tc .b .cd { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; display: none; }
     #tc.ext > * { display: none !important; }
     #tc #stk { position: absolute; width: 120px; height: 120px; border-radius: 50%; border: 2px solid rgba(255, 220, 150, 0.22); background: rgba(40, 30, 36, 0.15); display: none; }
     #tc #knob { position: absolute; width: 52px; height: 52px; border-radius: 50%; background: rgba(255, 220, 150, 0.3); left: 34px; top: 34px; }
@@ -65,7 +66,7 @@ const Touch = (() => {
   const ICON = 18;  // hud.js pixIcon 크기(16 + 테두리)
   for (const [code, slot, r, bt, size] of BTNS) {
     const px = Math.max(2, Math.round(size * 0.5 / ICON)) * ICON;  // 도트가 고르게 커지게 18 의 배수
-    const b = makeBtn(code, '<canvas width="' + ICON + '" height="' + ICON + '" style="width:' + px + 'px;height:' + px + 'px"></canvas><small></small>',
+    const b = makeBtn(code, '<canvas width="' + ICON + '" height="' + ICON + '" style="width:' + px + 'px;height:' + px + 'px"></canvas><small></small>' + (slot === 'wave' ? '<i class="cd"></i>' : ''),
       { right: r + 'px', bottom: bt + 'px' }, size, size, slot === 'basic' ? 'play' : 'play fight');  // fight = 던전에서만
     els[slot] = b;
   }
@@ -124,6 +125,19 @@ const Touch = (() => {
     Object.assign(potion.style, { left: Math.round(r.left + 66 * k - 27) + 'px', top: Math.round(r.top + 356 * k - 27) + 'px' });
   }
   setInterval(refresh, 500);
+  // 특수기 쿨타임: 버튼이 어두워졌다가 12시부터 시계 방향으로 밝아진다(HUD 기술 칸과 같게)
+  const cdEl = els.wave.querySelector('.cd');
+  let cdOn = false;
+  function cdTick() {
+    const p = typeof Game !== 'undefined' && Game.scene === 'run' ? World.player : null, C = p && p.cls;
+    const k = p && C.special.cd && p.specialCd > 0 ? p.specialCd / C.special.cd : 0;
+    if (k > 0) {
+      cdEl.style.background = 'conic-gradient(transparent 0 ' + Math.round((1 - k) * 360) + 'deg, rgba(0, 0, 0, 0.55) 0 360deg)';
+      if (!cdOn) { cdOn = true; cdEl.style.display = 'block'; }
+    } else if (cdOn) { cdOn = false; cdEl.style.display = 'none'; }
+    requestAnimationFrame(cdTick);
+  }
+  requestAnimationFrame(cdTick);
 
   // 패드 · 키보드를 연결해 쓰면 가상패드를 모두 숨긴다(2026-10-25 사용자). 화면을 다시 만지면 나온다
   let ext = false, lastDev = Input.device;
