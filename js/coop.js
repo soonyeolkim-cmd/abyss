@@ -174,7 +174,7 @@ const Coop = (() => {
     return null;
   }
   // 이 친구 몸을 보여 줄까: 둘 다 마을이거나, 같은 파티 던전
-  const together = now => now && now.x !== undefined && ((now.s === 'town' && Game.scene === 'town') || (now.s === 'run' && Game.scene === 'run' && World.partySeed && now.r === World.partySeed));
+  const together = now => now && now.x !== undefined && ((now.s === 'town' && Game.scene === 'town' && (now.w || 'belloc') === Town.where) ||(now.s === 'run' && Game.scene === 'run' && World.partySeed && now.r === World.partySeed));
 
   // 매 화면(game.js frame): 내 위치 보내기 · 친구 몸 따라가기 · 초대 기다림 · 몹 소식
   function tick(dt) {
@@ -189,6 +189,7 @@ const Coop = (() => {
       sendT = 1 / 20;
       const s = Game.scene, tp = myBody();
       const m = tp ? { t: 'pos', s, x: r1(tp.x), y: r1(tp.y), fx: r1(tp.fv.x), fy: r1(tp.fv.y), st: BODY_STATES[tp.state] ? tp.state : 'idle' } : { t: 'pos', s };
+      if (s === 'town') m.w = Town.where;  // 어느 마을(벨록 · 실베인) — 같은 마을일 때만 서로 보임
       if (tp && s === 'run') {
         m.r = World.partySeed;
         const mv = moveInput(tp);  // 방장 쪽 내 몸이 다음 소식까지 같은 쪽으로 걷게
