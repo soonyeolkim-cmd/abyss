@@ -293,6 +293,8 @@ const UI = (() => {
     shop: [{ label: '좋은 것 일괄 착용', go: prof => bulkEquip(prof) }],  // 상점 '사기'(2026-10-24 사용자: 사기 · 팔기 나눔) — 파는 건 '팔기'(sell)에서
     // 대장장이 '장비 팔기'(2026-10-24 사용자): 왼쪽은 낀 장비, 가방 장비를 고르면 판다
     sell: [{ label: '좋은 것 일괄 착용', go: prof => bulkEquip(prof) }, { label: '약한 장비 일괄 판매', sell: true, go: prof => bulkSell(prof) }],
+    // 대장장이 '장비 분해'(2026-10-25 사용자: 심연 정수) — 태초 흰 · 파랑 · 노랑 장비 → 정수 가루
+    scrap: [{ label: '좋은 것 일괄 착용', go: prof => bulkEquip(prof) }, { label: '약한 장비 일괄 분해', scrap: true, go: prof => bulkScrap(prof) }],
   };
   // 장비를 벗을 때 낀 보석도 뺄지 묻는다(2026-10-24 사용자) — 예 = 주머니로, 아니요 = 장비에 그대로
   function askGemsOff(prof, item) {
@@ -305,6 +307,29 @@ const UI = (() => {
     const n = Items.equipBest(prof);
     Game.toast(n ? '더 좋은 장비 ' + n + '개로 바꿔 꼈어요' : '이미 가장 좋은 장비를 끼고 있어요');
     if (n) Game.changed();
+  }
+  // 분해: 가방 칸 idx 들을 정수 가루로(낀 보석은 주머니로)
+  function scrapAll(prof, idxs) {
+    let dust = 0, gems = 0;
+    for (const i of idxs) {
+      const it = prof.bag[i];
+      dust += scrapDust(it);
+      for (const g of it.gems || []) if (g) { Elements.add(prof, g); gems++; }
+      prof.bag[i] = null;
+    }
+    const before = prof.essence || 0;
+    addEssence(prof, 0, dust);
+    Sfx.stone();
+    Game.toast('정수 가루 +' + dust + ((prof.essence || 0) > before ? ' → 심연 정수 +' + ((prof.essence || 0) - before) : '') + (gems ? ' · 보석 ' + gems + '개는 주머니로' : ''));
+    Game.changed();
+  }
+  // 일괄 분해 = 일괄 판매와 같은 '약한 장비'(흰 · 파랑 · 낀 것보다 약함 · 강화 안 됨) 가운데 태초(착용 Lv.90 이상)만
+  function bulkScrap(prof) {
+    const idx = Items.junk(prof).filter(i => scrapDust(prof.bag[i]) > 0);
+    if (!idx.length) { Game.toast('분해할 장비가 없어요 (태초 · 낀 것보다 약한 흰 · 파랑만 한꺼번에)'); return; }
+    const dust = idx.reduce((a, i) => a + scrapDust(prof.bag[i]), 0);
+    Game.overlay({ type: 'confirm', text: '낀 것보다 약한 장비 ' + idx.length + '개를 분해할까요? (가루 +' + dust + ')', sub: '노랑 · 유니크 · 강화된 것 · 더 좋은 것은 한꺼번에 분해하지 않아요 · 보석은 주머니로',
+      yes: () => scrapAll(prof, idx) });
   }
   function bulkSell(prof) {
     const idx = Items.junk(prof);
@@ -448,6 +473,17 @@ const UI = (() => {
       }
       if (!sel.item) return;
       if (o.mode === 'shop' && sel.from !== 'shop') { Game.toast('여기서는 사기만 해요 — 팔려면 상인 엘린의 「팔기」'); return; }  // 가방은 보기만
+      if (o.mode === 'scrap' && sel.from === 'bag') {
+        const it = sel.item, idx = this.idx, dust = scrapDust(it);
+        if (it.uniq) { Sfx.deny(); Game.toast('유니크는 분해할 수 없어요 — 창고 컬렉션에 넣어 주세요'); return; }
+        if (!dust) { Sfx.deny(); Game.toast('태초(착용 Lv.' + ESSENCE.minReq + ' 이상) 장비만 분해할 수 있어요'); return; }
+        const go = () => { if (prof.bag[idx] === it) scrapAll(prof, [idx]); };
+        const gemsIn = (it.gems || []).filter(Boolean);
+        if (it.ups || it.rarity >= 2 || gemsIn.length) Game.overlay({ type: 'confirm', danger: !!it.ups, text: (it.ups ? '+' + it.ups + ' 강화된 ' : '') + Items.nameOf(it) + '을(를) 분해할까요? (가루 +' + dust + ')',
+          sub: (it.ups ? '강화는 사라져요 — 계승 주문서로 옮길 수 있어요' : '분해하면 되돌릴 수 없어요') + (gemsIn.length ? ' · 낀 보석은 주머니로' : ''), yes: go });
+        else go();
+        return;
+      }
       if (o.mode === 'sell' && sel.from === 'bag') {
         if (sel.from === 'bag') {
           const it = sel.item, idx = this.idx;
@@ -524,10 +560,12 @@ const UI = (() => {
     draw(ctx, o, prof, time) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       // 장비 팔기 창은 장비 관리 창과 한눈에 다르게(2026-10-25 사용자): 붉은 갈색 바탕 · 구리빛 테두리 · 맨 위 '판매' 띠 · 가방 칸마다 판매가 · 고른 칸 붉은 테두리
-      const SELL = o.mode === 'sell', B = SELL ? { border: '#d8703a' } : undefined;
-      sellView = SELL;
-      ctx.fillStyle = SELL ? 'rgba(30,12,6,0.97)' : 'rgba(0,0,0,0.96)'; ctx.fillRect(0, 0, 960, 540);
+      // 장비 분해 창(2026-10-25)은 보랏빛: 가방 칸마다 나오는 정수 가루 수
+      const SCRAP = o.mode === 'scrap', SELL = o.mode === 'sell', B = SELL ? { border: '#d8703a' } : SCRAP ? { border: '#9a60e0' } : undefined;
+      sellView = SELL ? 'sell' : SCRAP ? 'scrap' : false;
+      ctx.fillStyle = SELL ? 'rgba(30,12,6,0.97)' : SCRAP ? 'rgba(18,8,30,0.97)' : 'rgba(0,0,0,0.96)'; ctx.fillRect(0, 0, 960, 540);
       if (SELL) { T_(ctx, '◆ 판매 창 — 가방 장비를 골라 팔아요 ◆', 480, 17, 13, '#ffb86a', 'center'); }
+      if (SCRAP) { T_(ctx, '◆ 분해 창 — 태초 장비를 부숴 심연 정수 가루로 ◆', 480, 17, 13, ESSENCE_COLOR, 'center'); }
       const sel = this.selected(prof);
       // 왼쪽: 장비 또는 상점
       Gfx.panel(ctx, 24, 24, 340, 470, B);
@@ -551,8 +589,9 @@ const UI = (() => {
         T_(ctx, '가방은 보기만(등급 · 비교) · 팔기는 「팔기」에서', 44, 446, 12, '#9a8e96');
         T_(ctx, '골드 ' + prof.gold + 'G', 44, 478, 20, '#ffd34d');
       } else {
-        T_(ctx, SELL ? '장비 팔기' : '장비 스테이터스', 44, 62, 24, SELL ? '#ffb86a' : '#f0e0b8');
-        if (o.mode === 'sell') T_(ctx, '골드 ' + prof.gold + 'G', 344, 62, 16, '#ffd34d', 'right');  // 위 오른쪽은 버튼 둘이라 골드는 여기
+        T_(ctx, SELL ? '장비 팔기' : SCRAP ? '장비 분해' : '장비 스테이터스', 44, 62, 24, SELL ? '#ffb86a' : SCRAP ? ESSENCE_COLOR : '#f0e0b8');
+        if (o.mode === 'sell') T_(ctx, '골드 ' + prof.gold + 'G', 344, 62, 16, '#ffd34d', 'right');
+        else if (SCRAP) { Gfx.essenceIcon(ctx, 244, 56, 16); T_(ctx, (prof.essence || 0) + ' · 가루 ' + (prof.essDust || 0) + '/' + ESSENCE.dustPer, 344, 62, 14, ESSENCE_COLOR, 'right'); }  // 위 오른쪽은 버튼 둘이라 골드는 여기
         else T_(ctx, clsOf(prof).name + ' Lv.' + prof.lv, 344, 62, 15, '#c8b8a0', 'right');
         // 가운데 아바타: 은은한 받침 빛 + 큰 캐릭터
         const ax = 194, ay = 262;
@@ -590,6 +629,7 @@ const UI = (() => {
       const used = prof.bag.filter(Boolean).length;
       T_(ctx, '가방 ' + used + '/' + BAG_SIZE, 400, 58, 20, '#f0e0b8');
       if (o.mode === 'equip') T_(ctx, '골드 ' + prof.gold + 'G', 916, 58, 16, '#ffd34d', 'right');  // 상점 · 팔기는 왼쪽에 골드
+      if (o.mode === 'equip' && (prof.essence || prof.essDust)) { Gfx.essenceIcon(ctx, 694, 52, 14); T_(ctx, String(prof.essence || 0), 704, 58, 14, ESSENCE_COLOR); }  // 심연 정수(모은 적이 있으면)
       INV_BTNS[o.mode].forEach((b, i) => {
         const x = 520 + i * 158, on = this.zone === 'btn' && this.btn === i;
         zone(x, 36, 150, 32, { pick: () => { this.zone = 'btn'; this.btn = i; }, now: true });
@@ -606,6 +646,7 @@ const UI = (() => {
       // 오른쪽 아래: 설명 + 비교
       Gfx.panel(ctx, 380, 334, 556, 160, B);
       if (SELL && sel.from === 'bag' && sel.item) T_(ctx, '판매 가격 +' + sel.item.value + 'G', 916, 364, 16, '#ffd34d', 'right');
+      if (SCRAP && sel.from === 'bag' && sel.item) { const d = scrapDust(sel.item); T_(ctx, d ? '가루 +' + d : '분해 안 됨', 916, 364, 15, d ? ESSENCE_COLOR : '#8a7e88', 'right'); }
       if (sel.item) {
         const lines = Items.describe(sel.item, prof);
         let y = 364;
@@ -636,14 +677,18 @@ const UI = (() => {
           T_(ctx, '세공사에서 같은 것 3개를 합치면 한 단계 큰 것이 돼요', 400, 416, 13, '#9a8e96');
         }
       } else if (sel.from === 'btn') {
-        const sell = INV_BTNS[o.mode][this.btn].sell;
-        T_(ctx, sell ? '같은 칸에 낀 것보다 못한 장비를 한꺼번에 팔아요' : '칸마다 가방과 낀 것 중 가장 좋은 장비를 껴요', 400, 370, 14, '#c8b8a0');
-        T_(ctx, sell ? '흰 · 파랑만 팔아요 — 노랑 · 주황 · 강화된 것 · 못 끼는 것 · 더 좋은 것은 남겨요' : '지금 낄 수 있는 것 중 능력치 점수가 가장 높은 것 (색 · 보석 칸 · 유니크 효과 포함)', 400, 394, 13, '#9a8e96');
+        const sell = INV_BTNS[o.mode][this.btn].sell, scrap = INV_BTNS[o.mode][this.btn].scrap;
+        if (scrap) {
+          T_(ctx, '같은 칸에 낀 것보다 못한 태초 장비를 한꺼번에 분해해요', 400, 370, 14, '#c8b8a0');
+          T_(ctx, '흰 · 파랑만 — 노랑은 하나씩 골라서, 유니크 · 강화된 것 · 더 좋은 것은 남겨요', 400, 394, 13, '#9a8e96');
+          T_(ctx, '가루: 흰 ' + ESSENCE.dust[0] + ' · 파랑 ' + ESSENCE.dust[1] + ' · 노랑 ' + ESSENCE.dust[2] + ' — 가루 ' + ESSENCE.dustPer + '개 = 심연 정수 1개', 400, 418, 13, ESSENCE_COLOR);
+        } else T_(ctx, sell ? '같은 칸에 낀 것보다 못한 장비를 한꺼번에 팔아요' : '칸마다 가방과 낀 것 중 가장 좋은 장비를 껴요', 400, 370, 14, '#c8b8a0');
+        if (!scrap) T_(ctx, sell ? '흰 · 파랑만 팔아요 — 노랑 · 주황 · 강화된 것 · 못 끼는 것 · 더 좋은 것은 남겨요' : '지금 낄 수 있는 것 중 능력치 점수가 가장 높은 것 (색 · 보석 칸 · 유니크 효과 포함)', 400, 394, 13, '#9a8e96');
       } else {  // 고른 칸이 비었을 때: 이 판이 무엇인지 알려 준다(2026-10-24 사용자 '빈칸은 무슨 의미?')
         T_(ctx, '아이템 설명', 400, 370, 15, '#8a7e88');
         T_(ctx, '가방이나 장비 칸에서 아이템을 고르면 능력치 · 보석 · 낀 것과 비교가 여기에 나와요', 400, 396, 13, '#6a6068');
       }
-      const hint = this.zone === 'btn' ? '누르기 ' + L('ok') : o.mode === 'shop' ? (sel.from === 'shop' ? '구매 ' : '보기만 · 구매는 왼쪽 ') + L('ok') : o.mode === 'sell' && sel.from === 'bag' ? '판매 ' + L('ok') : (sel.from === 'equip' ? '벗기 ' : '끼기 ') + L('ok');
+      const hint = this.zone === 'btn' ? '누르기 ' + L('ok') : o.mode === 'shop' ? (sel.from === 'shop' ? '구매 ' : '보기만 · 구매는 왼쪽 ') + L('ok') : o.mode === 'sell' && sel.from === 'bag' ? '판매 ' + L('ok') : SCRAP && sel.from === 'bag' ? '분해 ' + L('ok') : (sel.from === 'equip' ? '벗기 ' : '끼기 ') + L('ok');
       hintBar(ctx, hint + ' · 일괄 착용 ' + L('special') + ' · 맨 윗줄에서 ↑ = 버튼 · 닫기 ' + L('back') + ' / ' + L('inv'));
     },
   };
@@ -653,9 +698,14 @@ const UI = (() => {
     ctx.strokeStyle = item ? RARITY[item.rarity].color : '#3a2e36';
     ctx.lineWidth = item && item.rarity ? 2 : 1;
     ctx.strokeRect(x + 1, y + 1, s - 2, s - 2);
-    if (on) { ctx.strokeStyle = sellView && s === 40 ? '#ff6a4a' : '#ffd36a'; ctx.lineWidth = 3; ctx.strokeRect(x - 2, y - 2, s + 4, s + 4); }
+    if (on) { ctx.strokeStyle = sellView === 'scrap' && s === 40 ? ESSENCE_COLOR : sellView && s === 40 ? '#ff6a4a' : '#ffd36a'; ctx.lineWidth = 3; ctx.strokeRect(x - 2, y - 2, s + 4, s + 4); }
     if (item) Gfx.icon(ctx, item, x + s / 2, y + s / 2, s * 0.7);
-    if (item && sellView && s === 40) T_(ctx, item.value >= 10000 ? Math.round(item.value / 1000) + 'k' : String(item.value), x + 3, y + s - 3, 9, '#ffd34d');  // 판매가
+    if (item && sellView === 'sell' && s === 40) T_(ctx, item.value >= 10000 ? Math.round(item.value / 1000) + 'k' : String(item.value), x + 3, y + s - 3, 9, '#ffd34d');  // 판매가
+    if (item && sellView === 'scrap' && s === 40) {  // 분해: 나오는 가루 수 · 안 되는 건 어둡게
+      const d = scrapDust(item);
+      if (d) T_(ctx, '+' + d, x + 3, y + s - 3, 10, ESSENCE_COLOR);
+      else { ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(x + 2, y + 2, s - 4, s - 4); }
+    }
     // 어느 부위인지: 오른쪽 위에 작게(무기는 검 · 망치 · 롯드 · 스태프, 2026-10-25 사용자)
     if (item && s >= 40) {
       const b = Items.base(item), part = item.slot === 'weapon' ? (GEAR_FORMS.weapon.find(f => f.kind === b.kind) || {}).noun || '무기' : SLOT_NAMES[item.slot];
@@ -1513,7 +1563,7 @@ const UI = (() => {
       } else T_(ctx, run.dungeon.name + (run.diff ? ' · ' + DIFFS[run.diff].name : ''), 480, 122, 16, run.diff ? DIFFS[run.diff].color : '#9a8e96', 'center');
       Gfx.panel(ctx, 180, 150, 600, 320);
       const rows = [['처치', run.kills + '마리'], ['경험치', '+' + run.exp + (run.levelUps ? '  (레벨 업 ' + run.levelUps + '번!)' : '')],
-        ['골드', '+' + run.gold + 'G' + (run.lostGold ? '  (쓰러져서 -' + run.lostGold + 'G)' : '')],
+        ['골드', '+' + run.gold + 'G' + (run.lostGold ? '  (쓰러져서 -' + run.lostGold + 'G)' : '') + (run.essence ? '  · 심연 정수 +' + run.essence : '')],
         ['시간', run.clearTime !== undefined ? fmtTime(run.clearTime) + (run.newRecord ? '  ★ 새 기록!' + (run.bestPrev ? ' (예전 ' + fmtTime(run.bestPrev) + ')' : '') : '  (최고 ' + fmtTime(run.bestPrev) + ')') : '보스를 못 쓰러뜨림 — 기록 없음'],
         ['주운 장비', run.items.length + '개' + (run.stones ? '  · 속성석 · 보석 ' + run.stones + '개' : '') + (run.scrolls ? '  · 주문서 ' + run.scrolls + '개' : '') + (run.autoSold ? '  · 자동 판매 ' + run.autoSold + '개' : '')]];
       rows.forEach(([k, v], i) => { T_(ctx, k, 220, 190 + i * 30, 17, '#9a8e96'); T_(ctx, v, 360, 190 + i * 30, 17, k === '시간' && run.newRecord ? '#ffd36a' : '#f0e8dc'); });

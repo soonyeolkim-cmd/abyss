@@ -243,6 +243,28 @@ const Gfx = (() => {
     ctx.restore();
   }
 
+  // 심연 정수 아이콘(2026-10-25): 보랏빛 수정 도트(12x12, 칸마다 계산 — 마름모 몸 · 왼쪽 밝은 면 · 오른쪽 어두운 면 · 흰 반짝)
+  let essCanvas = null;
+  function essenceIcon(ctx, cx, cy, size) {
+    if (!essCanvas) {
+      const N = 12, c = document.createElement('canvas'); c.width = c.height = N;
+      const g = c.getContext('2d');
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+        const dx = Math.abs(x + 0.5 - 6) / 4.2, dy = Math.abs(y + 0.5 - 6) / 5.8;
+        if (dx + dy > 1) continue;
+        const edge = dx + dy > 0.78;
+        g.fillStyle = edge ? '#2a1050' : x < 5 ? (y < 5 ? '#e8c8ff' : '#b070f0') : x > 6 ? '#6a30b0' : '#9a58e8';
+        g.fillRect(x, y, 1, 1);
+      }
+      g.fillStyle = '#ffffff'; g.fillRect(4, 3, 1, 2);
+      essCanvas = c;
+    }
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(essCanvas, Math.round(cx - size / 2), Math.round(cy - size / 2), Math.round(size), Math.round(size));
+    ctx.restore();
+  }
+
   // ── 글자 · 상자 (메뉴는 960x540 좌표에서 그린다) ──
   function text(ctx, s, x, y, size, color, align = 'left', weight = 'bold') {
     s = fmtGold(s);  // 골드 쉼표(12345G → 12,345G)
@@ -268,5 +290,5 @@ const Gfx = (() => {
     ctx.fillStyle = fg; ctx.fillRect(x, y, Math.round(w * Math.max(0, Math.min(1, k))), h);
   }
 
-  return { WEAPON_TINT, FONT, mix, ready, spr, anim, icon, stoneIcon, scrollIcon, text, panel, bar };
+  return { WEAPON_TINT, FONT, mix, ready, spr, anim, icon, stoneIcon, scrollIcon, essenceIcon, text, panel, bar };
 })();

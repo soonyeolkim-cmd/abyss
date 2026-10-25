@@ -22,6 +22,7 @@ const Town = (() => {
       go: () => Game.overlay({ type: 'choice', title: '대장장이 브론', items: [
         { label: '주문서 강화 · 강화 옮기기', go: () => Game.overlay({ type: 'smith' }) },
         { label: '장비 팔기', go: () => Game.overlay({ type: 'inv', mode: 'sell' }) },
+        { label: '장비 분해 (심연 정수)', go: () => Game.overlay({ type: 'inv', mode: 'scrap' }) },  // 2026-10-25 사용자: 태초 장비 → 정수 가루
         EQUIP_ITEM,
         { label: '강화 이야기 듣기', go: () => Story.talkNpc('smith') },  // 2026-10-25 사용자: 기존 NPC도 대화로 설명
       ] }) },

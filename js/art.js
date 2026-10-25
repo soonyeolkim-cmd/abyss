@@ -253,6 +253,16 @@ const Art = (() => {
       return;
     }
     if (d.kind === 'scroll') { Gfx.scrollIcon(ctx, d.scroll, d.x, y - 4, 10); return; }
+    if (d.kind === 'essence') {  // 심연 정수: 보랏빛 수정 + 일렁이는 빛
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.3 + 0.2 * Math.sin(time * 6 + d.x);
+      ctx.fillStyle = ESSENCE_COLOR;
+      ctx.beginPath(); ctx.ellipse(d.x, d.y, 6, 3, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      Gfx.essenceIcon(ctx, d.x, y - 5 + Math.sin(time * 3 + d.x) * 1, 10);
+      return;
+    }
     const it = d.item, col = RARITY[it.rarity].color;
     if (it.rarity > 0) {
       ctx.save();
@@ -324,8 +334,9 @@ const Art = (() => {
     ctx.restore();
     Gfx.spr(ctx, 'floor_stairs', s.x - 8, s.y - 8, { topLeft: true });
     ctx.font = 'bold 7px ' + FONT; ctx.textAlign = 'center';
-    ctx.fillStyle = '#000'; ctx.fillText('마을로 가는 계단', s.x + 0.5, s.y - 11.5);
-    ctx.fillStyle = '#bfefff'; ctx.fillText('마을로 가는 계단', s.x, s.y - 12);
+    const label = s.label || '마을로 가는 계단';  // 끝없는 심연: 아래층이 있으면 '아래층으로 가는 계단'
+    ctx.fillStyle = '#000'; ctx.fillText(label, s.x + 0.5, s.y - 11.5);
+    ctx.fillStyle = '#bfefff'; ctx.fillText(label, s.x, s.y - 12);
   }
 
   function shot(ctx, s, time) {

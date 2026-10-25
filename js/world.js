@@ -538,6 +538,7 @@ const World = (() => {
     const cs = clearChestSpot(b.x, b.y + 18, true);  // 보스 자리 아래 — 기둥에 가리면 옆으로
     lv.chests.push({ x: cs.x, y: cs.y, open: false, t: 0, big: true });
     lv.stairs = stairsSpot(b);
+    if (lv.def.endless && lv.def.floor < ENDLESS.max) lv.stairs.label = (lv.def.floor + 1) + '층으로 가는 계단';
     msg = '보스를 쓰러뜨렸다!'; msgT = 2.5;
     if (lv.def.endless) {  // 끝없는 심연: 깬 던전 수(10개)에는 안 들어가고 최고 층만
       run.endlessCleared = Math.max(run.endlessCleared || 0, lv.def.floor);
@@ -683,6 +684,15 @@ const World = (() => {
     for (const it of o.items || []) toss({ kind: 'item', item: it });
     for (const st of o.stones || []) toss({ kind: 'stone', stone: st });
     for (const sc of o.scrolls || []) toss({ kind: 'scroll', scroll: sc });
+    for (let k = 0; k < (o.essence || 0); k++) toss({ kind: 'essence' });
+  }
+  // 심연 정수(끝없는 심연에서만): 수호자 = 층마다 정해진 수, 고유 · 정예 = 확률로 1개(깊을수록 더 잘)
+  function essenceRoll(rank) {
+    if (!lv.def.endless) return 0;
+    const f = lv.def.floor;
+    if (rank === 'boss') return ESSENCE.boss(f);
+    const ch = rank === 'unique' ? ESSENCE.unique : rank === 'elite' ? ESSENCE.elite : 0;
+    return Math.random() < ch * ESSENCE.floorMul(f) ? 1 : 0;
   }
 
   function goldRoll(range, mul = 1) {
@@ -698,7 +708,7 @@ const World = (() => {
         d.z += d.vz * dt; d.vz -= 500 * dt;
         if (d.z <= 0) {
           d.z = 0; d.vz = Math.abs(d.vz) > 60 ? -d.vz * 0.35 : 0;
-          if (!d.landed) { d.landed = true; if (d.kind === 'item') Sfx.drop(d.item.rarity); else if (d.kind === 'stone' || d.kind === 'scroll') Sfx.stone(); }
+          if (!d.landed) { d.landed = true; if (d.kind === 'item') Sfx.drop(d.item.rarity); else if (d.kind === 'stone' || d.kind === 'scroll' || d.kind === 'essence') Sfx.stone(); }
         }
         const nx = d.x + d.vx * dt, ny = d.y + d.vy * dt;
         if (Dungeon.walkable(lv, nx, ny, 3)) { d.x = nx; d.y = ny; } else { d.vx *= -0.5; d.vy *= -0.5; }
@@ -706,7 +716,10 @@ const World = (() => {
       }
       if (d.t < 0.35 || p.dead) continue;
       const dist = Math.hypot(p.x - d.x, p.y - d.y);
-      if (d.kind === 'gold') {
+      if (d.kind === 'essence') {  // 심연 정수: 골드처럼 가까이 가면 끌려온다
+        if (dist < 34) { const k = Math.min(1, dt * 10); d.x += (p.x - d.x) * k; d.y += (p.y - d.y) * k; }
+        if (dist < 8) { addEssence(prof, 1); run.essence = (run.essence || 0) + 1; d.gone = true; Sfx.stone(); text(p.x, p.y, 34, '심연 정수', ESSENCE_COLOR); }
+      } else if (d.kind === 'gold') {
         if (dist < 34) { const k = Math.min(1, dt * 10); d.x += (p.x - d.x) * k; d.y += (p.y - d.y) * k; }
         if (dist < 8) { prof.gold += d.amount; run.gold += d.amount; d.gone = true; Sfx.gold(); text(p.x, p.y, 30, '+' + d.amount + 'G', '#ffd34d'); }
       } else if (dist < 11) {
@@ -803,7 +816,7 @@ const World = (() => {
     if (d.boss) {
       const bossItems = [mk(lv.ilvlR[1], { boost: 0.8 })];
       if (Math.random() < UNIQUE_DROP.boss * DIFFS[RUN.diff].uniq * lowUniq(prof.lv, dlv())) bossItems.push(Items.makeUnique(lv.ilvlR[1]));
-      loot(e.x, e.y, { gold: goldRoll(d.gold), items: bossItems, stones: [rollStone(STONE_BOSS_BOOST), rollStone(STONE_BOSS_BOOST)], scrolls: Array.from({ length: SCROLL_DROP_RATE.boss }, rollScroll) });
+      loot(e.x, e.y, { gold: goldRoll(d.gold), items: bossItems, stones: [rollStone(STONE_BOSS_BOOST), rollStone(STONE_BOSS_BOOST)], scrolls: Array.from({ length: SCROLL_DROP_RATE.boss }, rollScroll), essence: essenceRoll('boss') });
       shake(5);
       bossCleared(e);
       return;
@@ -811,14 +824,14 @@ const World = (() => {
     if (e.rank === 'unique') {
       const uItems = [mk(lv.ilvlR[1], { boost: 0.6 })];
       if (Math.random() < UNIQUE_DROP.unique * DIFFS[RUN.diff].uniq * lowUniq(prof.lv, dlv())) uItems.push(Items.makeUnique(lv.ilvlR[1]));
-      loot(e.x, e.y, { gold: goldRoll(d.gold, 4), items: uItems, stones: [rollStone()], scrolls: Math.random() < SCROLL_DROP_RATE.unique ? [rollScroll()] : [] });
+      loot(e.x, e.y, { gold: goldRoll(d.gold, 4), items: uItems, stones: [rollStone()], scrolls: Math.random() < SCROLL_DROP_RATE.unique ? [rollScroll()] : [], essence: essenceRoll('unique') });
       return;
     }
     const elite = e.rank === 'elite';
     const items = Math.random() < (elite ? 0.2 : 0.06) ? [mk(ilvl(), { boost: elite ? 0.3 : 0 })] : [];  // 일반 6% · 정예 20% (예전 13% · 40%)
     const stones = Math.random() < (elite ? 0.15 : 0.07) ? [rollStone()] : [];
     const scrolls = Math.random() < (elite ? SCROLL_DROP_RATE.elite : SCROLL_DROP_RATE.normal) ? [rollScroll()] : [];
-    loot(e.x, e.y, { gold: Math.random() < 0.75 ? goldRoll(d.gold, elite ? 2 : 1) : 0, items, stones, scrolls });
+    loot(e.x, e.y, { gold: Math.random() < 0.75 ? goldRoll(d.gold, elite ? 2 : 1) : 0, items, stones, scrolls, essence: elite ? essenceRoll('elite') : 0 });
   }
 
   function gainExp(n) {

@@ -695,3 +695,15 @@ const POTION_PRICE = 25;
 const SHARD_PRICE = 150;
 const SHARD_SELL = 50;  // 조각(1단계) 속성석 · 보석 팔 때(2026-10-24 사용자: 1단계만 팔 수 있게)
 const INHERIT_PRICE = 3000;  // 계승 주문서도 판다(복구 주문서 자리, 2026-10-24 사용자)
+// ── 심연 정수(2026-10-25 사용자: Lv.100 유니크 제작 재료 — 메모/endgame-plan.md ⑤. 제작은 만렙 109 때, 지금은 모으기만) ──
+// 끝없는 심연에서만 떨어진다: 층 수호자 확정 boss(층)개, 고유 몹 unique 확률 · 정예 몹 elite 확률로 1개(깊은 층일수록 floorMul 배).
+// 분해(대장장이): 태초(착용 Lv.minReq 이상) 흰 · 파랑 · 노랑 장비 → 정수 가루 dust[등급]. 가루 dustPer 개 = 정수 1(저절로 바뀜). 유니크는 컬렉션용이라 분해 안 됨
+const ESSENCE = { boss: f => 2 + f, unique: 0.5, elite: 0.06, floorMul: f => 1 + 0.1 * (f - 1), dust: [1, 2, 5], dustPer: 10, minReq: 90 };
+const ESSENCE_COLOR = '#c58aff';
+const scrapDust = it => (it && !it.uniq && it.rarity <= 2 && Items.req(it) >= ESSENCE.minReq ? ESSENCE.dust[it.rarity] : 0);
+function addEssence(prof, n, dust = 0) {
+  prof.essence = (prof.essence || 0) + n;
+  prof.essDust = (prof.essDust || 0) + dust;
+  while (prof.essDust >= ESSENCE.dustPer) { prof.essDust -= ESSENCE.dustPer; prof.essence++; }
+}
+const essenceText = prof => '심연 정수 ' + (prof.essence || 0) + '개 · 가루 ' + (prof.essDust || 0) + '/' + ESSENCE.dustPer;
