@@ -41,7 +41,8 @@ const CLASSES = {
       wave: { speed: 260, range: 150, r: 12, scale: 1.35 } },  // 검기 크기(2026-10-24 사용자: 좀 더 크게) — 판정 9 → 12, 그림 1.35배
     // 대시 찌르기: 대시 → 공격. 앞으로 파고들며 꿰뚫는다(무적)
     // 대시 찌르기: 앞으로 무기 길이만큼만 찌른다(2026-10-24 사용자 '너무 잘 맞는다' → 반원 90° · 뒤 8px · 몸에 닿기만 해도 맞던 것 없앰)
-    dashAttack: { name: '대시 찌르기', slot: 'dash', startup: 0.03, active: 0.16, recovery: 0.26, mult: 1.9, knock: 110, stun: 0.55, reach: [0, 30], arc: 28, noBody: true, dash: 64, iframes: true, thrust: true, heavy: true },
+    // 파고드는 거리 64 → 24(2026-10-25 사용자 A안: 대시와 합쳐 너무 멀리 · 빠르게 나가서 — 빠른 돌진은 나중 암살자 몫)
+    dashAttack: { name: '대시 찌르기', slot: 'dash', startup: 0.03, active: 0.16, recovery: 0.26, mult: 1.9, knock: 110, stun: 0.55, reach: [0, 30], arc: 28, noBody: true, dash: 24, iframes: true, thrust: true, heavy: true },
     // 회전베기(속성석 '차지' 칸): 따로 있는 버튼(키보드 V · 패드 B)을 누르면 바로 나간다(2026-10-24 사용자: 길게 눌러 모으기 없앰).
     // 콤보 · 특수기 후딜에서도 끊고 나갈 수 있다. move 는 예전 모으기용(안 씀)
     charge: { holdDelay: 0.22, time: 0.55, move: 0.45, cost: 20,
