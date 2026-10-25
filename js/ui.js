@@ -524,6 +524,11 @@ const UI = (() => {
     ctx.strokeRect(x + 1, y + 1, s - 2, s - 2);
     if (on) { ctx.strokeStyle = '#ffd36a'; ctx.lineWidth = 3; ctx.strokeRect(x - 2, y - 2, s + 4, s + 4); }
     if (item) Gfx.icon(ctx, item, x + s / 2, y + s / 2, s * 0.7);
+    // 어느 부위인지: 오른쪽 위에 작게(무기는 검 · 망치 · 롯드 · 스태프, 2026-10-25 사용자)
+    if (item && s >= 40) {
+      const b = Items.base(item), part = item.slot === 'weapon' ? (GEAR_FORMS.weapon.find(f => f.kind === b.kind) || {}).noun || '무기' : SLOT_NAMES[item.slot];
+      T_(ctx, part, x + s - 3, y + 11, 9, 'rgba(232,222,206,0.85)', 'right');
+    }
     // 레벨이 모자라 못 끼는 장비: 붉게 덮고 착용 레벨
     if (item && plv !== undefined && plv < Items.req(item)) {
       ctx.fillStyle = 'rgba(150,20,20,0.35)'; ctx.fillRect(x + 2, y + 2, s - 4, s - 4);
@@ -1250,7 +1255,7 @@ const UI = (() => {
       ctx.fillStyle = '#3a2e36'; ctx.fillRect(40, 404, 880, 1);
       const cat = vaultCats(prof)[this.r], U = UNIQUES[cat.uniq], key = cat.id + ':' + this.c, have = prof.vault[key];
       const lvTxt = lvName(this.c) + ' (' + GEAR_TIERS[this.c].mat + ')';
-      T_(ctx, (have ? Items.nameOf(have) : U.name) + ' — ' + cat.name + ' · ' + lvTxt, 44, 430, 16, have ? RARITY[3].color : '#c8b8a0');
+      T_(ctx, (have ? Items.nameOf(have) : uniqueName(cat.uniq, cat.id.split('_')[1], this.c)) + ' — ' + cat.name + ' · ' + lvTxt, 44, 430, 16, have ? RARITY[3].color : '#c8b8a0');
       T_(ctx, '★ ' + U.fx + ': ' + U.desc, 44, 454, 13, '#ffd36a');
       const where = DUNGEONS.filter(d => tierOf(d.ilvl[1]) === this.c).map(d => d.name).join(' · ');
       const can = !have && vaultFind(prof, key) >= 0;

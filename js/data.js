@@ -324,6 +324,27 @@ const UNIQUES = {
   breath: { slot: 'amulet', name: '끝없는 숨결', fx: '끝없는 숨결', desc: '기력 회복 속도 +40%' },  // 2026-10-24 사용자: 두 번째 기회 대신
   vamp: { slot: 'ring', name: '피의 서약', fx: '흡혈 칼날', desc: '처치할 때마다 체력 2% 회복' },
 };
+// 유니크 고유 이름: 착용 레벨 단계(재질 0 낡은 … 9 태초)마다 다른 이름(2026-10-25 사용자). 효과(fx)는 같고 이름만 바뀐다.
+// 무기는 무기 종류마다(검 · 망치 · 롯드 · 스태프) 따로
+const UNIQUE_NAMES_BY_TIER = {
+  echo: {
+    light: ['메아리', '되울림', '잔향의 검', '룬 메아리', '용울음', '심연 반향', '검은 잔영', '성화 울림검', '별의 메아리', '태초의 울림'],
+    heavy: ['쿵쿵이', '되치기 망치', '천둥 메아리', '룬 울림망치', '용골 분쇄자', '심연 공명', '흑요 진동', '성화 낙진', '별부수개', '태초의 고동'],
+    wand: ['속삭임', '메아리 막대', '잔향 롯드', '룬 속삭임', '용의 숨결봉', '심연의 목소리', '흑요 메아리', '성화 지휘봉', '별빛 속삭임', '태초의 말씀'],
+    staff: ['울림 지팡이', '되뇌는 지팡이', '잔향 지팡이', '룬 공명장', '용의 포효', '심연 합창', '흑요 공명', '성화 성가', '별의 합창', '태초의 노래'],
+  },
+  skin: ['돌거북 투구', '바위 껍질', '강철 등딱지', '룬 거북 투구', '용비늘 관', '심연 거북관', '흑요 껍데기', '성화 수호관', '별거북 투구', '태초의 등껍질'],
+  leaf: ['숲지기의 갑주', '떡갈나무 갑옷', '강철 잎새 갑주', '룬 덩굴 갑주', '용림 갑주', '심연 가시나무', '흑요 수풀', '성화 세계수', '별잎 갑주', '태초의 숲'],
+  ambush: ['그림자 손', '쥐도둑 장갑', '어스름 손', '룬 그림자 손', '용발톱 손', '심연의 손', '흑요 그림자', '성화 암살자 손', '별그림자 손', '태초의 어둠'],
+  dashguard: ['바람걸음', '산들 장화', '돌풍 장화', '룬 바람걸음', '용날개 장화', '심연 질풍', '흑요 회오리', '성화 열풍', '별바람 걸음', '태초의 바람'],
+  breath: ['끝없는 숨결', '깊은 숨 목걸이', '고요한 들숨', '룬 숨결', '용의 숨', '심연의 호흡', '흑요 고동', '성화 숨결', '별의 숨결', '태초의 호흡'],
+  vamp: ['피의 서약', '핏방울 반지', '붉은 맹세', '룬 혈약', '용피 반지', '심연 혈맹', '흑요 피', '성화 피의 맹세', '별피 서약', '태초의 피'],
+};
+// u = UNIQUES 키, kind = 무기 종류(무기만), tier = 재질 단계
+const uniqueName = (u, kind, tier) => {
+  const n = UNIQUE_NAMES_BY_TIER[u], list = Array.isArray(n) ? n : n && (n[kind] || n.light);
+  return (list && list[Math.min(tier, list.length - 1)]) || UNIQUES[u].name;
+};
 // 창고 컬렉션(2026-10-24 사용자): 부위 갈래(무기는 경량 · 중량 따로) × 재질 단계(없음 · 10 · 20 … 90) 칸에 유니크를 하나씩 넣어 모은다
 // 무기 줄 이름은 무기 이름 그대로(2026-10-24 사용자: 경량 · 중량 대신 검 · 망치 / 롯드 · 스태프)
 const VAULT_CATS = [{ id: 'weapon_light', slot: 'weapon', cls: 'swordsman', name: '검' }, { id: 'weapon_heavy', slot: 'weapon', cls: 'swordsman', name: '망치' },
@@ -505,6 +526,8 @@ Object.assign(ELEMENTS, GEMS);
 const GEM_ORDER = ['might', 'guard'];
 const gemFits = (g, slot) => GEMS[g.el].slots.includes(slot);
 const GEM_CHANCE = 0.4;  // 속성석이 떨어질 때 대신 보석일 확률
+// 보석이 떨어질 때 공격 · 방어 비율(2026-10-25 사용자: 방어 보석이 잘 안 나온다). 예전 50 : 50 — 방어는 4부위 · 공격은 3부위라 방어를 조금 더
+const GEM_WEIGHT = { might: 0.4, guard: 0.6 };
 const gemStats = g => { const o = {}, k = STONE_SIZES[g.size].power; for (const s in GEMS[g.el].stats) o[s] = Math.round(GEMS[g.el].stats[s] * k); return o; };
 const gemText = g => { const st = gemStats(g); return Object.keys(st).map(s => STATS[s].name + ' +' + st[s] + (STATS[s].pct ? '%' : '')).join(' · '); };
 const STONE_SLOTS = ['basic', 'charge', 'wave', 'dash'];  // 대시도 기술 하나로(2026-10-24 사용자)

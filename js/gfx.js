@@ -158,10 +158,13 @@ const Gfx = (() => {
     return c;
   }
   // 아이템 아이콘을 (cx, cy) 가운데에 size 크기로
+  // 어두운 재질(흑요석 등)은 칸 바탕에 묻혀서 둘레에 옅은 빛을 두른다(2026-10-25 사용자: 장비가 잘 안 보임)
+  const darkTint = hex => { const n = parseInt(hex.slice(1), 16); return (((n >> 16) & 255) * 0.3 + ((n >> 8) & 255) * 0.59 + (n & 255) * 0.11) < 60; };
   function icon(ctx, item, cx, cy, size) {
     const b = Items.base(item);
     ctx.save();
     ctx.imageSmoothingEnabled = false;
+    if (b.tint && darkTint(b.tint)) { ctx.shadowColor = 'rgba(225,215,245,0.95)'; ctx.shadowBlur = Math.max(2, size / 9); }
     if (b.slot === 'weapon') {
       const [fx, fy, fw, fh] = FRAMES[b.icon];
       // 메뉴(큰 칸)는 정수 배로 또렷하게, 바닥에 떨어진 작은 그림은 줄여서
@@ -172,7 +175,8 @@ const Gfx = (() => {
       if (b.tint) ctx.drawImage(tinted(b.icon, b.tint), 0, 0, fw, fh, -fw * s / 2, -fh * s / 2, fw * s, fh * s);
       else ctx.drawImage(atlas, fx, fy, fw, fh, -fw * s / 2, -fh * s / 2, fw * s, fh * s);
     } else {
-      const s = Math.max(1, Math.floor(size / 16));
+      // 방어구 · 장신구 16px 그림: 칸에 맞게 크게(예전엔 내림이라 가방 칸에서 1배 16px 로 작았다)
+      const s = Math.max(1, Math.round(size / 16) - (Math.round(size / 16) * 16 > size + 6 ? 1 : 0));
       ctx.drawImage(shapeIcon(b.icon, b.tint), Math.round(cx - 8 * s), Math.round(cy - 8 * s), 16 * s, 16 * s);
     }
     ctx.restore();

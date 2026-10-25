@@ -350,8 +350,8 @@ const World = (() => {
   // 속성석 굴리기: 이 던전의 크기 확률대로
   // 속성석 · 보석 굴리기: 던전 표(STONE_DROP)에서. boost = 보스 · 큰 상자(큰 쪽이 더 잘). 난이도는 큰 쪽 가중치 · 한 단계 위 아주 가끔
   function rollStone(boost = 0) {
-    const pool = Math.random() < GEM_CHANCE ? GEM_ORDER : EL_ORDER;  // 가끔은 속성석 대신 보석
-    const el = pool[rnd(0, pool.length - 1)];
+    const gem = Math.random() < GEM_CHANCE;  // 가끔은 속성석 대신 보석
+    const el = gem ? (Math.random() < GEM_WEIGHT.might ? 'might' : 'guard') : EL_ORDER[rnd(0, EL_ORDER.length - 1)];  // 보석은 공격 40 · 방어 60
     const base = STONE_DROP[lv.def.id] || STONE_DROP.chapel, D = DIFFS[RUN.diff];
     const top = base.reduce((m, p, i) => (p > 0 ? i : m), 0), cap = Math.min(STONE_DROP_CAP, top + (D.stoneSpill ? 1 : 0));
     const f = 1 + D.stoneFavor + boost, w = [];

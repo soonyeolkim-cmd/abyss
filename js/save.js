@@ -65,6 +65,7 @@ const Save = (() => {
         for (const g of it.gems.splice(RARITY[it.rarity].sockets)) if (g) p.stones[g.el + ':' + g.size] = (p.stones[g.el + ':' + g.size] || 0) + 1;
       }
       if (it && !it.uniq) it.name = itemName(Items.base(it), it.rarity);  // 이름 규칙이 바뀌어도(검 · 망치 등) 따라가게
+      if (it && it.uniq) { const b = Items.base(it); it.name = uniqueName(it.uniq, b.kind, b.tier); }  // 유니크 레벨 단계 이름(2026-10-25)
       if (armorEnch && it && it.ench && it.ench.def && SCROLL_GROUPS.armor.slots.includes(it.slot)) it.ench.def = Math.round(it.ench.def * 1.5);
       if (accEnch && it && it.ench && it.ench.hp && SCROLL_GROUPS.acc.slots.includes(it.slot)) { it.ench.atk = (it.ench.atk || 0) + Math.max(it.ups || 1, Math.round(it.ench.hp * 0.25)); delete it.ench.hp; }
       if (ringHp && it && it.slot === 'ring' && !it.stats.hp) it.stats.hp = Math.max(1, Math.round(12 * POWER(it.ilvl) * (0.85 + Math.random() * 0.3) * RARITY[it.rarity].mult));

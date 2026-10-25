@@ -27,7 +27,7 @@ const Items = (() => {
     const stats = {};
     for (const k in b.curve) stats[k] = Math.max(1, Math.round(b.curve[k](ilvl) * RARITY[rarity].mult));  // 등급이 높을수록 조금 세다
     applyFixed(stats, b.slot, rarity);
-    const name = o.uniq ? UNIQUES[o.uniq].name : itemName(b, rarity);
+    const name = o.uniq ? uniqueName(o.uniq, b.kind, b.tier) : itemName(b, rarity);  // 유니크는 레벨 단계마다 고유 이름
     const it = {
       v: 8, uid: nextUid++, base: b.id, slot: b.slot, ilvl, rarity, name, stats, affixes: [],
       gems: new Array(RARITY[rarity].sockets).fill(null),  // 보석 칸(빈 칸 = null)
@@ -57,7 +57,7 @@ const Items = (() => {
     delete it.up; delete it.fails;
     it.ups = Math.min(ENCHANT_MAX, it.ups || 0);
     if (it.uniq === 'second') it.uniq = 'breath';
-    it.name = it.uniq ? UNIQUES[it.uniq].name : itemName(b, it.rarity);
+    it.name = it.uniq ? uniqueName(it.uniq, b.kind, b.tier) : itemName(b, it.rarity);
     it.v = 6;
   }
   function rescale(it, plv) {
@@ -72,7 +72,7 @@ const Items = (() => {
     // 강화로 오른 수치도 그 능력치가 바뀐 비율만큼(예전 +N 이 차지하던 몫을 그대로)
     for (const k in it.ench || {}) it.ench[k] = Math.max(1, Math.round(it.ench[k] * (before[k] ? it.stats[k] / before[k] : POWER(lvl))));
     it.value = Math.round(10 * POWER(lvl) * (1 + it.rarity * 1.5));
-    it.name = it.uniq ? UNIQUES[it.uniq].name : itemName(b, it.rarity);
+    it.name = it.uniq ? uniqueName(it.uniq, b.kind, b.tier) : itemName(b, it.rarity);
     it.v = 7;
   }
   // 능력치 맞추기(2026-10-24): 예전 장비도 착용 레벨 · 등급이 같으면 기본 능력치가 같게(강화 · 보석 · 등급 고정 옵션은 그대로)
