@@ -74,7 +74,8 @@ const CLASSES = {
     // 돌진 베기(특수, 2026-10-25 사용자: 받아치기는 안 어울려서 없애고 '반격에 성공했을 때 같은 공격'을 누르면 바로):
     // max px 안 가장 가까운 적(누른 쪽 먼저)을 향해 직선으로 베고 지나간다(적을 지나 past 더, 최소 min · 최대 max, 적이 없으면 보는 쪽으로 dash).
     // 지나가는 동안 + 도착 뒤 safe 초 무적, 언제나 치명타 + 기절. 결과적으로 적 등 뒤에 선다(패시브 등 뒤 +30% 와 이어짐)
-    special: { id: 'rush', name: '돌진 베기', short: '돌진', slot: 'wave', cd: 3, cost: 10, rush: true,
+    // cd 3 → 0.6(2026-10-25 사용자: 검사 · 마법사처럼 쿨타임 없이 — 검사 검기와 같은 연타 막이만, 기력으로 조절)
+    special: { id: 'rush', name: '돌진 베기', short: '돌진', slot: 'wave', cd: 0.6, cost: 10, rush: true,
       startup: 0.03, active: 0.14, recovery: 0.3, mult: 2.5, knock: 60, stun: 0.8,  // 밀어내기는 작게(적을 지나 등 뒤에 서게)
       reach: [0, 42], arc: 160, swing: [-120, 120], noBody: true,  // 백스탭처럼 넓게 휘두르며 지나간다(2026-10-25 사용자: 거리 30 · 각도 70 찌르기 → 넓은 범위)
       dash: 90, past: 30, min: 50, max: 150, safe: 0.35, crit: true, heavy: true, iframes: true },
