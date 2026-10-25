@@ -245,6 +245,7 @@ const Gfx = (() => {
 
   // ── 글자 · 상자 (메뉴는 960x540 좌표에서 그린다) ──
   function text(ctx, s, x, y, size, color, align = 'left', weight = 'bold') {
+    s = fmtGold(s);  // 골드 쉼표(12345G → 12,345G)
     ctx.font = weight + ' ' + size + 'px ' + FONT;
     ctx.textAlign = align;
     ctx.textBaseline = 'alphabetic';

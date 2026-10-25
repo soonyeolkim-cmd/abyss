@@ -584,8 +584,8 @@ const Art = (() => {
     ctx.globalAlpha = k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3;
     ctx.font = 'bold ' + (t.big ? 9 : 7) + 'px ' + FONT;
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#000'; ctx.fillText(t.s, t.x + 0.5, t.y - t.z + 0.5);
-    ctx.fillStyle = t.col; ctx.fillText(t.s, t.x, t.y - t.z);
+    ctx.fillStyle = '#000'; ctx.fillText(fmtGold(t.s), t.x + 0.5, t.y - t.z + 0.5);
+    ctx.fillStyle = t.col; ctx.fillText(fmtGold(t.s), t.x, t.y - t.z);
     ctx.globalAlpha = 1;
   }
 

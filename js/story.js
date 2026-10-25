@@ -232,6 +232,7 @@ const Story = (() => {
 
   // 띄어쓰기 단위로 줄 나누기
   function wrap(ctx, text, w, size) {
+    text = fmtGold(text);  // 재기 전에 골드 쉼표를 넣어 둔다(Gfx.text 와 같은 너비)
     ctx.font = 'bold ' + size + 'px ' + Gfx.FONT;
     const out = [];
     let cur = '';

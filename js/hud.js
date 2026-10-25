@@ -263,7 +263,7 @@ const Hud = (() => {
     });
     // 오른쪽: 골드(윗줄, 레벨은 체력 구슬 옆 메달로 옮김) + 보석 합계 4줄(무기 · 방어구 · 목걸이 · 반지, 2026-10-24 사용자)
     Gfx.spr(ctx, 'coin_anim_f0', 612, PY + 15, { scale: 1.4 });
-    T_(ctx, String(prof.gold), 622, PY + 15, 13, '#ffd34d');
+    T_(ctx, fmtNum(prof.gold), 622, PY + 15, 13, '#ffd34d');
     gemSummary(ctx, prof, 606, PY + 31, p);
     T_(ctx, L('pause') + ' 메뉴 · ' + L('inv') + ' 가방', 142, PY + 73, 10, '#7a6e70');
   }
