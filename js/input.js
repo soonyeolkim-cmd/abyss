@@ -27,8 +27,10 @@ const Input = (() => {
 
   // 설정(이 기기에 저장)
   const settings = (() => {
-    const d = { kbMode: 'keys', padLayout: 'xbox', cursorAim: false, sound: true };
-    try { return Object.assign(d, JSON.parse(localStorage.getItem('farming-game-settings') || '{}')); } catch (e) { return d; }
+    const d = { kbMode: 'keys', padLayout: 'xbox', cursorAim: false, sound: true, music: 6, sfx: 8 };  // music · sfx = 크기 0 ~ 10(2026-10-25)
+    try { Object.assign(d, JSON.parse(localStorage.getItem('farming-game-settings') || '{}')); } catch (e) { return d; }
+    if (d.sound === false) { d.sound = true; d.sfx = 0; d.music = 0; }  // 예전 '효과음 끄기' → 새 크기 칸에서도 꺼진 채로
+    return d;
   })();
   function saveSettings() { try { localStorage.setItem('farming-game-settings', JSON.stringify(settings)); } catch (e) { /* 저장 못 하는 환경 */ } }
   const padOk = () => (settings.padLayout === 'switch' ? 1 : 0);

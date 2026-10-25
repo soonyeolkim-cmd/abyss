@@ -1476,20 +1476,25 @@ const UI = (() => {
   };
 
   // ── 설정 · 조작 (봉인의 숲과 같은 틀: 조작 방식 · 패드 종류 · 마우스 조준) ──
+  const vol = v => (v ? '■'.repeat(v) + '□'.repeat(10 - v) + '  ' + v : '끄기');
+  const step = (v, d) => (d < 0 ? Math.max(0, v - 1) : v >= 10 ? (Input.nav('right') ? 10 : 0) : v + 1);
   const settings = {
     sel: 0,
     rows() {
       const S = Input.settings;
       return [
         { label: '패드 종류', val: S.padLayout === 'switch' ? '스위치 (오른쪽 A)' : '엑스박스 (아래 A)', flip: () => { S.padLayout = S.padLayout === 'switch' ? 'xbox' : 'switch'; } },
-        { label: '효과음', val: S.sound !== false ? '켜기' : '끄기', flip: () => { S.sound = S.sound === false; } },
+        // 음악 · 효과음 크기 0 ~ 10(2026-10-25 사용자: 소리 작업). ◀ ▶ 로 한 칸씩, 확인 = 한 칸 올림(10 다음은 0)
+        { label: '음악 크기', val: vol(S.music ?? 6), flip: d => { S.music = step(S.music ?? 6, d); } },
+        { label: '효과음 크기', val: vol(S.sfx ?? 8), flip: d => { S.sfx = step(S.sfx ?? 8, d); S.sound = true; Sfx.ui('move'); } },
+        { label: '소리 목록 듣기', val: '음악 · 효과음 하나씩', flip: () => { if (Input.wasPressed('ok')) Game.overlay({ type: 'soundtest' }); } },
       ];
     },
     update() {
       if (Input.wasPressed('back') || Input.wasPressed('pause')) { Input.saveSettings(); Game.closeOverlay(); return; }
       const rows = this.rows();
       this.sel = menuNav(this.sel, rows.length);
-      if (Input.nav('left') || Input.nav('right') || Input.wasPressed('ok')) { rows[this.sel].flip(); Input.saveSettings(); }
+      if (Input.nav('left') || Input.nav('right') || Input.wasPressed('ok')) { rows[this.sel].flip(Input.nav('left') ? -1 : 1); Input.saveSettings(); }
     },
     draw(ctx) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1570,6 +1575,70 @@ const UI = (() => {
     },
   };
 
+  // ── 소리 목록 듣기(2026-10-25 사용자: 목록별로 들을 수 있게) — 설정 → '소리 목록 듣기'. 음악 · 효과음 두 쪽, ↑↓ 고르기 · 확인 = 틀기 · ←→ 쪽 바꾸기.
+  // 음악은 고른 곡이 지금 장면 곡 대신 나온다(game.js musicFor 가 o.track 을 먼저). 닫으면 장면 곡으로 돌아감
+  const dn = id => (DUNGEONS.find(d => d.id === id) || {}).name || id;
+  const SOUND_LIST = {
+    music: [['title', '시작 화면', 'JRPG Theme'], ['belloc', '지하 도시 벨록 · 던전 고르기 · 결과', 'Where Time Stands Still'], ['silvane', '광산 도시 실베인', 'Bazaar'],
+      ['chapel', '1. ' + dn('chapel'), 'Whispers From Beyond'], ['swamp', '2. ' + dn('swamp'), "Witch's Lair"], ['crypt', '3. ' + dn('crypt'), 'Catacombs'],
+      ['ice', '4. ' + dn('ice') + ' · 끝없는 심연 2층', "Tha'el Mines"], ['fort', '5. ' + dn('fort'), 'Military Base'], ['hell', '6. ' + dn('hell') + ' · 끝없는 심연 1층', 'Apocalypse'],
+      ['plague', '7. ' + dn('plague'), 'Sneaking Around'], ['order', '8. ' + dn('order') + ' · 끝없는 심연 3층', 'Army Approaching'], ['temple', '9. ' + dn('temple'), 'Encounter With The Witches'],
+      ['abyss', '10. ' + dn('abyss'), 'Ancient Evil Awakens'], ['boss', '보스와 싸우는 동안', 'Preparing For Battle'], ['lord', '심연의 군주 · 끝없는 심연 수호자', 'Epic Boss Battle'],
+      ['ending', '엔딩', 'A Place I Call Home'], ['trueEnding', '진엔딩', 'Innocence']],
+    sfx: [['때리기', () => Sfx.hit(false)], ['치명타', () => Sfx.hit(true)], ['휘두르기', () => Sfx.swing()], ['무거운 휘두르기', () => Sfx.heavySwing()], ['대시', () => Sfx.dash()],
+      ['마력탄 (마법사)', () => Sfx.cast()], ['마법진 터짐 (마법사)', () => { Sfx.blast(); Sfx.spell(); }], ['처치', () => Sfx.kill()], ['정예 · 고유 몹 쓰러짐', () => { Sfx.kill(); Sfx.grunt(); }],
+      ['내가 맞음', () => Sfx.hurt()], ['몹 무리 깨어남', () => Sfx.growl()], ['보스 포효', () => Sfx.roar()], ['기 모음 다 됨', () => Sfx.charged()],
+      ['불', () => Sfx.fire()], ['얼음', () => Sfx.frost()], ['번개', () => Sfx.zap()], ['폭발', () => Sfx.blast()],
+      ['골드 줍기', () => Sfx.gold()], ['장비 줍기', () => Sfx.pickup()], ['장비 떨어짐 (일반)', () => Sfx.drop(0)], ['장비 떨어짐 (레어 이상)', () => Sfx.drop(2)], ['속성석 · 보석 줍기', () => Sfx.stone()],
+      ['상자 열기', () => Sfx.chest()], ['물약', () => Sfx.potion()], ['레벨 업', () => Sfx.levelUp()], ['유니크 얻음', () => Sfx.unique()],
+      ['강화 시작', () => Sfx.forgeStart()], ['강화 망치질', () => Sfx.forgeTap(2)], ['강화 성공', () => Sfx.forgeOk()], ['강화 실패', () => Sfx.forgeFail()], ['속성석 합치기', () => Sfx.combine(3)],
+      ['끝없는 심연 문 지나기', () => Sfx.door()], ['계단', () => Sfx.stairs()], ['광차 출발', () => Sfx.cartGo()], ['광차 덜컹', () => Sfx.rail()],
+      ['메뉴 고르기', () => Sfx.ui('move')], ['메뉴 확인', () => Sfx.ui('ok')], ['메뉴 뒤로', () => Sfx.ui('back')], ['안 됨', () => Sfx.deny()]],
+  };
+  const soundtest = {
+    tab: 'music', sel: 0, top: 0,
+    open(o) { this.tab = 'music'; this.sel = 0; this.top = 0; o.track = null; },
+    list() { return SOUND_LIST[this.tab]; },
+    play(o) { const it = this.list()[this.sel]; if (this.tab === 'music') o.track = it[0]; else it[1](); },
+    update(o) {
+      if (Input.wasPressed('back') || Input.wasPressed('pause')) { Game.closeOverlay(); return; }
+      if (Input.nav('left') || Input.nav('right')) { this.tab = this.tab === 'music' ? 'sfx' : 'music'; this.sel = 0; this.top = 0; }
+      const n = this.list().length;
+      this.sel = menuNav(Math.min(this.sel, n - 1), n);
+      if (Input.wasPressed('ok')) this.play(o);
+    },
+    draw(ctx, o) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = 'rgba(0,0,0,0.88)'; ctx.fillRect(0, 0, 960, 540);
+      Gfx.panel(ctx, 60, 30, 840, 480);
+      T_(ctx, '소리 목록 듣기', 90, 72, 24, '#f0e0b8');
+      [['music', '음악 ' + SOUND_LIST.music.length + '곡'], ['sfx', '효과음 ' + SOUND_LIST.sfx.length + '개']].forEach(([k, s], i) => {
+        const x = 420 + i * 200, on = this.tab === k;
+        zone(x, 48, 180, 34, { pick: () => { if (this.tab !== k) { this.tab = k; this.sel = 0; this.top = 0; } }, key: null, now: true });
+        ctx.fillStyle = on ? 'rgba(255,211,106,0.16)' : 'rgba(255,255,255,0.04)'; ctx.fillRect(x, 50, 180, 30);
+        ctx.strokeStyle = on ? '#ffd36a' : '#4a3a40'; ctx.lineWidth = on ? 2 : 1; ctx.strokeRect(x + 0.5, 50.5, 179, 29);
+        T_(ctx, s, x + 90, 71, 15, on ? '#ffd36a' : '#9a8e96', 'center');
+      });
+      const list = this.list(), ROWS = 11, RH = 34, y0 = 104;
+      if (this.sel < this.top) this.top = this.sel;
+      if (this.sel >= this.top + ROWS) this.top = this.sel - ROWS + 1;
+      const playing = this.tab === 'music' ? (o.track || Music.now) : null;
+      for (let r = 0; r < ROWS && this.top + r < list.length; r++) {
+        const i = this.top + r, it = list[i], y = y0 + r * RH, on = i === this.sel;
+        zone(84, y, 792, RH - 2, { pick: () => { this.sel = i; }, now: true });
+        if (on) { ctx.fillStyle = 'rgba(255,211,106,0.12)'; ctx.fillRect(84, y, 792, RH - 2); }
+        const now = this.tab === 'music' && playing === it[0];
+        T_(ctx, (now ? '♪ ' : '') + (this.tab === 'music' ? it[1] : it[0]), 104, y + 22, 16, now ? '#7dff8a' : on ? '#ffd36a' : '#e8e0d0');
+        if (this.tab === 'music') T_(ctx, it[2], 856, y + 22, 13, now ? '#7dff8a' : '#8a7e88', 'right');
+      }
+      if (this.top > 0) T_(ctx, '▲', 480, y0 - 4, 12, '#9a8e96', 'center');
+      if (this.top + ROWS < list.length) T_(ctx, '▼', 480, y0 + ROWS * RH + 6, 12, '#9a8e96', 'center');
+      const lv = this.tab === 'music' ? Input.settings.music ?? 6 : Input.settings.sfx ?? 8;
+      if (!lv || Input.settings.sound === false) T_(ctx, (this.tab === 'music' ? '음악' : '효과음') + ' 크기가 0(끄기)이라 안 들려요 — 설정에서 올려 주세요', 480, 500, 13, '#ff8a6a', 'center');
+      else T_(ctx, '고르기 ↑↓ · 틀기 ' + L('ok') + ' · 음악/효과음 ←→ · 닫기 ' + L('back') + (this.tab === 'music' ? '  (음악 출처: Juhani Junkala, CC0)' : '  (출처: Kenney 외, CC0)'), 480, 500, 13, '#8a7e88', 'center');
+    },
+  };
+
   // ── 결과 ──
   const result = {
     update() { if (Input.wasPressed('ok') || Input.wasPressed('back')) Game.open('town'); },
@@ -1607,5 +1676,5 @@ const UI = (() => {
     return null;
   }
 
-  return { shopItems, qty, title, choice, select, inv, stones, gems, manage, smith, vault, pause, settings, confirm, result, tap, tapLayer, resolveTap, touchSpecial, zone, touchHold };
+  return { shopItems, qty, title, choice, select, inv, stones, gems, manage, smith, vault, pause, settings, soundtest, confirm, result, tap, tapLayer, resolveTap, touchSpecial, zone, touchHold };
 })();

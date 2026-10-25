@@ -635,7 +635,7 @@ const Coop = (() => {
     if (!def || Game.scene !== 'town') { Net.send({ t: 'inviteNo', why: 'busy' }); return; }
     const prof = Game.prof;
     if (prof.lv < def.lv) { Net.send({ t: 'inviteNo', why: 'lv' }); return; }
-    Sfx.wake();
+    Sfx.ui('ok');  // 초대 알림(예전엔 겹친 이름 wake 가 소리를 냈음)
     Game.overlay({ type: 'confirm', invite: m.seed, defaultYes: true,
       text: '방장이 ' + def.name + diffName(m.diff, def) + '에 들어가요',
       sub: '같이 들어갈까요? (입장 Lv.' + def.lv + ')',

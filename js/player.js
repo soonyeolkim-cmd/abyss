@@ -232,7 +232,8 @@ function startAct(p, def, kind, idx) {
     s: def.startup / sp, a: def.active / sp, r: def.recovery / sp,
   };
   if (def.iframes) p.iframes = p.act.s + p.act.a + 0.05;
-  if (def.heavy || def.spin) Sfx.heavySwing(); else Sfx.swing();
+  if (def.orb) Sfx.cast();  // 마력탄: 마법 소리(2026-10-25)
+  else if (def.heavy || def.spin) Sfx.heavySwing(); else Sfx.swing();
   // 파티 손님: 방장 쪽 내 몸도 같은 동작을(맞히기 · 속성석 효과는 거기서)
   if (World.mirror && p === World.player) Coop.sendAct({ k: kind, i: idx, x: p.x, y: p.y, fx: p.fv.x, fy: p.fv.y, push: p.act.push ? 1 : 0 });
 }

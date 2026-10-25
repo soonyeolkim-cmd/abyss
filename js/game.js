@@ -37,6 +37,7 @@ const Game = (() => {
     if (o.type === 'shopItems') UI.shopItems.open();
     if (o.type === 'pause') UI.pause.sel = 0;
     if (o.type === 'settings') UI.settings.sel = 0;
+    if (o.type === 'soundtest') UI.soundtest.open(o);
     if (o.type === 'confirm') UI.confirm.sel = o.defaultYes ? 0 : 1;
     if (o.type === 'choice') UI.choice.sel = 0;
     if (o.type === 'coop') Coop.open();
@@ -70,6 +71,7 @@ const Game = (() => {
       else if (top.type === 'qty') UI.qty.update(top, prof);
       else if (top.type === 'pause') UI.pause.update();
       else if (top.type === 'settings') UI.settings.update();
+      else if (top.type === 'soundtest') UI.soundtest.update(top);
       else if (top.type === 'confirm') UI.confirm.update(top);
       else if (top.type === 'choice') UI.choice.update(top);
       else if (top.type === 'talk') Story.update(top);
@@ -124,6 +126,7 @@ const Game = (() => {
       else if (o.type === 'qty') UI.qty.draw(ctx, o, prof);
       else if (o.type === 'pause') UI.pause.draw(ctx);
       else if (o.type === 'settings') UI.settings.draw(ctx);
+      else if (o.type === 'soundtest') UI.soundtest.draw(ctx, o);
       else if (o.type === 'confirm') UI.confirm.draw(ctx, o);
       else if (o.type === 'choice') UI.choice.draw(ctx, o);
       else if (o.type === 'talk') Story.draw(ctx, o);
@@ -146,6 +149,33 @@ const Game = (() => {
     }
   }
 
+  // 지금 틀 곡(2026-10-25 사용자: 음악 넣기, music.js): 시작 화면 = title · 마을(던전 고르기 · 결과도) = 벨록 · 실베인 · 던전 = 던전마다(끝없는 심연은 빌린 던전 것) ·
+  // 보스와 싸우는 중 = boss(심연의 군주 · 끝없는 심연 수호자 = lord) · 엔딩 대사가 나오는 동안 = ending · trueEnding
+  function musicFor() {
+    const top = overlays[overlays.length - 1];
+    if (top && top.type === 'soundtest' && top.track) return top.track;  // 소리 목록 듣기에서 고른 곡
+    if (top && top.type === 'talk' && top.lines) {
+      const at = l => { const k = top.lines.indexOf(l); return k >= 0 && top.i >= k; };
+      if (at(STORY.trueEnding[0])) return 'trueEnding';
+      if (at(STORY.ending[0])) return 'ending';
+    }
+    if (scene === 'splash' || scene === 'title') return 'title';
+    if (scene === 'run' && World.level) {
+      const def = World.level.def;
+      if (World.bossFight) return def.id === 'abyss' || def.endless ? 'lord' : 'boss';
+      return def.endless ? ENDLESS.scenes[(def.floor - 1) % ENDLESS.scenes.length] : def.id;
+    }
+    return Town.where === 'silvane' ? 'silvane' : 'belloc';
+  }
+  // 메뉴 소리(2026-10-25): 창이 열렸거나 메뉴 화면이면 고르기 · 확인 · 뒤로에 짧은 소리. 걷는 화면(던전 · 마을)의 방향키는 빼고
+  function menuSounds() {
+    const top = overlays[overlays.length - 1];
+    if (!(top ? top.type !== 'ride' : scene === 'title' || scene === 'select' || scene === 'result')) return;
+    if (Input.wasPressed('back')) Sfx.ui('back');
+    else if (Input.wasPressed('ok')) { if (!top || top.type !== 'soundtest') Sfx.ui('ok'); }  // 소리 목록에서는 고른 소리만
+    else if (Input.nav('up') || Input.nav('down') || Input.nav('left') || Input.nav('right')) Sfx.ui('move');
+  }
+
   // 한 화면에서 오류가 나도 게임이 멈추지 않게(2026-10-25: 그리기 오류 하나로 화면이 굳는 일이 두 번 — 검기 · 파티 검기) — 오류는 콘솔에 남기고 다음 화면으로
   function frame(now) {
     try {
@@ -155,8 +185,10 @@ const Game = (() => {
       toastT -= dt;
       Input.poll();
       Net.update(dt);  // 함께하기: 연결 속도 · 끊김 살피기
+      menuSounds();
       update(dt);
       Coop.tick(dt);  // 함께하기: 내 마을 위치 보내기 · 친구 몸 따라가기
+      Music.play(musicFor()); Music.update(dt);
       Input.endFrame();
       draw();
     } catch (e) {

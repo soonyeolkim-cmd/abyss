@@ -125,7 +125,7 @@ const World = (() => {
   function enterRoom(i) {
     lv.visited.add(i);
     if (lv.cleared.has(i) || lv.rooms[i].boss) return;  // 수호자 방은 수호자가 깨어날 때 이름이 뜬다
-    Sfx.wake(); shake(2); msg = '문이 닫혔다 — 이 방의 적을 모두 쓰러뜨려라'; msgT = 1.8;
+    Sfx.growl(); shake(2); msg = '문이 닫혔다 — 이 방의 적을 모두 쓰러뜨려라'; msgT = 1.8;
   }
   // 내 몸이 열린 문 틈에 들어섰나 → 이웃 방으로(대시 중이면 그 방향 그대로 이어서)
   function doorCheck() {
@@ -141,7 +141,7 @@ const World = (() => {
       unstick(p, BODY_R);
       p.iframes = Math.max(p.iframes || 0, 0.5);
       fadeT = FADE; lastTile = -1; flowT = 0;
-      Sfx.stairs();
+      Sfx.door();
       enterRoom(d.to);
       return;
     }
@@ -346,7 +346,7 @@ const World = (() => {
     const list = e.pack ? e.pack.members : [e];
     let any = false;
     for (const m of list) if (!m.awake && !m.dying) { m.awake = true; any = true; }
-    if (any) Sfx.wake();
+    if (any) Sfx.growl();
   }
 
   // 칸 길찾기: 플레이어 칸에서 퍼진 거리표(0.3초마다)를 따라 한 칸씩 가까워진다
@@ -676,7 +676,7 @@ const World = (() => {
         addFx({ type: 'burst', x: f.x, y: f.y, r: f.r * 1.1, col: f.col, t: 0, life: 0.4 });
         sparks(f.x, f.y - 6, 16, 18, f.col);
         Elements.chargeBurst(Object.assign(Object.create(p), { x: f.x, y: f.y }));
-        Sfx.blast(); shake(4);
+        Sfx.blast(); Sfx.spell(); shake(4);
         if (landed) hitstop(0.07);
       }
       // 화염 강화 몹의 죽음 폭발: 예고 뒤 한 번 터진다
@@ -853,6 +853,7 @@ const World = (() => {
     e.rewarded = true;
     run.kills++;
     Sfx.kill();
+    if (e.rank === 'elite' || e.rank === 'unique') Sfx.grunt();  // 정예 · 고유 몹은 신음 소리도
     const rankExp = e.rank === 'unique' ? 5 : e.rank === 'elite' ? 2 : 1;
     gainExp(Math.round(d.exp * rankExp * POWER(dlv()) * DIFFS[RUN.diff].exp * (lv.def.gainMul || 1) * lowExp(prof.lv, dlv())));  // 낮은 던전은 경험치 줄어듦  // 역할 경험치 × 던전 레벨 곡선
     if (p.stats.life) p.hp = Math.min(p.maxHp, p.hp + p.stats.life);
@@ -1056,6 +1057,7 @@ const World = (() => {
     start, update, draw, wake, flowDir, cam, descend,
     roomOf: o => roomOf(o),  // 방 하나 = 맵 하나: 그 사람 · 몹이 있는 방(아니면 -1)
     get floorNo() { return floorNo(); },
+    get bossFight() { return bossAwake && enemies.some(e => e.rank === 'boss' && alive(e)); },  // 보스와 싸우는 중(음악)
     get player() { return p; },
     get level() { return lv; },
     get prof() { return prof; },
