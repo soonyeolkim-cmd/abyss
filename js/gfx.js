@@ -8,7 +8,8 @@ const Gfx = (() => {
   // hero = 검사(0x72 엘프 남자 색 바꿈 — 갈색 머리 · 강철 갑옷, 2026-10-24 사용자 고름),
   // mage = 마법사(검사 몸 + 파란 로브 · 금빛 띠 · 끝이 꺾인 뾰족 모자, 2026-10-25 사용자 고름 B)
   const SHEETS = {}, HERO = {};
-  for (const id of ['hero', 'mage']) {
+  // 검사 몸 + 의상 시트(16x28 × 9칸): 직업 hero · mage, 마을 NPC kael(파수꾼 카엘) · miner(늙은 광부) — tools/npc-outfit.js 로 구움
+  for (const id of ['hero', 'mage', 'kael', 'miner']) {
     const img = new Image();
     img.src = 'assets/dt/' + id + '.png';
     ['idle_anim_f0', 'idle_anim_f1', 'idle_anim_f2', 'idle_anim_f3', 'run_anim_f0', 'run_anim_f1', 'run_anim_f2', 'run_anim_f3', 'hit_anim_f0']

@@ -6,6 +6,70 @@ const SPEAKERS = {
   hero: { name: null, color: '#9cc4ff' },
   kael: { name: '파수꾼 카엘', color: '#ffd36a', bg: '#2a2418' },  // 초상 = 따로 찍은 도트(kaelFace) — 0x72 몸은 모두 몹 · 우리 캐릭터와 겹쳐서(2026-10-25 사용자)
   boss: { name: null, color: '#ff7a5a', bg: '#2a1414' },
+  // 마을 NPC(2026-10-25) — 초상 = 그 몸(sprite) 가슴 위로
+  miner: { name: '늙은 광부 오르반', color: '#e8c040', bg: '#2a2414', sprite: 'miner' },
+  smith: { name: '대장장이 브론', color: '#ff9a5a', bg: '#2a1a12', sprite: 'dwarf_f', dy: -22 },  // 드워프는 키가 작아 얼굴이 원 아래로 → 위로
+  shop: { name: '상인 엘린', color: '#8aff9a', bg: '#142a1a', sprite: 'elf_m' },
+  jewel: { name: '세공사 미라', color: '#7dd3ff', bg: '#141e2a', sprite: 'wizzard_f' },
+};
+
+// 마을 NPC 대사(2026-10-25 사용자: 카엘이 마을에 · 지하 도시이고 바깥은 위험하다는 사람)
+// 카엘: 말 걸 때마다 인사 하나 + 조언 하나(다음 던전 안내 포함). 광부: 처음엔 지하 도시 · 바깥 이야기, 그다음부터는 한마디씩
+const NPC_TALK = {
+  kaelHello: [
+    '왔나. 갱도 쪽은 내가 지키고 있다. 넌 네 길에 집중해라.',
+    '또 내려갈 셈인가. 좋다. 살아서 돌아오기만 해라.',
+    '이 도시 사람들은 네가 문을 닫아 주길 기다리고 있다.',
+  ],
+  kaelTips: [
+    '대장장이 브론에게 주문서를 가져가면 장비를 벼려 준다. 실패해도 장비는 멀쩡하니 겁낼 것 없다.',
+    '속성석은 같은 크기 셋을 모아 세공사 미라에게 가져가라. 더 큰 돌 하나로 합쳐 준다.',
+    '혼자 벅차면 동료와 함께 가라. 쓰러져도 동료가 일으켜 줄 거다.',
+    '낮은 던전에서는 이름난 장비가 더 잘 나온다. 창고를 채우고 싶다면 기억해 둬라.',
+    '심연에 가까워질수록 마물이 거세진다. 장비를 갖추고 가라.',
+  ],
+  minerFirst: [
+    ['miner', '허허, 처음 보는 얼굴이구먼. 여긴 지하 도시 벨록이라네. 옛날 우리 광부들이 파 들어간 곳이지.'],
+    ['miner', '그날 밤 땅이 갈라지고 마물이 쏟아졌지. 살아남은 사람들은 모두 이 아래로 달아나 왔다네.'],
+    ['miner', '바깥? 꿈도 꾸지 말게. 위로 난 갱도는 우리가 스스로 무너뜨렸어. 그 너머는 마물 천지야.'],
+    ['miner', '저기 구멍 보이나? 그게 무너뜨린 옛 갱도 입구라네. 가끔 저 너머에서 긁는 소리가 들려…'],
+    ['miner', '땅 위로 나가는 길은 왕의 갱도 하나뿐인데, 그 끝을 심연의 문이 막고 있다지. 자세한 건 카엘에게 물어보게.'],
+  ],
+  // 기존 NPC 설명(2026-10-25 사용자: 강화 · 속성석 · 보석 어떻게 올리는지). 수치는 data.js 와 같게(ENCHANT_RATE · BLESS_BONUS · COMBINE_COSTS · 가게 값)
+  smith: () => [
+    ['smith', '어서 와! 장비를 단단하게 하고 싶으면 강화 주문서를 가져와. 던전의 몹 · 상자 · 보스가 가끔 떨어뜨리지.'],
+    ['smith', '주문서를 바를 때마다 장비가 +1씩 올라. 무기 · 목걸이 · 반지는 공격력, 투구 · 갑옷 · 장갑 · 신발은 방어력이 오르지.'],
+    ['smith', '+0에서 +1은 ' + ENCHANT_RATE[0] + '%로 쉽지만, 올라갈수록 어려워져서 +9에서 +10은 ' + ENCHANT_RATE[ENCHANT_MAX - 1] + '%야. 최고는 +' + ENCHANT_MAX + '!'],
+    ['smith', '실패해도 걱정 마. 주문서만 사라지고 장비는 그대로니까. 축복받은 주문서는 성공률이 ' + BLESS_BONUS + '% 더 높아.'],
+    ['smith', '새 장비로 갈아탈 땐 계승 주문서로 강화를 옮겨 줄게. 같은 부위끼리만 돼. 계승 주문서는 상인 엘린이 팔고, 던전에서도 가끔 나와.'],
+    ['smith', '무기 · 목걸이 · 반지를 모두 +' + ENCHANT_MAX + ' 하면 공격력이 네 배쯤 된다고! 안 쓰는 장비는 나한테 팔아도 돼.'],
+  ],
+  jewel: () => {
+    const sn = clsOf(Game.prof).slotNames, names = STONE_SLOTS.map(k => sn[k]).join(' · ');
+    return [
+      ['jewel', '속성석과 보석 이야기를 해 줄게. 던전에서는 조각 · 작은 · 보통 크기까지만 나와.'],
+      ['jewel', '같은 종류 같은 크기 세 개를 가져오면 한 단계 큰 돌로 합쳐 줄게. 조각 → 작은 → 보통 → 큰 → 완전한 → 전설 → 태초, 일곱 단계야.'],
+      ['jewel', '합치는 데는 골드가 들어. 조각을 합칠 땐 ' + COMBINE_COSTS[0] + 'G, 클수록 비싸져서 전설을 태초로 만들 땐 ' + COMBINE_COSTS[COMBINE_COSTS.length - 1] + 'G야.'],
+      ['jewel', '속성석은 기술 칸 네 곳(' + names + ')에 끼워. 보통부터 그 기술에 능력이 붙고, 완전한부터 속성 패시브, 전설부터 패시브가 하나 더 열려.'],
+      ['jewel', '네 칸을 모두 보통 이상으로 채우면 세트 효과가 생겨. 네 개가 같은 속성이면 공명, 두 속성이 두 개씩이면 듀오!'],
+      ['jewel', '보석은 장비에 끼우는 돌이야. 매직 등급 이상 장비마다 한 칸. 공격 보석은 무기 · 목걸이 · 반지, 방어 보석은 투구 · 갑옷 · 장갑 · 신발에.'],
+      ['jewel', '보석도 세 개를 모아 합치면 커져. 아, 그리고 무기를 안 끼면 속성석이 잠드니까 꼭 무기를 들고 다녀!'],
+    ];
+  },
+  shop: () => [
+    ['shop', '어서 오세요! 체력 물약은 하나에 ' + POTION_PRICE + 'G예요. 수량 정하기 버튼을 누르면 한 번에 가득 살 수도 있어요.'],
+    ['shop', '조각 속성석과 조각 보석도 팔아요. 하나에 ' + SHARD_PRICE + 'G. 세 개를 모아 미라에게 가져가면 합쳐 줘요.'],
+    ['shop', '계승 주문서는 ' + INHERIT_PRICE + 'G예요. 강화한 장비를 새 장비로 바꿀 때 브론에게 가져가세요.'],
+    ['shop', '남는 조각 속성석 · 보석은 하나에 ' + SHARD_SELL + 'G에 사 드려요. 장비는 장비 팔기에서 팔면 되고요.'],
+    ['shop', '가방이 가득 차면, 끼고 있는 것보다 약한 일반 · 매직 장비는 주울 때 저절로 골드가 돼요. 짐 걱정은 덜어도 돼요!'],
+  ],
+  minerPool: [
+    '바깥 공기를 마셔 본 게 언제인지… 실베인의 하늘이 그립구먼.',
+    '저 옛 갱도 입구엔 가까이 가지 말게. 무너진 돌 너머는 마물 소굴이야.',
+    '곡괭이 대신 칼을 든 젊은이라… 부디 몸조심하게.',
+    '여기 벨록은 땅 위보다 안전하다네. 적어도 아직까지는 말이지.',
+    '내가 젊었을 땐 이 갱도에서 은을 캤지. 지금은 목숨을 캐고 있구먼, 허허.',
+  ],
 };
 
 // 2026-10-25 사용자: 10던전 = 지하 도시 벨록에서 차례로 탐험해 땅 위(광산 도시 실베인)로 나가는 여정. 잿빛 마을 → 지하 도시 벨록
@@ -135,6 +199,17 @@ const Story = (() => {
   }
   // 마을 메뉴 '이야기 다시 보기'
   function replay() { play([...STORY.opening, ...STORY.welcome]); }
+  // 마을 NPC 말 걸기(town.js)
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  function talkNpc(id) {
+    if (id === 'smith' || id === 'shop' || id === 'jewel') { play(NPC_TALK[id]()); return; }  // 기존 NPC: 하는 일 설명
+    if (id === 'miner') { if (!once('npc:miner', NPC_TALK.minerFirst)) play([['miner', pick(NPC_TALK.minerPool)]]); return; }
+    if (id === 'kael') {
+      const prof = Game.prof, next = DUNGEONS.find(d => !(prof.cleared || {})[d.id]);
+      const tips = [...NPC_TALK.kaelTips, next ? '다음 목적지는 ' + next.name + ', 입장 레벨은 Lv.' + next.lv + '. 준비가 됐다면 입구로 가라.' : '심연의 문은 닫혔다. 그래도 왕의 갱도엔 아직 마물이 남아 있다. 방심하지 마라.'];
+      play([['kael', pick(NPC_TALK.kaelHello)], ['kael', pick(tips)]]);
+    }
+  }
 
   function next(o) {
     o.i++; o.chars = 0;
@@ -224,6 +299,7 @@ const Story = (() => {
     // 가슴 위로 크게(얼굴이 보이게, 아래는 원 밖으로 잘림)
     if (who === 'hero') Art.avatar(ctx, Game.prof, cx - 6, cy + r * 1.2, 5, time);
     else if (who === 'kael') ctx.drawImage(kaelFace(), Math.round(cx - 51), Math.round(cy - 48 + Math.sin(time * 2) * 1.5), 102, 102);  // 숨 쉬듯 살짝
+    else if (sp.sprite) Gfx.spr(ctx, Gfx.anim(sp.sprite + '_idle_anim', time, 6), cx - 6, cy + r * 1.2 + (sp.dy || 0), { scale: 5 });  // 마을 NPC: 그 몸 가슴 위로
     else if (who === 'boss' && o.boss) {
       const f = FRAMES[o.boss.sprite + '_idle_anim_f0'], small = f[2] <= 16;  // 작은 몸을 키운 거인 보스는 더 크게, 머리끝을 원 위쪽에 맞춤
       const sc = small ? 6.4 : 3.8, pad = { knight_f: 10, lizard_m: 10 }[o.boss.sprite] || 0;  // 기사 · 도마뱀 그림은 위쪽이 비어 있다
@@ -267,5 +343,5 @@ const Story = (() => {
     T_(ctx, '넘기기 ' + L('ok') + ' · 건너뛰기 ' + L('back'), 950, 532, 11, '#6a6068', 'right');
   }
 
-  return { trigger, townArrive, replay, update, draw };
+  return { trigger, townArrive, replay, talkNpc, update, draw };
 })();
