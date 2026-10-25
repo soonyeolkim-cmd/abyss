@@ -34,8 +34,9 @@ const Town = (() => {
         EQUIP_ITEM,
         { label: '가게 이야기 듣기', go: () => Story.talkNpc('shop') },
       ] }) },
-    // 도박꾼 단지(2026-10-25 사용자: 항아리는 도박꾼 NPC 를 따로, 항아리를 뒤집어쓴 도트) — 대장장이 아래, 둘레에 항아리 더미(JAR_PILE)
-    { id: 'gambler', name: '도박꾼 단지', role: '장비 항아리 (부위 골라 뽑기)', sprite: 'gambler', ...px(5, 7), flip: false,
+    // 도박꾼 단지(2026-10-25 사용자: 항아리는 도박꾼 NPC 를 따로, 항아리를 뒤집어쓴 도트) — 오른쪽 광장(상점 아래 · 창고 왼쪽, 처음엔 대장장이 아래였는데 이름표가 겹쳐서),
+    // 양옆 항아리 더미(JAR_PILE) · 위에 '대박 기원' 현수막 · 항아리에 부적 · 가끔 뽑기를 꼬드기는 속삭임(GAMBLER_LINES)
+    { id: 'gambler', name: '도박꾼 단지', role: '장비 항아리 (부위 골라 뽑기)', sprite: 'gambler', ...px(22, 10), flip: false,
       go: () => Game.overlay({ type: 'choice', title: '도박꾼 단지', items: [
         { label: '항아리 깨기 (장비 뽑기)', go: () => Game.overlay({ type: 'jar' }) },
         EQUIP_ITEM,
@@ -60,7 +61,9 @@ const Town = (() => {
     { id: 'miner', name: '늙은 광부 오르반', role: '지하 도시 이야기', sprite: 'miner', ...px(23, 13), flip: false, go: () => Story.talkNpc('miner') },
   ];
   const SHAFT = [26, 13];  // 무너진 옛 갱도 입구(광부 옆, 상자 둘 사이)
-  const JAR_PILE = [[7, 7, 1], [8, 7, 0.7], [4, 6, 0.7]];  // 도박꾼 둘레 항아리(칸 x, y, 크기) — 막히는 칸, 그림은 Jar.jarArt
+  const JAR_PILE = [[21, 10, 1], [23, 10, 0.8], [24, 10, 0.65]];  // 도박꾼 양옆 항아리(칸 x, y, 크기) — 막히는 칸, 그림은 Jar.jarArt
+  const BANNER = { x0: 21 * T + 2, x1: 24 * T + 6, y: 6 * T + 4, h: 15 };  // 현수막(게임 좌표): 양 끝 기둥 · 붉은 천
+  const GAMBLER_LINES = ['오늘은 왠지 유니크 각인데…', '한 번만 더? 크흐흐', '깨 보기 전엔 아무도 몰라~', '유니크 3%! 오늘은 너다', '방금 누가 유니크 떴다던데?', '꽝도 추억이지, 크흐흐'];
   const TALK_R = 26;
   const TOWN_SPEED = 1.6;  // 마을에서는 던전보다 60% 빠르게 걷는다(2026-10-24 사용자)
 
@@ -161,9 +164,24 @@ const Town = (() => {
         Gfx.spr(ctx, w, 28 * T + 4 + i * 4, 10 * T + 4, { rot: r }));
     } });
     for (const [x, y, k] of JAR_PILE) list.push({ y: (y + 1) * T - 2, draw: () => {
-      const s = Math.round(17 * k);
+      const s = Math.round(17 * k), jx = Math.round(x * T + 8 - s / 2), jy = (y + 1) * T - 1 - s;
       Art.shadow(ctx, x * T + 8, (y + 1) * T - 2, 6 * k, 0, 1);
-      ctx.drawImage(Jar.jarArt(), Math.round(x * T + 8 - s / 2), (y + 1) * T - 1 - s, s, s);
+      ctx.drawImage(Jar.jarArt(), jx, jy, s, s);
+      // 노란 부적(붉은 글씨 자국) — 바람에 살랑
+      const fx = jx + Math.round(s * 0.55), fy = jy + Math.round(s * 0.42), sw = Math.round(Math.sin(time * 2.4 + x) * 0.6);
+      ctx.fillStyle = '#f0d860'; ctx.fillRect(fx + sw, fy, 3, 6);
+      ctx.fillStyle = '#c02020'; ctx.fillRect(fx + sw + 1, fy + 1, 1, 1); ctx.fillRect(fx + sw, fy + 3, 3, 1); ctx.fillRect(fx + sw + 1, fy + 4, 1, 1);
+    } });
+    // 현수막: 양 끝 나무 기둥(바닥까지) + 붉은 천 · 금 테두리(글자는 아래 화면 좌표에서)
+    list.push({ y: 10 * T + 2, draw: () => {
+      const { x0, x1, y, h } = BANNER, sag = Math.sin(time * 1.6) * 0.6;
+      ctx.fillStyle = '#5a3a22'; ctx.fillRect(x0 - 2, y - 3, 2, 11 * T - y + 3); ctx.fillRect(x1, y - 3, 2, 11 * T - y + 3);
+      ctx.fillStyle = '#8a5a32'; ctx.fillRect(x0 - 2, y - 3, 1, 11 * T - y + 3); ctx.fillRect(x1, y - 3, 1, 11 * T - y + 3);
+      ctx.fillStyle = '#e8c040'; ctx.fillRect(x0 - 3, y - 4, 4, 2); ctx.fillRect(x1 - 1, y - 4, 4, 2);  // 기둥 머리 금 장식
+      ctx.fillStyle = '#7a1418'; ctx.fillRect(x0, Math.round(y + sag), x1 - x0, h);
+      ctx.fillStyle = '#b02028'; ctx.fillRect(x0, Math.round(y + sag) + 1, x1 - x0, h - 3);
+      ctx.fillStyle = '#e8c040'; ctx.fillRect(x0, Math.round(y + sag) + 1, x1 - x0, 1); ctx.fillRect(x0, Math.round(y + sag) + h - 2, x1 - x0, 1);
+      ctx.fillStyle = '#5a0c10'; for (let fx = x0 + 2; fx < x1; fx += 4) ctx.fillRect(fx, Math.round(y + sag) + h, 2, 1);  // 술
     } });
     for (const s of STATIONS) if (s.prop) list.push({ y: s.y, draw: () => { Art.shadow(ctx, s.x, s.y, 7, 0, 1); Gfx.spr(ctx, s.prop, s.x, s.y); } });
     for (const s of STATIONS) if (s.sprite) list.push({ y: s.y, draw: () => {
@@ -202,6 +220,23 @@ const Town = (() => {
         const w = ctx.measureText(k).width + 16;
         Gfx.panel(ctx, sx(s.x) - w / 2, hy - 44, w, 24, { border: '#ffd36a' });
         Gfx.text(ctx, k, sx(s.x), hy - 27, 13, '#ffd36a', 'center');
+      }
+    }
+    // 도박꾼 현수막 글 · 속삭임(말 걸 만큼 가까우면 '말 걸기'가 그 자리라 안 띄움): 7초마다 한 줄, 4초 보이고 흐려진다
+    const bn = BANNER, bcx = sx((bn.x0 + bn.x1) / 2), pulse = 0.5 + 0.5 * Math.sin(time * 3);
+    Gfx.text(ctx, '★ 대박 기원 ★', bcx, sy(bn.y + Math.sin(time * 1.6) * 0.6) + 20, 13, 'rgb(255,' + Math.round(208 + 30 * pulse) + ',' + Math.round(90 + 60 * pulse) + ')', 'center');
+    const gb = STATIONS.find(s => s.id === 'gambler');
+    if (near !== gb) {
+      const ph = time % 7, ga = ph < 0.4 ? ph / 0.4 : ph > 3.6 ? Math.max(0, (4 - ph) / 0.4) : 1;
+      if (ph < 4) {
+        const line = GAMBLER_LINES[Math.floor(time / 7) % GAMBLER_LINES.length], gx = sx(gb.x), gy = sy(gb.y) - 92;
+        ctx.save(); ctx.globalAlpha = ga;
+        ctx.font = 'bold 12px ' + Gfx.FONT;
+        const w = ctx.measureText(line).width + 18;
+        Gfx.panel(ctx, gx - w / 2, gy - 17, w, 24, { border: '#e8a050', bg: '#2a1a24' });
+        ctx.fillStyle = '#e8a050'; ctx.beginPath(); ctx.moveTo(gx - 5, gy + 7); ctx.lineTo(gx + 5, gy + 7); ctx.lineTo(gx, gy + 13); ctx.fill();
+        Gfx.text(ctx, line, gx, gy, 12, '#ffe0b0', 'center');
+        ctx.restore();
       }
     }
     // 파티원 머리 위 이름표(파티 순서 색)
