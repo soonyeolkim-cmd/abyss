@@ -3,11 +3,12 @@
 // 왼쪽 = 부위 일곱 줄(무기 · 투구 · 갑옷 · 장갑 · 신발 · 목걸이 · 반지, 값 · 착용 레벨), 오른쪽 = 항아리 무대(흔들림 → 깨짐 → 나온 장비).
 // 등급은 data.js JAR 표대로(유니크 3% · 레어 10% · 매직 35% · 일반 52%). 유니크도 고른 부위 것.
 // 장비는 깨는 순간 가방에 들어가고 저장된다(연출 중에 닫아도 잃지 않음). 가방이 가득 차면 못 산다.
+// 2026-10-25 사용자: 지난 레벨 항아리도 판다 — ←→ 로 레벨 고르기(지금 레벨 + 그 아래 10 단위 단계들, 맨 아래 Lv.1). 값 · 장비 레벨 = 그 레벨일 때 그대로(JAR.price(그 레벨)).
 const Jar = (() => {
   const T_ = Gfx.text;
   const L = a => Input.label(a);
   const SHAKE = 1.2, POP = 0.5;  // 흔들림 · 깨지는 연출 시간(초)
-  let st = 'ready', t = 0, item = null, shards = [], last = performance.now(), sel = 0;
+  let st = 'ready', t = 0, item = null, shards = [], last = performance.now(), sel = 0, lvSel = 0;  // lvSel = 고른 레벨(0 = 지금 레벨)
 
   // 항아리 도트(32x32, 칸마다 계산): 갈색 질그릇 몸 · 목 · 테두리 · 금빛 띠 · 위를 덮은 보라 천과 끈
   let jarCanvas = null;
@@ -40,9 +41,18 @@ const Jar = (() => {
     return (jarCanvas = c);
   }
 
-  const price = prof => JAR.price(prof.lv);
+  // 고를 수 있는 레벨: 지금 레벨, 그 아래 10 단위 단계(지금 단계는 빼고 — Lv.95 면 80 · 70 · … · 10 · 1)
+  const levels = prof => { const out = [Math.max(1, prof.lv)]; for (let b = Math.floor(prof.lv / 10) * 10 - 10; b >= 0; b -= 10) out.push(Math.max(1, b)); return out; };
+  const jarLv = prof => { const ls = levels(prof); return ls[Math.min(lvSel, ls.length - 1)]; };
+  const price = prof => JAR.price(jarLv(prof));
   const slot = () => SLOTS[sel];
-  function open() { st = 'ready'; t = 0; item = null; shards = []; last = performance.now(); }
+  function open() { st = 'ready'; t = 0; item = null; shards = []; last = performance.now(); lvSel = 0; }
+  function pickLv(prof, k) {  // 레벨 바꾸기(결과를 보다가 바꾸면 새 항아리)
+    const n = levels(prof).length, v = Math.max(0, Math.min(n - 1, k));
+    if (v === lvSel) return;
+    lvSel = v;
+    if (st === 'result') { st = 'ready'; item = null; }
+  }
 
   // 사서 깨기: 골드 · 가방 확인 → 고른 부위 장비를 만들어 가방에 → 흔들림 시작
   function buy(prof) {
@@ -52,7 +62,7 @@ const Jar = (() => {
     if (bagSlot < 0) { Sfx.deny(); Game.toast('가방이 가득 찼어요 — 장비를 팔거나 정리해 주세요'); return; }
     prof.gold -= p;
     // 등급 = data.js JAR 표(유니크 · 레어 · 매직, 나머지 일반)
-    const il = Math.max(1, prof.lv), s = slot(), uniqs = Object.keys(UNIQUES).filter(u => UNIQUES[u].slot === s), r = Math.random();
+    const il = jarLv(prof), s = slot(), uniqs = Object.keys(UNIQUES).filter(u => UNIQUES[u].slot === s), r = Math.random();
     item = uniqs.length && r < JAR.uniq
       ? Items.make(il, { slot: s, rarity: 3, uniq: uniqs[Math.floor(Math.random() * uniqs.length)] })
       : Items.make(il, { slot: s, rarity: r < JAR.uniq + JAR.rare ? 2 : r < JAR.uniq + JAR.rare + JAR.magic ? 1 : 0 });
@@ -83,11 +93,13 @@ const Jar = (() => {
     if (Input.nav('up')) sel = (sel + n - 1) % n;
     if (Input.nav('down')) sel = (sel + 1) % n;
     if (sel !== before && st === 'result') { st = 'ready'; item = null; }
+    if (Input.nav('left')) pickLv(prof, lvSel + 1);   // ← = 더 낮은(지난) 레벨
+    if (Input.nav('right')) pickLv(prof, lvSel - 1);  // → = 지금 레벨 쪽
     if (Input.wasPressed('ok')) buy(prof);
   }
 
-  // 부위 줄 아이콘: 내 레벨 단계 재질의 기본 장비 그림(무기는 내 직업 첫 무기)
-  const previewOf = (prof, s) => ({ base: s + (s === 'weapon' ? '_' + clsOf(prof).weapons[0] : '') + '_' + tierOf(bandLvl(Math.max(1, prof.lv))) });
+  // 부위 줄 아이콘: 고른 레벨 단계 재질의 기본 장비 그림(무기는 내 직업 첫 무기)
+  const previewOf = (prof, s) => ({ base: s + (s === 'weapon' ? '_' + clsOf(prof).weapons[0] : '') + '_' + tierOf(bandLvl(jarLv(prof))) });
 
   const CX = 712, JY = 236;  // 오른쪽 무대 가운데 · 항아리 바닥 높이
   function draw(ctx, o, prof) {
@@ -95,7 +107,7 @@ const Jar = (() => {
     ctx.fillStyle = 'rgba(0,0,0,0.96)'; ctx.fillRect(0, 0, 960, 540);
     UI.zone(0, 0, 960, 540, { key: null });
     ctx.imageSmoothingEnabled = false;
-    const busy = st === 'shake' || st === 'pop', p = price(prof), req = reqLevel(bandLvl(Math.max(1, prof.lv)));
+    const busy = st === 'shake' || st === 'pop', p = price(prof), jl = jarLv(prof), req = reqLevel(bandLvl(jl)), ls = levels(prof);
     // ── 왼쪽: 부위 고르기(상인 사기 창과 같은 꼴) ──
     Gfx.panel(ctx, 24, 24, 440, 470, { border: '#ffd36a' });
     T_(ctx, '항아리 고르기', 44, 62, 22, '#f0e0b8');
@@ -112,7 +124,15 @@ const Jar = (() => {
     T_(ctx, '일반 ' + pc(1 - JAR.uniq - JAR.rare - JAR.magic) + ' · 매직 ' + pc(JAR.magic) + ' · 레어 ' + pc(JAR.rare) + ' · 유니크 ' + pc(JAR.uniq), 44, 404, 13, '#c8b8a0');
     const cur = prof.equip[slot()];
     T_(ctx, '지금 낀 ' + SLOT_NAMES[slot()] + ': ' + (cur ? Items.nameOf(cur) + (cur.ups ? ' +' + cur.ups : '') : '없음'), 44, 428, 12, cur ? RARITY[cur.rarity].color : '#6a6068');
-    T_(ctx, '깨 보기 전엔 몰라요! 고른 부위의 내 레벨대 장비가 하나 들어 있어요', 44, 476, 12, '#9a8e96');
+    // 레벨 고르기(지난 레벨 항아리는 그 레벨일 때 값 그대로)
+    const ly = 446, cur0 = lvSel === 0;
+    [[-1, 44], [1, 404]].forEach(([d, x]) => {
+      const ok = d < 0 ? lvSel < ls.length - 1 : lvSel > 0;
+      if (!busy) UI.zone(x, ly - 4, 44, 32, { pick: () => pickLv(prof, lvSel - d), now: true });
+      T_(ctx, d < 0 ? '◀' : '▶', x + 22, ly + 19, 18, ok ? '#ffd36a' : '#3a2e36', 'center');
+    });
+    T_(ctx, 'Lv.' + jl + ' 항아리' + (cur0 ? ' (지금 레벨)' : ' (지난 레벨 · 그때 값)'), 246, ly + 18, 15, cur0 ? '#f0e0b8' : '#9ad8ff', 'center');
+    T_(ctx, '깨 보기 전엔 몰라요! 고른 부위 · 고른 레벨대 장비가 하나 들어 있어요', 44, 486, 12, '#9a8e96');
 
     // ── 오른쪽: 항아리 무대 ──
     Gfx.panel(ctx, 488, 24, 448, 470, { border: '#e8c040', bg: '#1a120c' });
@@ -167,7 +187,7 @@ const Jar = (() => {
       T_(ctx, (st === 'result' ? '한 번 더 ' : '항아리 깨기 ') + p + 'G ' + L('ok'), CX, by + 25, 15, '#ffd36a', 'center');
     }
     ctx.fillStyle = '#000'; ctx.fillRect(0, 496, 960, 44);
-    T_(ctx, '부위 고르기 ↑↓ · 항아리 깨기 ' + L('ok') + ' · 닫기 ' + L('back'), 480, 522, 13, '#8a7e88', 'center');
+    T_(ctx, '부위 고르기 ↑↓ · 레벨 ←→ · 항아리 깨기 ' + L('ok') + ' · 닫기 ' + L('back'), 480, 522, 13, '#8a7e88', 'center');
   }
   const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + Math.max(0, Math.min(1, a)) + ')'; };
 
