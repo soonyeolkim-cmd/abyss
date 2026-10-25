@@ -51,7 +51,8 @@ const CLASSES = {
   // 기본 = 롯드 · 스태프 2연타(끝의 빛 구슬이 휩쓴다, 사거리 넓음) · 특수(Z) = 마력탄(가볍게 따라가는 빛 구슬, 처음 닿은 적에서 터짐, 기력으로 연사)
   // 차지 칸(V) = 마법진(겨눈 적 발밑 · 없으면 앞에 깔리고 0.5초 뒤 한 번 크게 터짐) · 대시 → 공격 = 마력 파동(둘레 밀쳐내기)
   mage: {
-    id: 'mage', name: '마법사', sprite: 'wizzard_m', atkName: '주문력',
+    // 그림 assets/dt/mage.png = 검사 몸 + 파란 로브 · 금빛 띠 · 뾰족 모자(2026-10-25 사용자: 검사와 같은 캐릭터 다른 의상, 예전 0x72 wizzard_m 흰 수염)
+    id: 'mage', name: '마법사', sprite: 'mage', atkName: '주문력',
     weapons: ['wand', 'staff'],
     slotNames: { basic: '기본 공격', charge: '마법진', wave: '마력탄', dash: '대시' },
     slotShort: { basic: '기본', charge: '마법진', wave: '마력탄', dash: '대시' },

@@ -4,12 +4,16 @@ const Gfx = (() => {
   const FONT = '"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif';
   const atlas = new Image();
   atlas.src = 'assets/dt/atlas.png';
-  // 주인공 전사: 0x72 엘프 남자 그림의 색만 바꾼 것(갈색 머리 · 강철 갑옷, 2026-10-24 사용자 고름). 16x28 칸 9개
-  const hero = new Image();
-  hero.src = 'assets/dt/hero.png';
-  const HERO = {};
-  ['idle_anim_f0', 'idle_anim_f1', 'idle_anim_f2', 'idle_anim_f3', 'run_anim_f0', 'run_anim_f1', 'run_anim_f2', 'run_anim_f3', 'hit_anim_f0']
-    .forEach((k, i) => { HERO['hero_' + k] = [i * 16, 0, 16, 28]; });
+  // 주인공 그림(16x28 칸 9개: 서기 4 · 달리기 4 · 맞음 1). 직업마다 같은 몸 · 다른 의상(2026-10-25 사용자)
+  // hero = 검사(0x72 엘프 남자 색 바꿈 — 갈색 머리 · 강철 갑옷, 2026-10-24 사용자 고름),
+  // mage = 마법사(검사 몸 + 파란 로브 · 금빛 띠 · 끝이 꺾인 뾰족 모자, 2026-10-25 사용자 고름 B)
+  const SHEETS = {}, HERO = {};
+  for (const id of ['hero', 'mage']) {
+    const img = new Image();
+    img.src = 'assets/dt/' + id + '.png';
+    ['idle_anim_f0', 'idle_anim_f1', 'idle_anim_f2', 'idle_anim_f3', 'run_anim_f0', 'run_anim_f1', 'run_anim_f2', 'run_anim_f3', 'hit_anim_f0']
+      .forEach((k, i) => { HERO[id + '_' + k] = [i * 16, 0, 16, 28]; SHEETS[id + '_' + k] = img; });
+  }
   const ok = img => img.complete && img.naturalWidth > 0;
   const ready = () => ok(atlas);
 
@@ -34,7 +38,7 @@ const Gfx = (() => {
 
   // 그림 한 칸. 기본 기준점 = 발밑 가운데. o: { flip, alpha, flash, scale, rot, topLeft }
   function spr(ctx, name, x, y, o = {}) {
-    const img = HERO[name] ? hero : atlas, f = HERO[name] || FRAMES[name];
+    const img = SHEETS[name] || atlas, f = HERO[name] || FRAMES[name];
     if (!f || !ok(img)) return;
     const [fx, fy, fw, fh] = f;
     let src = img, sx = fx, sy = fy;
