@@ -27,6 +27,30 @@ const Hud = (() => {
     if (label) T_(ctx, label, cx, cy + 6, 14, '#ffffff', 'center');
   }
 
+  // 레벨 메달(2026-10-25 사용자: 체력 구슬 · 경험치 막대 근처에 예쁘게) — 구슬 오른쪽 아래 테두리에 붙은 금테 메달, 경험치 막대가 여기서 시작.
+  // 안쪽 보랏빛 + 위 반짝임, 'LV' 작게 · 숫자 크게. 만렙이면 테두리 빛 · 숫자 금빛
+  function lvBadge(ctx, cx, cy, lv) {
+    const max = lv >= LV_MAX, r = 19;
+    ctx.save();
+    if (max) { ctx.shadowColor = 'rgba(255,210,100,0.8)'; ctx.shadowBlur = 10; }
+    ctx.beginPath(); ctx.arc(cx, cy, r + 4, 0, Math.PI * 2); ctx.fillStyle = '#120c10'; ctx.fill();
+    ctx.shadowBlur = 0;
+    const ring = ctx.createLinearGradient(0, cy - r, 0, cy + r);
+    ring.addColorStop(0, '#ffe7a0'); ring.addColorStop(0.5, '#d8a040'); ring.addColorStop(1, '#7a4a18');
+    ctx.beginPath(); ctx.arc(cx, cy, r + 1, 0, Math.PI * 2); ctx.fillStyle = ring; ctx.fill();
+    const core = ctx.createRadialGradient(cx, cy - 6, 2, cx, cy, r - 2);
+    core.addColorStop(0, '#4a2a5a'); core.addColorStop(1, '#170c1c');
+    ctx.beginPath(); ctx.arc(cx, cy, r - 3, 0, Math.PI * 2); ctx.fillStyle = core; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, r - 3, Math.PI * 1.15, Math.PI * 1.85); ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 2; ctx.stroke();
+    // 위 · 아래 작은 보석 장식
+    for (const dy of [-(r + 1), r + 1]) {
+      ctx.fillStyle = '#ff5a8a'; ctx.beginPath(); ctx.moveTo(cx, cy + dy - 3); ctx.lineTo(cx + 3, cy + dy); ctx.lineTo(cx, cy + dy + 3); ctx.lineTo(cx - 3, cy + dy); ctx.fill();
+    }
+    ctx.restore();
+    T_(ctx, 'LV', cx, cy - 4, 8, '#c8a8e0', 'center');
+    T_(ctx, String(lv), cx, cy + 11, lv >= 100 ? 13 : 16, max ? '#ffd36a' : '#ffffff', 'center');
+  }
+
   // 기술 아이콘(2026-10-24 사용자 '게임과 어울리게'): 선 그림 대신 16x16 도트를 계산으로 찍고 검은 테두리를 둘러 2배로 그린다.
   // 칸 모양 = (x, y) → 0 없음 · 1 본색 · 2 밝은색 · 3 어두운색 · 4 흰색. dash 화살 + 속도선, spin 도는 고리 + 화살촉, wave 초승달, circle 마법진, orb 빛 구슬 + 꼬리
   const PIX = {
@@ -198,6 +222,7 @@ const Hud = (() => {
     // 체력 구슬 · 특수기 구슬
     globe(ctx, 66, PY + 30, 50, p.hp / p.maxHp, ['#ff4a3a', '#7a0a0a'], '#2a0606', Math.ceil(Math.max(0, p.hp)) + '/' + p.maxHp);
     globe(ctx, 894, PY + 30, 50, p.sp / p.maxSp, ['#5a9aff', '#0a2a7a'], '#06102a', Math.floor(p.sp) + '/' + p.maxSp);
+    lvBadge(ctx, 118, PY + 64, prof.lv);  // 체력 구슬 오른쪽 아래 · 경험치 막대 왼쪽 끝
     T_(ctx, '체력', 66, PY - 26, 11, '#c8a8a0', 'center');
     T_(ctx, '기력', 894, PY - 26, 11, '#a8b8d8', 'center');
     // 물약 벨트
@@ -225,10 +250,9 @@ const Hud = (() => {
       const n = costs[slot];
       T_(ctx, '기력 ' + n, x + 22, PY + 73, 10, !n ? '#6a7a90' : p.sp >= n ? '#8ab8ff' : '#ff7a6a', 'center');
     });
-    // 오른쪽: 레벨 · 골드(윗줄) + 보석 합계 4줄(무기 · 방어구 · 목걸이 · 반지, 2026-10-24 사용자)
-    T_(ctx, 'Lv.' + prof.lv, 606, PY + 15, 14, '#f0e0b8');
-    Gfx.spr(ctx, 'coin_anim_f0', 690, PY + 15, { scale: 1.4 });
-    T_(ctx, String(prof.gold), 700, PY + 15, 13, '#ffd34d');
+    // 오른쪽: 골드(윗줄, 레벨은 체력 구슬 옆 메달로 옮김) + 보석 합계 4줄(무기 · 방어구 · 목걸이 · 반지, 2026-10-24 사용자)
+    Gfx.spr(ctx, 'coin_anim_f0', 612, PY + 15, { scale: 1.4 });
+    T_(ctx, String(prof.gold), 622, PY + 15, 13, '#ffd34d');
     gemSummary(ctx, prof, 606, PY + 31, p);
     T_(ctx, L('pause') + ' 메뉴 · ' + L('inv') + ' 가방', 142, PY + 73, 10, '#7a6e70');
   }
