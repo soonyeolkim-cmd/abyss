@@ -1,7 +1,7 @@
 // 장비 항아리(2026-10-25 사용자: 99 이후 콘텐츠의 도박을 지금 — 내 레벨대 장비 뽑기). 도박꾼 단지 → '항아리 깨기', overlay 'jar'.
 // 2026-10-25 사용자: 상인 엘린 → 도박꾼 NPC 로 옮김 · 값 절반 · 부위를 골라 뽑기 · 창은 물약 · 속성석 사기 창과 같은 꼴.
 // 왼쪽 = 부위 일곱 줄(무기 · 투구 · 갑옷 · 장갑 · 신발 · 목걸이 · 반지, 값 · 착용 레벨), 오른쪽 = 항아리 무대(흔들림 → 깨짐 → 나온 장비).
-// 등급은 무작위(data.js JAR: 유니크 3% · 레어 약 20% · 매직 35% · 일반 42%). 유니크도 고른 부위 것.
+// 등급은 data.js JAR 표대로(유니크 3% · 레어 10% · 매직 35% · 일반 52%). 유니크도 고른 부위 것.
 // 장비는 깨는 순간 가방에 들어가고 저장된다(연출 중에 닫아도 잃지 않음). 가방이 가득 차면 못 산다.
 const Jar = (() => {
   const T_ = Gfx.text;
@@ -51,10 +51,11 @@ const Jar = (() => {
     const bagSlot = prof.bag.indexOf(null);
     if (bagSlot < 0) { Sfx.deny(); Game.toast('가방이 가득 찼어요 — 장비를 팔거나 정리해 주세요'); return; }
     prof.gold -= p;
-    const il = Math.max(1, prof.lv), s = slot(), uniqs = Object.keys(UNIQUES).filter(u => UNIQUES[u].slot === s);
-    item = uniqs.length && Math.random() < JAR.uniq
+    // 등급 = data.js JAR 표(유니크 · 레어 · 매직, 나머지 일반)
+    const il = Math.max(1, prof.lv), s = slot(), uniqs = Object.keys(UNIQUES).filter(u => UNIQUES[u].slot === s), r = Math.random();
+    item = uniqs.length && r < JAR.uniq
       ? Items.make(il, { slot: s, rarity: 3, uniq: uniqs[Math.floor(Math.random() * uniqs.length)] })
-      : Items.make(il, { slot: s, boost: JAR.boost });
+      : Items.make(il, { slot: s, rarity: r < JAR.uniq + JAR.rare ? 2 : r < JAR.uniq + JAR.rare + JAR.magic ? 1 : 0 });
     prof.bag[bagSlot] = item;
     Game.changed();
     st = 'shake'; t = 0; shards = [];
@@ -107,9 +108,8 @@ const Jar = (() => {
       T_(ctx, SLOT_NAMES[s] + ' 항아리', 88, y + 27, 15, on ? '#ffd36a' : '#f0e0b8');
       T_(ctx, p + 'G · 착용 Lv.' + req, 436, y + 27, 12, prof.gold >= p ? '#9a8e96' : '#ff7a6a', 'right');
     });
-    const u = JAR.uniq, yr = Math.min(0.9, 0.06 + JAR.boost * 0.3), m = 0.26 + JAR.boost * 0.2;  // items.js rollRarity 와 같은 계산
     const pc = v => Math.round(v * 100) + '%';
-    T_(ctx, '일반 ' + pc((1 - yr - m) * (1 - u)) + ' · 매직 ' + pc(m * (1 - u)) + ' · 레어 ' + pc(yr * (1 - u)) + ' · 유니크 ' + pc(u), 44, 404, 13, '#c8b8a0');
+    T_(ctx, '일반 ' + pc(1 - JAR.uniq - JAR.rare - JAR.magic) + ' · 매직 ' + pc(JAR.magic) + ' · 레어 ' + pc(JAR.rare) + ' · 유니크 ' + pc(JAR.uniq), 44, 404, 13, '#c8b8a0');
     const cur = prof.equip[slot()];
     T_(ctx, '지금 낀 ' + SLOT_NAMES[slot()] + ': ' + (cur ? Items.nameOf(cur) + (cur.ups ? ' +' + cur.ups : '') : '없음'), 44, 428, 12, cur ? RARITY[cur.rarity].color : '#6a6068');
     T_(ctx, '깨 보기 전엔 몰라요! 고른 부위의 내 레벨대 장비가 하나 들어 있어요', 44, 476, 12, '#9a8e96');
