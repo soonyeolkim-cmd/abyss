@@ -26,7 +26,7 @@ const CLASSES = {
     // 기력(파란 구슬): 대시 · 특수기 · 차지 회전베기에 쓴다. 시간이 지나면 차오르고(쓴 직후 delay 초는 멈춤), 기본 공격을 맞히면 몹마다 onHit 만큼 찬다
     stamina: { base: 100, regen: 9, delay: 0.6, onHit: 4 },
     // 대시: 짧은 무적 이동. 대시 중(또는 끝난 직후 attackWindow 초)에 공격 = 대시 찌르기
-    dodge: { time: 0.28, speed: 230, iframes: 0.24, cd: 0, attackWindow: 0.18, cost: 15 },
+    dodge: { time: 0.28, speed: 230, iframes: 0.24, cd: 0, attackWindow: 0.18, cost: 10 },  // 대시 기력 15 → 10(2026-10-25 사용자: 너무 답답)
     potion: { heal: 0.4, cd: 1.0, max: 5 },  // 최대 체력의 40%
     combo: [
       { name: '베기', slot: 'basic', startup: 0.07, active: 0.08, recovery: 0.2, mult: 1.0, knock: 70, stun: 0.32, reach: [0, 24], arc: 70, lunge: 6, swing: [-110, 60] },
@@ -57,7 +57,7 @@ const CLASSES = {
     baseHp: 100, baseAtk: 4, speed: 82,
     // 기술로 싸우는 직업이라 기력이 넉넉하다(2026-10-24 사용자: 기력이 모자라다) — 최대 100 → 140, 회복 9 → 12
     stamina: { base: 140, regen: 12, delay: 0.6, onHit: 4 },
-    dodge: { time: 0.28, speed: 230, iframes: 0.24, cd: 0, attackWindow: 0.18, cost: 15 },
+    dodge: { time: 0.28, speed: 230, iframes: 0.24, cd: 0, attackWindow: 0.18, cost: 10 },  // 대시 기력 15 → 10(2026-10-25 사용자)
     potion: { heal: 0.4, cd: 1.0, max: 5 },
     combo: [
       { name: '마력 휘두르기', slot: 'basic', startup: 0.07, active: 0.1, recovery: 0.22, mult: 0.9, knock: 120, stun: 0.3, reach: [0, 30], arc: 110, lunge: 5, swing: [-100, 70], orbTip: true },
