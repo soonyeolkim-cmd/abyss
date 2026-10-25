@@ -32,7 +32,7 @@ const Touch = (() => {
   document.body.appendChild(root);
   const rot = document.createElement('div');
   rot.id = 'rot';
-  rot.innerHTML = '폰을 가로로 돌려 주세요<br><small style="font-size:13px;font-weight:normal">심연으로</small>';
+  rot.innerHTML = '폰을 가로로 돌려 주세요<br><small style="font-size:13px;font-weight:normal">심연속으로</small>';
   document.body.appendChild(rot);
 
   // 기술 버튼: [키, 속성석 칸(아이콘 · 이름), 오른쪽에서 · 아래에서(px), 크기]

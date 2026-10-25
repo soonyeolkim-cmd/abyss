@@ -117,7 +117,7 @@ const Save = (() => {
   function importCode(n, code) {
     try {
       code = String(code || '').replace(/\s+/g, '');
-      if (!code.startsWith('FG1:')) return '심연으로 코드가 아니에요 (FG1: 로 시작해야 해요)';
+      if (!code.startsWith('FG1:')) return '심연속으로 코드가 아니에요 (FG1: 로 시작해야 해요)';
       const raw = decodeURIComponent(escape(atob(code.slice(4))));
       const p = JSON.parse(raw);
       if (!p || !p.equip || !Array.isArray(p.bag) || typeof p.lv !== 'number') return '코드가 망가졌어요 — 처음부터 끝까지 다 복사했는지 봐 주세요';

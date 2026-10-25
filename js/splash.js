@@ -145,7 +145,7 @@ const Splash = (() => {
   // 제목 글씨: 작은 캔버스에 쓰고 도트 그대로 키운다. 은빛 → 보라 그라데이션, 짙은 테두리 · 아래로 두께, 밑줄 + 보랏빛 보석
   function logoCanvas() {
     if (logo) return logo;
-    const size = 30, pad = 8, text = '심연으로';
+    const size = 30, pad = 8, text = '심연속으로';
     const c = document.createElement('canvas'), m = c.getContext('2d');
     m.font = '900 ' + size + 'px ' + Gfx.FONT;
     c.width = Math.ceil(m.measureText(text).width) + pad * 2; c.height = size + pad * 2 + 10;
