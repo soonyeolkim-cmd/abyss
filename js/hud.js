@@ -181,9 +181,13 @@ const Hud = (() => {
     lines.forEach((ln, i) => { if (ln.length) T_(ctx, ln.join(' · '), x + 60, y + 24 + i * 12, size, '#ffd36a'); });
   }
 
-  function draw(ctx) {
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    const p = World.player, prof = World.prof, C = p.cls, lv = World.level;
+  // 아래 돌판: 체력 · 기력 구슬 · 물약 벨트 · 기술(속성석) 칸 · 레벨 · 골드 · 보석 합계 · 경험치. 위로 '체력' 글자까지(PANEL_Y)
+  const PANEL_Y = PY - 40;
+  const panelC = document.createElement('canvas');
+  panelC.width = 960; panelC.height = 540;
+  const pg = panelC.getContext('2d');
+  let panelKey = '';
+  function panel(ctx, p, prof, C) {
     // ── 아래 돌판 ──
     const g = ctx.createLinearGradient(0, PY, 0, 540);
     g.addColorStop(0, '#2a2026'); g.addColorStop(1, '#140e12');
@@ -227,6 +231,25 @@ const Hud = (() => {
     T_(ctx, String(prof.gold), 700, PY + 15, 13, '#ffd34d');
     gemSummary(ctx, prof, 606, PY + 31, p);
     T_(ctx, L('pause') + ' 메뉴 · ' + L('inv') + ' 가방', 142, PY + 73, 10, '#7a6e70');
+  }
+
+  function draw(ctx) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const p = World.player, prof = World.prof, C = p.cls, lv = World.level;
+    // 아래 돌판은 따로 그려 두고 값이 바뀔 때만 다시(2026-10-25 사용자: 폰에서 버벅임 — 예전엔 매 프레임 글자 수십 개를 새로 썼다)
+    const legend = STONE_SLOTS.some(sl => { const st = Elements.socket(prof, sl); return st && st.size >= 4; });  // 완전한 · 전설 · 태초 돌은 빛이 돌아서 가끔 다시
+    const key = [Math.ceil(Math.max(0, p.hp)), p.maxHp, Math.floor(p.sp), p.maxSp, prof.potions, prof.gold, prof.lv, Math.round(prof.exp / expToNext(prof.lv) * 680),
+      Input.device, Input.settings.padLayout, dashCost(p), legend ? Math.floor(performance.now() / 100) : 0,
+      SLOTS.map(sl => { const it = prof.equip[sl]; return it ? it.uid + ':' + (it.gems || []).map(gm => (gm ? gm.el + gm.size : '')).join() : ''; }).join(),
+      STONE_SLOTS.map(sl => { const st = Elements.socket(prof, sl); return st ? st.el + st.size : ''; }).join()].join('|');
+    if (key !== panelKey) {
+      panelKey = key;
+      pg.setTransform(1, 0, 0, 1, 0, 0);
+      pg.clearRect(0, PANEL_Y, 960, 540 - PANEL_Y);
+      pg.imageSmoothingEnabled = false;
+      panel(pg, p, prof, C);
+    }
+    ctx.drawImage(panelC, 0, PANEL_Y, 960, 540 - PANEL_Y, 0, PANEL_Y, 960, 540 - PANEL_Y);
 
     // ── 위: 대상 이름표(보스 → 가까운 고유 · 정예) ──
     const es = World.enemies();
@@ -255,13 +278,21 @@ const Hud = (() => {
   function drawMap(ctx, lv, p) {
     const s = Math.min(150 / lv.W, 120 / lv.H);
     const ox = 950 - lv.W * s, oy = 10;
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.fillRect(ox - 4, oy - 4, lv.W * s + 8, lv.H * s + 8);
-    ctx.fillStyle = 'rgba(170,150,130,0.55)';
-    for (let y = 0; y < lv.H; y++) for (let x = 0; x < lv.W; x++) {
-      const i = y * lv.W + x;
-      if (lv.explored[i] && lv.tiles[i] === 1) ctx.fillRect(ox + x * s, oy + y * s, Math.ceil(s), Math.ceil(s));
+    // 가 본 칸 그림은 따로 만들어 두고, 가 본 곳이 늘 때만 다시(2026-10-25 사용자: 폰에서 버벅임 — 예전엔 매 프레임 칸 수천 개를 칠했다)
+    if (!lv.mapCanvas || lv.mapDirty) {
+      const c = lv.mapCanvas || (lv.mapCanvas = document.createElement('canvas'));
+      c.width = Math.ceil(lv.W * s + 8); c.height = Math.ceil(lv.H * s + 8);
+      const g = c.getContext('2d');
+      g.fillStyle = 'rgba(0,0,0,0.35)';
+      g.fillRect(0, 0, lv.W * s + 8, lv.H * s + 8);
+      g.fillStyle = 'rgba(170,150,130,0.55)';
+      for (let y = 0; y < lv.H; y++) for (let x = 0; x < lv.W; x++) {
+        const i = y * lv.W + x;
+        if (lv.explored[i] && lv.tiles[i] === 1) g.fillRect(4 + x * s, 4 + y * s, Math.ceil(s), Math.ceil(s));
+      }
+      lv.mapDirty = false;
     }
+    ctx.drawImage(lv.mapCanvas, Math.round(ox - 4), oy - 4);
     const b = lv.boss;
     if (lv.explored[b.cy * lv.W + b.cx]) { ctx.strokeStyle = '#d83a3a'; ctx.lineWidth = 1; ctx.strokeRect(ox + b.x * s, oy + b.y * s, b.w * s, b.h * s); }
     for (const c of lv.chests) if (!c.open && lv.explored[Math.floor(c.y / T) * lv.W + Math.floor(c.x / T)]) { ctx.fillStyle = '#ffd34d'; ctx.fillRect(ox + c.x / T * s - 1.5, oy + c.y / T * s - 1.5, 3, 3); }

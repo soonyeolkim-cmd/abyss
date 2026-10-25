@@ -194,6 +194,7 @@ const World = (() => {
         if (x < 0 || y < 0 || x >= lv.W || y >= lv.H || (x - tx) ** 2 + (y - ty) ** 2 > R * R) continue;
         lv.explored[y * lv.W + x] = 1;
       }
+      lv.mapDirty = true;  // 자동 지도 다시 그리기(hud.js)
     }
     flowT -= dt;
     if (flowT <= 0) { flowT = 0.3; flow = Dungeon.bfs(lv, Math.floor(p.x / T), Math.floor(p.y / T), 45); }

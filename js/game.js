@@ -1,7 +1,8 @@
 // 장면 관리: 마을(걸어 다니는 광장, town.js) → 던전 고르기 → 던전(런) → 결과 → 마을. 위에 겹치는 창(가방 · 일시정지 · 확인)을 쌓는다.
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
-const STEP = 1 / 60;
+// 던전 계산 한 걸음(초). 120Hz 폰 화면(갤럭시 S21 등)에서도 화면 한 번마다 한 걸음씩 움직이게 1/120(2026-10-25 사용자: 폰에서 버벅임) — 60Hz 화면은 한 번에 두 걸음
+const STEP = 1 / 120;
 
 const Game = (() => {
   let scene = 'title', overlays = [], prof = null, res = null;

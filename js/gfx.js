@@ -13,10 +13,24 @@ const Gfx = (() => {
   const ok = img => img.complete && img.naturalWidth > 0;
   const ready = () => ok(atlas);
 
-  // 맞음 번쩍임용 임시 캔버스(가장 큰 그림 32x36 보다 크게)
-  const scratch = document.createElement('canvas');
-  scratch.width = 48; scratch.height = 48;
-  const sg = scratch.getContext('2d');
+  // 색 입힌 그림 · 번쩍임(한 색 실루엣)은 한 번 만들어 두고 다시 쓴다(2026-10-25 사용자: 폰에서 버벅임 — 예전엔 매 프레임 임시 캔버스에 다시 칠했다)
+  const recolorCache = new Map();
+  function recolored(img, name, f, col, alpha, flash) {
+    const key = name + '|' + col + '|' + alpha + '|' + (flash ? 1 : 0);
+    let c = recolorCache.get(key);
+    if (c) return c;
+    const [fx, fy, fw, fh] = f;
+    c = document.createElement('canvas');
+    c.width = fw; c.height = fh;
+    const g = c.getContext('2d');
+    g.drawImage(img, fx, fy, fw, fh, 0, 0, fw, fh);
+    g.globalCompositeOperation = 'source-atop';
+    g.globalAlpha = flash ? 1 : alpha;
+    g.fillStyle = col;
+    g.fillRect(0, 0, fw, fh);
+    recolorCache.set(key, c);
+    return c;
+  }
 
   // 그림 한 칸. 기본 기준점 = 발밑 가운데. o: { flip, alpha, flash, scale, rot, topLeft }
   function spr(ctx, name, x, y, o = {}) {
@@ -24,29 +38,9 @@ const Gfx = (() => {
     if (!f || !ok(img)) return;
     const [fx, fy, fw, fh] = f;
     let src = img, sx = fx, sy = fy;
-    if (o.tint && !o.flash) {
-      // 색 입히기(같은 몸으로 다른 보스): 반쯤 덧칠
-      sg.globalCompositeOperation = 'source-over';
-      sg.clearRect(0, 0, fw, fh);
-      sg.drawImage(img, fx, fy, fw, fh, 0, 0, fw, fh);
-      sg.globalCompositeOperation = 'source-atop';
-      sg.globalAlpha = o.tintAlpha || 0.5;
-      sg.fillStyle = o.tint;
-      sg.fillRect(0, 0, fw, fh);
-      sg.globalAlpha = 1;
-      sg.globalCompositeOperation = 'source-over';
-      src = scratch; sx = 0; sy = 0;
-    }
-    if (o.flash) {
-      sg.globalCompositeOperation = 'source-over';
-      sg.clearRect(0, 0, fw, fh);
-      sg.drawImage(img, fx, fy, fw, fh, 0, 0, fw, fh);
-      sg.globalCompositeOperation = 'source-atop';
-      sg.fillStyle = o.flash === true ? '#ffffff' : o.flash;
-      sg.fillRect(0, 0, fw, fh);
-      sg.globalCompositeOperation = 'source-over';
-      src = scratch; sx = 0; sy = 0;
-    }
+    // 색 입히기(같은 몸으로 다른 몹 · 보스): 반쯤 덧칠 / 번쩍임: 한 색 실루엣
+    if (o.flash) { src = recolored(img, name, f, o.flash === true ? '#ffffff' : o.flash, 1, true); sx = 0; sy = 0; }
+    else if (o.tint) { src = recolored(img, name, f, o.tint, o.tintAlpha || 0.5, false); sx = 0; sy = 0; }
     const s = o.scale || 1;
     ctx.save();
     ctx.translate(Math.round(x), Math.round(y));
