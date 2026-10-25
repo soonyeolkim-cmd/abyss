@@ -40,7 +40,7 @@ function hitEnemy(e, def, p, w) {
   const toE = unit(e.x - p.x, e.y - p.y, p.fv);
   const dir = def.outward ? toE : unit(toE.x + p.fv.x, toE.y + p.fv.y, p.fv);
   const stag = e.state === 'stagger' ? 1.5 : 1;
-  const crit = Math.random() * 100 < st.crit;
+  const crit = def.crit || Math.random() * 100 < st.crit;  // 암살자 반격 = 언제나 치명타
   let dmg = st.atk * def.mult * wk.dmg * stag * Elements.vuln(e) * (1 + (st.dmg || 0) / 100) * (0.9 + Math.random() * 0.2);
   if (crit) dmg *= 1 + st.critDmg / 100;
   // 유니크 기습: 적의 옆 · 등 뒤, 또는 경직 · 빙결 · 쓰러진 적
@@ -48,6 +48,8 @@ function hitEnemy(e, def, p, w) {
     const tp = unit(p.x - e.x, p.y - e.y, e.fv);
     if (e.fv.x * tp.x + e.fv.y * tp.y < 0.3 || e.state === 'stagger' || e.state === 'frozen' || e.state === 'down') dmg *= UNIQUE_FX.ambush;
   }
+  // 암살자 등 뒤 공격(2026-10-25): 몹이 보는 쪽 반대편에서 치면 +backstab
+  if (p.cls && p.cls.backstab) { const tp = unit(p.x - e.x, p.y - e.y, e.fv); if (def.back || e.fv.x * tp.x + e.fv.y * tp.y < -0.3) dmg *= 1 + p.cls.backstab; }  // 백스탭(back)은 적이 돌아봐도 등 뒤로 친다
   dmg *= 1 - (e.armorCut || 0);  // 몹 방어(던전 레벨이 높을수록 많이 깎는다)
   dmg = Math.max(1, Math.round(dmg));
   e.hp -= dmg;
@@ -113,6 +115,8 @@ function hitEnemy(e, def, p, w) {
 function hurtPlayer(p, src, dmgRaw, knock) {
   if (p.remote) return Coop.remoteHurt(p, src, dmgRaw, knock);  // 파티 방장: 손님 몸이 맞음 → 손님 기기에서 무적 · 피해 계산
   if (p.dead || p.safe || p.iframes > 0) return 'miss';
+  // 암살자 받아치기 자세 중: 피해 없이 반격(탄도 지운다 — 'parried' 는 'miss' 가 아니라서 탄이 사라짐)
+  if (p.state === 'act' && p.act && p.act.def.guard && p.act.time < p.act.s + p.act.a && !(src && src.hazard)) { parryHit(p, src); return 'parried'; }
   const fx = p.stats.fx || {};
   // 유니크 잎사귀 방패: 준비돼 있으면 한 번 막는다
   if (fx.leaf && !(p.leafT > 0)) {
@@ -128,6 +132,8 @@ function hurtPlayer(p, src, dmgRaw, knock) {
   if (fx.skin) dmgBase *= UNIQUE_FX.skin;                          // 굳은 피부
   if (fx.dashguard && p.guardT > 0) dmgBase *= UNIQUE_FX.dashguard;  // 잔상 보호막
   if (src && (src.chill > 0 || src.state === 'frozen') && Elements.has(p.prof, 'frost', 'p2')) dmgBase *= 0.7;  // 한기(빙결석 전설부터)
+  if (p.gapT > 0) { dmgBase *= 1 + p.cls.special.gap.mult; p.gapT = 0; }  // 암살자 받아치기 빈틈
+  if (p.hidden) endHide(p, '들켰다!');  // 숨은 중에 맞으면 드러남
   const dmg = Math.max(1, Math.round(dmgBase));
   p.hp -= dmg;
   p.state = 'hurt'; p.t = 0.3; p.act = null; p.charge = 0;  // 맞으면 모으던 기가 흩어진다

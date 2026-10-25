@@ -41,7 +41,8 @@
     if (btn) return;
     btn = document.createElement('button');
     btn.textContent = '📲 홈 화면에 설치';
-    btn.style.cssText = 'position:fixed;right:14px;top:14px;z-index:40;padding:12px 18px;border:2px solid #ffd36a;border-radius:24px;background:rgba(26,16,34,0.92);color:#ffd36a;' +
+    // 아래 가운데(2026-10-25: 오른쪽 위는 폰 메뉴 ◀ 버튼 자리)
+    btn.style.cssText = 'position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:40;padding:10px 18px;border:2px solid #ffd36a;border-radius:24px;background:rgba(26,16,34,0.92);color:#ffd36a;' +
       'font:bold 16px "Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;box-shadow:0 4px 20px rgba(0,0,0,0.5);display:none';
     btn.onclick = function () {
       if (!ask) return;

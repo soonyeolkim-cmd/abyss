@@ -9,13 +9,29 @@ const Gfx = (() => {
   // mage = 마법사(검사 몸 + 파란 로브 · 금빛 띠 · 끝이 꺾인 뾰족 모자, 2026-10-25 사용자 고름 B)
   const SHEETS = {}, HERO = {};
   // 검사 몸 + 의상 시트(16x28 × 9칸): 직업 hero · mage, 마을 NPC kael(파수꾼 카엘) · miner(늙은 광부) · gambler(도박꾼 단지) — tools/npc-outfit.js 로 구움
-  for (const id of ['hero', 'mage', 'kael', 'miner', 'gambler']) {
+  for (const id of ['hero', 'mage', 'assassin', 'kael', 'miner', 'gambler']) {  // assassin = 암살자(2026-10-25, tools/class-outfit.js)
     const img = new Image();
     img.src = 'assets/dt/' + id + '.png';
     ['idle_anim_f0', 'idle_anim_f1', 'idle_anim_f2', 'idle_anim_f3', 'run_anim_f0', 'run_anim_f1', 'run_anim_f2', 'run_anim_f3', 'hit_anim_f0']
       .forEach((k, i) => { HERO[id + '_' + k] = [i * 16, 0, 16, 28]; SHEETS[id + '_' + k] = img; });
   }
-  const ok = img => img.complete && img.naturalWidth > 0;
+  // 암살자 무기 도트(2026-10-25 사용자: 양손 무기 — 아틀라스에 카타르 · 싸이가 없어서 코드로 그려 둔다). 칼끝이 위, 손잡이가 아래(아틀라스 무기와 같은 방향)
+  // o 테두리 · w 날 빛 · a 강철 · d 어두운 강철 · g/G 금빛 날밑 · r/R 붉은 손잡이 감개
+  const WPIX_PAL = { o: '#1a1418', w: '#f4f8ff', a: '#b8c4d4', d: '#6a7488', g: '#d8a840', G: '#8a5a20', r: '#a02830', R: '#5a1018' };
+  const WPIX = {
+    // 카타르: 길고 곧은 세모 날 + 금빛 날밑 + 짧은 H 손잡이(양옆 막대 사이 가로 손잡이, 어둡게 — 크면 상자처럼 보임)
+    weapon_katar: ['...o...', '..owo..', '..owo..', '..owo..', '.owado.', '.owado.', '.owado.', '.owado.', '.owado.', '.oaado.', 'oggggGo', 'od.r.do', 'od.R.do', 'oo...oo'],
+    // 싸이: 가늘고 긴 가운데 날 + 양옆으로 휜 갈래(받아치는 데 쓰는 날) + 감은 손잡이
+    weapon_sai: ['....o....', '...owo...', '...owo...', '...owo...', '...oao...', '...oao...', '.o.oao.o.', 'oaooaooao', 'oaooaooao', '.oaoaoao.', '..oaaao..', '...ogo...', '...oro...', '...oRo...', '...oro...', '...oGo...', '....o....'],
+  };
+  for (const name in WPIX) {
+    const rows = WPIX[name], c = document.createElement('canvas');
+    c.width = rows[0].length; c.height = rows.length;
+    const g = c.getContext('2d');
+    rows.forEach((row, y) => [...row].forEach((ch, x) => { if (WPIX_PAL[ch]) { g.fillStyle = WPIX_PAL[ch]; g.fillRect(x, y, 1, 1); } }));
+    SHEETS[name] = c; FRAMES[name] = [0, 0, c.width, c.height];
+  }
+  const ok = img => img instanceof HTMLCanvasElement || (img.complete && img.naturalWidth > 0);
   const ready = () => ok(atlas);
 
   // 색 입힌 그림 · 번쩍임(한 색 실루엣)은 한 번 만들어 두고 다시 쓴다(2026-10-25 사용자: 폰에서 버벅임 — 예전엔 매 프레임 임시 캔버스에 다시 칠했다)
@@ -148,7 +164,7 @@ const Gfx = (() => {
     const c = document.createElement('canvas');
     c.width = fw; c.height = fh;
     const g = c.getContext('2d');
-    g.drawImage(atlas, fx, fy, fw, fh, 0, 0, fw, fh);
+    g.drawImage(SHEETS[name] || atlas, fx, fy, fw, fh, 0, 0, fw, fh);
     g.globalCompositeOperation = 'source-atop';
     g.globalAlpha = WEAPON_TINT;
     g.fillStyle = tint;
@@ -172,7 +188,7 @@ const Gfx = (() => {
       ctx.translate(Math.round(cx), Math.round(cy));
       ctx.rotate(Math.PI / 4);
       if (b.tint) ctx.drawImage(tinted(b.icon, b.tint), 0, 0, fw, fh, -fw * s / 2, -fh * s / 2, fw * s, fh * s);
-      else ctx.drawImage(atlas, fx, fy, fw, fh, -fw * s / 2, -fh * s / 2, fw * s, fh * s);
+      else ctx.drawImage(SHEETS[b.icon] || atlas, fx, fy, fw, fh, -fw * s / 2, -fh * s / 2, fw * s, fh * s);
     } else {
       // 방어구 · 장신구 16px 그림: 칸에 맞게 크게(예전엔 내림이라 가방 칸에서 1배 16px 로 작았다)
       const s = Math.max(1, Math.round(size / 16) - (Math.round(size / 16) * 16 > size + 6 ? 1 : 0));

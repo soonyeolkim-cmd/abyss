@@ -48,6 +48,47 @@ const CLASSES = {
     charge: { holdDelay: 0.22, time: 0.55, move: 0.45, cost: 20,
       def: { name: '회전베기', slot: 'charge', fin: true, startup: 0.05, active: 0.22, recovery: 0.32, mult: 2.4, knock: 160, stun: 0.6, radius: 44, spin: true, heavy: true, outward: true } },  // 범위 34 → 44(+30%, 2026-10-24 사용자)
   },
+  // ── 암살자(2026-10-25 사용자: 세 번째 직업, 메모/assassin-plan.md) ── 능력치는 검사 · 마법사와 같다. 양손에 같은 무기를 하나씩 든다(dual).
+  // 기본(X) = 연속 찌르기 4타(검사보다 훨씬 빠르게, 양손 번갈아, 4타 교차 베기) · 특수(Z) = 받아치기(0.4초 자세 → 맞으면 공격한 적을 향해 베고 지나감 = riposte) ·
+  // 차지 칸(V) = 그림자 숨기(몹이 놓침) → 다시 V = 그림자 베기(멀리 · 넓게 직선 돌진하며 벰), 숨은 중 X = 백스탭(가까운 적 등 뒤로 순간이동 → 넓게 휘두름) ·
+  // 대시 → 공격 = 선풍 베기(제자리 한 바퀴 두 번 베기) · 패시브 등 뒤 공격 피해 +30%(backstab)
+  // 기술 칸 4개는 검사 · 마법사와 같은 규칙(기본 · 차지 · 특수 · 대시, 2026-10-25 사용자) — 대시 칸 이름은 '대시'
+  assassin: {
+    id: 'assassin', name: '암살자', sprite: 'assassin', atkName: '공격력', dual: true,
+    weapons: ['katar', 'sai'],
+    slotNames: { basic: '기본 공격', charge: '그림자 베기', wave: '받아치기', dash: '대시' },
+    slotShort: { basic: '기본', charge: '그림자', wave: '반격', dash: '대시' },
+    icons: { basic: 'katar', charge: 'shadow', wave: 'cross', dash: 'dash' },
+    baseHp: 100, baseAtk: 4, speed: 82,
+    stamina: { base: 100, regen: 9, delay: 0.6, onHit: 4 },
+    dodge: { time: 0.28, speed: 230, iframes: 0.24, cd: 0, attackWindow: 0.18, cost: 8 },
+    potion: { heal: 0.4, cd: 1.0, max: 5 },
+    backstab: 0.3,  // 몹 등 뒤에서 치면 피해 +30%
+    // 평타는 검사(한 대 약 0.3초)보다 훨씬 빠르게 — 한 대 약 0.13초(2026-10-25 사용자: 기술이 세지면 전투가 루즈해짐). 대신 한 대 배율은 낮다. off = 왼손으로 찌름
+    combo: [
+      { name: '찌르기', slot: 'basic', startup: 0.035, active: 0.05, recovery: 0.07, mult: 0.6, knock: 40, stun: 0.22, reach: [0, 24], arc: 50, lunge: 4, thrust: true },
+      { name: '찌르기', slot: 'basic', startup: 0.035, active: 0.05, recovery: 0.07, mult: 0.65, knock: 40, stun: 0.22, reach: [0, 24], arc: 50, lunge: 4, thrust: true, off: true },
+      { name: '찌르기', slot: 'basic', startup: 0.035, active: 0.05, recovery: 0.07, mult: 0.7, knock: 50, stun: 0.25, reach: [0, 24], arc: 50, lunge: 4, thrust: true },
+      { name: '교차 베기', slot: 'basic', fin: true, startup: 0.05, active: 0.08, recovery: 0.22, mult: 1.5, knock: 180, stun: 0.5, reach: [0, 28], arc: 100, lunge: 8, swing: [-90, 90], heavy: true },
+    ],
+    // 받아치기(특수): parry 초 동안 막는 자세(맞히는 판정 없음). 그 사이 맞으면 combat.js hurtPlayer → parryHit → riposte. 못 막으면 '빈틈'(gap)
+    special: { id: 'parry', name: '받아치기', short: '반격', slot: 'wave', cd: 3, cost: 10, parry: 0.4, gap: { t: 1, mult: 0.5 },
+      startup: 0, active: 0.4, recovery: 0.1, mult: 0, knock: 0, stun: 0, guard: true, swing: [70, 70] },  // swing = 칼을 앞으로 비껴 든 모습
+    // 반격: 공격한 적을 향해 직선으로 베고 지나간다(적을 지나 past 더, 최대 max). 지나가는 동안 + 도착 뒤 safe 초 무적, 언제나 치명타 + 기절
+    riposte: { name: '반격', slot: 'wave', startup: 0, active: 0.14, recovery: 0.3, mult: 2.5, knock: 60, stun: 0.8,  // 밀어내기는 작게(적을 지나 등 뒤에 서게)
+      reach: [0, 30], arc: 70, noBody: true,
+      dash: 90, past: 30, min: 50, max: 150, safe: 0.35, crit: true, heavy: true, thrust: true, iframes: true },
+    // 그림자 숨기(V): cost 를 쓰고 숨는다 — 최대 max 초, 초당 drain 기력, 걷기 move 배, 보스는 notice 초 뒤 알아챔
+    // 그림자 베기(숨은 중 V, 2026-10-25 사용자: 걸어온 길 대신 '직선으로 강하고 넓게 이동하며'): dash px 를 순식간에 돌진,
+    // 지나간 직선에서 width + 몸 반지름 안의 적 모두(sweep). 방향 = 누른 쪽, 안 누르면 가까운 적 쪽. 차지 칸 속성석 폭발은 도착한 자리에서
+    charge: { cost: 15, hide: { max: 3, drain: 6, move: 0.85, notice: 1.5 },
+      def: { name: '그림자 베기', slot: 'charge', fin: true, startup: 0.04, active: 0.16, recovery: 0.3, mult: 3.4, knock: 200, stun: 0.8, dash: 120, sweep: true, width: 26, heavy: true, thrust: true, iframes: true } },
+    // 백스탭(숨은 중 X, 2026-10-25 사용자: 라그나로크 로그 백스탭) — blink px 안 가장 가까운 적의 등 뒤로 순간이동해 넓고 크게 휘두른다(무적, 숨기 풀림).
+    // 둘레에 적이 없으면 제자리에서 휘두름. 등 뒤라 패시브 +30% 도 붙는다
+    stab: { name: '백스탭', slot: 'charge', startup: 0.06, active: 0.12, recovery: 0.3, mult: 4.0, knock: 220, stun: 0.9, reach: [0, 42], arc: 160, swing: [-120, 120], blink: 130, back: true, heavy: true, iframes: true },  // back = 언제나 등 뒤 공격(+30%)
+    // 선풍 베기(대시 → 공격, 봉인의 숲 쌍검): 제자리에서 한 바퀴 돌며 둘레를 두 번 벤다
+    dashAttack: { name: '선풍 베기', slot: 'dash', startup: 0.03, active: 0.24, recovery: 0.24, mult: 1.3, knock: 220, stun: 0.45, radius: 40, spin: true, hits: 2, outward: true, iframes: true },
+  },
   // ── 마법사(2026-10-24 사용자: 두 번째 캐릭터) ── 봉인의 숲 지팡이(정령의 마법봉) 기술을 옮김. 능력치는 검사와 같고 공격력 = 주문력.
   // 기본 = 롯드 · 스태프 2연타(끝의 빛 구슬이 휩쓴다, 사거리 넓음) · 특수(Z) = 마력탄(가볍게 따라가는 빛 구슬, 처음 닿은 적에서 터짐, 기력으로 연사)
   // 차지 칸(V) = 마법진(겨눈 적 발밑 · 없으면 앞에 깔리고 0.5초 뒤 한 번 크게 터짐) · 대시 → 공격 = 마력 파동(둘레 밀쳐내기)
@@ -87,6 +128,9 @@ const WEAPON_KINDS = {
   heavy: { name: '중량', speed: 0.88, reach: 0, dmg: 1, knock: 1.4, arc: 1.1 },
   wand: { name: '경량', speed: 1.15, reach: 0, dmg: 1, knock: 0.9, arc: 1 },   // 마법사 롯드
   staff: { name: '중량', speed: 0.88, reach: 0, dmg: 1, knock: 1.4, arc: 1.1 },  // 마법사 스태프
+  // 암살자(2026-10-25): 카타르 = 빠름(검과 같은 속도), 싸이 = 받아치기 특화(조금 느리고 공격력 ×1.2 · 막는 시간 +0.1초 · 반격 피해 +20%)
+  katar: { name: '경량', speed: 1.15, reach: 0, dmg: 1, knock: 0.9, arc: 1 },
+  sai: { name: '받아치기', speed: 0.95, reach: 0, dmg: 1, knock: 1.1, arc: 1, parry: 0.1, riposte: 0.2 },
 };
 
 // ── 몹 ── atk.lunge = 공격하며 튀어나가는 속도, ranged = 멀리서 쏨(shot: 탄 속도 · 피해)
@@ -383,6 +427,8 @@ const UNIQUE_NAMES_BY_TIER = {
     heavy: ['쿵쿵이', '되치기 망치', '천둥 메아리', '룬 울림망치', '용골 분쇄자', '심연 공명', '흑요 진동', '성화 낙진', '별부수개', '태초의 고동'],
     wand: ['속삭임', '메아리 막대', '잔향 롯드', '룬 속삭임', '용의 숨결봉', '심연의 목소리', '흑요 메아리', '성화 지휘봉', '별빛 속삭임', '태초의 말씀'],
     staff: ['울림 지팡이', '되뇌는 지팡이', '잔향 지팡이', '룬 공명장', '용의 포효', '심연 합창', '흑요 공명', '성화 성가', '별의 합창', '태초의 노래'],
+    katar: ['메아리 발톱', '되찌르기', '잔향 카타르', '룬 발톱', '용송곳니', '심연 송곳', '흑요 발톱', '성화 송곳니', '별빛 발톱', '태초의 송곳니'],
+    sai: ['받아침', '되받는 싸이', '잔향 싸이', '룬 받침칼', '용뿔 싸이', '심연 갈퀴', '흑요 받침', '성화 삼지창', '별빛 받침', '태초의 받침'],
   },
   skin: ['돌거북 투구', '바위 껍질', '강철 등딱지', '룬 거북 투구', '용비늘 관', '심연 거북관', '흑요 껍데기', '성화 수호관', '별거북 투구', '태초의 등껍질'],
   leaf: ['숲지기의 갑주', '떡갈나무 갑옷', '강철 잎새 갑주', '룬 덩굴 갑주', '용림 갑주', '심연 가시나무', '흑요 수풀', '성화 세계수', '별잎 갑주', '태초의 숲'],
@@ -400,6 +446,7 @@ const uniqueName = (u, kind, tier) => {
 // 무기 줄 이름은 무기 이름 그대로(2026-10-24 사용자: 경량 · 중량 대신 검 · 망치 / 롯드 · 스태프)
 const VAULT_CATS = [{ id: 'weapon_light', slot: 'weapon', cls: 'swordsman', name: '검' }, { id: 'weapon_heavy', slot: 'weapon', cls: 'swordsman', name: '망치' },
   { id: 'weapon_wand', slot: 'weapon', cls: 'mage', name: '롯드' }, { id: 'weapon_staff', slot: 'weapon', cls: 'mage', name: '스태프' },
+  { id: 'weapon_katar', slot: 'weapon', cls: 'assassin', name: '카타르' }, { id: 'weapon_sai', slot: 'weapon', cls: 'assassin', name: '싸이' },
   ...SLOTS.filter(s => s !== 'weapon').map(s => ({ id: s, slot: s, name: SLOT_NAMES[s] }))];
 VAULT_CATS.forEach(c => { c.uniq = Object.keys(UNIQUES).find(u => UNIQUES[u].slot === c.slot); });
 const vaultCat = it => (it.slot === 'weapon' ? 'weapon_' + (Items.base(it).kind || 'light') : it.slot);
@@ -471,6 +518,9 @@ const GEAR_FORMS = {
     // 마법사 무기(2026-10-24): 경량 롯드(짧은 막대) · 중량 스태프(긴 지팡이) — 색이 아니라 길이로 구분(사용자), 검 · 망치와 같은 세기
     { kind: 'wand', noun: '롯드', icon: 'weapon_rod', curve: { atk: lightAtk } },
     { kind: 'staff', noun: '스태프', icon: 'weapon_red_magic_staff', curve: { atk: i => lightAtk(i) * 1.3 } },
+    // 암살자 무기(2026-10-25, 그림은 gfx.js WPIX 도트 — 양손에 하나씩): 카타르 = 검과 같은 세기, 싸이 = 느린 만큼 ×1.2
+    { kind: 'katar', noun: '카타르', icon: 'weapon_katar', curve: { atk: lightAtk } },
+    { kind: 'sai', noun: '싸이', icon: 'weapon_sai', curve: { atk: i => lightAtk(i) * 1.2 } },
   ],
   helmet: [{ noun: '투구', icon: 'helmet', curve: { def: i => 1.5 * POWER(i), hp: i => 7 * POWER(i) } }],
   armor: [{ noun: '갑옷', icon: 'armor', curve: { def: i => 2.7 * POWER(i) } }],
@@ -654,8 +704,18 @@ const EL_ABIL_MAGE = {
   thunder: { basic: ['연쇄 번개', '모든 기본 공격에서 번개가 튄다'], charge: ['뇌운 마법진', '마법진이 터지고 1초 뒤 낙뢰가 한 번 더 떨어진다'], wave: ['벼락 구슬', '마력탄에 맞은 적마다 벼락'] },
   poison: { basic: ['독 분사', '휘두를 때마다 앞으로 독을 뿜는다'], charge: ['독 터뜨리기', '마법진이 쌓인 독을 한꺼번에 터뜨린다'], wave: ['독침 구슬', '마력탄에 맞으면 독 3중첩'] },
 };
+// 암살자 칸 능력(2026-10-25): 그림자 베기(차지 칸 — 도착한 자리에서) · 받아치기 반격(특수 칸). 없는 칸은 검사 것 그대로
+const EL_ABIL_ASSASSIN = {
+  fire: { charge: ['불길 그림자', '그림자 베기가 끝난 자리에 불길이 2.5초 남는다'], wave: ['작열 반격', '반격에 맞은 적 자리에서 불꽃이 터진다'] },
+  frost: { charge: ['서리 그림자', '그림자 베기가 끝난 자리가 3초 얼어붙어 위의 적에게 냉기'], wave: ['얼음 반격', '반격에 맞으면 냉기 1 더(거의 바로 빙결)'] },
+  thunder: { charge: ['뇌운 그림자', '그림자 베기 1초 뒤 낙뢰가 한 번 더 떨어진다'], wave: ['벼락 반격', '반격에 맞은 적마다 벼락'] },
+  poison: { charge: ['독 터뜨리기', '그림자 베기가 쌓인 독을 한꺼번에 터뜨린다'], wave: ['독침 반격', '반격에 맞으면 독 3중첩'] },
+};
 // 칸 능력 [이름, 설명]: 직업에 맞게
-const elAbil = (el, slot, prof) => (clsOf(prof).id === 'mage' && EL_ABIL_MAGE[el][slot]) || EL_ABIL[el][slot];
+const elAbil = (el, slot, prof) => {
+  const id = clsOf(prof).id, own = id === 'mage' ? EL_ABIL_MAGE : id === 'assassin' ? EL_ABIL_ASSASSIN : null;
+  return (own && own[el][slot]) || EL_ABIL[el][slot];
+};
 // 속성석 세트 효과(2026-10-24 사용자): 칸 4개가 모두 보통(3단계) 이상일 때. 세기 sc = 가장 낮은 돌의 power ÷ 보통 power(보통 1 → 태초 약 2.7)
 // 같은 속성 4개 = 공명, 두 속성 2개씩 = 듀오. 그 밖의 조합(3:1 · 1:1:1:1 · 2:1:1)은 없음
 const SET_MIN = 2;

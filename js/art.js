@@ -42,6 +42,9 @@ const Art = (() => {
     // 서 있을 때(2026-10-24 사용자 '무기 쥔 모습이 어색하다'): 손을 몸 옆 · 허리 높이로, 칼끝은 살짝 앞으로 + 숨 쉬듯 살짝 흔들림
     let th = -Math.PI / 2 + (flip ? -0.35 : 0.35) + Math.sin(time * 2.2) * 0.04 * (flip ? -1 : 1), push = 0, trail = null;
     const hx = p.x + (flip ? -7 : 7), hy = p.y - 6 + (p.state === 'walk' ? Math.abs(Math.sin(p.walkT * 12)) * -1 : 0);
+    // 양손 카타르 · 싸이(암살자): 주먹 앞으로 내민 무기라 서 있을 때도 날끝이 앞 · 살짝 아래를 겨눈다(2026-10-25 사용자: 위로 세워 드니 촌스러움)
+    if (p.cls.dual) th = (flip ? Math.PI - 0.55 : 0.55) + Math.sin(time * 2.2) * 0.04 * (flip ? -1 : 1);
+    const reachK = p.cls.dual ? 6 : 9;  // 찌를 때 손이 나가는 거리(양손 무기는 짧게)
     if (p.state === 'act') {
       const a = p.act, d = a.def, t = a.time;
       const ph = t < a.s ? 0 : t < a.s + a.a ? 1 : 2;
@@ -51,7 +54,8 @@ const Art = (() => {
         if (ph === 1) trail = { a0: th - 2.6, a1: th, fade: 1 };
       } else if (d.thrust) {
         th = aim;
-        push = ph === 0 ? -3 * k : ph === 1 ? lerp(-3, 9, Math.min(1, k * 2)) : lerp(9, 2, k);
+        push = ph === 0 ? -3 * k : ph === 1 ? lerp(-3, reachK, Math.min(1, k * 2)) : lerp(reachK, 2, k);
+        if (d.off) push = -2;  // 왼손 찌르기(암살자): 오른손은 당겨 둔다
       } else {
         const s0 = d.swing[0] * RAD, s1 = d.swing[1] * RAD;
         th = aim + (ph === 0 ? s0 : ph === 1 ? lerp(s0, s1, k) : s1);
@@ -63,7 +67,36 @@ const Art = (() => {
     } else if (p.state === 'hurt' || p.state === 'dead') {
       th = Math.PI / 2 + (flip ? 0.5 : -0.5);
     }
-    return { th, hx: hx + p.fv.x * push, hy: hy + p.fv.y * push, flip, trail };
+    const pose = { th, hx: hx + p.fv.x * push, hy: hy + p.fv.y * push, flip, trail };
+    if (p.cls.dual) pose.off = offPose(p, time, pose, aim, flip);
+    return pose;
+  }
+  // 양손 무기(암살자, 2026-10-25 사용자): 왼손 무기 — 몸 뒤쪽 손에 들고, 휘두를 때는 오른손과 거울처럼(교차 베기 = X), 돌 때는 반대편,
+  // 찌를 때는 당겨 두었다가 왼손 차례(off)면 찌른다
+  function offPose(p, time, main, aim, flip) {
+    // 서 있을 때: 몸 뒤 가슴 높이에서 날끝이 앞 · 살짝 위(오른손은 허리에서 앞 · 아래) — 두 날이 앞으로 겹쳐 보이는 자세
+    let th = (flip ? Math.PI + 0.3 : -0.3) - Math.sin(time * 2.2) * 0.04 * (flip ? -1 : 1), push = 0, trail = null;
+    let hx = p.x + (flip ? -3 : 3), hy = p.y - 10 + (p.state === 'walk' ? Math.abs(Math.sin(p.walkT * 12 + 1.5)) * -1 : 0);
+    if (p.state === 'act') {
+      const a = p.act, d = a.def, t = a.time;
+      const ph = t < a.s ? 0 : t < a.s + a.a ? 1 : 2;
+      const k = ph === 0 ? t / a.s : ph === 1 ? (t - a.s) / a.a : Math.min(1, (t - a.s - a.a) / a.r);
+      if (d.spin) {
+        th = main.th + Math.PI;
+        hx = 2 * p.x - main.hx; hy = main.hy;
+        if (main.trail) trail = { a0: main.trail.a0 + Math.PI, a1: main.trail.a1 + Math.PI, fade: main.trail.fade };
+      } else if (d.thrust) {
+        th = aim;
+        push = d.off ? (ph === 0 ? -3 * k : ph === 1 ? lerp(-3, 6, Math.min(1, k * 2)) : lerp(6, 2, k)) : -2;
+        hx = p.x - p.fv.y * (flip ? -4 : 4); hy = p.y - 7 + p.fv.x * (flip ? -1 : 1);
+      } else {
+        th = aim - (main.th - aim);
+        if (main.trail) trail = { a0: aim - (main.trail.a0 - aim), a1: th, fade: main.trail.fade };
+      }
+    } else if (p.state === 'hurt' || p.state === 'dead') {
+      th = Math.PI / 2 + (flip ? -0.5 : 0.5);
+    }
+    return { th, hx: hx + p.fv.x * push, hy: hy + p.fv.y * push, trail };
   }
 
   function player(ctx, p, time) {
@@ -91,11 +124,13 @@ const Art = (() => {
       for (let i = 3; i >= 1; i--) Gfx.spr(ctx, name, p.x - p.fv.x * i * 8, p.y - p.fv.y * i * 8, { flip: o.flip, flash: '#ffffff', alpha: 0.22 / i });
     }
     if (p.state === 'dead') { o.rot = o.flip ? -Math.PI / 2 : Math.PI / 2; name = base + '_hit_anim_f0'; }
+    // 암살자 그림자 숨기: 어둡게 반투명 + 발밑 그림자 아지랑이(2026-10-25)
+    if (p.hidden) { o.alpha = 0.42 + 0.08 * Math.sin(time * 6); o.tint = '#3a2a6a'; o.tintAlpha = 0.55; }
     const w = p.prof.equip.weapon;
-    const drawWeapon = () => {
+    const drawWeapon = (ps = pose) => {
       if (!w || p.state === 'dead') return;
       const icon = Items.base(w).icon;
-      Gfx.spr(ctx, icon, pose.hx, pose.hy, { rot: pose.th + Math.PI / 2, grip: WEAPON_GRIP, flash: o.flash ? '#ffffff' : false, tint: Items.base(w).tint, tintAlpha: Gfx.WEAPON_TINT });
+      Gfx.spr(ctx, icon, ps.hx, ps.hy, { rot: ps.th + Math.PI / 2, grip: WEAPON_GRIP, flash: o.flash && !p.hidden ? '#ffffff' : false, tint: Items.base(w).tint, tintAlpha: Gfx.WEAPON_TINT, alpha: p.hidden ? o.alpha : undefined });
     };
     // 차지 고리: 발밑에 시계 방향으로 차오르고, 다 모이면 굵게 깜빡인다(봉인의 숲과 같은 표시)
     if (p.charge > 0) {
@@ -111,9 +146,12 @@ const Art = (() => {
       ctx.restore();
     }
     const behind = p.fv.y < -0.35 && p.state !== 'act';
+    const offFront = pose.off && p.state === 'act' && p.fv.y > 0.3;  // 왼손 무기는 보통 몸 뒤, 아래를 보고 휘두를 때만 앞
+    if (pose.off && !offFront) drawWeapon(pose.off);
     if (behind) drawWeapon();
     Gfx.spr(ctx, name, p.x, p.y - (p.state === 'dead' ? -4 : 0), o);
     if (!behind) drawWeapon();
+    if (offFront) drawWeapon(pose.off);
     // 칼 궤적: 그 기술 칸에 속성석이 있으면 속성 색, 없으면 흰색(봉인의 숲 규칙)
     if (pose.trail && w && p.act && p.act.def.orbTip) {
       // 롯드 · 스태프: 끝의 빛 구슬이 지나간 자리에 흐려지는 구슬 다섯 개(봉인의 숲 지팡이와 같은 결)
@@ -131,19 +169,23 @@ const Art = (() => {
       }
       ctx.restore();
     } else if (pose.trail && w) {
-      // 칼끝이 지나간 자리: 두툼한 색 초승달 + 안쪽 흰 날 + 칼끝 쪽 반짝(휘두른 뒤 0.1초 흐려지며 사라짐)
-      const R = FRAMES[Items.base(w).icon][3] - WEAPON_GRIP + 5;
-      const col = (p.act ? Elements.color(p.prof, p.act.def.slot || 'none', null) : null) || 'rgb(170,215,255)';
-      const { a0, a1 } = pose.trail, f = pose.trail.fade === undefined ? 1 : Math.max(0, pose.trail.fade);
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      crescent(ctx, pose.hx, pose.hy, R - 2, a0, a1, 11, col, 0.42 * f);
-      crescent(ctx, pose.hx, pose.hy, R, a0 + (a1 - a0) * 0.3, a1, 4, '#ffffff', 0.8 * f);
-      const g = ctx.createRadialGradient(pose.hx + Math.cos(a1) * R, pose.hy + Math.sin(a1) * R * 0.82, 0, pose.hx + Math.cos(a1) * R, pose.hy + Math.sin(a1) * R * 0.82, 7);
-      g.addColorStop(0, 'rgba(255,255,255,' + 0.45 * f + ')'); g.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = g; ctx.fillRect(pose.hx + Math.cos(a1) * R - 7, pose.hy + Math.sin(a1) * R * 0.82 - 7, 14, 14);
-      ctx.restore();
+      bladeTrail(ctx, p, w, pose.hx, pose.hy, pose.trail);
+      if (pose.off && pose.off.trail) bladeTrail(ctx, p, w, pose.off.hx, pose.off.hy, pose.off.trail);  // 양손: 왼손 궤적도
     }
+  }
+  // 칼끝이 지나간 자리: 두툼한 색 초승달 + 안쪽 흰 날 + 칼끝 쪽 반짝(휘두른 뒤 0.1초 흐려지며 사라짐)
+  function bladeTrail(ctx, p, w, hx, hy, trail) {
+    const R = FRAMES[Items.base(w).icon][3] - WEAPON_GRIP + 5;
+    const col = (p.act ? Elements.color(p.prof, p.act.def.slot || 'none', null) : null) || 'rgb(170,215,255)';
+    const { a0, a1 } = trail, f = trail.fade === undefined ? 1 : Math.max(0, trail.fade);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    crescent(ctx, hx, hy, R - 2, a0, a1, 11, col, 0.42 * f);
+    crescent(ctx, hx, hy, R, a0 + (a1 - a0) * 0.3, a1, 4, '#ffffff', 0.8 * f);
+    const g = ctx.createRadialGradient(hx + Math.cos(a1) * R, hy + Math.sin(a1) * R * 0.82, 0, hx + Math.cos(a1) * R, hy + Math.sin(a1) * R * 0.82, 7);
+    g.addColorStop(0, 'rgba(255,255,255,' + 0.45 * f + ')'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(hx + Math.cos(a1) * R - 7, hy + Math.sin(a1) * R * 0.82 - 7, 14, 14);
+    ctx.restore();
   }
 
   function enemy(ctx, e, time, p) {
@@ -462,6 +504,22 @@ const Art = (() => {
           ctx.strokeStyle = 'rgba(255,200,120,' + (1 - k) + ')'; ctx.lineWidth = 3;
           ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r * (0.5 + k * 0.6), f.r * 0.6 * (0.5 + k * 0.6), 0, 0, Math.PI * 2); ctx.stroke();
           break;
+        case 'shadowpath': {  // 암살자 그림자 베기 · 백스탭 순간이동: 지나간 직선에 어두운 빛 띠(굵기 w) + 색 띠 + 흰 날 + 양 끝 번쩍임
+          const pts = f.follow ? [f.pts[0], [f.follow.x, f.follow.y]] : f.pts;  // follow = 몸을 따라 늘어나는 띠(그림자 베기)
+          if (!pts || pts.length < 2) break;
+          ctx.save();
+          ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+          const W = f.w || 12;
+          const line = (w, col, a) => { ctx.globalAlpha = a; ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y - 6) : ctx.moveTo(x, y - 6))); ctx.stroke(); };
+          line(W * (1 - k * 0.5) + 2, '#2a1840', 0.5 * (1 - k));
+          ctx.globalCompositeOperation = 'lighter';
+          line(W * 0.5 * (1 - k) + 1, f.col, 0.6 * (1 - k));
+          line(2 + W * 0.08 * (1 - k), '#ffffff', 0.9 * (1 - k));
+          for (const [x, y] of [pts[0], pts[pts.length - 1]]) star4(ctx, x, y - 6, (W * 0.4 + 4) * (1 - k) + 2, k * 2, '#ffffff', 0.8 * (1 - k));
+          ctx.restore();
+          ctx.globalAlpha = 1;
+          break;
+        }
         case 'streak':
           ctx.strokeStyle = 'rgba(200,230,255,' + (0.8 * (1 - k)) + ')'; ctx.lineWidth = 4 * (1 - k) + 1;
           ctx.beginPath(); ctx.moveTo(f.x0, f.y0 - 8); ctx.lineTo(f.follow.x, f.follow.y - 8); ctx.stroke();
@@ -602,15 +660,17 @@ const Art = (() => {
 
   // 장비 스테이터스 창의 아바타(2026-10-24 사용자): 발밑 (x, y), k 배 크기. 낀 무기를 서 있는 자세 그대로 든다
   function avatar(ctx, prof, x, y, k, time) {
-    const p = { x: 0, y: 0, fv: { x: 1, y: 0.1 }, flip: false, state: 'idle', walkT: 0, charge: 0 };
+    const p = { x: 0, y: 0, fv: { x: 1, y: 0.1 }, flip: false, state: 'idle', walkT: 0, charge: 0, cls: clsOf(prof) };  // cls: 양손 무기(암살자) 자세
     const pose = weaponPose(p, time), w = prof.equip.weapon;
     ctx.save();
     ctx.translate(Math.round(x), Math.round(y));
     ctx.scale(k, k);
     ctx.imageSmoothingEnabled = false;
     shadow(ctx, 0, 0, 9, 0, 1.2);
+    const hold = ps => { const b = Items.base(w); Gfx.spr(ctx, b.icon, ps.hx, ps.hy, { rot: ps.th + Math.PI / 2, grip: WEAPON_GRIP, tint: b.tint, tintAlpha: Gfx.WEAPON_TINT }); };
+    if (w && pose.off) hold(pose.off);  // 양손 무기(암살자): 왼손 무기는 몸 뒤
     Gfx.spr(ctx, Gfx.anim(clsOf(prof).sprite + '_idle_anim', time, 6), 0, 0, {});
-    if (w) { const b = Items.base(w); Gfx.spr(ctx, b.icon, pose.hx, pose.hy, { rot: pose.th + Math.PI / 2, grip: WEAPON_GRIP, tint: b.tint, tintAlpha: Gfx.WEAPON_TINT }); }
+    if (w) hold(pose);
     ctx.restore();
   }
 

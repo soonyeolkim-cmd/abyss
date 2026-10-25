@@ -64,6 +64,9 @@ const Input = (() => {
   function setTouchStick(x, y) { touchStick = { x, y }; if (x || y) device = 'touch'; }
   // 메뉴 화면을 손가락으로 누름(ui.js 누를 곳): 그 동작을 한 번 누른 것으로
   function tapAction(a) { pressed[a] = true; device = 'touch'; }
+  // 폰 메뉴에서 손가락으로 쓸었다(touch.js): 방향을 한 번 누른 것으로(다음 poll 에)
+  const navQueue = {};
+  function navTap(d) { navQueue[d] = 1; device = 'touch'; }
   // 화면을 만졌다(touch.js): 패드 · 키보드에서 터치로 돌아옴
   function touched() { device = 'touch'; }
   window.addEventListener('blur', () => { keyHeld.clear(); mouseHeld.clear(); });
@@ -110,7 +113,7 @@ const Input = (() => {
       up: down.up || keyDown.navUp || stick.y < -0.6, down: down.down || keyDown.navDown || stick.y > 0.6,
     };
     for (const d in navHold) {
-      navFire[d] = false;
+      navFire[d] = !!navQueue[d]; navQueue[d] = 0;  // 폰 손가락 쓸기(navTap) = 한 칸
       if (dirOn[d]) {
         if (navHold[d] === 0) navFire[d] = true;
         navHold[d] += dt;
@@ -141,6 +144,7 @@ const Input = (() => {
       if (a === 'ok' || a === 'back') return n;  // 메뉴 선택 · 취소는 어느 패드든 그 패드의 A · B
       return settings.padLayout === 'switch' ? (SWITCH_NAMES[n] || n) : n;
     }
+    if (device === 'touch' && (a === 'ok' || a === 'back')) return a === 'ok' ? '[확인]' : '[뒤로]';  // 폰: 메뉴 옆 버튼 이름(2026-10-25)
     return LABELS.keys[a];
   }
 
@@ -165,7 +169,7 @@ const Input = (() => {
   }
 
   return {
-    virtualKey, setTouchStick, tapAction, touched, poll, endFrame, clear, move, label, labelFor, attachMouse, settings, saveSettings, mouse, rumble,
+    virtualKey, setTouchStick, tapAction, navTap, touched, poll, endFrame, clear, move, label, labelFor, attachMouse, settings, saveSettings, mouse, rumble,
     isDown: a => !!down[a],
     wasPressed: a => !!pressed[a],
     nav: d => !!navFire[d],

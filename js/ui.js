@@ -18,11 +18,12 @@ const UI = (() => {
   // '한 번 더' = 같은 칸을 손가락으로 연달아 누른 것만(창을 열자마자 커서가 있던 칸을 눌러 바로 끼거나 팔지 않게)
   let zones = [], tapAt = null, lastKey = null;
   const zone = (x, y, w, h, z) => { z.x = x; z.y = y; z.w = w; z.h = h; zones.push(z); };
-  function tapLayer() { zones = []; }
+  function tapLayer() { zones = []; areas = []; }
   function tap(x, y) { tapAt = { x, y }; }
   let holdAt = null;  // 폰: 지금 손가락이 닿아 있는 자리(길게 누르기 — 캐릭터 지우기 확인)
   const touchHold = pt => { holdAt = pt; };
   function resolveTap() {
+    flingStep();
     if (!tapAt) return;
     const { x, y } = tapAt;
     tapAt = null;
@@ -39,6 +40,61 @@ const UI = (() => {
     }
     lastKey = null;  // 빈 곳을 누르면 처음부터
   }
+  // ── 끌어서 넘기기(2026-10-25 사용자: 폰에서 넘치는 목록은 손가락으로 끌어 넘겨야 — 화면 옆 화살표 버튼 대신) ──
+  // 넘치는 목록은 그릴 때 scrollArea 를 적어 둔다. 그 안을 손가락으로 끌면 보이는 첫 줄(s.top)이 손가락을 따라 한 줄씩 움직이고, 튕기면 조금 더 미끄러진다.
+  // 보이는 첫 줄은 listTop(id) 에 기억: 고른 줄이 바뀔 때만(방향키 · 누르기) 그 줄이 보이게 따라가고, 끌어서 넘긴 자리는 그대로 둔다
+  let areas = [], drag = null, fling = null, flingT = 0;
+  const tops = {};
+  function listTop(id, n, vis, sel) {
+    const st = tops[id] || (tops[id] = { top: 0, sel: null });
+    if (sel !== st.sel) {
+      st.sel = sel;
+      if (sel !== null && sel >= 0) { if (sel < st.top) st.top = sel; else if (sel > st.top + vis - 1) st.top = sel - vis + 1; }
+    }
+    st.top = Math.max(0, Math.min(Math.max(0, n - vis), st.top));
+    return st;
+  }
+  // (x, y, w, h) 안을 끌면 st.top 이 줄 높이 rowH 만큼마다 한 줄씩(0 ~ max). st = listTop 이 준 것 또는 top 을 가진 화면 객체
+  function scrollArea(x, y, w, h, rowH, st, max) { if (max > 0) areas.push({ x, y, w, h, rowH, st, max }); }
+  const clampTop = (a, v) => Math.max(0, Math.min(a.max, Math.round(v)));
+  function dragStart(pt) {
+    fling = null; drag = null;
+    if (!pt) return;
+    for (let i = areas.length - 1; i >= 0; i--) {
+      const a = areas[i];
+      if (pt.x < a.x || pt.y < a.y || pt.x > a.x + a.w || pt.y > a.y + a.h) continue;
+      drag = { a, y0: pt.y, top0: a.st.top, moved: false, ly: pt.y, lt: performance.now(), v: 0 };
+      return;
+    }
+  }
+  // 끄는 중이면 true(그 손가락은 누르기가 아니다)
+  function dragMove(pt) {
+    if (!drag || !pt) return false;
+    const dy = pt.y - drag.y0;
+    if (!drag.moved && Math.abs(dy) < 14) return false;
+    drag.moved = true;
+    const now = performance.now(), dt = Math.max(8, now - drag.lt);
+    drag.v = 0.6 * drag.v + 0.4 * ((pt.y - drag.ly) / dt);  // 손가락 속도(960x540 좌표 px / ms)
+    drag.ly = pt.y; drag.lt = now;
+    drag.a.st.top = clampTop(drag.a, drag.top0 - dy / drag.a.rowH);
+    return true;
+  }
+  function dragEnd() {
+    const d = drag;
+    drag = null;
+    if (!d || !d.moved) return false;
+    if (performance.now() - d.lt < 80 && Math.abs(d.v) > 0.4) { fling = { a: d.a, pos: d.a.st.top, v: -d.v * 1000 / d.a.rowH }; flingT = performance.now(); }  // 튕김: 줄 / 초
+    return true;
+  }
+  function flingStep() {
+    if (!fling) return;
+    const now = performance.now(), dt = Math.min(0.05, (now - flingT) / 1000);
+    flingT = now;
+    fling.pos += fling.v * dt; fling.v *= Math.pow(0.03, dt);
+    fling.a.st.top = clampTop(fling.a, fling.pos);
+    if (Math.abs(fling.v) < 2 || fling.pos <= 0 || fling.pos >= fling.a.max) fling = null;
+  }
+  const ovId = () => { const o = Game.overlays[Game.overlays.length - 1]; return o ? o.type : Game.scene; };
   // 너비 maxW 안에 들게: 글자를 9px 까지 줄이고, 그래도 길면 끝을 … 로
   function fitText(ctx, s, x, y, size, maxW, col) {
     let sz = size;
@@ -95,6 +151,7 @@ const UI = (() => {
       else Game.overlay({ type: 'choice', title: name + ' · 빈 칸', items: [
         { label: '새로 만들기 — 검사', go: () => Game.startSlot(n, true, 'swordsman') },
         { label: '새로 만들기 — 마법사', go: () => Game.startSlot(n, true, 'mage') },
+        { label: '새로 만들기 — 암살자', go: () => Game.startSlot(n, true, 'assassin') },
         { label: '코드로 불러오기', go: () => this.importCode(n) },
       ] });
     },
@@ -191,13 +248,20 @@ const UI = (() => {
       else T_(ctx, '앞 던전 보스를 쓰러뜨리고 입장 레벨이 되면 열려요', 900, 58, 13, '#8a7e88', 'right');
       // 6개씩 보이고, 고른 줄을 따라 내려간다(던전 10개)
       // 보이는 창은 고른 줄이 끝에 닿을 때만 한 줄씩 움직인다(터치로 누른 줄이 손가락 밑에서 달아나지 않게)
+      // 고른 줄이 바뀔 때만 그 줄이 보이게 따라가고, 손가락으로 끌어 넘긴 자리는 그대로(2026-10-25 사용자)
       const VISD = 6;
-      let top = this.top || 0;
-      if (this.sel < top + 1) top = this.sel - 1;
-      if (this.sel > top + VISD - 2) top = this.sel - VISD + 2;
-      top = this.top = Math.max(0, Math.min(rows.length - VISD, top));
-      if (top > 0) T_(ctx, '▲', 930, 100, 14, '#8a7e88', 'right');
-      if (top + VISD < rows.length) T_(ctx, '▼', 930, 500, 14, '#8a7e88', 'right');
+      if (this.sel !== this.seenSel) { this.seenSel = this.sel; const t = this.top || 0; this.top = this.sel < t ? this.sel : this.sel > t + VISD - 1 ? this.sel - VISD + 1 : t; }
+      const top = this.top = Math.max(0, Math.min(rows.length - VISD, this.top || 0));
+      scrollArea(60, 70, 840, VISD * 72, 72, this, rows.length - VISD);
+      // ▲▼: 폰은 눌러서 한 줄씩 넘긴다(2026-10-25 사용자: 위아래가 없어 아래 던전을 못 고름) — 보이는 창 바로 위 · 아래 줄을 고른다
+      if (top > 0) {
+        T_(ctx, '▲', 930, 104, 22, '#c8b8a0', 'right');
+        zone(902, 70, 58, 120, { pick: () => { this.sel = top - 1; }, key: null, now: true });
+      }
+      if (top + VISD < rows.length) {
+        T_(ctx, '▼', 930, 500, 22, '#c8b8a0', 'right');
+        zone(902, 390, 58, 120, { pick: () => { this.sel = top + VISD; }, key: null, now: true });
+      }
       rows.forEach((d, i) => {
         if (i < top || i >= top + VISD) return;
         const y = 76 + (i - top) * 72, on = i === this.sel;
@@ -739,7 +803,8 @@ const UI = (() => {
     Gfx.panel(ctx, 488, 24, 448, 470);
     if (title) T_(ctx, title, 508, 64, 20, '#f0e0b8');
     if (!rows.some(r => !r.empty)) T_(ctx, emptyMsg, 508, rows.length ? 136 : 100, 13, '#6a6068');
-    const top = rows.length > VIS ? Math.max(0, Math.min(rows.length - VIS, (picking ? pick : 0) - VIS + 2)) : 0;
+    const st = listTop('pouch:' + ovId() + ':' + title, rows.length, VIS, picking ? pick : null), top = st.top;
+    scrollArea(500, 84, 424, VIS * 26, 26, st, rows.length - VIS);
     if (top > 0) T_(ctx, '▲', 912, 64, 12, '#8a7e88', 'right');
     if (top + VIS < rows.length) T_(ctx, '▼', 912, 84 + VIS * 26 + 14, 12, '#8a7e88', 'right');
     rows.forEach((r, i) => {
@@ -994,8 +1059,9 @@ const UI = (() => {
   };
 
   // 세로 목록(줄이 넘치면 고른 줄을 따라 내려감). drawRow(i, y, on)
-  function listView(ctx, x, w, n, sel, active, drawRow, tapRow) {
-    const top = n > VIS ? Math.max(0, Math.min(n - VIS, sel - VIS + 2)) : 0;
+  function listView(ctx, x, w, n, sel, active, drawRow, tapRow, id) {
+    const st = listTop('list:' + ovId() + ':' + (id || x), n, VIS, sel), top = st.top;
+    scrollArea(x + 12, 84, w - 24, VIS * 26, 26, st, n - VIS);
     if (top > 0) T_(ctx, '▲', x + w - 12, 80, 11, '#8a7e88', 'right');  // 제목 줄 글과 안 겹치게 목록 바로 위
     if (top + VIS < n) T_(ctx, '▼', x + w - 12, 84 + VIS * 26 + 14, 12, '#8a7e88', 'right');
     for (let i = top; i < Math.min(n, top + VIS); i++) {
@@ -1255,7 +1321,7 @@ const UI = (() => {
         Gfx.icon(ctx, to, 516, y + 12, 20);
         T_(ctx, Items.nameOf(to), 534, y + 18, 14, on ? '#ffd36a' : ok ? RARITY[to.rarity].color : '#5a5058');
         T_(ctx, (tg[i].slot ? '낀 것 · ' : '') + '+' + (to.ups || 0), 918, y + 18, 12, ok ? '#9a8e96' : '#5a5058', 'right');
-      }, i => ({ on: () => this.pick === i, pick: () => { this.pick = i; } }));
+      }, i => ({ on: () => this.pick === i, pick: () => { this.pick = i; } }), 'target');  // 옮길 곳 목록은 주문서 목록과 따로 넘긴다
       const t = tg[Math.min(this.pick, tg.length - 1)];
       if (t) {
         const to = t.item, why = Items.canTransfer(src, to);
@@ -1477,7 +1543,7 @@ const UI = (() => {
 
   // ── 설정 · 조작 (봉인의 숲과 같은 틀: 조작 방식 · 패드 종류 · 마우스 조준) ──
   const vol = v => (v ? '■'.repeat(v) + '□'.repeat(10 - v) + '  ' + v : '끄기');
-  const step = (v, d) => (d < 0 ? Math.max(0, v - 1) : v >= 10 ? (Input.nav('right') ? 10 : 0) : v + 1);
+  const step = (v, d) => (d < 0 ? Math.max(0, v - 1) : v >= 10 ? (d > 1 || Input.nav('right') ? 10 : 0) : v + 1);  // d = 2: 폰 ▶ 누르기(10 에서 멈춤)
   const settings = {
     sel: 0,
     rows() {
@@ -1504,6 +1570,8 @@ const UI = (() => {
       this.rows().forEach((r, i) => {
         const y = 118 + i * 40, on = i === this.sel;
         zone(84, y - 26, 792, 36, { pick: () => { this.sel = i; }, now: true });
+        // 폰: 값 왼쪽 ◀ · 오른쪽 ▶ 쪽을 누르면 한 칸 내림 · 올림(줄의 나머지를 누르면 확인 = 한 칸 올림)
+        if (r.flip.length) for (const d of [-1, 1]) zone(d < 0 ? 380 : 580, y - 26, 160, 36, { pick: () => { this.sel = i; r.flip(d < 0 ? -1 : 2); Input.saveSettings(); }, key: null, now: true });
         if (on) { ctx.fillStyle = 'rgba(255,211,106,0.12)'; ctx.fillRect(84, y - 26, 792, 36); }
         T_(ctx, r.label, 100, y, 17, r.dim ? '#5a5058' : on ? '#ffd36a' : '#e8e0d0');
         T_(ctx, '◀  ' + r.val + '  ▶', 560, y, 17, r.dim ? '#5a5058' : on ? '#ffd36a' : '#c8b8a0', 'center');
@@ -1620,8 +1688,9 @@ const UI = (() => {
         T_(ctx, s, x + 90, 71, 15, on ? '#ffd36a' : '#9a8e96', 'center');
       });
       const list = this.list(), ROWS = 11, RH = 34, y0 = 104;
-      if (this.sel < this.top) this.top = this.sel;
-      if (this.sel >= this.top + ROWS) this.top = this.sel - ROWS + 1;
+      if (this.sel !== this.seenSel) { this.seenSel = this.sel; if (this.sel < this.top) this.top = this.sel; if (this.sel >= this.top + ROWS) this.top = this.sel - ROWS + 1; }
+      this.top = Math.max(0, Math.min(Math.max(0, list.length - ROWS), this.top));
+      scrollArea(84, y0, 792, ROWS * RH, RH, this, list.length - ROWS);
       const playing = this.tab === 'music' ? (o.track || Music.now) : null;
       for (let r = 0; r < ROWS && this.top + r < list.length; r++) {
         const i = this.top + r, it = list[i], y = y0 + r * RH, on = i === this.sel;
@@ -1676,5 +1745,5 @@ const UI = (() => {
     return null;
   }
 
-  return { shopItems, qty, title, choice, select, inv, stones, gems, manage, smith, vault, pause, settings, soundtest, confirm, result, tap, tapLayer, resolveTap, touchSpecial, zone, touchHold };
+  return { dragStart, dragMove, dragEnd, shopItems, qty, title, choice, select, inv, stones, gems, manage, smith, vault, pause, settings, soundtest, confirm, result, tap, tapLayer, resolveTap, touchSpecial, zone, touchHold };
 })();

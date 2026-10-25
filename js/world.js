@@ -315,7 +315,7 @@ const World = (() => {
       if (H.dot && hazT <= 0) { hazT = 0.5; hazardDamage(p, p.maxHp * H.dot, H.color); }
     } else if (spikeState(h) === 'up' && !(p.spikeCd > time)) {
       p.spikeCd = time + SPIKE_UP + 0.05;
-      if (hurtPlayer(p, { x: p.x, y: p.y + 1 }, p.maxHp * H.dmg, 60) === 'hit' && H.chill) p.slowT = 1.5;
+      if (hurtPlayer(p, { x: p.x, y: p.y + 1, hazard: true }, p.maxHp * H.dmg, 60) === 'hit' && H.chill) p.slowT = 1.5;  // hazard = 받아치기로 못 막음
     }
   }
   // 함정 그리기(보이는 것만): 웅덩이 = 반투명 색 + 꿈틀대는 점, 가시 = 0x72 가시(얼음 가시는 파랗게)
@@ -415,8 +415,12 @@ const World = (() => {
     const all = [p, ...rps];
     const near = e => {
       let best = null, bd = Infinity;
-      for (const t of all) { if (t.dead || (lv.roomMaps && roomOf(t) !== e.ri)) continue; const d = Math.hypot(t.x - e.x, t.y - e.y); if (d < bd) { bd = d; best = t; } }
-      return best || (lv.roomMaps ? null : p);
+      for (const t of all) {
+        if (t.dead || (lv.roomMaps && roomOf(t) !== e.ri)) continue;
+        if (t.hidden && !(e.def.boss && t.hidden.t >= t.cls.charge.hide.notice)) continue;  // 암살자 그림자 숨기: 몹이 놓침
+        const d = Math.hypot(t.x - e.x, t.y - e.y); if (d < bd) { bd = d; best = t; }
+      }
+      return best || (lv.roomMaps || all.some(t => t.hidden) ? null : p);
     };
     for (const e of enemies) e.tgt = near(e);
     if (rps.length || lv.roomMaps) for (const t of all) assignRoles(enemies.filter(e => e.tgt === t), t);
@@ -617,7 +621,8 @@ const World = (() => {
       if (!Dungeon.walkable(lv, s.x, s.y + 4, 1)) s.life = 0;
       for (const t of [p, ...rps]) {  // 파티: 손님 몸에 맞으면 그 손님에게 알린다(hurtPlayer)
         if (s.life > 0 && !t.dead && Math.hypot(t.x - s.x, (t.y - 8) - s.y) < s.r + BODY_R + 2) {
-          if (hurtPlayer(t, s, s.dmg, s.knock) !== 'miss') { s.life = 0; sparks(s.x, s.y + 8, 8, 5, s.color); if (s.chill) t.slowT = 2; }  // 얼음 임프 탄: 느려짐
+          const r = hurtPlayer(t, s, s.dmg, s.knock);
+          if (r !== 'miss') { s.life = 0; sparks(s.x, s.y + 8, 8, 5, s.color); if (s.chill && r === 'hit') t.slowT = 2; }  // 얼음 임프 탄: 느려짐(받아치면 탄만 사라짐)
         }
       }
     }
@@ -986,10 +991,10 @@ const World = (() => {
     for (const e of vis) list.push({ y: e.y, draw: () => Art.enemy(ctx, e, time, p) });
     list.push({ y: p.y, draw: () => Art.player(ctx, p, time) });
     const mates = rps.length ? rps : Coop.runMates();  // 파티원(방장 화면 = 손님 몸들 그대로 · 손님 화면 = 받은 위치로 그리는 몸들)
-    for (const m of mates) if (inView(m.x, m.y)) list.push({ y: m.y, draw: () => { Art.shadow(ctx, m.x, m.y, 6, 0, 1); Art.player(ctx, m, time); } });
+    for (const m of mates) if (inView(m.x, m.y)) list.push({ y: m.y, draw: () => { if (!m.hidden) Art.shadow(ctx, m.x, m.y, 6, 0, 1); Art.player(ctx, m, time); } });
     list.sort((a, b) => a.y - b.y);
     for (const e of vis) { Art.aura(ctx, e, time); Art.shadow(ctx, e.x, e.y, e.r + 2, e.z, e.spawnT > 0 ? 0.4 : 1); }
-    Art.shadow(ctx, p.x, p.y, 6, 0, 1);
+    if (!p.hidden) Art.shadow(ctx, p.x, p.y, 6, 0, 1);
     for (const it of list) it.draw();
     for (const s of shots) Art.shot(ctx, s, time);
     for (const s of pshots) Art.wave(ctx, s);

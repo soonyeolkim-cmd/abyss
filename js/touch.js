@@ -1,7 +1,8 @@
 // 폰 터치 조작(2026-10-24 사용자: 깃허브에 올려 폰으로). 터치 화면에서만 나온다.
 // 게임 중(던전 · 마을 걷기): 왼쪽 절반 = 이동 스틱(누른 자리가 가운데), 오른쪽 = 기술 버튼(HUD 가운데 도트 기술 아이콘: 공격 · 대시 · 회전 · 특수),
 //   물약 = 왼쪽 체력 구슬 위, 위 = 가방 · 메뉴. 버튼은 반쯤 비치게(2026-10-25 사용자).
-// 메뉴 화면(캐릭터 선택 · 던전 고르기 · 가방 등 창): 스틱 · 기술 버튼을 숨기고 화면을 손가락으로 바로 누른다(ui.js 누를 곳). 오른쪽 아래 = 뒤로 (+ 그 창의 Z 일).
+// 메뉴 화면(캐릭터 선택 · 던전 고르기 · 가방 등 창): 스틱 · 기술 버튼을 숨기고 화면을 손가락으로 바로 누른다(ui.js 누를 곳). 오른쪽 = 확인 · 뒤로 (+ 그 창의 Z 일).
+//   넘치는 목록(던전 · 주머니 · 대장간 · 상점 · 소리 목록)은 손가락으로 위아래로 끌어 넘긴다(ui.js scrollArea, 2026-10-25 사용자: 화면 옆 화살표 버튼 말고 폰답게 스와이프로)
 // 버튼은 키보드 키를 누른 것처럼 Input 에 넣는다. 패드 · 키보드를 쓰면 가상패드를 숨기고, 화면을 만지면 다시 보인다.
 const Touch = (() => {
   const on = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
@@ -18,6 +19,7 @@ const Touch = (() => {
     #tc .b small { font-size: 10px; font-weight: normal; margin-top: 1px; color: rgba(216, 200, 176, 0.75); text-shadow: 0 0 2px #000; }
     #tc .sq { border-radius: 10px; }
     #tc .pill { border-radius: 20px; flex-direction: row; font-size: 15px; }
+    #tc .side { border-radius: 10px; background: rgba(40, 30, 36, 0.45); }
     #tc.menu .play, #tc:not(.menu) .menu { display: none; }
     #tc.ext > * { display: none !important; }
     #tc #stk { position: absolute; width: 120px; height: 120px; border-radius: 50%; border: 2px solid rgba(255, 220, 150, 0.22); background: rgba(40, 30, 36, 0.15); display: none; }
@@ -67,9 +69,24 @@ const Touch = (() => {
   const potion = makeBtn('Digit1', '<canvas width="16" height="22" style="width:24px;height:33px"></canvas><small></small>', {}, 54, 54, 'play');
   makeBtn('KeyI', 'I<small>가방</small>', { right: '96px', top: '12px' }, 50, 50, 'sq play');
   makeBtn('Escape', '≡<small>메뉴</small>', { right: '30px', top: '12px' }, 50, 50, 'sq play');
-  // 메뉴 화면: 뒤로(Backspace = 취소만) · 그 창의 Z 일
-  const back = makeBtn('Backspace', '◀ 뒤로', { right: '10px', bottom: '8px' }, 96, 40, 'pill menu');
-  const spec = makeBtn('KeyZ', '', { right: '114px', bottom: '8px' }, 120, 40, 'pill menu');
+  // 메뉴 화면 버튼: 오른쪽 빈 띠 아래에 확인 · 뒤로(띠가 좁으면 화면 가장자리 위에). 확인은 X, 뒤로는 Backspace(취소만)를 누른 것과 같다.
+  //   방향 버튼은 없다(2026-10-25 사용자: 화면 옆 화살표는 폰 조작이 아님) — 고르기는 화면을 바로 누르고, 넘치는 목록은 끌어서 넘긴다
+  const side = (code, html) => makeBtn(code, html, {}, 50, 50, 'sq menu side');
+  const okBtn = side('KeyX', '확인'), back = side('Backspace', '뒤로');
+  // 그 창의 Z 일(모두 넣기 · 수량 정하기 등): 오른쪽 띠 왼쪽 아래
+  const spec = makeBtn('KeyZ', '', {}, 120, 40, 'pill menu');
+  function placeSide() {
+    const r = canvas.getBoundingClientRect(), H = window.innerHeight, W = window.innerWidth;
+    const cw = Math.max(46, Math.min(64, Math.round(W - r.right) - 8)), gap = 6;
+    const rx = Math.min(W - cw - 4, Math.round(r.right + (W - r.right - cw) / 2));
+    const put = (b, x, y, h) => Object.assign(b.style, { left: x + 'px', top: y + 'px', width: cw + 'px', height: h + 'px', fontSize: (cw < 54 ? 13 : 15) + 'px' });
+    const h4 = Math.round((H - gap * 5) / 4);
+    [okBtn, back].forEach((b, i) => put(b, rx, H - (2 - i) * (h4 + gap), h4));
+    Object.assign(spec.style, { left: '', right: (W - rx + 6) + 'px', bottom: gap + 'px' });
+  }
+  placeSide();
+  window.addEventListener('resize', placeSide);
+  setTimeout(placeSide, 300);  // 캔버스 크기가 정해진 뒤 한 번 더
 
   // 버튼 그림 · 이름 · 자리: 직업 · 낀 속성석 · 장면이 바뀌면 다시
   const drawn = {};
@@ -144,11 +161,16 @@ const Touch = (() => {
     if (m !== menuMode) {
       menuMode = m;
       root.classList.toggle('menu', m);
-      if (m) { for (const b of root.querySelectorAll('.b.on')) b.classList.remove('on'); stickEnd(); refresh(); }
+      // 장면이 바뀌면 눌려 있던 버튼을 뗀다
+      for (const b of root.querySelectorAll('.b.on')) b.classList.remove('on');
+      if (m) { stickEnd(); refresh(); }
     }
     back.style.display = m && (Game.scene === 'title' || Game.scene === 'splash') && !Game.overlays.length ? 'none' : '';  // 캐릭터 선택은 뒤로 갈 곳이 없다
-    const top = Game.overlays[Game.overlays.length - 1], bl = top && (top.type === 'talk' || top.type === 'ride') ? '건너뛰기 ▶' : '◀ 뒤로';  // 이야기 · 광차 장면은 건너뛰기
+    const top = Game.overlays[Game.overlays.length - 1], bl = top && (top.type === 'talk' || top.type === 'ride') ? '넘기기' : '뒤로';  // 이야기 · 광차 장면은 건너뛰기
     if (back.textContent !== bl) back.textContent = bl;
+    // 확인은 시작 화면 · 이야기 · 광차(아무 데나 누르면 넘어감)에선 숨김
+    const story = Game.scene === 'splash' || (top && (top.type === 'talk' || top.type === 'ride'));
+    okBtn.style.display = story ? 'none' : '';
     const sl = m ? UI.touchSpecial() : null;
     spec.style.display = sl ? '' : 'none';
     if (sl && spec.textContent !== sl) spec.textContent = sl;
@@ -186,14 +208,28 @@ const Touch = (() => {
   // 메뉴 화면 누르기: 손가락을 거의 안 움직이고 뗀 자리를 960x540 좌표로 바꿔 ui.js 에 넘긴다
   let t0 = null;
   const at = t => { const r = canvas.getBoundingClientRect(); return { x: (t.clientX - r.left) / r.width * 960, y: (t.clientY - r.top) / r.height * 540 }; };
-  canvas.addEventListener('touchstart', e => { e.preventDefault(); const t = e.changedTouches[0]; t0 = { id: t.identifier, x: t.clientX, y: t.clientY }; UI.touchHold(at(t)); }, { passive: false });
-  canvas.addEventListener('touchmove', e => { const t = t0 && [...e.changedTouches].find(q => q.identifier === t0.id); if (t) UI.touchHold(Math.hypot(t.clientX - t0.x, t.clientY - t0.y) > 24 ? null : at(t)); }, { passive: true });
-  canvas.addEventListener('touchcancel', () => { t0 = null; UI.touchHold(null); }, { passive: true });
+  canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const t = e.changedTouches[0];
+    t0 = { id: t.identifier, x: t.clientX, y: t.clientY };
+    UI.touchHold(at(t));
+    mode();  // 방금 창이 열렸을 수도 있으니 지금 장면으로
+    if (menuMode) UI.dragStart(at(t));  // 넘치는 목록 위면 끌어 넘기기 준비
+  }, { passive: false });
+  // 끌기: 목록 위에서 손가락을 위아래로 움직이면 목록이 손가락을 따라 넘어가고, 그 손가락은 누르기로 치지 않는다
+  canvas.addEventListener('touchmove', e => {
+    const t = t0 && [...e.changedTouches].find(q => q.identifier === t0.id);
+    if (!t) return;
+    if (menuMode && UI.dragMove(at(t))) t0.swiped = true;
+    UI.touchHold(t0.swiped || Math.hypot(t.clientX - t0.x, t.clientY - t0.y) > 24 ? null : at(t));
+  }, { passive: true });
+  canvas.addEventListener('touchcancel', () => { t0 = null; UI.touchHold(null); UI.dragEnd(); }, { passive: true });
   canvas.addEventListener('touchend', e => {
     e.preventDefault();
     UI.touchHold(null);
+    UI.dragEnd();  // 튕겼으면 조금 더 미끄러진다
     const t = t0 && [...e.changedTouches].find(q => q.identifier === t0.id);
-    if (!t || Math.hypot(t.clientX - t0.x, t.clientY - t0.y) > 24) { t0 = null; return; }
+    if (!t || t0.swiped || Math.hypot(t.clientX - t0.x, t.clientY - t0.y) > 24) { t0 = null; return; }
     t0 = null;
     mode();  // 방금 창이 열렸을 수도 있으니 지금 장면으로
     if (!menuMode) return;

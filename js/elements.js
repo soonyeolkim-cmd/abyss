@@ -199,7 +199,7 @@ const Elements = (() => {
         burn(e, p, k * (big ? 1.5 : 1));
         if (wave && open) explode(e.x, e.y, 24, p.stats.atk * 0.4 * swd * k, 'fire', o => burn(o, p, k));  // 작열 검기
         break;
-      case 'frost': chill(e, wave ? 1 + sw : big ? 2 : 1, k); break;
+      case 'frost': chill(e, wave ? 1 + sw + (def.crit && open ? 1 : 0) : big ? 2 : 1, k); break;  // 암살자 얼음 반격(보통부터): 냉기 1 더
       case 'thunder':
         shock(e, k);
         // 연쇄 번개 베기(보통부터): 모든 기본 공격에서 튄다. 그 전에는 마무리 · 검기만
@@ -449,7 +449,20 @@ const Elements = (() => {
       T.frost.wave = ['맞히면 냉기 2', '터질 때 얼음 파편 폭발(공격력의 ' + pc(0.4 * k) + ')'];
       T.poison.wave = ['맞히면 독 2', '0.5초마다 중첩당 공격력의 ' + pc(0.05 * k)];
     }
-    const word = t => (mage ? t.split('대시 찌르기').join('마력 파동').split('회전베기').join('마법진').split('찌르기').join('내려치기').split('검기').join('마력탄') : t);
+    // 암살자: 반격은 검기처럼 날아가지 않아서 설명을 따로, 나머지는 기술 이름만 바꾼다
+    const assassin = clsOf(prof).id === 'assassin';
+    if (assassin) {
+      T.fire.wave = ['반격에 맞으면 화상 3초: 초당 공격력의 ' + pc(0.3 * k), '받아치기 반격은 언제나 치명타'];
+      T.frost.wave = ['반격에 맞으면 냉기 2', '냉기 ' + FREEZE_AT + ' = 빙결 ' + (1 + 0.25 * k).toFixed(1) + '초'];
+      T.thunder.wave = ['반격에 맞은 적에서 번개가 ' + (1 + Math.floor(s.size / 2)) + '번 튐', '공격력의 ' + pc(0.5 * k) + ' + 감전'];
+      T.poison.wave = ['반격에 맞으면 독 2', '0.5초마다 중첩당 공격력의 ' + pc(0.05 * k)];
+      T.fire.charge = ['그림자 베기가 끝난 자리에서 불꽃 폭발: 공격력의 ' + pc(0.8 * k), '맞은 적은 화상'];
+      T.frost.charge = ['그림자 베기가 끝난 자리에서 냉기 폭발: 공격력의 ' + pc(0.4 * k), '냉기 3 — 거의 바로 빙결'];
+      T.thunder.charge = ['그림자 베기가 끝나면 가까운 적 ' + (2 + s.size) + '마리에 낙뢰', '공격력의 ' + pc(0.7 * k) + ' + 감전'];
+      T.poison.charge = ['그림자 베기가 끝난 자리에 독안개(3초)', '안에 있으면 독이 계속 쌓임'];
+    }
+    const word = t => (mage ? t.split('대시 찌르기').join('마력 파동').split('회전베기').join('마법진').split('찌르기').join('내려치기').split('검기').join('마력탄')
+      : assassin ? t.split('대시 찌르기').join('선풍 베기').split('마무리(찌르기)').join('마무리(교차 베기)') : t);
     const [an] = elAbil(s.el, slot, prof);
     return [...T[s.el][slot].map(word), slotOpen(s) ? '✦ ' + an + ' (열림)' : '· ' + an + ' — 보통 크기부터 열려요'];
   }

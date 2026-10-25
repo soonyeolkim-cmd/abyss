@@ -64,7 +64,73 @@ function actDef(C, kind, idx) {
   if (kind === 'dashAtk') return C.dashAttack;
   if (kind === 'charge') return C.charge.def;
   if (kind === 'special') return C.special;
+  if (kind === 'riposte') return C.riposte || null;   // 암살자 반격
+  if (kind === 'stab') return C.stab || null;         // 암살자 백스탭
   return null;
+}
+
+// ── 암살자: 그림자 숨기(2026-10-25) ── p.hidden = { t } — 몹이 나를 놓친다(world.js 목표 고르기)
+function startHide(p) {
+  p.hidden = { t: 0 };
+  World.text(p.x, p.y, 34, '그림자 숨기', '#b9a0ff');
+  World.sparks(p.x, p.y, 10, 10, '#6a4aa0');
+  Sfx.dash();
+}
+function endHide(p, why) {
+  if (!p.hidden) return;
+  p.hidden = null;
+  if (why) World.text(p.x, p.y, 34, why, '#b9a0ff');
+}
+function updateHide(p, dt) {
+  const h = p.hidden, H = p.cls.charge.hide;
+  h.t += dt;
+  p.sp = Math.max(0, p.sp - H.drain * dt); p.spDelay = p.cls.stamina.delay;
+  if (h.t >= H.max || p.sp <= 0) endHide(p, '모습이 드러났다');
+}
+// 백스탭: blink px 안(벽 너머 제외) 가장 가까운 적의 등 뒤(그 적이 보는 쪽 반대)로 순간이동. 등 뒤가 벽이면 옆으로 돌려 본다. 옮겼으면 그 적
+function blinkBehind(p, range) {
+  const lv = World.level;
+  let tgt = null, bd = range;
+  for (const e of World.enemies()) {
+    if (e.dying || e.state === 'dead' || e.spawnT > 0) continue;
+    const d = Math.hypot(e.x - p.x, e.y - p.y);
+    if (d < bd && Dungeon.los(lv, p.x, p.y - 4, e.x, e.y - 4)) { bd = d; tgt = e; }
+  }
+  if (!tgt) return null;
+  const back = tgt.r + 9, base = Math.atan2(-(tgt.fv ? tgt.fv.y : 0), -(tgt.fv ? tgt.fv.x : 1));
+  for (const da of [0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8, Math.PI]) {
+    const x = tgt.x + Math.cos(base + da) * back, y = tgt.y + Math.sin(base + da) * back;
+    if (!Dungeon.walkable(lv, x, y, BODY_R)) continue;
+    World.sparks(p.x, p.y - 8, 12, 12, '#6a4aa0');
+    World.fx({ type: 'shadowpath', pts: [[p.x, p.y], [x, y]], w: 6, t: 0, life: 0.25, col: '#b9a0ff' });
+    p.x = x; p.y = y;
+    p.fv = unit(tgt.x - x, tgt.y - y, p.fv);
+    World.sparks(x, y - 8, 12, 14, '#b9a0ff', true);
+    return tgt;
+  }
+  return null;
+}
+// 받아치기 성공(combat.js hurtPlayer 가 부름): src = 공격한 몹(탄이면 탄 · 손님 기기면 그 자리) → 그 적을 향해 베고 지나간다
+function parryHit(p, src) {
+  const C = p.cls, R = C.riposte, wk = WEAPON_KINDS[p.stats.kind] || {};
+  let tgt = null, bd = 1e9;
+  for (const e of World.enemies()) {
+    if (e.dying || e.state === 'dead') continue;
+    const d = Math.hypot(e.x - src.x, e.y - src.y) + (e === src ? -999 : 0);  // 때린 몹이 먼저, 탄이면 탄이 온 쪽 가까운 몹
+    if (d < bd && Math.hypot(e.x - p.x, e.y - p.y) < R.max + 20) { bd = d; tgt = e; }
+  }
+  if (tgt) p.fv = unit(tgt.x - p.x, tgt.y - p.y, p.fv);
+  const len = tgt ? Math.max(R.min, Math.min(R.max, Math.hypot(tgt.x - p.x, tgt.y - p.y) + tgt.r + R.past)) : R.min;
+  p.parried = true;
+  p.specialCd = 0;  // 성공하면 쿨타임이 바로 풀려 연속 반격
+  const def = wk.riposte ? Object.assign({}, R, { mult: R.mult * (1 + wk.riposte) }) : R;  // 싸이: 반격 피해 +20%
+  startAct(p, def, 'riposte', 0, { len });
+  p.iframes = p.act.s + p.act.a + R.safe;
+  World.text(p.x, p.y, 40, '받아치기!', '#7fe0ff', true);
+  World.sparks(p.x, p.y, 14, 18, '#ffffff', true);
+  World.hitstop(0.08); World.shake(4);
+  Sfx.forgeTap(4); Sfx.dash();
+  if (!p.remote) Input.rumble(0.7, 160);
 }
 
 function updatePlayer(p, dt, room, gates) {
@@ -79,6 +145,8 @@ function updatePlayer(p, dt, room, gates) {
   p.leafT = Math.max(0, (p.leafT || 0) - dt);    // 유니크 잎사귀 방패 다시 생기기까지
   p.guardT = Math.max(0, (p.guardT || 0) - dt);  // 유니크 잔상 보호막 남은 시간
   if (p.echo) updateEcho(p, dt);
+  p.gapT = Math.max(0, (p.gapT || 0) - dt);  // 암살자 받아치기 실패 빈틈
+  if (p.hidden && !p.dead && !p.remote) updateHide(p, dt);  // 방장 쪽 손님 몸은 손님이 보낸 숨기 상태만(길 · 기력은 손님 기기에서)
   p.slowT = Math.max(0, (p.slowT || 0) - dt);  // 냉기 강화 몹에게 맞으면 느려짐
   p.iframes = Math.max(0, p.iframes - dt);
   p.flash = Math.max(0, p.flash - dt);
@@ -119,7 +187,7 @@ function freeControl(p, dt, room, gates) {
   if (p.buffer && tryStart(p, p.buffer)) return;
   const m = moveInput(p);
   if (m) {
-    const sp = p.cls.speed * (1 + p.stats.move / 100) * (p.charge > 0 ? p.cls.charge.move : 1) * (p.slowT > 0 ? 0.6 : 1);
+    const sp = p.cls.speed * (1 + p.stats.move / 100) * (p.charge > 0 ? p.cls.charge.move : 1) * (p.slowT > 0 ? 0.6 : 1) * (p.hidden ? p.cls.charge.hide.move : 1);
     Dungeon.move(room, p, m.x * sp * dt, m.y * sp * dt, BODY_R, gates);
     p.fv = unit(m.x, m.y, p.fv);
     p.state = 'walk';
@@ -131,7 +199,8 @@ function tryStart(p, b) {
   const C = p.cls;
   p.buffer = null;
   if (b === 'attack') {
-    if (p.dashAtkT > 0) { p.dashAtkT = 0; startAct(p, C.dashAttack, 'dashAtk', 0); }  // 대시 끝난 직후도 대시 찌르기
+    if (p.dashAtkT > 0) { p.dashAtkT = 0; endHide(p); startAct(p, C.dashAttack, 'dashAtk', 0); }  // 대시 끝난 직후도 대시 찌르기
+    else if (p.hidden && C.stab) { endHide(p); const t = blinkBehind(p, C.stab.blink); startAct(p, C.stab, 'stab', 0, { aimed: !!t }); }  // 암살자: 숨은 중 X = 백스탭
     else startAct(p, C.combo[0], 'combo', 0);
     return true;
   }
@@ -140,6 +209,12 @@ function tryStart(p, b) {
     if (p.dodgeCd > 0 || !spend(p, dashCost(p))) return false;
     const m = moveInput(p);
     startDodge(p, m ? unit(m.x, m.y, p.fv) : { x: p.fv.x, y: p.fv.y });
+    return true;
+  }
+  if (b === 'charge' && C.charge.hide) {  // 암살자: 숨기 → 다시 누르면 그림자 베기(직선 돌진)
+    if (p.hidden) { endHide(p); startAct(p, C.charge.def, 'charge', 0); if (!p.remote) Input.rumble(0.5, 90); return true; }
+    if (!spend(p, C.charge.cost)) return false;
+    startHide(p);
     return true;
   }
   if (b === 'charge') {  // 회전베기 · 마법진: 누르면 바로(기력 cost)
@@ -153,6 +228,8 @@ function tryStart(p, b) {
   if (b === 'special') {
     if (p.specialCd > 0 || !spend(p, C.special.cost)) return false;
     p.specialCd = C.special.cd;
+    endHide(p);
+    p.parried = false;
     startAct(p, C.special, 'special', 0);
     return true;
   }
@@ -216,7 +293,8 @@ function aimAt(p, reach) {
   p.fv = best || want;
 }
 
-function startAct(p, def, kind, idx) {
+// o = { len: 반격 거리, aimed: 이미 방향을 정함(백스탭) } — len 은 파티 손님이면 방장 쪽 몸에도 같이 보낸다
+function startAct(p, def, kind, idx, o = {}) {
   const wk = WEAPON_KINDS[p.stats.kind];
   const sp = wk.speed * (1 + p.stats.aspd / 100);
   // 무기에 맞춘 판정
@@ -224,18 +302,21 @@ function startAct(p, def, kind, idx) {
   if (def.reach) hd.reach = [def.reach[0], def.reach[1] + wk.reach];
   if (def.arc) hd.arc = Math.min(170, def.arc * wk.arc);
   if (def.radius) hd.radius = def.radius + wk.reach * 0.5;
-  if (kind !== 'dashAtk') aimAt(p, def.circle ? def.circle.range : def.orb ? def.orb.range * 0.7 : def.wave ? def.wave.range * 0.6 : def.radius || hd.reach[1]);  // 대시 찌르기는 대시한 방향 그대로 · 검기는 멀리까지
+  if (kind !== 'dashAtk' && kind !== 'riposte' && !o.aimed && !def.guard) aimAt(p, def.circle ? def.circle.range : def.orb ? def.orb.range * 0.7 : def.wave ? def.wave.range * 0.6 : def.sweep ? def.dash : def.radius || hd.reach[1]);  // 대시 찌르기는 대시한 방향 그대로 · 검기는 멀리까지
   p.state = 'act';
   p.act = {
     def, hd, kind, idx, time: 0, hit: new Set(), wave: -1, fxDone: false, x0: p.x, y0: p.y,
     push: !!moveInput(p),  // 방향키를 누른 채 공격하면 그쪽으로 내딛는다(중립이면 제자리)
     s: def.startup / sp, a: def.active / sp, r: def.recovery / sp,
+    len: o.len,
   };
+  if (def.guard) p.act.a = def.parry + (wk.parry || 0);  // 받아치기 자세: 무기에 따라 길게(싸이 +0.1초), 공격 속도와 상관없이
   if (def.iframes) p.iframes = p.act.s + p.act.a + 0.05;
   if (def.orb) Sfx.cast();  // 마력탄: 마법 소리(2026-10-25)
   else if (def.heavy || def.spin) Sfx.heavySwing(); else Sfx.swing();
   // 파티 손님: 방장 쪽 내 몸도 같은 동작을(맞히기 · 속성석 효과는 거기서)
-  if (World.mirror && p === World.player) Coop.sendAct({ k: kind, i: idx, x: p.x, y: p.y, fx: p.fv.x, fy: p.fv.y, push: p.act.push ? 1 : 0 });
+  if (World.mirror && p === World.player) Coop.sendAct({ k: kind, i: idx, x: p.x, y: p.y, fx: p.fv.x, fy: p.fv.y, push: p.act.push ? 1 : 0,
+    len: o.len });
 }
 
 function updateAct(p, dt, room) {
@@ -244,7 +325,7 @@ function updateAct(p, dt, room) {
   const tA = a.s, tB = a.s + a.a, tEnd = tB + a.r;
   if (a.time < tB) {
     let v = 0;
-    if (d.dash) { if (a.time >= tA) v = d.dash / a.a; }
+    if (d.dash) { if (a.time >= tA) v = (a.len || d.dash) / a.a; }  // 반격은 그 적까지 거리(a.len)
     // 기본 공격 내딛기(lunge): 방향키를 누르고 있을 때만(2026-10-24 사용자: 중립이면 제자리, 누르면 그쪽으로 전진)
     else if (d.lunge && a.push) v = d.lunge / tB;
     if (v) Dungeon.move(room, p, p.fv.x * v * dt, p.fv.y * v * dt, BODY_R, false);
@@ -252,8 +333,10 @@ function updateAct(p, dt, room) {
   if (!a.fxDone && a.time >= tA) {
     a.fxDone = true;
     if (d.dash) World.fx({ type: 'streak', x0: a.x0, y0: a.y0, follow: p, t: 0, life: 0.25 });
+    // 그림자 베기: 출발점에서 몸을 따라 늘어나는 넓은 그림자 빛 띠(차지 칸 속성석 색)
+    if (d.sweep) World.fx({ type: 'shadowpath', pts: [[a.x0, a.y0]], follow: p, w: d.width * 1.6, t: 0, life: a.a + 0.45, col: Elements.color(p.prof, 'charge', null) || '#d8c8ff' });
     if (d.spin) World.fx({ type: 'ring', follow: p, r: a.hd.radius, t: 0, life: 0.3, col: Elements.color(p.prof, d.slot || 'none') });
-    if (a.kind === 'charge' && !d.circle) Elements.chargeBurst(p);  // 회전베기 칸 속성석: 둘레 폭발(마법진은 터질 때 그 자리에서)
+    if (a.kind === 'charge' && !d.circle && !d.sweep) Elements.chargeBurst(p);  // 회전베기 칸 속성석: 둘레 폭발(마법진은 터질 때 그 자리에서)
     if (d.pulse) World.fx({ type: 'pulse', x: p.x, y: p.y, r: a.hd.radius, t: 0, life: 0.3, col: Elements.color(p.prof, 'dash') });
     // 마력탄: 가볍게 따라가는 빛 구슬, 처음 닿은 적에서 터진다(마력탄 칸 속성석 색)
     if (d.orb) {
@@ -282,6 +365,12 @@ function updateAct(p, dt, room) {
       if (w !== a.wave) { a.wave = w; a.hit.clear(); }
     }
     let landed = false;
+    // 그림자 베기: 출발점 → 지금 자리 직선에서 width + 몸 반지름 안의 적 모두(지나가며 벤다)
+    if (d.sweep) for (const e of World.enemies()) {
+      if (a.hit.has(e) || e.dying || e.state === 'dead') continue;
+      const dx = p.x - a.x0, dy = p.y - a.y0, L2 = dx * dx + dy * dy || 1, k = Math.max(0, Math.min(1, ((e.x - a.x0) * dx + (e.y - a.y0) * dy) / L2));
+      if (Math.hypot(e.x - (a.x0 + dx * k), e.y - (a.y0 + dy * k)) <= d.width + e.r && hitEnemy(e, d, p)) { a.hit.add(e); landed = true; }
+    }
     for (const e of World.enemies()) {
       if (!a.hd.reach && !a.hd.radius) break;  // 마력탄 · 마법진: 몸 판정 없음
       if (a.hit.has(e) || !inHitbox(p, p.fv, a.hd, e, e.r)) continue;
@@ -294,6 +383,12 @@ function updateAct(p, dt, room) {
       if (d.heavy) World.shake(2);
     }
   }
+  // 그림자 베기 도착: 차지 칸 속성석 폭발은 도착한 자리에서
+  if (d.sweep && !a.endDone && a.time >= tB) {
+    a.endDone = true;
+    World.shake(3);
+    Elements.chargeBurst(p);
+  }
   // 후딜에서 다음 콤보 · 특수기 · 대시로 끊을 수 있다
   if (a.time >= tB) {
     const b = p.buffer;
@@ -304,5 +399,9 @@ function updateAct(p, dt, room) {
     }
     if (b && b !== 'attack' && tryStart(p, b)) return;
   }
-  if (a.time >= tEnd) { p.state = 'idle'; p.act = null; }
+  if (a.time >= tEnd) {
+    // 받아치기를 못 하고 자세가 끝남: 빈틈(gap.t 초 안에 처음 맞는 피해 +gap.mult)
+    if (d.guard && !p.parried && d.gap) { p.gapT = d.gap.t; World.text(p.x, p.y, 34, '빈틈!', '#ff7a6a'); }
+    p.state = 'idle'; p.act = null;
+  }
 }

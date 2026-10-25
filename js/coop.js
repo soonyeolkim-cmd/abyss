@@ -195,6 +195,7 @@ const Coop = (() => {
         const mv = moveInput(tp);  // 방장 쪽 내 몸이 다음 소식까지 같은 쪽으로 걷게
         if (mv) { m.mx = r2(mv.x); m.my = r2(mv.y); }
         if (tp.iframes > 0) m.ifr = 1;
+        if (tp.hidden) m.hid = r1(tp.hidden.t);  // 암살자 그림자 숨기(방장 몹이 놓치게 · 친구 화면 반투명)
         if (tp.state === 'act' && tp.act) { const a = tp.act; m.a = [a.kind, a.idx, r2(a.time), r2(a.s), r2(a.a), r2(a.r)]; }  // 친구 화면에 휘두르는 모습
       }
       if (s === 'select') {  // 방장 던전 고르기: 커서 · 난이도 · 깬 던전(손님 화면에 같은 고르기 창)
@@ -230,6 +231,7 @@ const Coop = (() => {
     body.state = now.st || 'idle';
     if (body.state === 'idle' && d > 2) body.state = 'walk';  // 따라가는 중에는 걷는 모습
     body.dodgeV = body.fv; body.dead = body.state === 'dead';
+    body.hidden = now.hid !== undefined ? { t: now.hid } : null;
     if (body.state === 'walk') body.walkT += dt;
     // 휘두르는 중: 받은 동작 · 시간에서 이어서(다음 소식까지 시간만 흐름)
     const a = now.a, def = a && actDef(body.cls, a[0], a[1]);
@@ -278,6 +280,7 @@ const Coop = (() => {
     if (q.state !== 'act' && (m.fx || m.fy)) q.fv = { x: m.fx, y: m.fy };
     q.rmove = m.mx !== undefined ? { x: m.mx, y: m.my } : null;
     q.ifr = !!m.ifr;
+    q.hidden = m.hid !== undefined ? { t: m.hid } : null;
     const wasDead = q.dead;
     q.dead = m.st === 'dead';  // 손님 쓰러짐(몹은 안 노림, 누운 모습)
     if (q.dead) { q.state = 'dead'; q.act = null; } else if (wasDead) q.state = 'idle';
@@ -293,7 +296,7 @@ const Coop = (() => {
       const def = actDef(q.cls, m.k, m.i);
       if (!def) return;
       if (q.state === 'dodge') Elements.dashEnd(q);
-      startAct(q, def, m.k, m.i);
+      startAct(q, def, m.k, m.i, { len: m.len });  // len = 반격 거리(암살자)
       q.fv = { x: m.fx, y: m.fy };
       q.act.push = !!m.push;
     });
