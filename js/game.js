@@ -8,11 +8,11 @@ const Game = (() => {
   let scene = 'title', overlays = [], prof = null, res = null;
   let toastMsg = null, toastT = 0, time = 0, acc = 0, last = performance.now();
 
-  // 켜면 캐릭터 선택 화면(2026-10-24 사용자). prof 는 1번 칸(없으면 새 기록)을 미리 읽어 둔다 — 고르기 전에는 저장하지 않는다
+  // 켜면 시작 화면(splash.js, 2026-10-25) → 아무 버튼이나 누르면 캐릭터 선택(2026-10-24). prof 는 1번 칸(없으면 새 기록)을 미리 읽어 둔다 — 고르기 전에는 저장하지 않는다
   function init() {
     Save.setSlot(0);
     prof = Save.load() || Save.fresh();
-    UI.title.open();
+    scene = 'splash';
   }
   // 칸 n 의 캐릭터로 시작(fresh = 새로 만들기)
   function startSlot(n, fresh, cls) {
@@ -75,6 +75,7 @@ const Game = (() => {
     if (scene === 'town') Town.update(dt);
     else if (scene === 'select') UI.select.update(prof);
     else if (scene === 'title') UI.title.update();
+    else if (scene === 'splash') Splash.update();
     else if (scene === 'result') UI.result.update();
     else if (scene === 'run') {
       if (Input.wasPressed('pause')) { overlay({ type: 'pause' }); return; }
@@ -90,6 +91,7 @@ const Game = (() => {
     if (scene === 'town') Town.draw(ctx);
     else if (scene === 'select') UI.select.draw(ctx, prof, time);
     else if (scene === 'title') UI.title.draw(ctx, time);
+    else if (scene === 'splash') Splash.draw(ctx, time);
     else if (scene === 'result') UI.result.draw(ctx, res, prof, time);
     else if (scene === 'run') World.draw(ctx);
     for (const o of overlays) {

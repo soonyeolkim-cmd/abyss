@@ -114,7 +114,7 @@ const UI = (() => {
       else Game.toast(r);
     },
     draw(ctx, time) {
-      backdrop(ctx, time);
+      Splash.backdrop(ctx, time);  // 시작 화면과 같은 동굴 배경(2026-10-25)
       T_(ctx, '심연으로', 480, 76, 34, '#f0e0b8', 'center');  // 게임 이름(2026-10-24 사용자)
       T_(ctx, '캐릭터 선택', 480, 108, 16, '#9a8e96', 'center');
       for (let n = 0; n < Save.SLOTS_N; n++) {
