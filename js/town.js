@@ -52,8 +52,8 @@ const Town = (() => {
       ] }) },
     // 창고(2026-10-24 사용자): 유니크 컬렉션. 사람 대신 상자
     { id: 'vault', name: '창고', role: '유니크 컬렉션 · 부위별 달성률', prop: 'chest_full_open_anim_f0', ...px(27, 9), go: () => Game.overlay({ type: 'vault' }) },
-    // 파수꾼 카엘(2026-10-25 사용자: 카엘이 마을에 있었으면) — 던전 입구 왼쪽을 지킨다(입구가 아래로 가서 같이 아래로). 몸 = 검사 몸 + 갈색 두건 · 흰 수염 · 망토(assets/dt/kael.png)
-    { id: 'kael', name: '파수꾼 카엘', role: '조언 · 이야기 다시 보기', sprite: 'kael', ...px(11, 13), flip: false,
+    // 파수꾼 카엘(2026-10-25 사용자: 카엘이 마을에 있었으면) — 광장 분수 바로 위(사용자: 우물 위쪽으로). 몸 = 검사 몸 + 갈색 두건 · 흰 수염 · 망토(assets/dt/kael.png)
+    { id: 'kael', name: '파수꾼 카엘', role: '조언 · 이야기 다시 보기', sprite: 'kael', ...px(14, 7), x: 15 * T, flip: false,
       go: () => Game.overlay({ type: 'choice', title: '파수꾼 카엘', items: [
         { label: '이야기 듣기', go: () => Story.talkNpc('kael') },
         { label: '처음 이야기 다시 보기', go: () => Story.replay() },
@@ -67,8 +67,16 @@ const Town = (() => {
   const GATE_POLES = [12, 17];  // 던전 입구 계단(14 · 15, 14) 양옆 깃대(칸 x, 14) — 막히는 칸
   const FOUNTAIN = { x: 15 * T, y: 10 * T, tiles: [[14, 9], [15, 9], [14, 10], [15, 10]] };  // 광장 기둥 넷 가운데 작은 분수(가운데 x · 바닥 y)
   const ANVIL = { x: 7 * T - 2, y: 3 * T - 2 };  // 브론 뒤 모루(가운데 x · 바닥 y)
-  const CRYSTALS = [[1, 11, '#b070ff', 1], [2, 11, '#6ad8ff', 0.7]];  // 미라 둘레 수정 무더기(칸 x, y, 빛 색, 크기)
+  // 미라 아래 세공품 진열(2026-10-25 사용자: 더 예쁘게): 떠 있는 보석 받침대 (1,11) · 쪼갠 정동석 (3,11)
+  const GEM_STAND = [1, 11], GEODE = [3, 11];
+  const CART = [21, 13];  // 오르반 왼쪽 광석 수레(광차) + 짧은 철길 · 기대 둔 곡괭이
   const GAMBLER_LINES = ['오늘은 왠지 유니크 각인데…', '한 번만 더? 크흐흐', '깨 보기 전엔 아무도 몰라~', '유니크 ' + Math.round(JAR.uniq * 100) + '%! 오늘은 너다', '방금 누가 유니크 떴다던데?', '꽝도 추억이지, 크흐흐'];
+  // 오르반 혼잣말(2026-10-25 사용자: 오르반도 개성) — 곰방대 문 투덜이 늙은 광부
+  const MINER_LINES = ['에헴… 내가 젊었을 땐 말이야…', '후우… 담배 맛이 예전 같지 않구먼', '콜록콜록! 갱도 먼지는 평생 가', '이 수레엔 은이 반이라네, 허허', '저 구멍에서 또 긁는 소리가…', '곡괭이는 배신 안 한다네'];
+  const WHISPERS = [
+    { id: 'gambler', lines: GAMBLER_LINES, period: 7, off: 0, edge: '#e8a050', bg: '#2a1a24', col: '#ffe0b0' },
+    { id: 'miner', lines: MINER_LINES, period: 9, off: 4.5, edge: '#a8946a', bg: '#221c14', col: '#e8dcc0' },
+  ];
   const TALK_R = 26;
   const TOWN_SPEED = 1.6;  // 마을에서는 던전보다 60% 빠르게 걷는다(2026-10-24 사용자)
 
@@ -94,7 +102,7 @@ const Town = (() => {
     for (const x of GATE_POLES) block([x, 14]);
     for (const c of FOUNTAIN.tiles) block(c);
     block([7, 2]);
-    for (const [x, y] of CRYSTALS) block([x, y]);
+    block(GEM_STAND); block(GEODE); block(CART);
     m.canvas = Dungeon.paint(m);
     m.painted = Gfx.ready();  // 그림 파일이 아직 안 읽혔으면 그릴 때 다시
     return m;
@@ -105,8 +113,8 @@ const Town = (() => {
     prof = pr;
     if (!lv) lv = build();
     p = createPlayer(prof);
-    const s = fromGate ? px(14, 12) : px(14, 7);  // 던전에서 오면 아래 입구 바로 위(분수 아래), 처음엔 광장 위쪽
-    p.x = 15 * T; p.y = s.y; p.fv = { x: 0, y: fromGate ? -1 : 1 };
+    const s = px(14, 12);  // 아래 입구 바로 위(분수 아래) — 광장 위쪽은 카엘 자리
+    p.x = 15 * T; p.y = s.y; p.fv = { x: 0, y: -1 };
     if (prof.story && prof.story.openingAgain) { delete prof.story.openingAgain; Save.write(prof); Story.replay(); }  // 예전 캐릭터: 오프닝 한 번
     else if (fromGate) Story.townArrive();  // 보스를 쓰러뜨리고 돌아왔으면 카엘이 한마디
   }
@@ -205,7 +213,11 @@ const Town = (() => {
     list.push({ y: FOUNTAIN.y + 14, draw: () => drawFountain(ctx) });
     list.push({ y: ANVIL.y, draw: () => drawAnvil(ctx) });
     list.push({ y: 9 * T + 6, draw: () => drawGemTable(ctx) });
-    for (const [x, y, col, k] of CRYSTALS) list.push({ y: (y + 1) * T - 2, draw: () => drawCrystal(ctx, x * T + 8, (y + 1) * T - 3, col, k) });
+    list.push({ y: (GEM_STAND[1] + 1) * T - 2, draw: () => drawGemStand(ctx, GEM_STAND[0] * T + 8, (GEM_STAND[1] + 1) * T - 3) });
+    list.push({ y: (GEODE[1] + 1) * T - 2, draw: () => drawGeode(ctx, GEODE[0] * T + 8, (GEODE[1] + 1) * T - 3) });
+    list.push({ y: (CART[1] + 1) * T - 2, draw: () => drawCart(ctx, CART[0] * T + 8, (CART[1] + 1) * T - 3) });
+    // 오르반: 곰방대 연기(위로 흔들리며 흐려지는 회색 덩이) · 안전모 등불의 따뜻한 빛(일렁임) — 맨 위에
+    list.push({ y: 1e6, draw: () => drawMinerFx(ctx, STATIONS.find(s => s.id === 'miner')) });
     for (const s of STATIONS) if (s.prop) list.push({ y: s.y, draw: () => { Art.shadow(ctx, s.x, s.y, 7, 0, 1); Gfx.spr(ctx, s.prop, s.x, s.y); } });
     for (const s of STATIONS) if (s.sprite) list.push({ y: s.y, draw: () => {
       Art.shadow(ctx, s.x, s.y, 6, 0, 1);
@@ -248,19 +260,20 @@ const Town = (() => {
     // 도박꾼 세로 현수막 글(금빛으로 일렁임) · 속삭임(말 걸 만큼 가까우면 '말 걸기'가 그 자리라 안 띄움): 7초마다 한 줄, 4초 보이고 흐려진다
     const pulse = 0.5 + 0.5 * Math.sin(time * 3), bcol = 'rgb(255,' + Math.round(208 + 30 * pulse) + ',' + Math.round(90 + 60 * pulse) + ')';
     for (const [bx, word] of VBANNERS) [...word].forEach((ch, i) => Gfx.text(ctx, ch, sx(bx * T + 8 + Math.round(Math.sin(time * 1.4 + bx) * 0.5)), sy(2 * T + 7) + 19 + i * 16, 13, bcol, 'center'));
-    const gb = STATIONS.find(s => s.id === 'gambler');
-    if (near !== gb) {
-      const ph = time % 7, ga = ph < 0.4 ? ph / 0.4 : ph > 3.6 ? Math.max(0, (4 - ph) / 0.4) : 1;
-      if (ph < 4) {
-        const line = GAMBLER_LINES[Math.floor(time / 7) % GAMBLER_LINES.length], gx = sx(gb.x), gy = sy(gb.y) - 92;
-        ctx.save(); ctx.globalAlpha = ga;
-        ctx.font = 'bold 12px ' + Gfx.FONT;
-        const w = ctx.measureText(line).width + 18;
-        Gfx.panel(ctx, gx - w / 2, gy - 17, w, 24, { border: '#e8a050', bg: '#2a1a24' });
-        ctx.fillStyle = '#e8a050'; ctx.beginPath(); ctx.moveTo(gx - 5, gy + 7); ctx.lineTo(gx + 5, gy + 7); ctx.lineTo(gx, gy + 13); ctx.fill();
-        Gfx.text(ctx, line, gx, gy, 12, '#ffe0b0', 'center');
-        ctx.restore();
-      }
+    // 혼잣말 말풍선(도박꾼 · 광부): period 초마다 한 줄, 4초 보이고 흐려짐. 둘이 엇갈려 뜨게 off 로 밀어 둠
+    for (const wh of WHISPERS) {
+      const st = STATIONS.find(s => s.id === wh.id);
+      if (near === st) continue;
+      const tt = time + wh.off, ph = tt % wh.period, ga = ph < 0.4 ? ph / 0.4 : ph > 3.6 ? Math.max(0, (4 - ph) / 0.4) : 1;
+      if (ph >= 4) continue;
+      const line = wh.lines[Math.floor(tt / wh.period) % wh.lines.length], gx = sx(st.x), gy = sy(st.y) - 92;
+      ctx.save(); ctx.globalAlpha = ga;
+      ctx.font = 'bold 12px ' + Gfx.FONT;
+      const w = ctx.measureText(line).width + 18;
+      Gfx.panel(ctx, gx - w / 2, gy - 17, w, 24, { border: wh.edge, bg: wh.bg });
+      ctx.fillStyle = wh.edge; ctx.beginPath(); ctx.moveTo(gx - 5, gy + 7); ctx.lineTo(gx + 5, gy + 7); ctx.lineTo(gx, gy + 13); ctx.fill();
+      Gfx.text(ctx, line, gx, gy, 12, wh.col, 'center');
+      ctx.restore();
     }
     // 파티원 머리 위 이름표(파티 순서 색)
     for (const m of mates) Gfx.text(ctx, clsOf(m.prof).name + ' Lv.' + (m.lv || '?'), sx(m.x), sy(m.y) - 62, 12, Coop.colorOf(m.pid), 'center');
@@ -393,25 +406,87 @@ const Town = (() => {
       if (Math.floor(time * 1.5) % 3 === i) { ctx.fillStyle = '#ffffff'; ctx.fillRect(gx, gy - 1, 1, 1); ctx.fillRect(gx, gy - 4, 1, 2); ctx.fillRect(gx - 2, gy - 3, 1, 1); ctx.fillRect(gx + 2, gy - 3, 1, 1); }
     });
   }
-  // 수정 무더기: 뾰족한 결정 셋(가운데가 큼) · 밝은 옆면 · 은은한 빛
-  function drawCrystal(ctx, cx, by, col, k) {
+  const glowAt = (ctx, x, y, r, rgb, a) => {  // 밝게 더하는 둥근 빛
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    const g = ctx.createRadialGradient(cx, by - 6, 0, cx, by - 6, 16 * k);
-    g.addColorStop(0, hexAlpha(col, 0.3 + 0.12 * Math.sin(time * 2 + cx))); g.addColorStop(1, hexAlpha(col, 0));
-    ctx.fillStyle = g; ctx.fillRect(cx - 16, by - 22, 32, 32);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, 'rgba(' + rgb + ',' + Math.max(0, a) + ')'); g.addColorStop(1, 'rgba(' + rgb + ',0)');
+    ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
     ctx.restore();
-    Art.shadow(ctx, cx, by + 1, 6 * k, 0, 1);
-    for (const [dx, h, w] of [[-4, 7, 3], [4, 6, 3], [0, 12, 4]]) {
-      const H = Math.round(h * k), W = Math.max(2, Math.round(w * k)), x = Math.round(cx + dx * k);
-      for (let r = 0; r < H; r++) {
-        const hw = Math.max(1, Math.round(W * (r + 1) / H));
-        ctx.fillStyle = '#1a1030'; ctx.fillRect(x - hw - 1, by - H + r, hw * 2 + 2, 1);
-        ctx.fillStyle = col; ctx.fillRect(x - hw, by - H + r, hw * 2, 1);
-        ctx.fillStyle = '#ffffff'; ctx.globalAlpha = 0.55; ctx.fillRect(x - hw, by - H + r, 1, 1); ctx.globalAlpha = 1;
-      }
+  };
+  const pix = (ctx, x0, y0, rows, pal) => rows.forEach((row, r) => [...row].forEach((ch, c) => { if (pal[ch]) { ctx.fillStyle = pal[ch]; ctx.fillRect(x0 + c, y0 + r, 1, 1); } }));
+  // 떠 있는 보석 받침대: 금 테 두른 돌 받침 위로 깎은 보석이 둥실(색이 보라 → 분홍 → 하늘로 천천히 바뀜) · 아래로 내리는 빛 · 둘레를 도는 반짝이
+  const GEM_ROWS = ['..ooooo..', '.oLWLMLo.', 'oLLMMMDDo', 'oMMMMMDDo', '.oMMMDDo.', '..oMMDo..', '...oDo...', '....o....'];
+  const GEM_HUES = [['#e0c0ff', '#b070ff', '#6a30b0', '180,120,255'], ['#ffc8e8', '#ff70c0', '#a03070', '255,120,200'], ['#c8f4ff', '#6ad8ff', '#2a80b0', '110,210,255']];
+  function drawGemStand(ctx, cx, by) {
+    Art.shadow(ctx, cx, by + 1, 7, 0, 1);
+    const O = '#2a2422', S = '#8a8078', L = '#b0a89e', D = '#5e5650';
+    ctx.fillStyle = O; ctx.fillRect(cx - 7, by - 4, 14, 5); ctx.fillRect(cx - 4, by - 13, 8, 10); ctx.fillRect(cx - 6, by - 16, 12, 4);
+    ctx.fillStyle = D; ctx.fillRect(cx - 6, by - 3, 12, 3);
+    ctx.fillStyle = S; ctx.fillRect(cx - 6, by - 3, 12, 1); ctx.fillRect(cx - 3, by - 12, 6, 9);
+    ctx.fillStyle = L; ctx.fillRect(cx - 3, by - 12, 1, 9);
+    ctx.fillStyle = S; ctx.fillRect(cx - 5, by - 15, 10, 2);
+    ctx.fillStyle = '#c8962e'; ctx.fillRect(cx - 5, by - 14, 10, 1);
+    const k = Math.floor(time / 4) % 3, [l, m, d, rgb] = GEM_HUES[k], bob = Math.round(Math.sin(time * 2) * 1.5), gy = by - 28 + bob;
+    glowAt(ctx, cx, gy + 4, 14, rgb, 0.4 + 0.1 * Math.sin(time * 3));
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(' + rgb + ',0.16)'; ctx.fillRect(cx - 2, gy + 8, 4, by - 16 - gy - 8); ctx.restore();
+    pix(ctx, cx - 4, gy, GEM_ROWS, { o: '#1a1030', L: l, M: m, D: d, W: Math.sin(time * 4) > 0.3 ? '#ffffff' : l });
+    ctx.fillStyle = '#ffffff';
+    for (let i = 0; i < 3; i++) {  // 반짝이 셋
+      const an = time * 1.5 + i * 2.1, tw = Math.max(0, Math.sin(time * 5 + i * 1.7));
+      const sx = Math.round(cx + Math.cos(an) * 9), sy = Math.round(gy + 4 + Math.sin(an) * 4);
+      ctx.fillRect(sx, sy, 1, 1); if (tw > 0.6) { ctx.fillRect(sx - 1, sy, 3, 1); ctx.fillRect(sx, sy - 1, 1, 3); }
     }
   }
-  const hexAlpha = (hex, a) => { const n = parseInt(hex.slice(1), 16); return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + Math.max(0, a) + ')'; };
+  // 쪼갠 정동석: 거친 돌 껍데기 안에 하늘빛 결정이 빽빽(은은한 빛) · 옆에 떨어진 결정 조각 둘
+  function drawGeode(ctx, cx, by) {
+    const cy = by - 7;
+    glowAt(ctx, cx, cy, 20, '110,210,255', 0.38 + 0.12 * Math.sin(time * 2.2));
+    Art.shadow(ctx, cx, by + 1, 10, 0, 1);
+    // 껍데기(아래쪽이 두꺼운 앞면) → 결정 층 셋(바깥 하늘 · 밝은 하늘 · 빛나는 가운데)
+    ell(ctx, cx, cy + 1, 11, 7, '#2a2422'); ell(ctx, cx, cy + 1, 10, 6, '#4e423c'); ell(ctx, cx, cy, 10, 6, '#2a2422');
+    ell(ctx, cx, cy, 9, 5, '#8a7a6e'); ell(ctx, cx - 1, cy - 1, 8, 3, '#a8988a');
+    ell(ctx, cx, cy, 7, 4, '#2a80b0'); ell(ctx, cx, cy, 6, 3, '#6ad8ff'); ell(ctx, cx, cy, 4, 2, '#a8ecff'); ell(ctx, cx, cy, 2, 1, '#e8fcff');
+    ctx.fillStyle = '#2a80b0';  // 결정 면 사이 금(가운데로 모이는 선)
+    for (const [dx, dy] of [[-5, 0], [-4, -2], [-1, -3], [2, -3], [4, -2], [5, 1], [3, 2], [-3, 2]]) ctx.fillRect(cx + dx, cy + dy, 1, 1);
+    [[-3, -1], [2, 1], [0, -2], [4, 0]].forEach(([dx, dy], i) => {  // 반짝
+      if (Math.sin(time * 3.5 + i * 1.6) > 0.6) { ctx.fillStyle = '#ffffff'; ctx.fillRect(cx + dx, cy + dy, 1, 1); }
+    });
+    for (const [dx, dy] of [[13, 0], [-13, -1]]) {  // 떨어진 조각
+      ctx.fillStyle = '#1a1030'; ctx.fillRect(cx + dx - 1, by + dy - 3, 3, 4);
+      ctx.fillStyle = '#6ad8ff'; ctx.fillRect(cx + dx, by + dy - 3, 1, 3); ctx.fillStyle = '#c8f4ff'; ctx.fillRect(cx + dx, by + dy - 3, 1, 1);
+    }
+  }
+  // 광석 수레(광차): 짧은 철길(침목) 위 쇠 수레 · 바퀴 둘 · 가득 실은 광석(은 · 금 · 푸른 알갱이가 반짝) · 오른쪽에 기대 둔 곡괭이
+  function drawCart(ctx, cx, by) {
+    ctx.fillStyle = '#4a2e1a'; for (let x = cx - 16; x <= cx + 14; x += 5) ctx.fillRect(x, by - 4, 2, 6);  // 침목
+    ctx.fillStyle = '#7a7e88'; ctx.fillRect(cx - 18, by - 3, 36, 1); ctx.fillRect(cx - 18, by + 1, 36, 1);  // 철길
+    Art.shadow(ctx, cx, by, 9, 0, 1);
+    ctx.fillStyle = '#16181e'; ctx.fillRect(cx - 9, by - 15, 18, 3); ctx.fillRect(cx - 8, by - 12, 16, 8);
+    ctx.fillStyle = '#5a5e68'; ctx.fillRect(cx - 7, by - 12, 14, 7);
+    ctx.fillStyle = '#3a3e48'; ctx.fillRect(cx - 7, by - 9, 14, 1); ctx.fillRect(cx - 2, by - 12, 1, 7); ctx.fillRect(cx + 3, by - 12, 1, 7);
+    ctx.fillStyle = '#8a92a0'; ctx.fillRect(cx - 8, by - 14, 16, 1);
+    ctx.fillStyle = '#c8962e'; ctx.fillRect(cx - 6, by - 11, 1, 1); ctx.fillRect(cx + 5, by - 11, 1, 1); ctx.fillRect(cx - 6, by - 7, 1, 1); ctx.fillRect(cx + 5, by - 7, 1, 1);  // 못
+    for (const wx of [cx - 5, cx + 4]) { ctx.fillStyle = '#16181e'; ctx.fillRect(wx - 2, by - 5, 4, 4); ctx.fillStyle = '#4a4e58'; ctx.fillRect(wx - 1, by - 4, 2, 2); }
+    // 실은 광석: 둥근 덩이 몇 개 + 반짝이는 알갱이
+    for (const [dx, dy, r, c] of [[-5, -16, 3, '#6a5e58'], [0, -17, 4, '#7a6e66'], [5, -16, 3, '#8a7e76'], [-2, -19, 2, '#9a8e84'], [3, -19, 2, '#7a6e66']]) ell(ctx, cx + dx, by + dy, r, Math.max(1, r - 1), c);
+    [[-4, -17, '#e8f0ff'], [1, -19, '#ffd36a'], [5, -17, '#6ab8ff'], [-1, -15, '#ffd36a']].forEach(([dx, dy, c], i) => {
+      ctx.fillStyle = Math.sin(time * 3 + i * 1.9) > 0.2 ? c : '#5e5650'; ctx.fillRect(cx + dx, by + dy, 1, 1);
+    });
+    // 곡괭이: 자루 + 쇠 머리(위에 걸침)
+    ctx.fillStyle = '#5a3a22'; for (let i = 0; i < 14; i++) ctx.fillRect(Math.round(cx + 10 + i * 0.3), by - i, 1, 1);
+    ctx.fillStyle = '#2a2422'; ctx.fillRect(cx + 9, by - 17, 9, 3);
+    ctx.fillStyle = '#9aa2b0'; ctx.fillRect(cx + 10, by - 16, 7, 1); ctx.fillRect(cx + 9, by - 15, 1, 1); ctx.fillRect(cx + 17, by - 15, 1, 1);
+  }
+  // 오르반 곰방대 연기 · 안전모 등불 빛(곰방대 대통 · 등불은 assets/dt/miner.png 에 그려져 있고, 여기선 그 자리에 연기 · 빛만)
+  function drawMinerFx(ctx, s) {
+    glowAt(ctx, s.x + 6, s.y - 19, 18, '255,215,130', 0.22 + 0.06 * Math.sin(time * 7) + 0.04 * Math.sin(time * 13));
+    glowAt(ctx, s.x + 6, s.y - 12, 4, '255,140,50', 0.5 + 0.3 * Math.sin(time * 2.5));  // 대통 불씨(빨아들일 때 밝아짐)
+    for (let k = 0; k < 4; k++) {
+      const u = (time * 0.45 + k / 4) % 1, r = 1 + u * 2.2;
+      ctx.fillStyle = 'rgba(200,200,205,' + (0.55 * (1 - u)) + ')';
+      ctx.beginPath(); ctx.arc(s.x + 6 + u * 4 + Math.sin(u * 7 + k) * 1.5, s.y - 13 - u * 18, r, 0, Math.PI * 2); ctx.fill();
+    }
+  }
 
   // 장비가 바뀌면 걷는 속도 등 다시
   function refresh() { if (p) p.stats = Items.playerStats(prof); }
