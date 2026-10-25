@@ -319,7 +319,7 @@ const Hud = (() => {
     T_(ctx, '기력', 894, PY - 26, 11, '#a8b8d8', 'center');
     // 물약 벨트
     const by = PY + 20;
-    T_(ctx, '물약 ' + L('potion'), 142, by - 2, 10, '#c8b8a0');
+    T_(ctx, Input.touchMode() ? '물약' : '물약 ' + L('potion'), 142, by - 2, 10, '#c8b8a0');
     for (let i = 0; i < C.potion.max; i++) {
       const x = 140 + i * 38;
       box(ctx, x, by + 2, 34);
@@ -338,7 +338,7 @@ const Hud = (() => {
         ctx.fillStyle = 'rgba(10,6,8,0.75)'; ctx.beginPath(); ctx.arc(x + 34, y + 33, 9, 0, Math.PI * 2); ctx.fill();
         Gfx.stoneIcon(ctx, s, x + 34, y + 33, 16);
       }
-      T_(ctx, L(SKILL_KEYS[slot]) + ' ' + C.slotShort[slot], x + 22, PY + 12, 11, col || '#c8b8a0', 'center');
+      T_(ctx, (Input.touchMode() ? '' : L(SKILL_KEYS[slot]) + ' ') + C.slotShort[slot], x + 22, PY + 12, 11, col || '#c8b8a0', 'center');
       const n = costs[slot];
       T_(ctx, '기력 ' + n, x + 22, PY + 73, 10, !n ? '#6a7a90' : p.sp >= n ? '#8ab8ff' : '#ff7a6a', 'center');
     });
@@ -346,7 +346,7 @@ const Hud = (() => {
     Gfx.spr(ctx, 'coin_anim_f0', 612, PY + 15, { scale: 1.4 });
     T_(ctx, fmtNum(prof.gold), 622, PY + 15, 13, '#ffd34d');
     gemSummary(ctx, prof, 606, PY + 31, p);
-    T_(ctx, L('pause') + ' 메뉴 · ' + L('inv') + ' 가방', 142, PY + 73, 10, '#7a6e70');
+    if (!Input.touchMode()) T_(ctx, L('pause') + ' 메뉴 · ' + L('inv') + ' 가방', 142, PY + 73, 10, '#7a6e70');
   }
 
   function draw(ctx) {

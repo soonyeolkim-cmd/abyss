@@ -212,6 +212,7 @@ const Jar = (() => {
       Gfx.panel(ctx, bx, by, bw, 38, { border: '#e8c040', bg: '#1d151b' });
       T_(ctx, (st === 'result' ? '한 번 더 ' : '항아리 깨기 ') + p + 'G ' + L('ok'), CX, by + 25, 15, '#ffd36a', 'center');
     }
+    if (Input.touchMode()) return;  // 폰: 키 이름 안내 글 없음
     ctx.fillStyle = '#000'; ctx.fillRect(0, 496, 960, 44);
     T_(ctx, '부위 고르기 ↑↓ · 레벨 ←→ · 항아리 깨기 ' + L('ok') + ' · 닫기 ' + L('back'), 480, 522, 13, '#8a7e88', 'center');
   }

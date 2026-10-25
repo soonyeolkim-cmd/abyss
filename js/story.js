@@ -387,7 +387,7 @@ const Story = (() => {
       typed(ctx, lines, bx + 146, by + 66, 17, 26, '#f0e8dc', o.chars);
     }
     if (o.chars >= o.total && Math.sin(time * 6) > 0) T_(ctx, '▼', who === 'narr' ? 480 : 832, who === 'narr' ? 430 : 506, 14, sp.color, 'center');
-    T_(ctx, '넘기기 ' + L('ok') + ' · 건너뛰기 ' + L('back'), 950, 532, 11, '#6a6068', 'right');
+    if (!Input.touchMode()) T_(ctx, '넘기기 ' + L('ok') + ' · 건너뛰기 ' + L('back'), 950, 532, 11, '#6a6068', 'right');
   }
 
   return { trigger, townArrive, replay, replayTrue, talkNpc, update, draw };

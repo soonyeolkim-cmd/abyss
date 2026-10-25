@@ -172,7 +172,7 @@ const Town = (() => {
     ctx.fillStyle = '#c8962e'; for (const x of [326, 404, 556, 634]) { ctx.fillRect(x, cy + 16, 6, 6); ctx.fillRect(x, cy + 68, 6, 6); }
     // 글 · 끝 무렵 하얗게(위) / 까맣게(아래)
     Gfx.text(ctx, '왕의 갱도 — ' + (up ? '광산 도시 실베인으로' : '지하 도시 벨록으로'), 480, 60, 20, up ? '#ffe8a0' : '#c8b8a0', 'center');
-    Gfx.text(ctx, '건너뛰기 ' + L('ok'), 940, 528, 12, '#8a7e88', 'right');
+    if (!Input.touchMode()) Gfx.text(ctx, '건너뛰기 ' + L('ok'), 940, 528, 12, '#8a7e88', 'right');
     const endA = Math.max(0, (k - 0.75) / 0.25);
     if (endA > 0) { ctx.fillStyle = 'rgba(' + (up ? '255,250,235' : '0,0,0') + ',' + endA + ')'; ctx.fillRect(0, 0, 960, 540); }
   }
@@ -367,7 +367,7 @@ const Town = (() => {
       Gfx.text(ctx, s.name, sx(s.x), hy, on ? 15 : 12, on ? '#ffd36a' : '#e8dcc0', 'center');
       if (on) {
         Gfx.text(ctx, s.role, sx(s.x), hy + 18, 11, '#c8b8a0', 'center');
-        const k = L('ok') + ' 말 걸기';
+        const k = Input.touchMode() ? '말 걸기' : L('ok') + ' 말 걸기';  // 폰: 오른쪽 아래 '대화' 버튼
         ctx.font = 'bold 13px ' + Gfx.FONT;
         const w = ctx.measureText(k).width + 16;
         Gfx.panel(ctx, sx(s.x) - w / 2, hy - 44, w, 24, { border: '#ffd36a' });
@@ -411,6 +411,7 @@ const Town = (() => {
       Gfx.panel(ctx, 12, py, 250, ph, { border: '#b48cff' });
       lines.forEach((l, i) => Gfx.text(ctx, l.s, 26, py + 22 + i * 20, 13, l.col));
     }
+    if (Input.touchMode()) return;  // 폰: 키 이름 안내 글 없음
     const hint = '이동 ' + L('move') + ' · 말 걸기 ' + L('ok') + ' · 가방 ' + L('inv') + ' · 메뉴 ' + L('pause');
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 512, 960, 28);
     Gfx.text(ctx, hint, 480, 531, 13, '#a89c98', 'center');

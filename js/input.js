@@ -69,6 +69,8 @@ const Input = (() => {
   function navTap(d) { navQueue[d] = 1; device = 'touch'; }
   // 화면을 만졌다(touch.js): 패드 · 키보드에서 터치로 돌아옴
   function touched() { device = 'touch'; }
+  // 터치로 하는 중: 키 이름 안내 글을 숨긴다(2026-10-25 사용자: 터치 모드면 안내 글은 없어져야)
+  const touchMode = () => device === 'touch';
   window.addEventListener('blur', () => { keyHeld.clear(); mouseHeld.clear(); });
 
   function attachMouse(canvas) {
@@ -169,7 +171,7 @@ const Input = (() => {
   }
 
   return {
-    virtualKey, setTouchStick, tapAction, navTap, touched, poll, endFrame, clear, move, label, labelFor, attachMouse, settings, saveSettings, mouse, rumble,
+    virtualKey, setTouchStick, tapAction, navTap, touched, touchMode, poll, endFrame, clear, move, label, labelFor, attachMouse, settings, saveSettings, mouse, rumble,
     isDown: a => !!down[a],
     wasPressed: a => !!pressed[a],
     nav: d => !!navFire[d],

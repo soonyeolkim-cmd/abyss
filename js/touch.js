@@ -1,7 +1,9 @@
 // 폰 터치 조작(2026-10-24 사용자: 깃허브에 올려 폰으로). 터치 화면에서만 나온다.
 // 게임 중(던전 · 마을 걷기): 왼쪽 절반 = 이동 스틱(누른 자리가 가운데), 오른쪽 = 기술 버튼(HUD 가운데 도트 기술 아이콘: 공격 · 대시 · 회전 · 특수),
 //   마을에서는 기술 · 물약 버튼을 숨기고 기본 버튼이 말풍선 '대화'(던전 입구 앞이면 '던전') — 말 걸 사람이 가까이 없으면 흐리게(2026-10-25 사용자: 기본 버튼이 대화라 헷갈림)
-//   물약 = 왼쪽 체력 구슬 위, 위 = 가방 · 메뉴. 버튼은 반쯤 비치게(2026-10-25 사용자).
+//   물약 = 왼쪽 체력 구슬 위, 메뉴 = 오른쪽 빈 띠 위(띠가 좁으면 왼쪽 위 — 오른쪽 위 자동 지도를 가리지 않게). 버튼은 반쯤 비치게(2026-10-25 사용자).
+//   가방 버튼은 없음(2026-10-25 사용자: 메뉴 → 장비 스테이터스로 열면 됨)
+// 이야기 장면: 넘기기(한 줄) · 건너뛰기(장면 통째) 버튼 따로, 광차는 건너뛰기만. 터치로 하는 중엔 키 이름 안내 글을 숨긴다(Input.touchMode)
 // 메뉴 화면(캐릭터 선택 · 던전 고르기 · 가방 등 창): 스틱 · 기술 버튼을 숨기고 화면을 손가락으로 바로 누른다(ui.js 누를 곳). 오른쪽 = 확인 · 뒤로 (+ 그 창의 Z 일).
 //   넘치는 목록(던전 · 주머니 · 대장간 · 상점 · 소리 목록)은 손가락으로 위아래로 끌어 넘긴다(ui.js scrollArea, 2026-10-25 사용자: 화면 옆 화살표 버튼 말고 폰답게 스와이프로)
 // 버튼은 키보드 키를 누른 것처럼 Input 에 넣는다. 패드 · 키보드를 쓰면 가상패드를 숨기고, 화면을 만지면 다시 보인다.
@@ -69,8 +71,7 @@ const Touch = (() => {
   }
   // 물약: 체력 구슬 바로 위(캔버스 자리에 맞춰 setInterval 에서 옮긴다)
   const potion = makeBtn('Digit1', '<canvas width="16" height="22" style="width:24px;height:33px"></canvas><small></small>', {}, 54, 54, 'play fight');
-  makeBtn('KeyI', 'I<small>가방</small>', { right: '96px', top: '12px' }, 50, 50, 'sq play');
-  makeBtn('Escape', '≡<small>메뉴</small>', { right: '30px', top: '12px' }, 50, 50, 'sq play');
+  const menuBtn = makeBtn('Escape', '≡<small>메뉴</small>', {}, 50, 50, 'sq play');
   // 메뉴 화면 버튼: 오른쪽 빈 띠 아래에 확인 · 뒤로(띠가 좁으면 화면 가장자리 위에). 확인은 X, 뒤로는 Backspace(취소만)를 누른 것과 같다.
   //   방향 버튼은 없다(2026-10-25 사용자: 화면 옆 화살표는 폰 조작이 아님) — 고르기는 화면을 바로 누르고, 넘치는 목록은 끌어서 넘긴다
   const side = (code, html) => makeBtn(code, html, {}, 50, 50, 'sq menu side');
@@ -85,6 +86,9 @@ const Touch = (() => {
     const h4 = Math.round((H - gap * 5) / 4);
     [okBtn, back].forEach((b, i) => put(b, rx, H - (2 - i) * (h4 + gap), h4));
     Object.assign(spec.style, { left: '', right: (W - rx + 6) + 'px', bottom: gap + 'px' });
+    // 메뉴: 캔버스 오른쪽 빈 띠에 들어가면 거기 위, 아니면 왼쪽 위(오른쪽 위는 던전 자동 지도 자리)
+    const fit = W - r.right >= 46;  // 버튼 겉 크기 54(50 + 테두리) — 캔버스 가장자리(지도 오른쪽 끝 바깥)에 조금 걸치는 것까지는 괜찮다
+    Object.assign(menuBtn.style, fit ? { left: Math.min(W - 58, Math.round(r.right + (W - r.right - 54) / 2)) + 'px', top: '8px' } : { left: '12px', top: '12px' });
   }
   placeSide();
   window.addEventListener('resize', placeSide);
@@ -146,7 +150,7 @@ const Touch = (() => {
     }
   }
   // 화면을 떠나면(전화 · 다른 앱) 손가락을 뗀 것으로 — 돌아왔을 때 스틱 · 버튼이 눌린 채 남지 않게
-  const letGo = () => { for (const b of root.querySelectorAll('.b.on')) { b.classList.remove('on'); } for (const k of ['KeyX', 'KeyC', 'KeyZ', 'KeyV', 'Digit1', 'KeyI', 'Escape', 'Backspace']) Input.virtualKey(k, false); stickEnd(); };
+  const letGo = () => { for (const b of root.querySelectorAll('.b.on')) { b.classList.remove('on'); } for (const k of ['KeyX', 'KeyC', 'KeyZ', 'KeyV', 'Digit1', 'Escape', 'Backspace']) Input.virtualKey(k, false); stickEnd(); };
   document.addEventListener('visibilitychange', () => { if (document.hidden) letGo(); });
   window.addEventListener('blur', letGo);
   window.addEventListener('gamepaddisconnected', e => { delete padRest[e.gamepad.index]; delete padHeld[e.gamepad.index]; });
@@ -185,11 +189,13 @@ const Touch = (() => {
     if (town !== inTown) { inTown = town; root.classList.toggle('town', town); if (!town) { els.basic.classList.remove('far'); refresh(); } }
     if (town) townButton();
     back.style.display = m && (Game.scene === 'title' || Game.scene === 'splash') && !Game.overlays.length ? 'none' : '';  // 캐릭터 선택은 뒤로 갈 곳이 없다
-    const top = Game.overlays[Game.overlays.length - 1], bl = top && (top.type === 'talk' || top.type === 'ride') ? '넘기기' : '뒤로';  // 이야기 · 광차 장면은 건너뛰기
+    // 이야기: 확인 = 넘기기(한 줄) · 뒤로 = 건너뛰기(장면 통째), 광차: 뒤로 = 건너뛰기만
+    const top = Game.overlays[Game.overlays.length - 1], talk = top && top.type === 'talk', ride = top && top.type === 'ride';
+    const bl = talk || ride ? '건너뛰기' : '뒤로', ol = talk ? '넘기기' : '확인';
     if (back.textContent !== bl) back.textContent = bl;
-    // 확인은 시작 화면 · 이야기 · 광차(아무 데나 누르면 넘어감)에선 숨김
-    const story = Game.scene === 'splash' || (top && (top.type === 'talk' || top.type === 'ride'));
-    okBtn.style.display = story ? 'none' : '';
+    if (okBtn.textContent !== ol) okBtn.textContent = ol;
+    // 확인은 시작 화면(아무 데나 누르면 넘어감) · 광차에선 숨김
+    okBtn.style.display = Game.scene === 'splash' || ride ? 'none' : '';
     const sl = m ? UI.touchSpecial() : null;
     spec.style.display = sl ? '' : 'none';
     if (sl && spec.textContent !== sl) spec.textContent = sl;

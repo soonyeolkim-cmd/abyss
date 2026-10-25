@@ -729,7 +729,7 @@ const Coop = (() => {
     Gfx.panel(ctx, 250, 6, 460, 30, { border: '#b48cff' });
     T_(ctx, '방장' + (m ? '(' + clsOf(m).name + ' Lv.' + m.lv + ')' : '') + '이 던전을 고르는 중' + dots(), 480, 27, 14, '#e0d0ff', 'center');
     ctx.fillStyle = '#05030a'; ctx.fillRect(0, 524, 960, 16);
-    T_(ctx, '방장이 들어가면 같이 갈지 물어요 · 닫기 ' + L('back'), 480, 535, 11, '#8a7e88', 'center');
+    T_(ctx, '방장이 들어가면 같이 갈지 물어요' + (Input.touchMode() ? '' : ' · 닫기 ' + L('back')), 480, 535, 11, '#8a7e88', 'center');
     time += 1 / 60;
   }
 
@@ -742,6 +742,7 @@ const Coop = (() => {
 
   const dots = () => '.'.repeat(1 + Math.floor(time * 2) % 3);
   function UI_hint(ctx, s) {
+    if (Input.touchMode()) return;  // 폰: 키 이름 안내 글 없음
     ctx.fillStyle = '#000'; ctx.fillRect(0, 496, 960, 44);
     T_(ctx, s, 480, 522, 13, '#8a7e88', 'center');
   }

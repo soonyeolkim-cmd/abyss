@@ -196,7 +196,7 @@ const UI = (() => {
           T_(ctx, '또는 코드로 불러오기', x + w / 2, y + 234, 12, '#6a6068', 'center');
         }
       }
-      T_(ctx, '고르기 ←→ · 선택 ' + L('ok'), 480, 500, 14, '#8a7e88', 'center');
+      if (!Input.touchMode()) T_(ctx, '고르기 ←→ · 선택 ' + L('ok'), 480, 500, 14, '#8a7e88', 'center');
       // 폰이 예전 파일을 붙잡고 있는지 · 패드를 알아보는지 보려고(2026-10-25: 안드로이드에서 패드를 써도 가상패드가 안 숨겨짐)
       const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
       const IN = { key: '키보드', pad: '패드', touch: '터치' };
@@ -300,7 +300,7 @@ const UI = (() => {
         const bt = prof.bestTimes && prof.bestTimes[timeKey('endless' + f, ENDLESS.diff)];
         if (bt) T_(ctx, '최고 기록 ' + fmtTime(bt), 930, 535, 11, '#ffd36a', 'right');
         T_(ctx, f + '층 (' + scene.name + '의 모습) — 몹 체력 ×' + (ENDLESS.step * Math.pow(ENDLESS.hp, f - 1)).toFixed(2) + ' · 공격 ×' + (ENDLESS.step * Math.pow(ENDLESS.dmg, f - 1)).toFixed(2) + ' · 골드 · 경험치 +' + Math.round(ENDLESS.reward * (f - 1) * 100) + '%  (심연의 문 영웅 대비, 보상은 영웅)', 480, 516, 13, '#d8b0ff', 'center');
-        T_(ctx, '던전 ↑↓ · 층 ←→ · 들어가기 ' + L('ok') + ' · 돌아가기 ' + L('back'), 480, 535, 11, '#6a6068', 'center');
+        if (!Input.touchMode()) T_(ctx, '던전 ↑↓ · 층 ←→ · 들어가기 ' + L('ok') + ' · 돌아가기 ' + L('back'), 480, 535, 11, '#6a6068', 'center');
         return;
       }
       // 고른 난이도 설명
@@ -308,7 +308,7 @@ const UI = (() => {
       const bt = prof.bestTimes && prof.bestTimes[timeKey(DUNGEONS[this.sel].id, this.diff)];
       if (bt) T_(ctx, '최고 기록 ' + fmtTime(bt), 930, 535, 11, '#ffd36a', 'right');
       T_(ctx, df.name + (this.diff ? ' — 몹 체력 ×' + df.hp + ' · 공격 ×' + df.dmg + ' · 노랑 이상 ×' + df.rare + ' · 유니크 ×' + df.uniq + (df.stoneFavor ? ' · 큰 속성석 · 보석이 더 잘' : '') + ' · 골드 · 경험치 ×' + df.gold : ' — 기본 난이도'), 480, 516, 13, df.color, 'center');
-      T_(ctx, '던전 ↑↓ · 난이도 ←→ · 들어가기 ' + L('ok') + ' · 돌아가기 ' + L('back'), 480, 535, 11, '#6a6068', 'center');
+      if (!Input.touchMode()) T_(ctx, '던전 ↑↓ · 난이도 ←→ · 들어가기 ' + L('ok') + ' · 돌아가기 ' + L('back'), 480, 535, 11, '#6a6068', 'center');
     },
     // 끝없는 심연 줄: 보랏빛 띠 · 일렁이는 심연의 군주 · 최고 층 · 층 탭(깬 층 + 1 까지, 지금은 ENDLESS.max 층까지)
     endlessRow(ctx, prof, time, y, on) {
@@ -824,6 +824,7 @@ const UI = (() => {
     });
   }
   function hintBar(ctx, hint) {
+    if (Input.touchMode()) return;  // 폰: 키 이름 안내 글 없음
     ctx.fillStyle = '#000'; ctx.fillRect(0, 496, 960, 44);  // 뒤 화면 안내 글이 비치지 않게
     T_(ctx, hint, 480, 522, 13, '#8a7e88', 'center');
   }
@@ -964,7 +965,7 @@ const UI = (() => {
         ctx.strokeStyle = on ? '#ffd36a' : '#4a3a40'; ctx.lineWidth = 2; ctx.strokeRect(x + 1, 39, 108, 32);
         T_(ctx, t.name, x + 55, 62, 17, on ? '#ffd36a' : '#8a7e88', 'center');
       });
-      if (craft) T_(ctx, '←→ 탭 바꾸기', 746, 61, 12, '#8a7e88');
+      if (craft && !Input.touchMode()) T_(ctx, '←→ 탭 바꾸기', 746, 61, 12, '#8a7e88');
       hintBar(ctx, craft ? '탭 바꾸기 ←→ · 합치기 ' + L('ok') + ' · 닫기 ' + L('back')
         : this.zone === 'slot' ? '칸 고르기 ↑↓ · 바꾸기 ' + L('ok') + ' · 닫기 ' + L('back') : '돌 고르기 ↑↓ · 끼우기 ' + L('ok') + ' · 돌아가기 ' + L('back'));
     },
@@ -1053,7 +1054,7 @@ const UI = (() => {
         ctx.strokeStyle = on ? '#ffd36a' : '#4a3a40'; ctx.lineWidth = 2; ctx.strokeRect(x + 1, 37, 108, 32);
         T_(ctx, name + ' 관리', x + 55, 60, 16, on ? '#ffd36a' : '#8a7e88', 'center');
       });
-      T_(ctx, '←→ 탭 바꾸기', 454, 59, 12, '#8a7e88', 'right');
+      if (!Input.touchMode()) T_(ctx, '←→ 탭 바꾸기', 454, 59, 12, '#8a7e88', 'right');
       if (sub.zone === 'slot') hintBar(ctx, '탭 바꾸기 ←→ · 칸 고르기 ↑↓ · 바꾸기 ' + L('ok') + ' · 닫기 ' + L('back'));
     },
   };
@@ -1348,7 +1349,7 @@ const UI = (() => {
       T_(ctx, o.title, 480, top + 42, 22, '#f0e0b8', 'center');
       o.items.forEach((it, i) => zone(320, top + 86 + i * 40 - 28, 320, 40, { pick: () => { this.sel = i; }, now: true }));
       o.items.forEach((it, i) => centerItem(ctx, it.label, 480, top + 86 + i * 40, 18, i === this.sel ? '#ffd36a' : '#e8e0d0', i === this.sel));
-      T_(ctx, '고르기 ' + L('ok') + ' · 닫기 ' + L('back'), 480, top + h - 14, 12, '#8a7e88', 'center');
+      if (!Input.touchMode()) T_(ctx, '고르기 ' + L('ok') + ' · 닫기 ' + L('back'), 480, top + h - 14, 12, '#8a7e88', 'center');
     },
   };
 
@@ -1576,6 +1577,23 @@ const UI = (() => {
         T_(ctx, r.label, 100, y, 17, r.dim ? '#5a5058' : on ? '#ffd36a' : '#e8e0d0');
         T_(ctx, '◀  ' + r.val + '  ▶', 560, y, 17, r.dim ? '#5a5058' : on ? '#ffd36a' : '#c8b8a0', 'center');
       });
+      // 폰(터치로 하는 중): 터치 조작표 한 칸(2026-10-25 사용자)
+      if (Input.touchMode()) {
+        const CC = clsOf(Game.prof), S = CC.slotShort, y0 = 290;
+        const rows = [['이동', '왼쪽 화면을 누르고 끌기 (누른 자리가 가운데)'], ['공격 (연타 ' + CC.combo.length + '타)', '[' + S.basic + '] 버튼 — 오른쪽 아래 큰 버튼'],
+          CC.charge.hide ? ['그림자 숨기 (기력 ' + CC.charge.cost + ')', '[' + S.charge + '] → 숨은 중 [' + S.basic + '] · [' + S.charge + '] = ' + CC.stab.name + ' · 표창']
+            : [CC.charge.def.name + ' (기력 ' + CC.charge.cost + ')', '[' + S.charge + '] 버튼'],
+          ['대시 (무적, 기력 ' + CC.dodge.cost + ')', '[' + S.dash + '] 버튼'], [CC.dashAttack.name, '[' + S.dash + '] → [' + S.basic + ']'],
+          ['특수기 · ' + CC.special.name + ' (기력 ' + CC.special.cost + ')', '[' + S.wave + '] 버튼'], ['물약', '체력 구슬 위 물약 병'],
+          ['메뉴 · 가방', '[≡ 메뉴] → 장비 스테이터스'], ['마을에서 말 걸기', '[대화] 버튼 (던전 입구 앞이면 [던전])'],
+          ['창 · 목록', '바로 누르기 · 긴 목록은 위아래로 끌기'], ['이야기', '화면 누르기 · [넘기기] = 한 줄 · [건너뛰기] = 통째로']];
+        T_(ctx, '터치', 470, y0 - 22, 14, '#9a8e96');
+        rows.forEach(([k, a], i) => {
+          T_(ctx, k, 100, y0 + i * 20, 14, '#d8ccb0');
+          T_(ctx, a, 470, y0 + i * 20, 14, '#ffd36a');
+        });
+        return;
+      }
       // 조작표: 지금 키보드 방식 + 패드
       const K = a => Input.labelFor('kb', a), P = a => Input.labelFor('pad', a), CC = clsOf(Game.prof);  // 직업마다 기술 이름
       const rows = [['이동', K('move'), P('move') + ' · 십자키'], ['공격 (연타 ' + CC.combo.length + '타)', K('attack'), P('attack')],
@@ -1705,7 +1723,7 @@ const UI = (() => {
       if (this.top + ROWS < list.length) T_(ctx, '▼', 480, y0 + ROWS * RH + 6, 12, '#9a8e96', 'center');
       const lv = this.tab === 'music' ? Input.settings.music ?? 6 : Input.settings.sfx ?? 8;
       if (!lv || Input.settings.sound === false) T_(ctx, (this.tab === 'music' ? '음악' : '효과음') + ' 크기가 0(끄기)이라 안 들려요 — 설정에서 올려 주세요', 480, 500, 13, '#ff8a6a', 'center');
-      else T_(ctx, '고르기 ↑↓ · 틀기 ' + L('ok') + ' · 음악/효과음 ←→ · 닫기 ' + L('back') + (this.tab === 'music' ? '  (음악 출처: Juhani Junkala, CC0)' : '  (출처: Kenney 외, CC0)'), 480, 500, 13, '#8a7e88', 'center');
+      else T_(ctx, (Input.touchMode() ? '' : '고르기 ↑↓ · 틀기 ' + L('ok') + ' · 음악/효과음 ←→ · 닫기 ' + L('back')) + (this.tab === 'music' ? '  (음악 출처: Juhani Junkala, CC0)' : '  (출처: Kenney 외, CC0)'), 480, 500, 13, '#8a7e88', 'center');
     },
   };
 
