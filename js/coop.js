@@ -159,6 +159,7 @@ const Coop = (() => {
   // 매 화면(game.js frame): 내 위치 보내기 · 친구 몸 따라가기 · 초대 기다림 시간
   function tick(dt) {
     partyWatch(dt);
+    forgeTick(dt);
     if (!Net.linked) { mateNow = null; body = null; lastSent = ''; if (invite) inviteEnd(); return; }
     if (invite && (invite.t -= dt) <= 0) { inviteEnd(); askSolo('친구가 대답이 없어요'); }
     sendT -= dt; keepT -= dt;
@@ -184,10 +185,10 @@ const Coop = (() => {
     }
     viewTick();
     if (!together() || mateNow.x === undefined) { body = null; return; }
-    const mt = Net.mate, k = mt.cls + ':' + (mt.weapon ? mt.weapon.uid + ':' + mt.weapon.base : '');
+    const mt = Net.mate, k = mt.cls + ':' + (mt.weapon ? mt.weapon.uid + ':' + mt.weapon.base : '') + ':' + JSON.stringify(mt.sockets || {});
     if (!body || k !== bodyKey) {  // 처음 · 직업 · 무기가 바뀌면 다시
       bodyKey = k;
-      body = { cls: clsOf(mt), prof: { cls: mt.cls, equip: { weapon: mt.weapon } }, stats: { fx: {} },
+      body = { cls: clsOf(mt), prof: { cls: mt.cls, equip: { weapon: mt.weapon }, sockets: mt.sockets || {} }, stats: { fx: {} },
         x: mateNow.x, y: mateNow.y, fv: { x: 0, y: 1 }, state: 'idle', walkT: 0, flash: 0, charge: 0, act: null };
     }
     const d = Math.hypot(mateNow.x - body.x, mateNow.y - body.y);
@@ -300,6 +301,55 @@ const Coop = (() => {
     Sfx.stairs();
     World.finishParty('clear');
   });
+
+  // ── 강화 결과 말풍선(2026-10-25 사용자: 파티 중 강화하면 머리 위에 그 장비 · 성공/실패) ──
+  // 대장장이 강화 연출에서 결과가 나오는 순간(ui.js smith) 내 머리 위에 띄우고 친구에게도 보낸다. FORGE_SHOW 초 동안, 새로 강화하면 바뀜.
+  const FORGE_SHOW = 4;
+  let forgeMine = null, forgeMate = null;
+  function forgeShow(item, ok, before) {
+    if (!Net.linked) return;
+    const f = { item: JSON.parse(JSON.stringify(item)), ok, n: before + 1, t: 0 };  // n = 도전한 단계(+4 → +5 면 5)
+    forgeMine = f;
+    Net.send({ t: 'forge', item: f.item, ok, n: f.n });
+  }
+  Net.on('forge', m => { forgeMate = { item: m.item, ok: m.ok, n: m.n, t: 0 }; if (m.ok && Game.scene === 'town') Sfx.stone(); });
+  function forgeTick(dt) {
+    for (const f of [forgeMine, forgeMate]) if (f) f.t += dt;
+    if (forgeMine && forgeMine.t > FORGE_SHOW) forgeMine = null;
+    if (forgeMate && forgeMate.t > FORGE_SHOW) forgeMate = null;
+  }
+  // 말풍선 하나: (x, y) = 머리 위 끝(화면 좌표). 톡 튀어나와 살짝 떠오르고 끝에 흐려진다
+  function forgeBubble(ctx, f, x, y) {
+    const k = f.t, a = k > FORGE_SHOW - 0.6 ? Math.max(0, (FORGE_SHOW - k) / 0.6) : 1;
+    const s = Math.min(1, 0.5 + k / 0.15 * 0.5) + (k < 0.35 ? Math.sin(k / 0.35 * Math.PI) * 0.12 : 0);
+    const w = 128, h = 40, col = f.ok ? '#ffd36a' : '#ff7a6a';
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.translate(Math.round(x), Math.round(y - 6 * Math.min(1, k / 0.4)));
+    ctx.scale(s, s);
+    // 꼬리
+    ctx.fillStyle = f.ok ? '#ffd36a' : '#a05a5a';
+    ctx.beginPath(); ctx.moveTo(-6, -2); ctx.lineTo(6, -2); ctx.lineTo(0, 6); ctx.closePath(); ctx.fill();
+    Gfx.panel(ctx, -w / 2, -h - 2, w, h, { border: f.ok ? '#ffd36a' : '#a05a5a', bg: f.ok ? '#2a1f0e' : '#1d1416' });
+    if (f.ok) {  // 성공: 아이콘 뒤 금빛
+      const g = ctx.createRadialGradient(-w / 2 + 22, -h / 2 - 2, 0, -w / 2 + 22, -h / 2 - 2, 20);
+      g.addColorStop(0, 'rgba(255,211,106,0.55)'); g.addColorStop(1, 'rgba(255,211,106,0)');
+      ctx.fillStyle = g; ctx.fillRect(-w / 2 + 2, -h, 40, h - 4);
+    }
+    Gfx.icon(ctx, f.item, -w / 2 + 22, -h / 2 - 2, 26);
+    if (!f.ok) {  // 실패: 아이콘 위 금 간 표시
+      ctx.strokeStyle = 'rgba(255,122,106,0.9)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-w / 2 + 12, -h + 6); ctx.lineTo(-w / 2 + 32, -8); ctx.stroke();
+    }
+    T_(ctx, '+' + f.n + ' 강화', -w / 2 + 44, -h + 15, 12, '#e8dcc8');
+    T_(ctx, f.ok ? '성공!' : '실패', -w / 2 + 44, -h + 33, 16, col);
+    ctx.restore();
+  }
+  // 마을 그림(town.js): 내 머리 위 · 친구 머리 위. sx/sy = 마을 좌표 → 화면 좌표
+  function drawForge(ctx, me, sx, sy) {
+    if (forgeMine && me) forgeBubble(ctx, forgeMine, sx(me.x), sy(me.y) - 78);
+    if (forgeMate && body && Game.scene === 'town') forgeBubble(ctx, forgeMate, sx(body.x), sy(body.y) - 78);
+  }
 
   // 한쪽이 던전을 나가거나 끊김: 방장 = 손님 몸을 빼고 혼자, 손님 = 몹을 내 기기에서 이어서(3초 기다림 — 같이 들어갈 때 조금 어긋나도 되게)
   function partyWatch(dt) {
@@ -449,5 +499,5 @@ const Coop = (() => {
 
   return { open, update, draw, tick, townMate, runMate, mateWhere, hostEnter, guestBlocked, waitUpdate, waitDraw, viewUpdate, viewDraw,
     remotePlayer, remoteHurt, sendAct, hostKill, queue, applySnaps, kitChanged,
-    inParty, mateUp, canRevive, reviveTick, reviveInfo, leaveTogether };
+    inParty, mateUp, canRevive, reviveTick, reviveInfo, leaveTogether, forgeShow, drawForge };
 })();

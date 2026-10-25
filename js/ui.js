@@ -928,7 +928,7 @@ const UI = (() => {
         a.t++;
         if (a.t === 1) Sfx.forgeStart();
         if (a.t < FORGE_TRY && a.t % 18 === 0) Sfx.forgeTap(a.t / 18);
-        if (a.t === FORGE_TRY) { if (a.ok) Sfx.forgeOk(); else Sfx.forgeFail(); }
+        if (a.t === FORGE_TRY) { if (a.ok) Sfx.forgeOk(); else Sfx.forgeFail(); Coop.forgeShow(a.it, a.ok, a.before); }  // 파티: 결과가 나오는 순간 내 머리 위 · 친구 화면에도
         const r = a.t - FORGE_TRY;
         if ((r >= FORGE_LOCK && (Input.wasPressed('ok') || Input.wasPressed('back'))) || r >= FORGE_AUTO) { this.anim = null; Input.clear(); }
         return;

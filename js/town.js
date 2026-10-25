@@ -159,6 +159,7 @@ const Town = (() => {
     }
     // 친구 머리 위 이름표
     if (mate) Gfx.text(ctx, '친구 · ' + clsOf(mate.prof).name + ' Lv.' + Net.mate.lv, sx(mate.x), sy(mate.y) - 62, 12, '#d8c0ff', 'center');
+    Coop.drawForge(ctx, p, sx, sy);  // 파티 강화 결과 말풍선(내 머리 위 · 친구 머리 위)
     // 아래 왼쪽: 마을 이름 · 캐릭터
     const by = 438;
     Gfx.panel(ctx, 12, by, 250, 66);

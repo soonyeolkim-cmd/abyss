@@ -20,7 +20,7 @@ const Net = (() => {
   // 내 캐릭터 소개(상대 함께하기 창에 아바타 · 이름)
   function me() {
     const prof = Game.prof;
-    return { t: 'hello', ver: VER, cls: prof.cls || 'swordsman', lv: prof.lv, weapon: prof.equip.weapon || null };
+    return { t: 'hello', ver: VER, cls: prof.cls || 'swordsman', lv: prof.lv, weapon: prof.equip.weapon || null, sockets: prof.sockets || {} };  // sockets = 친구 화면 칼 궤적 · 차지 고리 색
   }
 
   function reset() {

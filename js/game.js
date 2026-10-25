@@ -139,17 +139,23 @@ const Game = (() => {
     }
   }
 
+  // 한 화면에서 오류가 나도 게임이 멈추지 않게(2026-10-25: 그리기 오류 하나로 화면이 굳는 일이 두 번 — 검기 · 파티 검기) — 오류는 콘솔에 남기고 다음 화면으로
   function frame(now) {
-    const dt = Math.min(0.1, (now - last) / 1000);
-    last = now;
-    time += dt;
-    toastT -= dt;
-    Input.poll();
-    Net.update(dt);  // 함께하기: 연결 속도 · 끊김 살피기
-    update(dt);
-    Coop.tick(dt);  // 함께하기: 내 마을 위치 보내기 · 친구 몸 따라가기
-    Input.endFrame();
-    draw();
+    try {
+      const dt = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      time += dt;
+      toastT -= dt;
+      Input.poll();
+      Net.update(dt);  // 함께하기: 연결 속도 · 끊김 살피기
+      update(dt);
+      Coop.tick(dt);  // 함께하기: 내 마을 위치 보내기 · 친구 몸 따라가기
+      Input.endFrame();
+      draw();
+    } catch (e) {
+      console.error(e);
+      try { ctx.restore(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; } catch (e2) { /* 그대로 */ }
+    }
     requestAnimationFrame(frame);
   }
 

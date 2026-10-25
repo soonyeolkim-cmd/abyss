@@ -3,7 +3,7 @@
 const Elements = (() => {
   const key = s => s.el + ':' + s.size;
   // 끼운 돌(무기가 없으면 잠듦)
-  const socket = (prof, slot) => (prof.equip.weapon ? prof.sockets[slot] : null);
+  const socket = (prof, slot) => (prof.equip.weapon && prof.sockets ? prof.sockets[slot] || null : null);  // sockets 없음 = 파티 친구 그림용 몸
   const power = s => STONE_SIZES[s.size].power;
   const color = (prof, slot, fallback = '#ffffff') => { const s = socket(prof, slot); return s ? ELEMENTS[s.el].color : fallback; };
   const live = e => !e.dying && e.state !== 'dead' && e.spawnT <= 0;
