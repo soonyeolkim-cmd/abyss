@@ -197,6 +197,7 @@ const Art = (() => {
         break;
     }
     Gfx.spr(ctx, name, x, y, o);
+    if (d.acc && e.state !== 'dead') bossAcc(ctx, d.acc, x, y, o.scale, flip, time);
     if ((e.state === 'windup' && committed(e) && !d.boss) && Math.floor(time * 12) % 2 === 0) {
       ctx.font = 'bold 10px ' + FONT; ctx.textAlign = 'center'; ctx.fillStyle = '#ff4a3a';
       ctx.fillText('!', e.x, y - e.h - 2);
@@ -204,6 +205,25 @@ const Art = (() => {
     if (e.state === 'tired' || (e.state === 'stagger' && d.boss)) {
       ctx.fillStyle = '#ffe066';
       for (let k = 0; k < 3; k++) { const a = time * 6 + k * 2.1; ctx.fillRect(Math.round(e.x + Math.cos(a) * 8), Math.round(y - e.h - 3 + Math.sin(a) * 2), 2, 2); }
+    }
+  }
+
+  // 보스 장식(data.js acc): 왕관 · 뿔 · 빛나는 눈 · 몸 빛 · 고름. 좌표는 그림 한 칸 단위(발밑 가운데 기준), s = 그림 배율
+  function bossAcc(ctx, acc, x, y, s, flip, time) {
+    const P = (px, py, col) => { ctx.fillStyle = col; ctx.fillRect(Math.round(x + (flip ? -px - 1 : px) * s), Math.round(y + py * s), Math.ceil(s), Math.ceil(s)); };
+    const glow = (gx, gy, r, col, a) => {
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const cx = x + (flip ? -gx : gx) * s, cy = y + gy * s, g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * s);
+      g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = a; ctx.fillStyle = g; ctx.fillRect(cx - r * s, cy - r * s, r * s * 2, r * s * 2); ctx.restore();
+    };
+    const pulse = 0.75 + 0.25 * Math.sin(time * 4);
+    for (const a of acc) {
+      if (a.t === 'crown') ['g.g.g.g', 'ggggggg', 'gg.r.gg'].forEach((row, j) => [...row].forEach((c, i) => { if (c !== '.') P(a.x + i - 3.5, a.y + j, c === 'r' ? '#ff4a6a' : j === 2 ? '#c8962e' : '#ffd36a'); }));
+      if (a.t === 'horns') for (let k = 0; k < 4; k++) { P(a.x - a.gap / 2 - k * 0.6, a.y - k, '#e8dcc4'); P(a.x + a.gap / 2 + k * 0.6, a.y - k, '#e8dcc4'); }
+      if (a.t === 'eyes') { glow(a.x, a.y, a.gap * 1.6, a.col, 0.5 * pulse); P(a.x - a.gap / 2 - 0.5, a.y, a.col); P(a.x + a.gap / 2 - 0.5, a.y, a.col); }
+      if (a.t === 'glow') glow(0, a.y, a.r, a.col, 0.35 * pulse);
+      if (a.t === 'boils') a.pts.forEach(([bx, by], i) => P(bx, by, (Math.floor(time * 3) + i) % 3 ? '#d8ff5a' : '#a8c040'));
     }
   }
 
@@ -580,5 +600,5 @@ const Art = (() => {
     ctx.restore();
   }
 
-  return { avatar, shadow, player, enemy, enemyBar, drop, dropLabel, aura, nameTag, chest, stairs, shot, wave, field, fx, darkness, floatText };
+  return { avatar, shadow, player, enemy, bossAcc, enemyBar, drop, dropLabel, aura, nameTag, chest, stairs, shot, wave, field, fx, darkness, floatText };
 })();

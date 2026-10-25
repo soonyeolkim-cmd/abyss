@@ -188,7 +188,7 @@ const UI = (() => {
         if (d.tint) { ctx.fillStyle = lockd ? '#2a2228' : d.tint; ctx.fillRect(62, y + 2, 6, 60); }
         ctx.imageSmoothingEnabled = false;
         const boss = ENEMIES[d.boss];
-        Gfx.spr(ctx, Gfx.anim(boss.sprite + '_idle_anim', time, 6), 112, y + 60, { scale: 1.5, alpha: lockd ? 0.3 : 1, tint: boss.tint });
+        Gfx.spr(ctx, Gfx.anim(boss.sprite + '_idle_anim', time, 6), 112, y + 60, { scale: 1.5 * Math.min(1.4, boss.scale || 1), alpha: lockd ? 0.3 : 1, tint: boss.tint, tintAlpha: boss.tintAlpha });
         const dc = diffCleared(prof, d.id);  // 깬 난이도: 이름 뒤에 그 색 ✔
         T_(ctx, (i + 1) + '. ' + d.name, 160, y + 28, 20, lockd ? '#5a5058' : on ? '#ffd36a' : '#f0e0b8');
         if (dc >= 0) { ctx.font = 'bold 20px ' + Gfx.FONT; T_(ctx, '✔', 172 + ctx.measureText((i + 1) + '. ' + d.name).width, y + 28, 18, DIFFS[dc].color); }

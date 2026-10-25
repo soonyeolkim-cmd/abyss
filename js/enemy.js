@@ -21,7 +21,7 @@ function createEnemy(type, x, y, lv, mods = {}) {
   if (rank === 'boss') cut *= S.bossDef;
   if (aff.includes('tough')) hpMul *= 1.5;
   const f = FRAMES[(d.idle ? d.sprite + '_idle_anim' : d.sprite + '_anim') + '_f0'];
-  const scale = rank === 'unique' ? UNIQUE.scale : 1;
+  const uScale = rank === 'unique' ? UNIQUE.scale : 1, scale = (d.scale || 1) * uScale;  // d.scale = 그림 배율(거인 보스 · 작은 몹, 2026-10-25)
   const name = rank === 'unique' ? mods.unique : rank === 'elite' ? aff.map(a => AFFIXES[a].name).join(' ') + ' ' + d.name : d.name;
   return {
     type, def: d, x, y, z: 0, vz: 0, kx: 0, ky: 0, fv: { x: 0, y: 1 },
@@ -34,7 +34,7 @@ function createEnemy(type, x, y, lv, mods = {}) {
     juggle: 0, otgUsed: false, dying: false, hitDone: false, chain: 0, armorT: 0,
     flash: 0, role: 'wait', slot: 0, slotAng: 0, moving: false,
     walkT: Math.random() * 5, spawnT: mods.spawn ? (d.boss ? 1.2 : 0.7) : 0,
-    r: (d.r || 6) * scale, h: (f ? f[3] : 16) * scale,
+    r: (d.r || 6) * uScale, h: (f ? f[3] : 16) * scale,  // 몸 반지름은 정해 둔 값(r) 그대로, 키는 그림 배율만큼
     patCd: 2, summoned: 0, chargeV: null,
   };
 }

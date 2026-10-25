@@ -219,7 +219,13 @@ const Story = (() => {
     // 가슴 위로 크게(얼굴이 보이게, 아래는 원 밖으로 잘림)
     if (who === 'hero') Art.avatar(ctx, Game.prof, cx - 6, cy + r * 1.2, 5, time);
     else if (who === 'kael') ctx.drawImage(kaelFace(), Math.round(cx - 51), Math.round(cy - 48 + Math.sin(time * 2) * 1.5), 102, 102);  // 숨 쉬듯 살짝
-    else if (who === 'boss' && o.boss) Gfx.spr(ctx, Gfx.anim(o.boss.sprite + '_idle_anim', time, 6), cx, cy + r * 1.15, { scale: 3.8, tint: o.boss.tint });
+    else if (who === 'boss' && o.boss) {
+      const f = FRAMES[o.boss.sprite + '_idle_anim_f0'], small = f[2] <= 16;  // 작은 몸을 키운 거인 보스는 더 크게, 머리끝을 원 위쪽에 맞춤
+      const sc = small ? 6.4 : 3.8, pad = { knight_f: 10, lizard_m: 10 }[o.boss.sprite] || 0;  // 기사 · 도마뱀 그림은 위쪽이 비어 있다
+      const by = small ? cy - r * 0.95 + (f[3] - pad) * sc : cy + r * 1.15;
+      Gfx.spr(ctx, Gfx.anim(o.boss.sprite + '_idle_anim', time, 6), cx, by, { scale: sc, tint: o.boss.tint, tintAlpha: o.boss.tintAlpha });
+      if (o.boss.acc) Art.bossAcc(ctx, o.boss.acc, cx, by, sc, false, time);  // 왕관 · 뿔 · 눈빛
+    }
     ctx.restore();
     ctx.strokeStyle = sp.color; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
