@@ -194,7 +194,7 @@ const Hud = (() => {
     ctx.fillStyle = g; ctx.fillRect(0, PY, 960, 540 - PY);
     ctx.fillStyle = '#5a4436'; ctx.fillRect(0, PY, 960, 2);
     // 경험치: 판 맨 아래(글자와 안 겹치게, 2026-10-24 사용자)
-    Gfx.bar(ctx, 140, PY + 79, 680, 5, prof.exp / expToNext(prof.lv), '#c8a040', '#2a2010');
+    Gfx.bar(ctx, 140, PY + 79, 680, 5, prof.lv >= LV_MAX ? 1 : prof.exp / expToNext(prof.lv), prof.lv >= LV_MAX ? '#ffd36a' : '#c8a040', '#2a2010');  // 만렙이면 금빛으로 가득
     // 체력 구슬 · 특수기 구슬
     globe(ctx, 66, PY + 30, 50, p.hp / p.maxHp, ['#ff4a3a', '#7a0a0a'], '#2a0606', Math.ceil(Math.max(0, p.hp)) + '/' + p.maxHp);
     globe(ctx, 894, PY + 30, 50, p.sp / p.maxSp, ['#5a9aff', '#0a2a7a'], '#06102a', Math.floor(p.sp) + '/' + p.maxSp);

@@ -505,8 +505,9 @@ const World = (() => {
   }
 
   function gainExp(n) {
+    if (prof.lv >= LV_MAX) { prof.exp = 0; return; }  // 만렙이면 경험치는 더 안 쌓인다
     prof.exp += n; run.exp += n;
-    while (prof.exp >= expToNext(prof.lv)) {
+    while (prof.lv < LV_MAX && prof.exp >= expToNext(prof.lv)) {
       prof.exp -= expToNext(prof.lv);
       prof.lv++;
       run.levelUps++;
@@ -514,8 +515,9 @@ const World = (() => {
       p.hp = p.maxHp;
       Sfx.levelUp();
       text(p.x, p.y, 44, '레벨 업!  Lv.' + prof.lv, '#7dff8a', true);
-      msg = '레벨 업! Lv.' + prof.lv; msgT = 1.6;
+      msg = '레벨 업! Lv.' + prof.lv + (prof.lv >= LV_MAX ? ' (만렙)' : ''); msgT = 1.6;
     }
+    if (prof.lv >= LV_MAX) prof.exp = 0;
   }
 
   // ── 효과 ──
