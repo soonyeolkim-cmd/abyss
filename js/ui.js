@@ -1579,7 +1579,8 @@ const UI = (() => {
       // 조작표: 지금 키보드 방식 + 패드
       const K = a => Input.labelFor('kb', a), P = a => Input.labelFor('pad', a), CC = clsOf(Game.prof);  // 직업마다 기술 이름
       const rows = [['이동', K('move'), P('move') + ' · 십자키'], ['공격 (연타 ' + CC.combo.length + '타)', K('attack'), P('attack')],
-        [CC.charge.def.name + ' (누르면 바로, 기력 ' + CC.charge.cost + ')', K('charge'), P('charge')],
+        [CC.charge.hide ? '그림자 숨기 (기력 ' + CC.charge.cost + ') → ' + K('attack') + ' · ' + K('charge') + ' = ' + CC.stab.name + ' · 표창'
+          : CC.charge.def.name + ' (누르면 바로, 기력 ' + CC.charge.cost + ')', K('charge'), P('charge')],
         ['대시 (무적, 기력 ' + CC.dodge.cost + ')', K('dodge'), P('dodge')], [CC.dashAttack.name, K('dodge') + ' → ' + K('attack'), P('dodge') + ' → ' + P('attack')],
         ['특수기 · ' + CC.special.name + ' (기력 ' + CC.special.cost + ')', K('special'), P('special')],
         ['물약', K('potion'), P('potion')], ['가방', K('inv'), P('inv')], ['메뉴', K('pause'), P('pause')],

@@ -296,7 +296,7 @@ const Coop = (() => {
       const def = actDef(q.cls, m.k, m.i);
       if (!def) return;
       if (q.state === 'dodge') Elements.dashEnd(q);
-      startAct(q, def, m.k, m.i, { len: m.len });  // len = 반격 거리(암살자)
+      startAct(q, def, m.k, m.i, { len: m.len, fly: m.fly });  // len = 돌진 베기 거리, fly = 백스탭으로 날아갈 자리(암살자)
       q.fv = { x: m.fx, y: m.fy };
       q.act.push = !!m.push;
     });

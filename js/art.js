@@ -433,6 +433,25 @@ const Art = (() => {
       ctx.restore();
       return;
     }
+    if (s.knife) {  // 암살자 표창: 날아가는 쪽을 겨눈 은빛 단검(어두운 테두리 · 보랏빛 손잡이) + 뒤로 흐린 빛 줄
+      ctx.save();
+      ctx.translate(s.x, s.y - 8);
+      ctx.rotate(Math.atan2(s.vy, s.vx));
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.35; ctx.strokeStyle = '#c8d0ff'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-18, 0); ctx.lineTo(-5, 0); ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      ctx.fillStyle = '#1c1a26';
+      ctx.beginPath(); ctx.moveTo(8.5, 0); ctx.lineTo(-1.5, -3.2); ctx.lineTo(-1.5, 3.2); ctx.closePath(); ctx.fill();
+      ctx.fillRect(-7, -1.8, 6, 3.6);
+      ctx.fillStyle = '#d8deea';
+      ctx.beginPath(); ctx.moveTo(7, 0); ctx.lineTo(-1, -2); ctx.lineTo(-1, 2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(-1, -0.6, 6, 1);
+      ctx.fillStyle = '#9aa0b0'; ctx.fillRect(-2, -3, 1.5, 6);  // 코등이
+      ctx.fillStyle = '#6a4a8a'; ctx.fillRect(-6.5, -1, 4.5, 2);  // 손잡이
+      ctx.restore();
+      return;
+    }
     if (s.ball) {  // 속성석 부과 능력의 탄(화염구 · 얼음 파편): 혜성 꼬리 + 보석 색 4각 별(어두운 테두리) + 작은 밝은 심 — 둥근 몹 탄과 모양이 다르게
       const y = s.y - 8, rot = (s.t || 0) * 10;
       ctx.save();

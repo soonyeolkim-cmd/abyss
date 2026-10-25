@@ -49,16 +49,16 @@ const CLASSES = {
       def: { name: '회전베기', slot: 'charge', fin: true, startup: 0.05, active: 0.22, recovery: 0.32, mult: 2.4, knock: 160, stun: 0.6, radius: 44, spin: true, heavy: true, outward: true } },  // 범위 34 → 44(+30%, 2026-10-24 사용자)
   },
   // ── 암살자(2026-10-25 사용자: 세 번째 직업, 메모/assassin-plan.md) ── 능력치는 검사 · 마법사와 같다. 양손에 같은 무기를 하나씩 든다(dual).
-  // 기본(X) = 연속 찌르기 4타(검사보다 훨씬 빠르게, 양손 번갈아, 4타 교차 베기) · 특수(Z) = 받아치기(0.4초 자세 → 맞으면 공격한 적을 향해 베고 지나감 = riposte) ·
-  // 차지 칸(V) = 그림자 숨기(몹이 놓침) → 다시 V = 그림자 베기(멀리 · 넓게 직선 돌진하며 벰), 숨은 중 X = 백스탭(가까운 적 등 뒤로 순간이동 → 넓게 휘두름) ·
+  // 기본(X) = 연속 찌르기 4타(검사보다 훨씬 빠르게, 양손 번갈아, 4타 교차 베기) · 특수(Z) = 돌진 베기(가까운 적을 향해 직선으로 베고 지나감) ·
+  // 차지 칸(V) = 그림자 숨기(몹이 놓침, 기력은 숨을 때 한 번) → 숨은 중 X 나 V = 바로 옆에 적이 있으면 백스탭(그 적 등 뒤로 돌아 들어가 넓게 휘두름), 없으면 표창 던지기(단검 3개 부채꼴) ·
   // 대시 → 공격 = 선풍 베기(제자리 한 바퀴 두 번 베기) · 패시브 등 뒤 공격 피해 +30%(backstab)
   // 기술 칸 4개는 검사 · 마법사와 같은 규칙(기본 · 차지 · 특수 · 대시, 2026-10-25 사용자) — 대시 칸 이름은 '대시'
   assassin: {
     id: 'assassin', name: '암살자', sprite: 'assassin', atkName: '공격력', dual: true,
     weapons: ['katar', 'sai'],
-    slotNames: { basic: '기본 공격', charge: '그림자 베기', wave: '받아치기', dash: '대시' },
-    slotShort: { basic: '기본', charge: '그림자', wave: '반격', dash: '대시' },
-    icons: { basic: 'katar', charge: 'shadow', wave: 'cross', dash: 'dash' },
+    slotNames: { basic: '기본 공격', charge: '그림자 숨기', wave: '돌진 베기', dash: '대시' },
+    slotShort: { basic: '기본', charge: '그림자', wave: '돌진', dash: '대시' },
+    icons: { basic: 'katar', charge: 'shadow', wave: 'rush', dash: 'dash' },
     baseHp: 100, baseAtk: 4, speed: 82,
     stamina: { base: 100, regen: 9, delay: 0.6, onHit: 4 },
     dodge: { time: 0.28, speed: 230, iframes: 0.24, cd: 0, attackWindow: 0.18, cost: 8 },
@@ -71,21 +71,23 @@ const CLASSES = {
       { name: '찌르기', slot: 'basic', startup: 0.035, active: 0.05, recovery: 0.07, mult: 0.7, knock: 50, stun: 0.25, reach: [0, 24], arc: 50, lunge: 4, thrust: true },
       { name: '교차 베기', slot: 'basic', fin: true, startup: 0.05, active: 0.08, recovery: 0.22, mult: 1.5, knock: 180, stun: 0.5, reach: [0, 28], arc: 100, lunge: 8, swing: [-90, 90], heavy: true },
     ],
-    // 받아치기(특수): parry 초 동안 막는 자세(맞히는 판정 없음). 그 사이 맞으면 combat.js hurtPlayer → parryHit → riposte. 못 막으면 '빈틈'(gap)
-    special: { id: 'parry', name: '받아치기', short: '반격', slot: 'wave', cd: 3, cost: 10, parry: 0.4, gap: { t: 1, mult: 0.5 },
-      startup: 0, active: 0.4, recovery: 0.1, mult: 0, knock: 0, stun: 0, guard: true, swing: [70, 70] },  // swing = 칼을 앞으로 비껴 든 모습
-    // 반격: 공격한 적을 향해 직선으로 베고 지나간다(적을 지나 past 더, 최대 max). 지나가는 동안 + 도착 뒤 safe 초 무적, 언제나 치명타 + 기절
-    riposte: { name: '반격', slot: 'wave', startup: 0, active: 0.14, recovery: 0.3, mult: 2.5, knock: 60, stun: 0.8,  // 밀어내기는 작게(적을 지나 등 뒤에 서게)
-      reach: [0, 30], arc: 70, noBody: true,
-      dash: 90, past: 30, min: 50, max: 150, safe: 0.35, crit: true, heavy: true, thrust: true, iframes: true },
+    // 돌진 베기(특수, 2026-10-25 사용자: 받아치기는 안 어울려서 없애고 '반격에 성공했을 때 같은 공격'을 누르면 바로):
+    // max px 안 가장 가까운 적(누른 쪽 먼저)을 향해 직선으로 베고 지나간다(적을 지나 past 더, 최소 min · 최대 max, 적이 없으면 보는 쪽으로 dash).
+    // 지나가는 동안 + 도착 뒤 safe 초 무적, 언제나 치명타 + 기절. 결과적으로 적 등 뒤에 선다(패시브 등 뒤 +30% 와 이어짐)
+    special: { id: 'rush', name: '돌진 베기', short: '돌진', slot: 'wave', cd: 3, cost: 10, rush: true,
+      startup: 0.03, active: 0.14, recovery: 0.3, mult: 2.5, knock: 60, stun: 0.8,  // 밀어내기는 작게(적을 지나 등 뒤에 서게)
+      reach: [0, 42], arc: 160, swing: [-120, 120], noBody: true,  // 백스탭처럼 넓게 휘두르며 지나간다(2026-10-25 사용자: 거리 30 · 각도 70 찌르기 → 넓은 범위)
+      dash: 90, past: 30, min: 50, max: 150, safe: 0.35, crit: true, heavy: true, iframes: true },
     // 그림자 숨기(V): cost 를 쓰고 숨는다 — 최대 max 초, 초당 drain 기력, 걷기 move 배, 보스는 notice 초 뒤 알아챔
-    // 그림자 베기(숨은 중 V, 2026-10-25 사용자: 걸어온 길 대신 '직선으로 강하고 넓게 이동하며'): dash px 를 순식간에 돌진,
-    // 지나간 직선에서 width + 몸 반지름 안의 적 모두(sweep). 방향 = 누른 쪽, 안 누르면 가까운 적 쪽. 차지 칸 속성석 폭발은 도착한 자리에서
-    charge: { cost: 15, hide: { max: 3, drain: 6, move: 0.85, notice: 1.5 },
-      def: { name: '그림자 베기', slot: 'charge', fin: true, startup: 0.04, active: 0.16, recovery: 0.3, mult: 3.4, knock: 200, stun: 0.8, dash: 120, sweep: true, width: 26, heavy: true, thrust: true, iframes: true } },
-    // 백스탭(숨은 중 X, 2026-10-25 사용자: 라그나로크 로그 백스탭) — blink px 안 가장 가까운 적의 등 뒤로 순간이동해 넓고 크게 휘두른다(무적, 숨기 풀림).
-    // 둘레에 적이 없으면 제자리에서 휘두름. 등 뒤라 패시브 +30% 도 붙는다
-    stab: { name: '백스탭', slot: 'charge', startup: 0.06, active: 0.12, recovery: 0.3, mult: 4.0, knock: 220, stun: 0.9, reach: [0, 42], arc: 160, swing: [-120, 120], blink: 130, back: true, heavy: true, iframes: true },  // back = 언제나 등 뒤 공격(+30%)
+    // 숨은 중 X 나 V(2026-10-25 사용자: 아무거나 눌러도): stab.blink px 안에 적이 있으면 백스탭, 없으면 표창 던지기 — 기력은 안 듦
+    // 표창 던지기(2026-10-25 사용자: 달빛 베기가 Z 돌진 베기와 겹쳐서 바꿈): 보는 쪽(누른 쪽 · 가까운 적)으로 단검 n 개를 spread° 씩 벌려 던진다.
+    // 단검마다 처음 닿은 적에서 사라진다(붙은 적은 여럿 맞음). 차지 칸 속성석 폭발은 처음 맞은 자리에서 한 번
+    charge: { cost: 15, hide: { max: 3, drain: 0, move: 0.85, notice: 1.5 },  // drain 6 → 0(2026-10-25 사용자: 숨는 동안 기력이 안 빠지게)
+      def: { name: '표창 던지기', slot: 'charge', startup: 0.05, active: 0.05, recovery: 0.22, mult: 1.2, knock: 60, stun: 0.3, thrust: true,
+        knives: { n: 3, spread: 12, speed: 340, range: 200, r: 5 } } },
+    // 백스탭(숨은 중 X · V, 2026-10-25 사용자: 라그나로크 로그 백스탭) — blink px 안(벽 너머 제외) 가장 가까운 적의 등 뒤로 준비(startup) 동안 돌아 들어가서 넓고 크게 휘두른다(무적).
+    // blink 130 → 40(2026-10-25 사용자: 멀리 날아가면 Z 돌진 베기와 겹치는 전진기 — 숨어서 직접 붙어야 쓰게). 등 뒤라 패시브 +30% 도 늘 붙는다(back)
+    stab: { name: '백스탭', slot: 'charge', startup: 0.12, active: 0.12, recovery: 0.3, mult: 4.0, knock: 220, stun: 0.9, reach: [0, 42], arc: 160, swing: [-120, 120], blink: 40, back: true, heavy: true, iframes: true },  // back = 언제나 등 뒤 공격(+30%)
     // 선풍 베기(대시 → 공격, 봉인의 숲 쌍검): 제자리에서 한 바퀴 돌며 둘레를 두 번 벤다
     dashAttack: { name: '선풍 베기', slot: 'dash', startup: 0.03, active: 0.24, recovery: 0.24, mult: 1.3, knock: 220, stun: 0.45, radius: 40, spin: true, hits: 2, outward: true, iframes: true },
   },
@@ -128,9 +130,9 @@ const WEAPON_KINDS = {
   heavy: { name: '중량', speed: 0.88, reach: 0, dmg: 1, knock: 1.4, arc: 1.1 },
   wand: { name: '경량', speed: 1.15, reach: 0, dmg: 1, knock: 0.9, arc: 1 },   // 마법사 롯드
   staff: { name: '중량', speed: 0.88, reach: 0, dmg: 1, knock: 1.4, arc: 1.1 },  // 마법사 스태프
-  // 암살자(2026-10-25): 카타르 = 빠름(검과 같은 속도), 싸이 = 받아치기 특화(조금 느리고 공격력 ×1.2 · 막는 시간 +0.1초 · 반격 피해 +20%)
+  // 암살자(2026-10-25): 카타르 = 빠름(검과 같은 속도), 싸이 = 묵직(조금 느리고 공격력 ×1.2 · 돌진 베기 피해 +20%)
   katar: { name: '경량', speed: 1.15, reach: 0, dmg: 1, knock: 0.9, arc: 1 },
-  sai: { name: '받아치기', speed: 0.95, reach: 0, dmg: 1, knock: 1.1, arc: 1, parry: 0.1, riposte: 0.2 },
+  sai: { name: '묵직', speed: 0.95, reach: 0, dmg: 1, knock: 1.1, arc: 1, rush: 0.2 },
 };
 
 // ── 몹 ── atk.lunge = 공격하며 튀어나가는 속도, ranged = 멀리서 쏨(shot: 탄 속도 · 피해)
@@ -704,12 +706,12 @@ const EL_ABIL_MAGE = {
   thunder: { basic: ['연쇄 번개', '모든 기본 공격에서 번개가 튄다'], charge: ['뇌운 마법진', '마법진이 터지고 1초 뒤 낙뢰가 한 번 더 떨어진다'], wave: ['벼락 구슬', '마력탄에 맞은 적마다 벼락'] },
   poison: { basic: ['독 분사', '휘두를 때마다 앞으로 독을 뿜는다'], charge: ['독 터뜨리기', '마법진이 쌓인 독을 한꺼번에 터뜨린다'], wave: ['독침 구슬', '마력탄에 맞으면 독 3중첩'] },
 };
-// 암살자 칸 능력(2026-10-25): 그림자 베기(차지 칸 — 도착한 자리에서) · 받아치기 반격(특수 칸). 없는 칸은 검사 것 그대로
+// 암살자 칸 능력(2026-10-25): 그림자 숨기(차지 칸 — 백스탭 자리 · 표창이 처음 맞은 자리에서) · 돌진 베기(특수 칸). 없는 칸은 검사 것 그대로
 const EL_ABIL_ASSASSIN = {
-  fire: { charge: ['불길 그림자', '그림자 베기가 끝난 자리에 불길이 2.5초 남는다'], wave: ['작열 반격', '반격에 맞은 적 자리에서 불꽃이 터진다'] },
-  frost: { charge: ['서리 그림자', '그림자 베기가 끝난 자리가 3초 얼어붙어 위의 적에게 냉기'], wave: ['얼음 반격', '반격에 맞으면 냉기 1 더(거의 바로 빙결)'] },
-  thunder: { charge: ['뇌운 그림자', '그림자 베기 1초 뒤 낙뢰가 한 번 더 떨어진다'], wave: ['벼락 반격', '반격에 맞은 적마다 벼락'] },
-  poison: { charge: ['독 터뜨리기', '그림자 베기가 쌓인 독을 한꺼번에 터뜨린다'], wave: ['독침 반격', '반격에 맞으면 독 3중첩'] },
+  fire: { charge: ['불길 그림자', '백스탭 · 표창 자리에 불길이 2.5초 남는다'], wave: ['작열 돌진', '돌진 베기에 맞은 적 자리에서 불꽃이 터진다'] },
+  frost: { charge: ['서리 그림자', '백스탭 · 표창 자리가 3초 얼어붙어 위의 적에게 냉기'], wave: ['얼음 돌진', '돌진 베기에 맞으면 냉기 1 더(거의 바로 빙결)'] },
+  thunder: { charge: ['뇌운 그림자', '백스탭 · 표창 1초 뒤 낙뢰가 한 번 더 떨어진다'], wave: ['벼락 돌진', '돌진 베기에 맞은 적마다 벼락'] },
+  poison: { charge: ['독 터뜨리기', '백스탭 · 표창이 쌓인 독을 한꺼번에 터뜨린다'], wave: ['독침 돌진', '돌진 베기에 맞으면 독 3중첩'] },
 };
 // 칸 능력 [이름, 설명]: 직업에 맞게
 const elAbil = (el, slot, prof) => {

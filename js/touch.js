@@ -1,5 +1,6 @@
 // 폰 터치 조작(2026-10-24 사용자: 깃허브에 올려 폰으로). 터치 화면에서만 나온다.
 // 게임 중(던전 · 마을 걷기): 왼쪽 절반 = 이동 스틱(누른 자리가 가운데), 오른쪽 = 기술 버튼(HUD 가운데 도트 기술 아이콘: 공격 · 대시 · 회전 · 특수),
+//   마을에서는 기술 · 물약 버튼을 숨기고 기본 버튼이 말풍선 '대화'(던전 입구 앞이면 '던전') — 말 걸 사람이 가까이 없으면 흐리게(2026-10-25 사용자: 기본 버튼이 대화라 헷갈림)
 //   물약 = 왼쪽 체력 구슬 위, 위 = 가방 · 메뉴. 버튼은 반쯤 비치게(2026-10-25 사용자).
 // 메뉴 화면(캐릭터 선택 · 던전 고르기 · 가방 등 창): 스틱 · 기술 버튼을 숨기고 화면을 손가락으로 바로 누른다(ui.js 누를 곳). 오른쪽 = 확인 · 뒤로 (+ 그 창의 Z 일).
 //   넘치는 목록(던전 · 주머니 · 대장간 · 상점 · 소리 목록)은 손가락으로 위아래로 끌어 넘긴다(ui.js scrollArea, 2026-10-25 사용자: 화면 옆 화살표 버튼 말고 폰답게 스와이프로)
@@ -20,7 +21,8 @@ const Touch = (() => {
     #tc .sq { border-radius: 10px; }
     #tc .pill { border-radius: 20px; flex-direction: row; font-size: 15px; }
     #tc .side { border-radius: 10px; background: rgba(40, 30, 36, 0.45); }
-    #tc.menu .play, #tc:not(.menu) .menu { display: none; }
+    #tc.menu .play, #tc:not(.menu) .menu, #tc.town .fight { display: none; }
+    #tc .b.far { opacity: 0.45; }
     #tc.ext > * { display: none !important; }
     #tc #stk { position: absolute; width: 120px; height: 120px; border-radius: 50%; border: 2px solid rgba(255, 220, 150, 0.22); background: rgba(40, 30, 36, 0.15); display: none; }
     #tc #knob { position: absolute; width: 52px; height: 52px; border-radius: 50%; background: rgba(255, 220, 150, 0.3); left: 34px; top: 34px; }
@@ -62,11 +64,11 @@ const Touch = (() => {
   for (const [code, slot, r, bt, size] of BTNS) {
     const px = Math.max(2, Math.round(size * 0.5 / ICON)) * ICON;  // 도트가 고르게 커지게 18 의 배수
     const b = makeBtn(code, '<canvas width="' + ICON + '" height="' + ICON + '" style="width:' + px + 'px;height:' + px + 'px"></canvas><small></small>',
-      { right: r + 'px', bottom: bt + 'px' }, size, size, 'play');
+      { right: r + 'px', bottom: bt + 'px' }, size, size, slot === 'basic' ? 'play' : 'play fight');  // fight = 던전에서만
     els[slot] = b;
   }
   // 물약: 체력 구슬 바로 위(캔버스 자리에 맞춰 setInterval 에서 옮긴다)
-  const potion = makeBtn('Digit1', '<canvas width="16" height="22" style="width:24px;height:33px"></canvas><small></small>', {}, 54, 54, 'play');
+  const potion = makeBtn('Digit1', '<canvas width="16" height="22" style="width:24px;height:33px"></canvas><small></small>', {}, 54, 54, 'play fight');
   makeBtn('KeyI', 'I<small>가방</small>', { right: '96px', top: '12px' }, 50, 50, 'sq play');
   makeBtn('Escape', '≡<small>메뉴</small>', { right: '30px', top: '12px' }, 50, 50, 'sq play');
   // 메뉴 화면 버튼: 오른쪽 빈 띠 아래에 확인 · 뒤로(띠가 좁으면 화면 가장자리 위에). 확인은 X, 뒤로는 Backspace(취소만)를 누른 것과 같다.
@@ -94,6 +96,7 @@ const Touch = (() => {
     if (typeof Game === 'undefined' || !Game.prof) return;
     const prof = Game.prof, C = clsOf(prof);
     for (const slot in els) {
+      if (slot === 'basic' && inTown) continue;  // 마을: 말 걸기 버튼(mode 에서 그림)
       const st = Elements.socket(prof, slot), col = st ? ELEMENTS[st.el].color : '#a89cb0';
       const key = C.icons[slot] + col;
       if (drawn[slot] !== key) {
@@ -148,8 +151,21 @@ const Touch = (() => {
   window.addEventListener('blur', letGo);
   window.addEventListener('gamepaddisconnected', e => { delete padRest[e.gamepad.index]; delete padHeld[e.gamepad.index]; });
 
-  // 게임 중인가 메뉴 화면인가(창이 열렸거나 던전 · 마을 밖이면 메뉴)
-  let menuMode = null;
+  // 게임 중인가 메뉴 화면인가(창이 열렸거나 던전 · 마을 밖이면 메뉴), 마을을 걷는 중인가
+  let menuMode = null, inTown = false;
+  // 마을: 기본 버튼 = 말 걸기(말풍선 그림 · '대화' / 던전 입구 앞이면 '던전'), 가까이 말 걸 곳이 없으면 흐리게
+  function townButton() {
+    const b = els.basic, near = Town.near;
+    if (drawn.basic !== 'talk') {
+      const g = b.querySelector('canvas').getContext('2d');
+      g.clearRect(0, 0, ICON, ICON);
+      g.drawImage(Hud.pixIcon('talk', '#e8d8b0'), 0, 0);
+      drawn.basic = 'talk';
+    }
+    const s = b.querySelector('small'), t = near && near.id === 'gate' ? '던전' : '대화';
+    if (s.textContent !== t) s.textContent = t;
+    b.classList.toggle('far', !near);
+  }
   function mode() {
     if (typeof Game === 'undefined') return;
     if (Input.device !== lastDev) {  // 패드 버튼 · 스틱을 움직였다
@@ -165,6 +181,9 @@ const Touch = (() => {
       for (const b of root.querySelectorAll('.b.on')) b.classList.remove('on');
       if (m) { stickEnd(); refresh(); }
     }
+    const town = !m && Game.scene === 'town';
+    if (town !== inTown) { inTown = town; root.classList.toggle('town', town); if (!town) { els.basic.classList.remove('far'); refresh(); } }
+    if (town) townButton();
     back.style.display = m && (Game.scene === 'title' || Game.scene === 'splash') && !Game.overlays.length ? 'none' : '';  // 캐릭터 선택은 뒤로 갈 곳이 없다
     const top = Game.overlays[Game.overlays.length - 1], bl = top && (top.type === 'talk' || top.type === 'ride') ? '넘기기' : '뒤로';  // 이야기 · 광차 장면은 건너뛰기
     if (back.textContent !== bl) back.textContent = bl;

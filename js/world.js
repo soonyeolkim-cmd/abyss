@@ -315,7 +315,7 @@ const World = (() => {
       if (H.dot && hazT <= 0) { hazT = 0.5; hazardDamage(p, p.maxHp * H.dot, H.color); }
     } else if (spikeState(h) === 'up' && !(p.spikeCd > time)) {
       p.spikeCd = time + SPIKE_UP + 0.05;
-      if (hurtPlayer(p, { x: p.x, y: p.y + 1, hazard: true }, p.maxHp * H.dmg, 60) === 'hit' && H.chill) p.slowT = 1.5;  // hazard = 받아치기로 못 막음
+      if (hurtPlayer(p, { x: p.x, y: p.y + 1, hazard: true }, p.maxHp * H.dmg, 60) === 'hit' && H.chill) p.slowT = 1.5;
     }
   }
   // 함정 그리기(보이는 것만): 웅덩이 = 반투명 색 + 꿈틀대는 점, 가시 = 0x72 가시(얼음 가시는 파랗게)
@@ -622,7 +622,7 @@ const World = (() => {
       for (const t of [p, ...rps]) {  // 파티: 손님 몸에 맞으면 그 손님에게 알린다(hurtPlayer)
         if (s.life > 0 && !t.dead && Math.hypot(t.x - s.x, (t.y - 8) - s.y) < s.r + BODY_R + 2) {
           const r = hurtPlayer(t, s, s.dmg, s.knock);
-          if (r !== 'miss') { s.life = 0; sparks(s.x, s.y + 8, 8, 5, s.color); if (s.chill && r === 'hit') t.slowT = 2; }  // 얼음 임프 탄: 느려짐(받아치면 탄만 사라짐)
+          if (r !== 'miss') { s.life = 0; sparks(s.x, s.y + 8, 8, 5, s.color); if (s.chill && r === 'hit') t.slowT = 2; }  // 얼음 임프 탄: 느려짐
         }
       }
     }
