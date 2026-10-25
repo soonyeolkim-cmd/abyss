@@ -321,7 +321,7 @@ const DUNGEONS = [
     desc: '심연에 무릎 꿇은 기사단. 기둥 늘어선 성채에 가시 함정.', banner: 'wall_banner_blue', wall: ['wall_banner_yellow', 'wall_hole_1'], tint: '#a0a8c8', needs: 'plague', cols: 0.9, skulls: 0.5, crates: 1, hazard: 'spikes' },
   { id: 'temple', name: '비늘 신전', lv: 80, ilvl: [80, 84], rooms: 13, pool: ['lizard_m', 'lizard_f', 'slug', 'temple_guard'], boss: 'scale_lord', ease: { hp: 0.75, dmg: 0.95, bhp: 0.79, bdmg: 1.19 },
     desc: '물에 잠긴 도마뱀 일족의 신전. 물웅덩이에서는 느려진다.', banner: 'wall_banner_green', wall: ['wall_fountain_mid_blue_anim_f0'], tint: '#70c8a8', needs: 'order', cols: 0.8, skulls: 0.3, hazard: 'water' },
-  { id: 'abyss', name: '심연의 문', lv: 90, ilvl: [90, 94], rooms: 14, pool: ['angel', 'abyss_chort', 'void_imp', 'wizzard_m', 'void_fiend'], boss: 'abyss_lord', ease: { hp: 1.23, dmg: 1.31, bhp: 0.86, bdmg: 1.39 },
+  { id: 'abyss', name: '심연의 문', lv: 90, ilvl: [90, 94], rooms: 14, pool: ['angel', 'abyss_chort', 'void_imp', 'wizzard_m', 'void_fiend'], boss: 'abyss_lord', ease: { hp: 1.05, dmg: 1.11, bhp: 0.73, bdmg: 1.18 },  // 2026-10-25 사용자 "좀만 쉽게" → 모두 ×0.85(예전 1.23 · 1.31 · .86 · 1.39)
     desc: '모든 것이 시작된 곳. 공허 웅덩이가 몸을 갉아먹는다.', banner: 'wall_banner_red', wall: ['wall_fountain_mid_red_anim_f0', 'wall_hole_2'], tint: '#a080e0', needs: 'temple', cols: 0.3, skulls: 2, hazard: 'void' },
 ];
 
