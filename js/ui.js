@@ -20,6 +20,8 @@ const UI = (() => {
   const zone = (x, y, w, h, z) => { z.x = x; z.y = y; z.w = w; z.h = h; zones.push(z); };
   function tapLayer() { zones = []; }
   function tap(x, y) { tapAt = { x, y }; }
+  let holdAt = null;  // 폰: 지금 손가락이 닿아 있는 자리(길게 누르기 — 캐릭터 지우기 확인)
+  const touchHold = pt => { holdAt = pt; };
   function resolveTap() {
     if (!tapAt) return;
     const { x, y } = tapAt;
@@ -87,7 +89,7 @@ const UI = (() => {
       if (p) Game.overlay({ type: 'choice', title: name + ' · ' + clsOf(p).name + ' Lv.' + p.lv, items: [
         { label: '이어하기', go: () => Game.startSlot(n) },
         { label: '코드로 내보내기', go: () => this.exportCode(n) },
-        { label: '캐릭터 지우기', go: () => Game.overlay({ type: 'confirm', danger: true, text: name + '(' + clsOf(p).name + ' Lv.' + p.lv + ')를 지울까요?', sub: '지우면 되돌릴 수 없어요 — 남기려면 먼저 코드로 내보내 두세요',
+        { label: '캐릭터 지우기', go: () => Game.overlay({ type: 'confirm', danger: true, hold: 2, text: name + '(' + clsOf(p).name + ' Lv.' + p.lv + ')를 지울까요?', sub: '지우면 되돌릴 수 없어요 — 남기려면 먼저 코드로 내보내 두세요',
           yes: () => { Save.wipe(n); this.open(); Game.toast(name + '를 지웠어요'); } }) },
       ] });
       else Game.overlay({ type: 'choice', title: name + ' · 빈 칸', items: [
@@ -1522,14 +1524,29 @@ const UI = (() => {
     },
   };
   // 확인 창: 연달아 누르다 잘못 고르지 않게 — 처음엔 '아니요'에 있고, 열린 뒤 LOCK 프레임(약 0.4초) 동안은 누름을 받지 않는다
+  // o.hold = 초(2026-10-25 사용자: 캐릭터 지우기는 2초 누르고 있어야) — '예'는 확인 버튼(X · 패드 A)이나 손가락을 그만큼 누르고 있어야 함, 떼면 처음부터
   const CONFIRM_LOCK = 24;
+  const YES_BOX = [325, 282, 150, 44];
   const confirm = {
     sel: 1,
     update(o) {
       o.frames = (o.frames || 0) + 1;
+      const now = performance.now(), dt = Math.min(0.1, (now - (o.last || now)) / 1000);
+      o.last = now;
       if (o.frames <= CONFIRM_LOCK) return;
       if (Input.nav('left') || Input.nav('right') || Input.nav('up') || Input.nav('down')) this.sel = 1 - this.sel;
       if (Input.wasPressed('back')) { Game.closeOverlay(); if (o.no) o.no(); return; }  // o.no = 아니요 · 닫기 때 할 일(파티 초대 거절)
+      if (o.hold) {
+        const [bx, by, bw, bh] = YES_BOX, finger = holdAt && holdAt.x >= bx && holdAt.x <= bx + bw && holdAt.y >= by && holdAt.y <= by + bh;
+        if (finger) this.sel = 0;
+        const holding = this.sel === 0 && (finger || (Input.isDown('ok') && o.okFresh));
+        if (Input.wasPressed('ok')) o.okFresh = true;  // 창이 열리기 전부터 누르고 있던 것은 안 침
+        if (!Input.isDown('ok')) o.okFresh = false;
+        o.holdT = holding ? (o.holdT || 0) + dt : 0;
+        if (o.holdT >= o.hold) { holdAt = null; Game.closeOverlay(); o.yes(); return; }
+        if (Input.wasPressed('ok') && this.sel === 1) { Game.closeOverlay(); if (o.no) o.no(); }
+        return;
+      }
       if (Input.wasPressed('ok')) { Game.closeOverlay(); if (this.sel === 0) o.yes(); else if (o.no) o.no(); }
     },
     draw(ctx, o) {
@@ -1541,9 +1558,15 @@ const UI = (() => {
       const locked = (o.frames || 0) <= CONFIRM_LOCK;  // 잠긴 동안은 흐리게
       ['예', '아니요'].forEach((s, i) => {
         const on = i === this.sel;
-        zone(400 + i * 160 - 75, 282, 150, 44, { pick: () => { this.sel = i; }, now: true });
+        zone(400 + i * 160 - 75, 282, 150, 44, { pick: () => { this.sel = i; }, now: true, key: o.hold && i === 0 ? null : 'ok' });  // 길게 누르기 '예'는 떼어도 선택 안 됨
         centerItem(ctx, s, 400 + i * 160, 310, 20, locked ? '#5a5058' : on ? (i === 0 && o.danger ? '#ff8a6a' : '#ffd36a') : '#e8e0d0', on);
       });
+      if (o.hold) {  // '예' 아래: 누르고 있는 만큼 차오르는 막대 + 안내
+        const k = Math.min(1, (o.holdT || 0) / o.hold), [bx, , bw] = YES_BOX;
+        ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(bx + 15, 320, bw - 30, 4);
+        ctx.fillStyle = '#ff6a5a'; ctx.fillRect(bx + 15, 320, (bw - 30) * k, 4);
+        T_(ctx, '예 = ' + o.hold + '초 누르고 있기', bx + bw / 2, 337, 11, k > 0 ? '#ff8a6a' : '#8a7e88', 'center');
+      }
     },
   };
 
@@ -1584,5 +1607,5 @@ const UI = (() => {
     return null;
   }
 
-  return { shopItems, qty, title, choice, select, inv, stones, gems, manage, smith, vault, pause, settings, confirm, result, tap, tapLayer, resolveTap, touchSpecial, zone };
+  return { shopItems, qty, title, choice, select, inv, stones, gems, manage, smith, vault, pause, settings, confirm, result, tap, tapLayer, resolveTap, touchSpecial, zone, touchHold };
 })();

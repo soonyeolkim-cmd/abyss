@@ -26,6 +26,8 @@ const World = (() => {
     try { return fn(); } finally { Math.random = orig; }
   }
   let partySeed = 0;  // 파티로 들어온 던전이면 그 씨앗(혼자면 0)
+  // 예전 층 그림을 바로 비운다(2026-10-25: 끝없는 심연 층 그림이 약 2400x1800 이라 폰 메모리에 쌓이지 않게)
+  function freeLevel() { if (!lv) return; for (const c of [lv.canvas, lv.mapCanvas]) if (c) c.width = c.height = 0; }
 
   // ── 파티 같이 싸우기(3단계, 2026-10-25) ──
   // 방장: 몹 · 탄 · 장판 · 속성석 효과를 모두 계산한다. 손님 몸들 rps(remote, 최대 3) = 손님 장비로 만든 플레이어 — 손님이 보낸 위치 · 동작으로 움직이고
@@ -56,6 +58,7 @@ const World = (() => {
     partySeed = seed;
     mirror = !!seed && Net.role === 'guest';
     actor = null; nextId = 1; byId.clear(); flows.clear(); goneIds = [];
+    freeLevel();
     lv = seed ? seeded(seed, () => Dungeon.generate(def)) : Dungeon.generate(def);
     lv.ilvlR = diffIlvl(def, diff);  // 난이도에 따른 장비 레벨 범위
     dIdx = def.endless ? DUNGEONS.length - 1 : DUNGEONS.indexOf(def);  // 끝없는 심연은 마지막 던전만큼 큰 무리
@@ -181,6 +184,7 @@ const World = (() => {
     const def = endlessDef(floor), seed = floorSeed(floor);
     RUN.ease = def.ease;
     actor = null; nextId = 1; byId.clear(); flows.clear(); goneIds = [];
+    freeLevel();
     lv = seed ? seeded(seed, () => Dungeon.generate(def)) : Dungeon.generate(def);
     lv.ilvlR = diffIlvl(def, RUN.diff);
     p.x = lv.start.cx * T + 8; p.y = lv.start.cy * T + 12; p.ri = 0; fadeT = FADE;
@@ -214,7 +218,7 @@ const World = (() => {
         addEnemy(b);
         continue;
       }
-      const packs = def.packs || (r.w * r.h > 110 ? 2 : 1);
+      const packs = def.packs || (r.w * r.h > 110 ? 2 : 1), n0 = enemies.length;
       for (let k = 0; k < packs; k++) {
         const type = pick(def.pool), center = Dungeon.spotIn(lv, r);
         const pack = { members: [] };
@@ -238,11 +242,12 @@ const World = (() => {
           for (let m = 0; m < 3 + rnd(0, 2) + packAdd(); m++) addPack(pack, createEnemy(m === 0 ? type : pick(def.pool), center.x + rnd(-28, 28), center.y + rnd(-20, 20), dlv(), { pack }));
         }
       }
+      // 방 하나 = 맵 하나: 방 가장자리라 벽에 끼어 놓인 몹도 이 방 것(2026-10-25: 예전엔 방 번호가 없어 시작 방으로 옮겨졌다)
+      if (lv.roomMaps) for (let k = n0; k < enemies.length; k++) enemies[k].ri = lv.rooms.indexOf(r);
     }
     // 바닥 · 벽에 끼인 몹은 가까운 빈 자리로
     for (const e of enemies) if (!Dungeon.walkable(lv, e.x, e.y, e.r)) { const r = Dungeon.roomAt(lv, e.x, e.y) || (lv.roomMaps && lv.rooms[e.ri]) || lv.rooms[0]; const s = Dungeon.spotIn(lv, r); e.x = s.x; e.y = s.y; }
-    if (lv.roomMaps) for (const e of enemies) { const i = Dungeon.roomIdx(lv, e.x, e.y); if (i >= 0) e.ri = i; }
-    // 보물 상자: 샛길 방(막다른 방)마다 하나 + 큰길 방 하나
+        // 보물 상자: 샛길 방(막다른 방)마다 하나 + 큰길 방 하나
     const mains = lv.rooms.filter(r => r.main && r !== lv.start && !r.boss);
     const chestRooms = [...lv.rooms.filter(r => r.branch), mains[rnd(0, mains.length - 1)]].filter(Boolean);
     for (const r of chestRooms) {

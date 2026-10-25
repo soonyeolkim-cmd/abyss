@@ -310,22 +310,31 @@ const Hud = (() => {
     if (m) { ctx.globalAlpha = Math.min(1, m.t / 0.4); T_(ctx, m.s, 480, 130, 28, '#f0e0b8', 'center'); ctx.globalAlpha = 1; }
   }
 
-  // 방 하나 = 맵 하나(끝없는 심연): 던파식 방 지도 — 네모 칸 = 방, 줄 = 문. 지금 방(금빛 깜빡) · 깬 방(보라) · 안 깬 방(붉게) · 안 가 본 방(어둡게),
-  // 수호자 방 = 붉은 테두리, 안 연 상자 = 노란 점(가 본 방만), 계단 = 하늘색, 파티원 = 그 방에 파티 색 점
+  // 방 하나 = 맵 하나(끝없는 심연): 던파식 방 지도 — 네모 칸 = 방, 줄 = 문. 지금 방(금빛 깜빡) · 깬 방(보라) · 안 깬 방(붉게).
+  // 안 가 본 방은 가려짐(2026-10-25 사용자: 처음엔 전체 지도를 안 보이게) — 가 본 방의 문 쪽에 '?' 칸만. 수호자 방 = 가 보면 붉은 테두리 + 점,
+  // 안 연 상자 = 노란 점, 계단 = 하늘색, 파티원 = 그 방에 파티 색 점(파티원이 가 본 방도 내 지도에 보임). 지도 틀은 층 전체 크기 그대로(크기로 길이 드러나지 않게)
   function drawRoomMap(ctx, lv, p) {
     const CWp = 24, CHp = 16, G = 6, gxs = lv.rooms.map(r => r.gx), gys = lv.rooms.map(r => r.gy);
     const gx0 = Math.min(...gxs), gy0 = Math.min(...gys), nx = Math.max(...gxs) - gx0 + 1, ny = Math.max(...gys) - gy0 + 1;
     const mw = nx * (CWp + G) - G, mh = ny * (CHp + G) - G, ox = 950 - mw, oy = 10, now = performance.now() / 1000;
     const pos = r => [ox + (r.gx - gx0) * (CWp + G), oy + (r.gy - gy0) * (CHp + G)];
     ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(ox - 5, oy - 5, mw + 10, mh + 10);
-    ctx.fillStyle = '#5a4a6a';  // 문(이음)
-    lv.rooms.forEach((r, i) => { for (const d of r.doors) if (d.to > i) { const [x, y] = pos(r); if (d.dir === 'r') ctx.fillRect(x + CWp, y + CHp / 2 - 1, G, 3); else if (d.dir === 'l') ctx.fillRect(x - G, y + CHp / 2 - 1, G, 3); else if (d.dir === 'd') ctx.fillRect(x + CWp / 2 - 1, y + CHp, 3, G); else ctx.fillRect(x + CWp / 2 - 1, y - G, 3, G); } });
-    const cur = World.roomOf(p);
+    for (const mt of World.mates) lv.visited.add(World.roomOf(mt));  // 파티원이 간 방도 열림
+    const cur = World.roomOf(p), seenR = i => lv.visited.has(i);
+    ctx.fillStyle = '#5a4a6a';  // 문(이음): 가 본 방에서 나가는 문만
+    lv.rooms.forEach((r, i) => { if (!seenR(i)) return; for (const d of r.doors) { const [x, y] = pos(r); if (d.dir === 'r') ctx.fillRect(x + CWp, y + CHp / 2 - 1, G, 3); else if (d.dir === 'l') ctx.fillRect(x - G, y + CHp / 2 - 1, G, 3); else if (d.dir === 'd') ctx.fillRect(x + CWp / 2 - 1, y + CHp, 3, G); else ctx.fillRect(x + CWp / 2 - 1, y - G, 3, G); } });
     lv.rooms.forEach((r, i) => {
-      const [x, y] = pos(r), seen = lv.visited.has(i), done = lv.cleared.has(i);
-      ctx.fillStyle = !seen ? '#1c1424' : done ? '#4a3270' : '#6a2a2a';
+      const [x, y] = pos(r), seen = seenR(i), done = lv.cleared.has(i);
+      if (!seen) {  // 안 가 본 방: 가 본 방과 문으로 붙어 있으면 '?' 칸만, 아니면 안 그림
+        if (!r.doors.some(d => seenR(d.to))) return;
+        ctx.fillStyle = '#1c1424'; ctx.fillRect(x, y, CWp, CHp);
+        ctx.lineWidth = 1; ctx.strokeStyle = '#3a2e46'; ctx.strokeRect(x + 0.5, y + 0.5, CWp - 1, CHp - 1);
+        T_(ctx, '?', x + CWp / 2, y + CHp - 4, 11, '#5a4a6a', 'center');
+        return;
+      }
+      ctx.fillStyle = done ? '#4a3270' : '#6a2a2a';
       ctx.fillRect(x, y, CWp, CHp);
-      ctx.lineWidth = 1; ctx.strokeStyle = r.boss ? '#d83a3a' : seen ? '#8a78a0' : '#3a2e46';
+      ctx.lineWidth = 1; ctx.strokeStyle = r.boss ? '#d83a3a' : '#8a78a0';
       ctx.strokeRect(x + 0.5, y + 0.5, CWp - 1, CHp - 1);
       if (r.boss) { ctx.fillStyle = '#d83a3a'; ctx.fillRect(x + CWp / 2 - 2, y + CHp / 2 - 2, 4, 4); }
       if (seen) for (const c of lv.chests) if (!c.open && Dungeon.roomIdx(lv, c.x, c.y) === i) { ctx.fillStyle = '#ffd34d'; ctx.fillRect(x + 3, y + 3, 3, 3); }

@@ -185,9 +185,13 @@ const Touch = (() => {
 
   // 메뉴 화면 누르기: 손가락을 거의 안 움직이고 뗀 자리를 960x540 좌표로 바꿔 ui.js 에 넘긴다
   let t0 = null;
-  canvas.addEventListener('touchstart', e => { e.preventDefault(); const t = e.changedTouches[0]; t0 = { id: t.identifier, x: t.clientX, y: t.clientY }; }, { passive: false });
+  const at = t => { const r = canvas.getBoundingClientRect(); return { x: (t.clientX - r.left) / r.width * 960, y: (t.clientY - r.top) / r.height * 540 }; };
+  canvas.addEventListener('touchstart', e => { e.preventDefault(); const t = e.changedTouches[0]; t0 = { id: t.identifier, x: t.clientX, y: t.clientY }; UI.touchHold(at(t)); }, { passive: false });
+  canvas.addEventListener('touchmove', e => { const t = t0 && [...e.changedTouches].find(q => q.identifier === t0.id); if (t) UI.touchHold(Math.hypot(t.clientX - t0.x, t.clientY - t0.y) > 24 ? null : at(t)); }, { passive: true });
+  canvas.addEventListener('touchcancel', () => { t0 = null; UI.touchHold(null); }, { passive: true });
   canvas.addEventListener('touchend', e => {
     e.preventDefault();
+    UI.touchHold(null);
     const t = t0 && [...e.changedTouches].find(q => q.identifier === t0.id);
     if (!t || Math.hypot(t.clientX - t0.x, t.clientY - t0.y) > 24) { t0 = null; return; }
     t0 = null;

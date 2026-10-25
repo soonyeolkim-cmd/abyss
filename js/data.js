@@ -338,7 +338,7 @@ const DUNGEONS = [
 // 들어선 방은 문이 닫혀 있고 그 방 몹을 다 잡아야 열린다. 한 층 = 방 rooms 개(큰길 + 샛길 2), 방마다 무리 packs 개,
 // 층 끝 수호자를 잡고 계단을 내려가면 마을로 안 가고 바로 다음 층(world.js descend) — 런이 이어진다. 파티로도 들어감(흩어져 싸워도 됨).
 // 보상: 장비 단계 · 속성석은 심연의 문과 같고, 골드 · 경험치는 층마다 +reward. 깨면 최고 층(prof.endless.best) — 다음엔 깬 층 + 1 까지 고를 수 있음
-const ENDLESS = { max: 3, diff: 2, step: 1.08, hp: 1.06, dmg: 1.04, reward: 0.05, rooms: 9, packs: 3, scenes: ['hell', 'ice', 'order'] };  // step 1.04 → 1.08(2026-10-25 사용자: 1층 조금 더 어렵게)
+const ENDLESS = { max: 3, diff: 2, step: 1.15, hp: 1.06, dmg: 1.04, reward: 0.05, rooms: 9, packs: 3, scenes: ['hell', 'ice', 'order'] };  // step 1.04 → 1.08 → 1.15(2026-10-25 사용자: 1층 더 어렵게, 두 번)
 const endlessBest = prof => (prof.endless && prof.endless.best) || 0;
 const endlessOpen = prof => !!(prof.story && prof.story.trueEnding);
 const mixColor = (a, b, k) => '#' + [1, 3, 5].map(i => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - k) + parseInt(b.slice(i, i + 2), 16) * k).toString(16).padStart(2, '0')).join('');

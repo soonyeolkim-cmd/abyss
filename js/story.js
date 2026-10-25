@@ -1,9 +1,9 @@
 // 이야기(2026-10-25 사용자: 봉인의 숲처럼 오프닝 · 스토리. 마물의 습격으로 살아남은 사람들이 지하 도시 벨록에 모였다).
-// 대사 = [화자, 글]. 화자: narr 내레이션(검은 화면 가운데 글) · hero 나(이름 = 직업) · kael 파수꾼 카엘 · boss 그 던전 보스.
+// 대사 = [화자, 글]. 화자: narr 내레이션(검은 화면 가운데 글) · hero 나(주인공 노아 — 2026-10-25 사용자: 검사 · 마법사 모두 같은 사람, 예전엔 이름 = 직업) · kael 파수꾼 카엘 · boss 그 던전 보스.
 // 장면마다 한 번만(prof.story 에 본 것을 적는다). 던전: start 처음 들어갈 때 · boss 보스방 · down 보스를 쓰러뜨린 뒤 · town 그 뒤 마을로 돌아왔을 때.
 const SPEAKERS = {
   narr: { name: '', color: '#c8b8a0' },
-  hero: { name: null, color: '#9cc4ff' },
+  hero: { name: '노아', color: '#9cc4ff' },
   kael: { name: '파수꾼 카엘', color: '#ffd36a', bg: '#2a2418' },  // 초상 = 따로 찍은 도트(kaelFace) — 0x72 몸은 모두 몹 · 우리 캐릭터와 겹쳐서(2026-10-25 사용자)
   boss: { name: null, color: '#ff7a5a', bg: '#2a1414' },
   // 마을 NPC(2026-10-25) — 초상 = 그 몸(sprite) 가슴 위로
@@ -75,7 +75,7 @@ const NPC_TALK = {
   minerPool: [
     '바깥 공기를 마셔 본 게 언제인지… 실베인의 하늘이 그립구먼.',
     '저 옛 갱도 입구엔 가까이 가지 말게. 무너진 돌 너머는 마물 소굴이야.',
-    '곡괭이 대신 칼을 든 젊은이라… 부디 몸조심하게.',
+    '곡괭이 대신 마물과 씨름하는 젊은이라… 부디 몸조심하게.',  // 무기 이야기는 뺌(2026-10-25 사용자: 검사 · 마법사 모두 어색하지 않게)
     '여기 벨록은 땅 위보다 안전하다네. 적어도 아직까지는 말이지.',
     '내가 젊었을 땐 이 갱도에서 은을 캤지. 지금은 목숨을 캐고 있구먼, 허허.',
   ],
@@ -93,7 +93,8 @@ const STORY = {
   welcome: [
     ['kael', '정신이 드나? 무너진 성당 앞에 쓰러져 있던 걸 끌고 왔다.'],
     ['hero', '…여기는 어디죠? 마물은… 다른 사람들은요?'],
-    ['kael', '지하 도시 벨록. 땅 위에서 도망쳐 온 사람들의 마지막 피난처다. 나는 이곳을 지키는 파수꾼 카엘.'],
+    ['kael', '지하 도시 벨록. 땅 위에서 도망쳐 온 사람들의 마지막 피난처다. 나는 이곳을 지키는 파수꾼 카엘. 너는?'],
+    ['hero', '…노아예요.'],
     ['kael', '위로 가는 갱도는 그날 밤 우리 손으로 무너뜨렸다. 등불 기름도 식량도 오래 버티지 못해.'],
     ['hero', '다른 길은 없나요?'],
     ['kael', '하나 있다. 옛 왕국이 판 왕의 갱도. 이 광산 가장 먼 끝에서 땅 위 광산 도시 실베인까지 곧장 이어진 길이지.'],
@@ -379,7 +380,7 @@ const Story = (() => {
       const bx = 110, by = 372, bw = 740, bh = 146;
       Gfx.panel(ctx, bx, by, bw, bh, { border: sp.color });
       portrait(ctx, who, o, bx + 72, by + bh / 2, 54, time);
-      const name = who === 'hero' ? clsOf(Game.prof).name : who === 'boss' ? (o.boss ? o.boss.name : '???') : sp.name;
+      const name = who === 'boss' ? (o.boss ? o.boss.name : '???') : sp.name;
       T_(ctx, name, bx + 146, by + 34, 18, sp.color);
       const lines = wrap(ctx, text, bw - 170, 17);
       o.total = lines.reduce((n, l) => n + l.length, 0);
