@@ -23,7 +23,7 @@ const Game = (() => {
     Town.enter(prof, false);
     if (fresh) Story.trigger('opening');  // 새 캐릭터: 오프닝 · 카엘의 인사(2026-10-25)
   }
-  function toTitle() { Save.write(prof); scene = 'title'; overlays = []; Input.clear(); UI.title.open(); }
+  function toTitle() { if (Net.state !== 'off') Net.leave(); Save.write(prof); scene = 'title'; overlays = []; Input.clear(); UI.title.open(); }
 
   // 마을로 올 때는 던전 입구 앞에서 시작(처음 켤 때만 광장 가운데)
   function open(name) { scene = name; overlays = []; Input.clear(); if (name === 'town') { Save.write(prof); Town.enter(prof, true); } }
@@ -39,6 +39,7 @@ const Game = (() => {
     if (o.type === 'settings') UI.settings.sel = 0;
     if (o.type === 'confirm') UI.confirm.sel = o.defaultYes ? 0 : 1;
     if (o.type === 'choice') UI.choice.sel = 0;
+    if (o.type === 'coop') Coop.open();
     overlays.push(o);
     Input.clear();
   }
@@ -70,6 +71,7 @@ const Game = (() => {
       else if (top.type === 'confirm') UI.confirm.update(top);
       else if (top.type === 'choice') UI.choice.update(top);
       else if (top.type === 'talk') Story.update(top);
+      else if (top.type === 'coop') Coop.update(top);
       acc = 0;
       return;
     }
@@ -110,6 +112,7 @@ const Game = (() => {
       else if (o.type === 'confirm') UI.confirm.draw(ctx, o);
       else if (o.type === 'choice') UI.choice.draw(ctx, o);
       else if (o.type === 'talk') Story.draw(ctx, o);
+      else if (o.type === 'coop') Coop.draw(ctx, o, prof);
     }
     if (toastT > 0 && toastMsg) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -129,6 +132,7 @@ const Game = (() => {
     time += dt;
     toastT -= dt;
     Input.poll();
+    Net.update(dt);  // 함께하기: 연결 속도 · 끊김 살피기
     update(dt);
     Input.endFrame();
     draw();

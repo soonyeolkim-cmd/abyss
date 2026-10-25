@@ -91,6 +91,7 @@ const Town = (() => {
   }
 
   const TOWN_MENU = () => [
+    { label: '함께하기 (온라인 협동)', go: () => Game.overlay({ type: 'coop' }) },  // 2026-10-25 사용자: 방 코드로 2명
     { label: '장비 스테이터스', go: () => Game.overlay({ type: 'inv', mode: 'equip' }) },
     { label: '속성석 · 보석 관리', go: () => Game.overlay({ type: 'manage' }) },
     { label: '설정 · 조작', go: () => Game.overlay({ type: 'settings' }) },
@@ -162,6 +163,13 @@ const Town = (() => {
     Gfx.spr(ctx, 'coin_anim_f0', 34, by + 56, { scale: 2 });
     Gfx.text(ctx, prof.gold + 'G', 48, by + 54, 14, '#ffd34d');
     Gfx.text(ctx, '물약 ' + prof.potions, 140, by + 54, 14, '#ff9a9a');
+    // 함께하기 방이 열려 있으면 그 위에 방 코드 · 친구(창을 닫아도 방은 그대로)
+    if (Net.state !== 'off' && Net.state !== 'error') {
+      const m = Net.mate, s = Net.state === 'ready' ? '함께 · ' + clsOf(m).name + ' Lv.' + m.lv + (Net.ping ? ' · ' + Net.ping + 'ms' : '')
+        : Net.state === 'joining' ? '방 ' + Net.code + ' 들어가는 중' : '방 ' + Net.code + ' · 친구 기다리는 중';
+      Gfx.panel(ctx, 12, by - 38, 250, 32, { border: '#b48cff' });
+      Gfx.text(ctx, s, 26, by - 17, 13, '#e0d0ff');
+    }
     const hint = '이동 ' + L('move') + ' · 말 걸기 ' + L('ok') + ' · 가방 ' + L('inv') + ' · 메뉴 ' + L('pause');
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 512, 960, 28);
     Gfx.text(ctx, hint, 480, 531, 13, '#a89c98', 'center');
