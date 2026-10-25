@@ -295,7 +295,7 @@ const DUNGEONS = [
   // 2026-10-24 사용자 '던전 더 만들어줘' → 4개 추가(권장 Lv.19 · 22 · 25 · 28)
   { id: 'plague', name: '역병 하수도', lv: 60, ilvl: [60, 64], rooms: 12, pool: ['doc', 'pumpkin_dude', 'zombie', 'swampy'], boss: 'plague_giant', ease: { hp: 0.75, dmg: 0.75 },
     desc: '병든 오수가 흐르는 하수도. 독 웅덩이와 역병 사제의 독침.', banner: 'wall_banner_green', wall: ['wall_goo'], tint: '#b8c870', needs: 'hell', cols: 0.2, skulls: 1, crates: 1, hazard: 'poison' },
-  { id: 'order', name: '타락한 기사단 성채', lv: 70, ilvl: [70, 74], rooms: 13, pool: ['knight_f', 'dwarf_m', 'elf_f', 'wizzard_m'], boss: 'iron_ogre',
+  { id: 'order', name: '타락한 기사단 성채', lv: 70, ilvl: [70, 74], rooms: 13, pool: ['knight_f', 'dwarf_m', 'elf_f', 'wizzard_m'], boss: 'iron_ogre', ease: { hp: 0.85, dmg: 0.85 },  /* 2026-10-25 사용자: 하수도 영웅보다 약간 어렵게(약 1.1배) */
     desc: '심연에 무릎 꿇은 기사단. 기둥 늘어선 성채에 가시 함정.', banner: 'wall_banner_blue', wall: ['wall_banner_yellow', 'wall_hole_1'], tint: '#a0a8c8', needs: 'plague', cols: 0.9, skulls: 0.5, crates: 1, hazard: 'spikes' },
   { id: 'temple', name: '비늘 신전', lv: 80, ilvl: [80, 84], rooms: 13, pool: ['lizard_m', 'lizard_f', 'slug', 'temple_guard'], boss: 'scale_lord',
     desc: '물에 잠긴 도마뱀 일족의 신전. 물웅덩이에서는 느려진다.', banner: 'wall_banner_green', wall: ['wall_fountain_mid_blue_anim_f0'], tint: '#70c8a8', needs: 'order', cols: 0.8, skulls: 0.3, hazard: 'water' },
