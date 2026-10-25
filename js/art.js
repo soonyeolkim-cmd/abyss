@@ -397,7 +397,18 @@ const Art = (() => {
       switch (f.type) {
         case 'spark': {
           const x = f.x + f.vx * f.t, y = f.y + f.vy * f.t - (f.z + f.vz * f.t - 200 * f.t * f.t);
-          ctx.globalAlpha = 1 - k; ctx.fillStyle = f.col; ctx.fillRect(Math.round(x), Math.round(y), 1, 1);
+          const sz = f.s || 1;
+          ctx.globalAlpha = 1 - k * k; ctx.fillStyle = f.col; ctx.fillRect(Math.round(x), Math.round(y), sz, sz);
+          ctx.globalAlpha = 1;
+          break;
+        }
+        case 'impact': {  // 맞은 자리 흰 번쩍임
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          const y = f.y - f.z, R = f.r * (0.55 + 0.6 * k);
+          star4(ctx, f.x, y, R, f.rot, '#ffffff', 0.95 * (1 - k));
+          star4(ctx, f.x, y, R * 0.6, f.rot + Math.PI / 4, '#fff3c4', 0.7 * (1 - k));
+          ctx.restore();
           ctx.globalAlpha = 1;
           break;
         }

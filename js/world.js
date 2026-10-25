@@ -516,12 +516,16 @@ const World = (() => {
   }
 
   // ── 효과 ──
-  function sparks(x, y, z, n, col) {
+  // big = 타격 불꽃(2026-10-25 사용자 '타격감'): 2px 조각이 더 멀리 튀고 더 오래(0.3~0.55초) 떨어진다
+  function sparks(x, y, z, n, col, big) {
     for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2, s = 40 + Math.random() * 80;
-      fx.push({ type: 'spark', x, y, z, vx: Math.cos(a) * s, vy: Math.sin(a) * s * 0.6, vz: 40 + Math.random() * 70, t: 0, life: 0.18 + Math.random() * 0.15, col });
+      const a = Math.random() * Math.PI * 2, s = (big ? 60 : 40) + Math.random() * (big ? 110 : 80);
+      fx.push({ type: 'spark', x, y, z, vx: Math.cos(a) * s, vy: Math.sin(a) * s * 0.6, vz: (big ? 60 : 40) + Math.random() * (big ? 90 : 70), t: 0,
+        life: big ? 0.3 + Math.random() * 0.25 : 0.18 + Math.random() * 0.15, col, s: big && Math.random() < 0.6 ? 2 : 1 });
     }
   }
+  // 맞은 자리 번쩍임: 흰 4각 빛이 커지며 사라진다(약 0.1초)
+  function impact(x, y, z, r) { fx.push({ type: 'impact', x, y, z, r, rot: Math.random() * 0.8, t: 0, life: 0.11 }); }
   function dust(x, y, n) {
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;
@@ -602,7 +606,7 @@ const World = (() => {
       }
     },
     fx: f => fx.push(f),
-    text, number, sparks, dust, onKill, shake,
+    text, number, sparks, impact, dust, onKill, shake,
     hitstop: t => { hitstopT = Math.max(hitstopT, t); },
     combo: () => { comboN++; comboT = 1.8; },
     playerDied: () => { p.hp = 0; p.dead = true; p.state = 'dead'; p.act = null; p.deadT = 0; shakeT = 4; },

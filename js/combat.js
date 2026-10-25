@@ -92,7 +92,14 @@ function hitEnemy(e, def, p, w) {
   if (def.slot === 'basic') p.sp = Math.min(p.maxSp, p.sp + p.cls.stamina.onHit);  // 기본 공격이 맞으면 기력이 찬다
   World.combo();
   Sfx.hit(crit);
-  World.sparks(e.x - toE.x * 4, e.y - toE.y * 4, (e.z || 0) + e.h * 0.5, crit ? 12 : heavy ? 9 : 5, crit ? '#ffe066' : '#fff3c4');
+  // 타격감(2026-10-25 사용자: 봉인의 숲보다 약하다): 맞을 때마다 작은 화면 흔들림 · 큰 불꽃 · 흰 번쩍임 · 패드 진동, 치명타는 조금 더 멈춤
+  const hx = e.x - toE.x * 4, hy = e.y - toE.y * 4, hz = (e.z || 0) + e.h * 0.5;
+  World.sparks(hx, hy, hz, crit ? 8 : heavy ? 6 : 4, '#ffffff', true);
+  World.sparks(hx, hy, hz, crit ? 8 : heavy ? 5 : 3, crit ? '#ffd34d' : '#ffe9a8', true);
+  World.impact(hx, hy, hz, crit ? 14 : heavy ? 11 : 8);
+  World.shake(crit ? 3 : heavy ? 2.5 : 1.5);
+  if (crit) World.hitstop(0.07);
+  Input.rumble(crit || heavy ? 0.5 : 0.25, crit || heavy ? 90 : 50);
   World.number(e.x, e.y, (e.z || 0) + e.h + 4, dmg, crit ? '#ffd34d' : stag > 1 ? '#7fe3ff' : '#ffffff', crit);
   return true;
 }
