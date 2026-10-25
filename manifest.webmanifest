@@ -1,6 +1,7 @@
 {
   "name": "심연속으로",
   "short_name": "심연속으로",
+  "id": "./?app=abyss2",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
