@@ -598,7 +598,7 @@ const World = (() => {
   }
 
   function goldRoll(range, mul = 1) {
-    return Math.round(rnd(range[0], range[1]) * mul * GOLD_MUL * DIFFS[RUN.diff].gold * (lv.def.gainMul || 1) * POWER(dlv()) * (1 + p.stats.gold / 100));  // gainMul = 끝없는 심연 층 보너스
+    return Math.round(rnd(range[0], range[1]) * mul * GOLD_MUL * DIFFS[RUN.diff].gold * (lv.def.gainMul || 1) * GOLD_CURVE(dlv()) * (1 + p.stats.gold / 100));  // gainMul = 끝없는 심연 층 보너스, GOLD_CURVE = 던전 레벨 곡선(볼록)
   }
   const ilvl = () => rnd(lv.ilvlR[0], lv.ilvlR[1]);
   const mk = (il, o) => Items.make(il, Object.assign({ rare: DIFFS[RUN.diff].rare }, o));  // 난이도만큼 좋은 등급이 잘 나온다
