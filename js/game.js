@@ -40,6 +40,7 @@ const Game = (() => {
     if (o.type === 'confirm') UI.confirm.sel = o.defaultYes ? 0 : 1;
     if (o.type === 'choice') UI.choice.sel = 0;
     if (o.type === 'coop') Coop.open();
+    if (o.type === 'jar') Jar.open();
     overlays.push(o);
     Input.clear();
   }
@@ -76,6 +77,7 @@ const Game = (() => {
       else if (top.type === 'coopwait') Coop.waitUpdate();
       else if (top.type === 'coopview') Coop.viewUpdate();
       else if (top.type === 'coopgo') Coop.goUpdate();
+      else if (top.type === 'jar') Jar.update(top, prof);
       // 파티 던전은 창(가방 · 일시정지 · 계단 확인)을 열어도 멈추지 않는다 — 친구는 계속 싸우고 있음. 내 몸만 입력 없이
       if (scene === 'run' && World.partySeed && overlays.length) {
         World.inputLock = true;
@@ -128,6 +130,7 @@ const Game = (() => {
       else if (o.type === 'coopwait') Coop.waitDraw(ctx);
       else if (o.type === 'coopview') Coop.viewDraw(ctx, prof, time);
       else if (o.type === 'coopgo') Coop.goDraw(ctx);
+      else if (o.type === 'jar') Jar.draw(ctx, o, prof);
     }
     if (toastT > 0 && toastMsg) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
