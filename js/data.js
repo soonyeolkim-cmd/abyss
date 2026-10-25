@@ -303,7 +303,7 @@ const NAME_COLOR = { elite: '#7fa8ff', unique: '#e8c060', boss: '#ff7a5a' };
 // ease 규칙(2026-10-25 사용자): 다음 던전 보통 = 앞 던전 영웅의 약 1.1배(몹 · 보스 각각, 체력 ÷ (1 − 방어) · 공격을 던전 레벨 곡선 POWER 로 나눠 비교). 성당은 그대로
 const DUNGEONS = [
   { id: 'chapel', name: '무너진 성당', lv: 1, ilvl: [1, 5], rooms: 9, pool: ['skelet', 'tiny_zombie', 'zombie', 'skel_archer'], boss: 'big_zombie',
-    desc: '마을 밑 버려진 성당. 해골과 좀비가 떠돈다.', banner: 'wall_banner_red', wall: ['wall_hole_1', 'wall_hole_2'], cols: 0.7, skulls: 1.5 },
+    desc: '마을 옆 버려진 성당. 해골과 좀비가 떠돈다.', banner: 'wall_banner_red', wall: ['wall_hole_1', 'wall_hole_2'], cols: 0.7, skulls: 1.5 },
   { id: 'swamp', name: '독안개 늪', lv: 10, ilvl: [10, 14], rooms: 10, pool: ['muddy', 'swampy', 'slug', 'tiny_slug'], boss: 'ogre_swamp', ease: { hp: 0.87, dmg: 0.88, bhp: 0.87, bdmg: 0.88 },
     desc: '물에 잠긴 지하. 독 웅덩이를 밟으면 독에 걸리고 느려진다.', banner: 'wall_banner_green', wall: ['wall_goo', 'wall_goo'], tint: '#8fc070', needs: 'chapel', cols: 0.2, skulls: 0.5, hazard: 'poison' },
   { id: 'crypt', name: '지하 묘지', lv: 20, ilvl: [20, 24], rooms: 11, pool: ['skelet', 'zombie', 'necromancer', 'wraith', 'ghoul'], boss: 'zombie_lord', ease: { hp: 0.51, dmg: 0.59, bhp: 0.6, bdmg: 0.67 },

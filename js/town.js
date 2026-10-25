@@ -157,8 +157,8 @@ const Town = (() => {
     // 아래 왼쪽: 마을 이름 · 캐릭터
     const by = 438;
     Gfx.panel(ctx, 12, by, 250, 66);
-    Gfx.text(ctx, '잿빛 마을', 26, by + 26, 18, '#f0e0b8');
-    Gfx.text(ctx, '검사 Lv.' + prof.lv, 140, by + 26, 15, '#e8dcc0');
+    Gfx.text(ctx, '지하 마을 벨록', 26, by + 26, 18, '#f0e0b8');
+    Gfx.text(ctx, '검사 Lv.' + prof.lv, 250, by + 26, 15, '#e8dcc0', 'right');  // 마을 이름이 길어져(지하 마을 벨록) 오른쪽 끝에 맞춤
     Gfx.spr(ctx, 'coin_anim_f0', 34, by + 56, { scale: 2 });
     Gfx.text(ctx, prof.gold + 'G', 48, by + 54, 14, '#ffd34d');
     Gfx.text(ctx, '물약 ' + prof.potions, 140, by + 54, 14, '#ff9a9a');
