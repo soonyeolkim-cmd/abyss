@@ -23,6 +23,7 @@ const Town = (() => {
         { label: '주문서 강화 · 강화 옮기기', go: () => Game.overlay({ type: 'smith' }) },
         { label: '장비 팔기', go: () => Game.overlay({ type: 'inv', mode: 'sell' }) },
         EQUIP_ITEM,
+        { label: '강화 이야기 듣기', go: () => Story.talkNpc('smith') },  // 2026-10-25 사용자: 기존 NPC도 대화로 설명
       ] }) },
     { id: 'gate', name: '던전 입구', role: '던전 고르기', ...px(14, 3), x: 15 * T, go: () => { if (!Coop.guestBlocked()) Game.open('select'); } },  // 파티 손님은 방장이 고른다
     { id: 'shop', name: '상인 엘린', role: '장비 팔기 · 아이템 사고팔기 · 장비 관리', sprite: 'elf_m', ...px(23, 3), x: 24 * T,
@@ -31,16 +32,27 @@ const Town = (() => {
         { label: '장비 팔기', go: () => Game.overlay({ type: 'inv', mode: 'sell' }) },
         { label: '아이템 사고팔기', go: () => Game.overlay({ type: 'shopItems' }) },  // 장비 칸 + 가방(등급 보며 팔기), 대장장이 '장비 팔기'와 같은 창
         EQUIP_ITEM,
+        { label: '가게 이야기 듣기', go: () => Story.talkNpc('shop') },
       ] }) },
     { id: 'jewel', name: '세공사 미라', role: '속성석 · 보석 합치기 · 관리', sprite: 'wizzard_f', ...px(2, 9), flip: false,
       go: () => Game.overlay({ type: 'choice', title: '세공사 미라', items: [
         { label: '속성석 · 보석 합치기', go: () => Game.overlay({ type: 'stones', mode: 'craft' }) },
         { label: '속성석 · 보석 관리', go: () => Game.overlay({ type: 'manage' }) },
         EQUIP_ITEM,
+        { label: '속성석 · 보석 이야기 듣기', go: () => Story.talkNpc('jewel') },
       ] }) },
     // 창고(2026-10-24 사용자): 유니크 컬렉션. 사람 대신 상자
     { id: 'vault', name: '창고', role: '유니크 컬렉션 · 부위별 달성률', prop: 'chest_full_open_anim_f0', ...px(27, 9), go: () => Game.overlay({ type: 'vault' }) },
+    // 파수꾼 카엘(2026-10-25 사용자: 카엘이 마을에 있었으면) — 던전 입구 왼쪽을 지킨다. 몸 = 검사 몸 + 갈색 두건 · 흰 수염 · 망토(assets/dt/kael.png)
+    { id: 'kael', name: '파수꾼 카엘', role: '조언 · 이야기 다시 보기', sprite: 'kael', ...px(12, 6), flip: false,
+      go: () => Game.overlay({ type: 'choice', title: '파수꾼 카엘', items: [
+        { label: '이야기 듣기', go: () => Story.talkNpc('kael') },
+        { label: '처음 이야기 다시 보기', go: () => Story.replay() },
+      ] }) },
+    // 늙은 광부 오르반(2026-10-25 사용자: 여기는 지하 도시이고 바깥은 위험하다는 사람) — 오른쪽 아래 무너진 옛 갱도 입구 옆(왼쪽 아래는 마을 패널이 가림)
+    { id: 'miner', name: '늙은 광부 오르반', role: '지하 도시 이야기', sprite: 'miner', ...px(23, 13), flip: false, go: () => Story.talkNpc('miner') },
   ];
+  const SHAFT = [26, 13];  // 무너진 옛 갱도 입구(광부 옆, 상자 둘 사이)
   const TALK_R = 26;
   const TOWN_SPEED = 1.6;  // 마을에서는 던전보다 60% 빠르게 걷는다(2026-10-24 사용자)
 
@@ -57,6 +69,9 @@ const Town = (() => {
     // 광장 기둥 넷 + 상점 · 대장장이 앞 상자(막히는 것)
     for (const c of [[9, 7], [20, 7], [9, 12], [20, 12]]) m.columns.push(c);
     for (const c of [[21, 2], [26, 2], [3, 2], [8, 2]]) { m.columns.push(c); m.crates.add(c.join()); }
+    // 꾸미기(2026-10-25 사용자: 마을을 예쁘게 · 창고 주변): 창고 양옆 상자 더미 · 무너진 옛 갱도(구멍 + 막아 둔 상자)
+    for (const c of [[28, 7], [28, 11], [25, 13], [27, 13]]) { m.columns.push(c); m.crates.add(c.join()); }
+    m.columns.push(SHAFT); m.hidden = new Set([SHAFT.join()]);  // 구멍: 막히지만 기둥 그림은 안 그림(바닥에 따로)
     m.canvas = Dungeon.paint(m);
     m.painted = Gfx.ready();  // 그림 파일이 아직 안 읽혔으면 그릴 때 다시
     return m;
@@ -119,24 +134,41 @@ const Town = (() => {
     }
     Gfx.spr(ctx, 'floor_stairs', 14 * T, 2 * T, { topLeft: true });
     Gfx.spr(ctx, 'floor_stairs', 15 * T, 2 * T, { topLeft: true });
+    drawFloorDecor(ctx);
     // 앞뒤(y) 정렬: 기둥 · 상자 · 사람
     const list = [];
     for (const c of lv.columns) {
+      if (lv.hidden && lv.hidden.has(c.join())) continue;  // 막기만 하는 칸(옛 갱도 구멍)
       const x = c[0] * T + 8, y = (c[1] + 1) * T, crate = lv.crates.has(c.join());
       list.push({ y: crate ? y - 4 : y, draw: () => Gfx.spr(ctx, crate ? 'crate' : 'column', x, crate ? y - 2 : y) });
     }
     // 상점 진열: 상자 위 물약(상자보다 앞에 그린다)
     list.push({ y: 3 * T, draw: () => { Gfx.spr(ctx, 'flask_big_red', 21 * T + 8, 2 * T + 8); Gfx.spr(ctx, 'flask_big_blue', 26 * T + 8, 2 * T + 8); } });
+    // 창고 진열: 상자 위 금빛 · 초록 물약, 오른쪽 벽에 기대 놓은 이름난 무기 셋(유니크 컬렉션 느낌)
+    list.push({ y: 8 * T, draw: () => Gfx.spr(ctx, 'flask_big_yellow', 28 * T + 8, 7 * T + 8) });
+    list.push({ y: 12 * T, draw: () => Gfx.spr(ctx, 'flask_big_green', 28 * T + 8, 11 * T + 8) });
+    list.push({ y: 9 * T + 6, draw: () => {
+      [['weapon_golden_sword', -0.18], ['weapon_red_gem_sword', -0.06], ['weapon_lavish_sword', 0.06]].forEach(([w, r], i) =>
+        Gfx.spr(ctx, w, 28 * T + 4 + i * 4, 10 * T + 4, { rot: r }));
+    } });
     for (const s of STATIONS) if (s.prop) list.push({ y: s.y, draw: () => { Art.shadow(ctx, s.x, s.y, 7, 0, 1); Gfx.spr(ctx, s.prop, s.x, s.y); } });
     for (const s of STATIONS) if (s.sprite) list.push({ y: s.y, draw: () => {
       Art.shadow(ctx, s.x, s.y, 6, 0, 1);
       Gfx.spr(ctx, Gfx.anim(s.sprite + '_idle_anim', time + s.x * 0.01, 6), s.x, s.y, { flip: !!s.flip });
     } });
     list.push({ y: p.y, draw: () => { Art.shadow(ctx, p.x, p.y, 6, 0, 1); Art.player(ctx, p, time); } });
-    const mate = Coop.townMate();  // 함께하기 친구(2026-10-25 사용자: 마을에서부터 같이 보이게)
-    if (mate) list.push({ y: mate.y, draw: () => { Art.shadow(ctx, mate.x, mate.y, 6, 0, 1); Art.player(ctx, mate, time); } });
+    const mates = Coop.townMates();  // 파티원(2026-10-25 사용자: 마을에서부터 같이 보이게, 최대 3명)
+    for (const m of mates) list.push({ y: m.y, draw: () => { Art.shadow(ctx, m.x, m.y, 6, 0, 1); Art.player(ctx, m, time); } });
     list.sort((a, b) => a.y - b.y);
     for (const it of list) it.draw();
+    // 창고 둘레 따뜻한 빛(보물이 있는 곳 느낌, 살짝 일렁임)
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const gx = 27 * T + 8, gy = 9 * T + 6, gr = 46 + Math.sin(time * 2) * 2;
+    const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
+    g.addColorStop(0, 'rgba(255,196,90,0.22)'); g.addColorStop(1, 'rgba(255,196,90,0)');
+    ctx.fillStyle = g; ctx.fillRect(gx - gr, gy - gr, gr * 2, gr * 2);
+    ctx.restore();
     ctx.restore();
     // 둘레를 살짝 어둡게
     const v = ctx.createRadialGradient(VIEW_W / 2, VIEW_H / 2, 90, VIEW_W / 2, VIEW_H / 2, 300);
@@ -158,9 +190,9 @@ const Town = (() => {
         Gfx.text(ctx, k, sx(s.x), hy - 27, 13, '#ffd36a', 'center');
       }
     }
-    // 친구 머리 위 이름표
-    if (mate) Gfx.text(ctx, '친구 · ' + clsOf(mate.prof).name + ' Lv.' + Net.mate.lv, sx(mate.x), sy(mate.y) - 62, 12, '#d8c0ff', 'center');
-    Coop.drawBubbles(ctx, p, mate, sx, sy);  // 파티 말풍선: 강화 · 합치기 · 유니크(내 머리 위 · 친구 머리 위)
+    // 파티원 머리 위 이름표(파티 순서 색)
+    for (const m of mates) Gfx.text(ctx, clsOf(m.prof).name + ' Lv.' + (m.lv || '?'), sx(m.x), sy(m.y) - 62, 12, Coop.colorOf(m.pid), 'center');
+    Coop.drawBubbles(ctx, p, sx, sy);  // 파티 말풍선: 강화 · 합치기 · 유니크(내 머리 위 · 파티원 머리 위)
     // 아래 왼쪽: 마을 이름 · 캐릭터
     const by = 438;
     Gfx.panel(ctx, 12, by, 250, 66);
@@ -169,19 +201,39 @@ const Town = (() => {
     Gfx.spr(ctx, 'coin_anim_f0', 34, by + 56, { scale: 2 });
     Gfx.text(ctx, prof.gold + 'G', 48, by + 54, 14, '#ffd34d');
     Gfx.text(ctx, '물약 ' + prof.potions, 140, by + 54, 14, '#ff9a9a');
-    // 함께하기 방이 열려 있으면 그 위에 방 코드 · 친구(창을 닫아도 방은 그대로)
-    if (Net.state !== 'off' && Net.state !== 'error') {
-      const m = Net.mate, where = Coop.mateWhere();
-      const s = Net.state === 'ready' ? '파티 · ' + clsOf(m).name + ' Lv.' + m.lv + (where ? ' · ' + where : Net.ping ? ' · ' + Net.ping + 'ms' : '')
-        : Net.state === 'joining' ? '방 ' + Net.code + ' 들어가는 중' : '방 ' + Net.code + ' · 친구 기다리는 중';
-      Gfx.panel(ctx, 12, by - 38, 250, 32, { border: '#b48cff' });
-      Gfx.text(ctx, s, 26, by - 17, 13, '#e0d0ff');
+    // 파티 방이 열려 있으면 그 위에 파티원 한 줄씩(창을 닫아도 방은 그대로)
+    const lines = Coop.panelLines();
+    if (lines.length) {
+      const ph = 14 + lines.length * 20, py = by - 6 - ph;
+      Gfx.panel(ctx, 12, py, 250, ph, { border: '#b48cff' });
+      lines.forEach((l, i) => Gfx.text(ctx, l.s, 26, py + 22 + i * 20, 13, l.col));
     }
     const hint = '이동 ' + L('move') + ' · 말 걸기 ' + L('ok') + ' · 가방 ' + L('inv') + ' · 메뉴 ' + L('pause');
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 512, 960, 28);
     Gfx.text(ctx, hint, 480, 531, 13, '#a89c98', 'center');
   }
   const L = a => Input.label(a);
+
+  // 바닥 꾸미기(사람 아래): 창고 앞 붉은 양탄자(금 테두리 · 마름모 무늬) · 흩어진 금화, 옛 갱도 구멍 + 둘레 돌 부스러기
+  function drawFloorDecor(ctx) {
+    // 양탄자: 창고 칸 둘레 4 x 3 칸(25~28, 8~10)
+    const x0 = 25 * T + 3, y0 = 8 * T + 4, w = 4 * T - 6, h = 3 * T - 6;
+    ctx.fillStyle = '#4a1a1e'; ctx.fillRect(x0, y0, w, h);
+    ctx.fillStyle = '#c8962e'; ctx.fillRect(x0 + 2, y0 + 2, w - 4, 1); ctx.fillRect(x0 + 2, y0 + h - 3, w - 4, 1); ctx.fillRect(x0 + 2, y0 + 2, 1, h - 4); ctx.fillRect(x0 + w - 3, y0 + 2, 1, h - 4);
+    ctx.fillStyle = '#6e2a2e'; ctx.fillRect(x0 + 4, y0 + 4, w - 8, h - 8);
+    ctx.fillStyle = '#a8742a';  // 마름모 무늬 셋
+    for (let k = 0; k < 3; k++) {
+      const cx = x0 + w * (k + 1) / 4, cy = y0 + h / 2;
+      for (let d = 0; d < 5; d++) { ctx.fillRect(Math.round(cx - d), Math.round(cy - 5 + d), 1, 1); ctx.fillRect(Math.round(cx + d), Math.round(cy - 5 + d), 1, 1); ctx.fillRect(Math.round(cx - d), Math.round(cy + 5 - d), 1, 1); ctx.fillRect(Math.round(cx + d), Math.round(cy + 5 - d), 1, 1); }
+    }
+    ctx.fillStyle = '#2e1012'; for (let x = x0 + 1; x < x0 + w; x += 3) { ctx.fillRect(x, y0 - 1, 1, 1); ctx.fillRect(x, y0 + h, 1, 1); }  // 술 장식
+    // 흩어진 금화(빙글)
+    for (const [cx, cy, o] of [[25.6, 10.4, 0], [26.3, 10.7, 0.3], [27.9, 10.5, 0.6], [25.4, 8.6, 0.9]]) Gfx.spr(ctx, Gfx.anim('coin_anim', time + o, 8), cx * T, cy * T);
+    // 옛 갱도: 구멍 + 둘레 돌 부스러기
+    Gfx.spr(ctx, 'hole', SHAFT[0] * T, SHAFT[1] * T, { topLeft: true });
+    ctx.fillStyle = '#6a5e58';
+    for (const [dx, dy] of [[-3, 14], [2, 15], [15, 13], [18, 2], [-2, 3], [9, 17], [13, 16]]) ctx.fillRect(SHAFT[0] * T + dx, SHAFT[1] * T + dy, 2, 1);
+  }
 
   // 장비가 바뀌면 걷는 속도 등 다시
   function refresh() { if (p) p.stats = Items.playerStats(prof); }

@@ -45,7 +45,7 @@ const Game = (() => {
   }
   function closeOverlay() { overlays.pop(); Input.clear(); }
   // seed = 파티로 들어갈 때 방장이 정한 씨앗(같은 층). 파티 던전에서는 이야기 대화창을 띄우지 않는다(story.js)
-  function startRun(def, diff = 0, seed = 0) { World.start(def, prof, diff, seed); scene = 'run'; overlays = []; acc = 0; Input.clear(); Story.trigger('start', def); }
+  function startRun(def, diff = 0, seed = 0, party = 1) { World.start(def, prof, diff, seed, party); scene = 'run'; overlays = []; acc = 0; Input.clear(); Story.trigger('start', def); }  // party = 파티 인원
   function endRun(run, kind) { res = { run, kind }; scene = 'result'; overlays = []; Save.write(prof); Input.clear(); }
   function quitRun() { World.player.dead = false; endRun(currentRun(), 'quit'); }
   let runRef = null;
@@ -75,6 +75,7 @@ const Game = (() => {
       else if (top.type === 'coop') Coop.update(top);
       else if (top.type === 'coopwait') Coop.waitUpdate();
       else if (top.type === 'coopview') Coop.viewUpdate();
+      else if (top.type === 'coopgo') Coop.goUpdate();
       // 파티 던전은 창(가방 · 일시정지 · 계단 확인)을 열어도 멈추지 않는다 — 친구는 계속 싸우고 있음. 내 몸만 입력 없이
       if (scene === 'run' && World.partySeed && overlays.length) {
         World.inputLock = true;
@@ -126,6 +127,7 @@ const Game = (() => {
       else if (o.type === 'coop') Coop.draw(ctx, o, prof);
       else if (o.type === 'coopwait') Coop.waitDraw(ctx);
       else if (o.type === 'coopview') Coop.viewDraw(ctx, prof, time);
+      else if (o.type === 'coopgo') Coop.goDraw(ctx);
     }
     if (toastT > 0 && toastMsg) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);

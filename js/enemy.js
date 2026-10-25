@@ -267,10 +267,10 @@ function assignRoles(list, p) {
   }
 }
 
-function separateEnemies(list, room, p, p2) {
-  // 화면 근처에서 깨어 있는 몹끼리만(멀리서 자는 몹은 계산하지 않는다). p2 = 파티 손님 몸(그 둘레도)
+function separateEnemies(list, room, ps) {
+  // 화면 근처에서 깨어 있는 몹끼리만(멀리서 자는 몹은 계산하지 않는다). ps = 사람들(파티면 나 + 손님 몸들, 그 둘레 모두)
   const by = (e, q) => q && Math.abs(e.x - q.x) < 320 && Math.abs(e.y - q.y) < 220;
-  const live = list.filter(e => e.awake && e.state !== 'dead' && e.state !== 'air' && e.state !== 'down' && !e.dying && (by(e, p) || by(e, p2)));
+  const live = list.filter(e => e.awake && e.state !== 'dead' && e.state !== 'air' && e.state !== 'down' && !e.dying && ps.some(q => by(e, q)));
   for (let i = 0; i < live.length; i++) for (let j = i + 1; j < live.length; j++) {
     const a = live[i], b = live[j];
     const dx = b.x - a.x, dy = b.y - a.y, dist = Math.hypot(dx, dy), min = a.r + b.r + 2;

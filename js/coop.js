@@ -1,9 +1,12 @@
-// 파티 창(마을 메뉴 → 파티, overlay 'coop' — 2026-10-25 사용자: '함께하기' → '파티'): 방 만들기 · 방 들어가기(4자리 방 코드) · 방 안(두 캐릭터 · 연결 속도).
-// 창을 닫아도 방은 그대로 열려 있다(마을 왼쪽 아래 패널에 방 코드 · 친구 표시). 이어지면 마을에서 서로 걷는 모습이 보인다(아래 tick). 던전 같이 들어가기는 2단계.
-// 방 코드 넣기: ↑↓ 숫자 바꾸기 · ←→ 자리 옮기기 · 키보드 숫자키 바로 · Backspace 지우기 · 폰은 숫자판을 손가락으로.
+// 파티(마을 메뉴 → 파티, overlay 'coop' — 2026-10-25 사용자: '함께하기' → '파티', 최대 4명): 방 만들기(내 방 코드 고정) · 방 들어가기 · 방 안(파티원 · 연결 속도).
+// 창을 닫아도 방은 그대로 열려 있다(마을 왼쪽 아래 패널에 파티원). 이어지면 마을 · 파티 던전에서 서로 걷는 모습이 보인다(아래 tick).
+// 손님끼리는 직접 잇지 않는다 — 손님이 보낸 위치 · 말풍선 · 살리기는 방장이 다른 손님에게 전한다(relay).
+// 방 코드 넣기: ↑↓ 숫자 바꾸기 · ←→ 자리 옮기기 · 키보드 숫자키 바로 · Backspace 지우기 · 폰은 숫자판을 손가락으로(지난번 넣은 코드가 미리 들어 있음).
 const Coop = (() => {
   const T_ = Gfx.text;
   const L = a => Input.label(a);
+  const COLORS = ['#ffd36a', '#c9a8ff', '#7dd3ff', '#8aff9a'];  // 파티 순서(방장 0 · 손님 1~3)별 이름표 · 화살표 · 지도 점 색
+  const colorOf = pid => COLORS[Net.slotOf(pid) % COLORS.length];
   let sel = 0, entering = false, digits = [0, 0, 0, 0], cur = 0, time = 0;
 
   function open() { sel = 0; entering = false; }
@@ -24,16 +27,22 @@ const Coop = (() => {
     entering = false; sel = 0;
     Net.join(c);
   }
+  function startEntry() {
+    entering = true; cur = 0;
+    const last = Net.lastJoin;  // 지난번에 들어간 방 코드를 미리(같은 친구 방에 또 들어가기 쉽게)
+    digits = /^\d{4}$/.test(last) ? last.split('').map(Number) : [0, 0, 0, 0];
+  }
 
   // 지금 보이는 버튼(위에서 아래로)
   function buttons() {
-    const st = Net.state;
+    const st = Net.state, host = Net.role === 'host';
     if (st === 'hosting') return [{ label: '닫기 (방은 그대로)', go: close }, { label: '방 닫기', go: () => { Net.leave(); Game.toast('방을 닫았어요'); } }];
     if (st === 'joining') return [{ label: '그만두기', go: () => Net.leave() }];
-    if (st === 'ready') return [{ label: '닫기', go: close }, { label: Net.role === 'host' ? '방 닫기' : '방 나가기', go: () => { Net.leave(); Game.toast(Net.role === 'host' ? '방을 닫았어요' : '방을 나왔어요'); } }];
+    if (st === 'ready') return [{ label: '닫기', go: close }, { label: host ? '방 닫기' : '방 나가기', go: () => { Net.leave(); Game.toast(host ? '방을 닫았어요' : '방을 나왔어요'); } }];
     return [
-      { label: '방 만들기', go: () => Net.host() },
-      { label: '방 들어가기', go: () => { entering = true; digits = [0, 0, 0, 0]; cur = 0; } },
+      { label: '방 만들기 (내 방 ' + Net.code + ')', go: () => Net.host() },
+      { label: '방 들어가기', go: startEntry },
+      { label: '내 방 코드 바꾸기', go: () => Game.overlay({ type: 'confirm', text: '내 방 코드를 새 번호로 바꿀까요?', sub: '지금 코드 ' + Net.code + ' — 친구에게 새 코드를 다시 알려 줘야 해요', yes: () => Game.toast('새 방 코드: ' + Net.newCode()) }) },
       { label: '닫기', go: close },
     ];
   }
@@ -58,7 +67,7 @@ const Coop = (() => {
     if (Input.wasPressed('ok')) { const b = bs[sel]; sel = 0; b.go(); }
   }
 
-  const X = 210, Y = 70, W = 540, H = 400;
+  const X = 190, Y = 60, W = 580, H = 420;
   function draw(ctx, o, prof) {
     time += 1 / 60;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -66,52 +75,55 @@ const Coop = (() => {
     UI.zone(0, 0, 960, 540, { key: null });  // 창 밖을 눌러도 뒤가 눌리지 않게
     Gfx.panel(ctx, X, Y, W, H, { border: '#b48cff' });
     T_(ctx, '파티', 480, Y + 40, 24, '#e0d0ff', 'center');
-    T_(ctx, '온라인 협동 · 방 코드로 2명', 480, Y + 62, 12, '#9a8eaa', 'center');
+    T_(ctx, '온라인 협동 · 방 코드로 최대 ' + Net.MAX + '명', 480, Y + 62, 12, '#9a8eaa', 'center');
     if (entering) { drawEntry(ctx); return; }
     const st = Net.state;
     if (!Net.available()) T_(ctx, '파티 기능을 불러오지 못했어요 — 인터넷을 켜고 새로고침해 주세요', 480, Y + 110, 13, '#ff8a6a', 'center');
     if (st === 'hosting') {
-      T_(ctx, '방 코드', 480, Y + 108, 14, '#9a8eaa', 'center');
+      T_(ctx, '내 방 코드', 480, Y + 108, 14, '#9a8eaa', 'center');
       if (Net.opened) T_(ctx, Net.code.split('').join(' '), 480, Y + 160, 52, '#ffd36a', 'center');
       else T_(ctx, '방을 여는 중' + dots(), 480, Y + 150, 20, '#c8b8a0', 'center');
-      T_(ctx, '친구가 마을 메뉴 → 파티 → 방 들어가기에서 이 숫자를 넣으면 돼요', 480, Y + 200, 12, '#c8b8a0', 'center');
+      T_(ctx, '친구가 마을 메뉴 → 파티 → 방 들어가기에서 이 숫자를 넣으면 돼요 (코드는 늘 같아요)', 480, Y + 200, 12, '#c8b8a0', 'center');
       if (Net.opened) T_(ctx, '친구를 기다리는 중' + dots(), 480, Y + 228, 15, '#b48cff', 'center');
     } else if (st === 'joining') {
       T_(ctx, '방 ' + Net.code + ' 에 들어가는 중' + dots(), 480, Y + 160, 20, '#c8b8a0', 'center');
     } else if (st === 'ready') {
       drawRoom(ctx, prof);
     } else {
-      T_(ctx, '파티를 맺으면 마을에서 서로 보여요. 던전 같이 들어가기는 곧 생겨요.', 480, Y + 112, 14, '#c8b8a0', 'center');
-      T_(ctx, '한 사람이 방을 만들고, 다른 사람이 방 코드를 넣어 들어가요.', 480, Y + 134, 13, '#9a8e96', 'center');
+      T_(ctx, '파티를 맺으면 마을에서 서로 보이고, 방장이 고른 던전에 같이 들어가요.', 480, Y + 112, 14, '#c8b8a0', 'center');
+      T_(ctx, '한 사람이 방을 만들고, 다른 사람(최대 ' + (Net.MAX - 1) + '명)이 방 코드를 넣어 들어가요.', 480, Y + 134, 13, '#9a8e96', 'center');
       if (st === 'error' && Net.err) T_(ctx, Net.err, 480, Y + 170, 13, '#ff8a6a', 'center');
     }
     drawButtons(ctx, buttons());
     UI_hint(ctx, '고르기 ' + L('ok') + ' · 닫기 ' + L('back'));
   }
 
-  // 방 안: 나 · 친구 아바타, 연결 속도
+  // 방 안: 나 + 파티원 아바타(최대 4), 각자 연결 속도
   function drawRoom(ctx, prof) {
-    const m = Net.mate, host = Net.role === 'host';
-    T_(ctx, '방 ' + Net.code, 480, Y + 92, 13, '#9a8eaa', 'center');
-    const col = (x, who, p, tag) => {
-      Art.avatar(ctx, p, x - 6, Y + 182, 4, time);
-      T_(ctx, clsOf(p).name + ' Lv.' + p.lv, x, Y + 208, 17, '#f0e0b8', 'center');
-      T_(ctx, who + ' · ' + tag, x, Y + 226, 12, '#b48cff', 'center');
-    };
-    col(370, '나', prof, host ? '방장' : '손님');
-    col(590, '친구', { cls: m.cls, lv: m.lv, equip: { weapon: m.weapon } }, host ? '손님' : '방장');
-    const pg = Net.ping, q = !pg ? ['재는 중', '#9a8e96'] : pg < 90 ? ['좋음', '#7dff8a'] : pg < 200 ? ['보통', '#ffd36a'] : ['느림', '#ff8a6a'];
-    T_(ctx, '연결 ' + q[0] + (pg ? ' · ' + pg + 'ms' : ''), 480, Y + 252, 13, q[1], 'center');
-    T_(ctx, '마을에서 서로 보여요 · 던전 같이 들어가기는 다음 단계에서 만들어요', 480, Y + 272, 12, '#8a7e88', 'center');
+    const host = Net.role === 'host', ms = Net.members();
+    T_(ctx, '방 ' + Net.code + ' · ' + Net.count() + '/' + Net.MAX + '명', 480, Y + 90, 13, '#9a8eaa', 'center');
+    const all = [{ me: true, p: prof, tag: host ? '방장' : '손님', col: colorOf(Net.myId) }, ...ms.map(m => ({ p: { cls: m.cls, lv: m.lv, equip: { weapon: m.weapon } }, tag: m.host ? '방장' : '손님', ping: m.ping, col: colorOf(m.pid), m }))];
+    const gap = 132, x0 = 480 - (all.length - 1) * gap / 2;
+    all.forEach((a, i) => {
+      const x = x0 + i * gap;
+      Art.avatar(ctx, a.p, x - 6, Y + 182, 3.6, time);
+      T_(ctx, clsOf(a.p).name + ' Lv.' + a.p.lv, x, Y + 206, 15, '#f0e0b8', 'center');
+      T_(ctx, (a.me ? '나 · ' : '') + a.tag, x, Y + 224, 12, a.col, 'center');
+      if (!a.me && (host || a.m.host)) {  // 연결 속도: 방장은 손님마다, 손님은 방장과
+        const pg = a.ping, q = !pg ? ['재는 중', '#9a8e96'] : pg < 90 ? ['좋음', '#7dff8a'] : pg < 200 ? ['보통', '#ffd36a'] : ['느림', '#ff8a6a'];
+        T_(ctx, q[0] + (pg ? ' ' + pg + 'ms' : ''), x, Y + 240, 11, q[1], 'center');
+      }
+    });
+    T_(ctx, host ? '던전 입구에서 고르면 파티원 모두에게 같이 갈지 물어요' : '방장이 던전을 고르면 같이 갈지 물어요', 480, Y + 268, 12, '#8a7e88', 'center');
   }
 
   function drawButtons(ctx, bs) {
-    const top = Y + H - 26 - bs.length * 36;
+    const top = Y + H - 26 - bs.length * 34;
     bs.forEach((b, i) => {
-      const y = top + i * 36, on = i === sel;
-      UI.zone(X + 120, y - 24, W - 240, 34, { pick: () => { sel = i; }, now: true });
-      if (on) { ctx.fillStyle = 'rgba(180,140,255,0.14)'; ctx.fillRect(X + 120, y - 22, W - 240, 30); }
-      T_(ctx, (on ? '▶ ' : '') + b.label, 480, y, 17, on ? '#ffd36a' : '#e8e0d0', 'center');
+      const y = top + i * 34, on = i === sel;
+      UI.zone(X + 110, y - 23, W - 220, 32, { pick: () => { sel = i; }, now: true });
+      if (on) { ctx.fillStyle = 'rgba(180,140,255,0.14)'; ctx.fillRect(X + 110, y - 21, W - 220, 28); }
+      T_(ctx, (on ? '▶ ' : '') + b.label, 480, y, 16, on ? '#ffd36a' : '#e8e0d0', 'center');
     });
   }
 
@@ -137,14 +149,22 @@ const Coop = (() => {
     UI_hint(ctx, '숫자 ↑↓ · 자리 ←→ · 숫자키 · 들어가기 ' + L('ok') + ' · 지우기/뒤로 ' + L('back'));
   }
 
-  // ── 서로 보이기(2026-10-25 사용자: 연결되면 마을에서부터 서로 보이게 · 파티 던전 안에서도) ──
-  // 서로 지금 장면 · 위치 · 바라보는 쪽 · 몸 상태를 보낸다(바뀌면 1초에 20번까지, 안 바뀌어도 1초마다 한 번). 던전이면 r = 파티 씨앗.
-  // 받은 위치로 부드럽게 따라가는 '친구 몸'을 만들어 town.js · world.js 가 내 캐릭터와 함께 그린다. 마을 일(말 걸기 · 상점)은 각자.
-  // 던전 안 같이 싸우기(3단계)는 아래 '같이 싸우기' — 방장이 몹을 계산하고 손님은 따라 그린다(world.js 위 설명).
+  // ── 서로 보이기(마을 · 파티 던전) ──
+  // 각자 지금 장면 · 위치 · 바라보는 쪽 · 몸 상태를 보낸다(바뀌면 1초에 20번까지, 안 바뀌어도 1초마다). 던전이면 r = 파티 씨앗.
+  // 방장은 받은 손님 위치를 다른 손님에게 전한다. 받은 위치로 부드럽게 따라가는 '친구 몸'을 town.js · world.js 가 그린다.
+  // 던전 안 같이 싸우기 = 방장이 몹을 계산하고 손님은 따라 그린다(world.js 위 설명).
   const WHERE = { town: '마을', run: '던전', select: '던전 고르는 중', result: '결과 화면', title: '캐릭터 선택' };
   const BODY_STATES = { walk: 1, idle: 1, dodge: 1, hurt: 1, dead: 1, act: 1 };
-  let mateNow = null, body = null, bodyKey = '', sendT = 0, keepT = 0, lastSent = '';
-  Net.on('pos', m => { mateNow = m; if (World.remote && m.s === 'run' && m.r === World.partySeed) remotePos(m); });
+  const mates = new Map();  // 피어 이름 → { now: 마지막 위치 소식, body: 그릴 몸, key }
+  const mateOf = pid => { let m = mates.get(pid); if (!m) mates.set(pid, m = { now: null, body: null, key: '' }); return m; };
+  let sendT = 0, keepT = 0, lastSent = '';
+  const relay = (m, from) => { if (Net.role === 'host') Net.send(Object.assign({}, m, { from }), from); };  // 방장: 손님이 보낸 것을 다른 손님에게
+  Net.on('pos', (m, from) => {
+    mateOf(from).now = m;
+    relay(m, from);
+    const q = World.remotes.find(q => q.pid === from);
+    if (q && m.s === 'run' && m.r === World.partySeed) remotePos(q, m);
+  });
   const r1 = v => Math.round(v * 10) / 10, r2 = v => Math.round(v * 100) / 100;
 
   // 지금 내 몸(마을 · 파티 던전) — 없으면 null
@@ -153,15 +173,17 @@ const Coop = (() => {
     if (Game.scene === 'run' && World.partySeed) return World.player;
     return null;
   }
-  // 친구 몸을 보여 줄까: 둘 다 마을이거나, 같은 파티 던전
-  const together = () => mateNow && ((mateNow.s === 'town' && Game.scene === 'town') || (mateNow.s === 'run' && Game.scene === 'run' && World.partySeed && mateNow.r === World.partySeed));
+  // 이 친구 몸을 보여 줄까: 둘 다 마을이거나, 같은 파티 던전
+  const together = now => now && now.x !== undefined && ((now.s === 'town' && Game.scene === 'town') || (now.s === 'run' && Game.scene === 'run' && World.partySeed && now.r === World.partySeed));
 
-  // 매 화면(game.js frame): 내 위치 보내기 · 친구 몸 따라가기 · 초대 기다림 시간
+  // 매 화면(game.js frame): 내 위치 보내기 · 친구 몸 따라가기 · 초대 기다림 · 몹 소식
   function tick(dt) {
     partyWatch(dt);
     bubbleTick(dt);
-    if (!Net.linked) { mateNow = null; body = null; lastSent = ''; if (invite) inviteEnd(); return; }
-    if (invite && (invite.t -= dt) <= 0) { inviteEnd(); askSolo('친구가 대답이 없어요'); }
+    if (!Net.linked) { mates.clear(); lastSent = ''; if (invite) inviteEnd(); closeGoWait(); return; }
+    const ms = Net.members(), ids = new Set(ms.map(m => m.pid));
+    for (const pid of [...mates.keys()]) if (!ids.has(pid)) mates.delete(pid);  // 나간 친구
+    if (invite && (invite.t -= dt) <= 0) { for (const [pid, s] of invite.st) if (s === 'wait') invite.st.set(pid, 'no'); checkInvite(); }
     sendT -= dt; keepT -= dt;
     if (sendT <= 0) {
       sendT = 1 / 20;
@@ -180,48 +202,77 @@ const Coop = (() => {
       }
       const key = JSON.stringify(m);
       if (key !== lastSent || keepT <= 0) { Net.send(m); lastSent = key; keepT = 1; }
-      // 파티 방장: 손님 둘레 몹 · 탄 · 장판 + 그동안 생긴 효과
-      if (World.remote && s === 'run') { const sn = World.snapshot(); sn.ev = evQ; evQ = []; Net.send(sn); }
+      // 파티 방장: 손님마다 그 둘레 몹 · 탄 · 장판 + 그동안 생긴 효과
+      if (World.remotes.length && s === 'run') {
+        const g = World.takeGone();
+        for (const q of World.remotes) { const sn = World.snapshot(q); sn.g = g; sn.ev = evQ.get(q.pid) || []; evQ.set(q.pid, []); Net.sendTo(q.pid, sn); }
+      }
     }
     viewTick();
-    if (!together() || mateNow.x === undefined) { body = null; return; }
-    const mt = Net.mate, k = mt.cls + ':' + (mt.weapon ? mt.weapon.uid + ':' + mt.weapon.base : '') + ':' + JSON.stringify(mt.sockets || {});
-    if (!body || k !== bodyKey) {  // 처음 · 직업 · 무기가 바뀌면 다시
-      bodyKey = k;
-      body = { cls: clsOf(mt), prof: { cls: mt.cls, equip: { weapon: mt.weapon }, sockets: mt.sockets || {} }, stats: { fx: {} },
-        x: mateNow.x, y: mateNow.y, fv: { x: 0, y: 1 }, state: 'idle', walkT: 0, flash: 0, charge: 0, act: null };
+    for (const info of ms) updateBody(info, dt);
+  }
+  function updateBody(info, dt) {
+    const mt = mateOf(info.pid), now = mt.now;
+    if (!together(now)) { mt.body = null; return; }
+    const k = info.cls + ':' + (info.weapon ? info.weapon.uid + ':' + info.weapon.base : '') + ':' + JSON.stringify(info.sockets || {});
+    let body = mt.body;
+    if (!body || k !== mt.key) {  // 처음 · 직업 · 무기 · 속성석이 바뀌면 다시
+      mt.key = k;
+      body = mt.body = { pid: info.pid, cls: clsOf(info), prof: { cls: info.cls, equip: { weapon: info.weapon }, sockets: info.sockets || {} }, stats: { fx: {} },
+        x: now.x, y: now.y, fv: { x: 0, y: 1 }, state: 'idle', walkT: 0, flash: 0, charge: 0, act: null };
     }
-    const d = Math.hypot(mateNow.x - body.x, mateNow.y - body.y);
-    if (d > 80) { body.x = mateNow.x; body.y = mateNow.y; }  // 너무 멀면 바로(새로 들어옴 등)
-    else { const f = 1 - Math.exp(-dt * (mateNow.st === 'dodge' ? 20 : 12)); body.x += (mateNow.x - body.x) * f; body.y += (mateNow.y - body.y) * f; }
-    if (mateNow.fx || mateNow.fy) body.fv = { x: mateNow.fx, y: mateNow.fy };
-    body.state = mateNow.st || 'idle';
+    body.lv = info.lv;
+    const d = Math.hypot(now.x - body.x, now.y - body.y);
+    if (d > 80) { body.x = now.x; body.y = now.y; }  // 너무 멀면 바로(새로 들어옴 등)
+    else { const f = 1 - Math.exp(-dt * (now.st === 'dodge' ? 20 : 12)); body.x += (now.x - body.x) * f; body.y += (now.y - body.y) * f; }
+    if (now.fx || now.fy) body.fv = { x: now.fx, y: now.fy };
+    body.state = now.st || 'idle';
     if (body.state === 'idle' && d > 2) body.state = 'walk';  // 따라가는 중에는 걷는 모습
     body.dodgeV = body.fv; body.dead = body.state === 'dead';
     if (body.state === 'walk') body.walkT += dt;
     // 휘두르는 중: 받은 동작 · 시간에서 이어서(다음 소식까지 시간만 흐름)
-    const a = mateNow.a, def = a && actDef(body.cls, a[0], a[1]);
+    const a = now.a, def = a && actDef(body.cls, a[0], a[1]);
     if (body.state === 'act' && def) {
       if (!body.act || body.act.key !== a.join()) body.act = { key: a.join(), def, kind: a[0], idx: a[1], time: a[2], s: a[3], a: a[4], r: a[5] };
       else body.act.time += dt;
     } else { body.act = null; if (body.state === 'act') body.state = 'idle'; }
   }
+  // 마을 · 던전에 그릴 친구 몸들
+  const bodies = () => [...mates.values()].map(m => m.body).filter(Boolean);
+  const townMates = () => (Game.scene === 'town' ? bodies() : []);
+  const runMates = () => (Game.scene === 'run' ? bodies() : []);
+  // 마을 왼쪽 아래 패널: 파티원 한 줄씩(직업 Lv · 어디 · 연결 속도)
+  function panelLines() {
+    if (Net.state === 'hosting') return [{ s: '방 ' + Net.code + ' · 친구 기다리는 중', col: '#e0d0ff' }];
+    if (Net.state === 'joining') return [{ s: '방 ' + Net.code + ' 들어가는 중', col: '#e0d0ff' }];
+    if (!Net.linked) return [];
+    return Net.members().map(m => {
+      const now = (mates.get(m.pid) || {}).now, where = now && now.s !== 'town' ? WHERE[now.s] || '' : '';
+      return { s: (m.host ? '방장 · ' : '') + clsOf(m).name + ' Lv.' + m.lv + (where ? ' · ' + where : m.ping ? ' · ' + m.ping + 'ms' : ''), col: colorOf(m.pid) };
+    });
+  }
 
-  // ── 같이 싸우기(3단계, 2026-10-25 사용자) ──
-  // 손님 → 방장: 동작(act) · 위치(pos의 x · y · 스틱 · 무적) · 장비(kit). 방장 → 손님: 몹 소식(snap, 1초 20번) · 맞음(hurt) · 처치(kill).
-  let evQ = [], snapQ = [], mateKit = null, apartT = 0;
+  // ── 같이 싸우기(3단계) ──
+  // 손님 → 방장: 동작(act) · 위치(pos의 x · y · 스틱 · 무적) · 장비(kit). 방장 → 그 손님: 몹 소식(snap, 1초 20번) · 맞음(hurt). 방장 → 모두: 처치(kill).
+  const evQ = new Map();  // 손님마다 모아 둔 효과 알림
+  let snapQ = [], runKits = new Map();
   const myKit = () => { const pr = Game.prof; return { cls: pr.cls || 'swordsman', lv: pr.lv, equip: pr.equip, sockets: pr.sockets }; };
   const kitProf = k => ({ cls: k.cls, lv: k.lv, equip: k.equip, sockets: k.sockets, potions: 0, stones: {}, scrolls: {} });
-  // 방장: 손님 장비로 만든 손님 몸(world.js start)
-  function remotePlayer() {
-    const m = Net.mate, k = mateKit || { cls: m.cls, lv: m.lv, equip: { weapon: m.weapon }, sockets: {} };
-    const q = createPlayer(kitProf(k));
-    q.remote = true;
-    return q;
+  // 방장: 같이 들어온 손님마다 그 장비로 만든 몸(world.js start)
+  function remotePlayers() {
+    const out = [];
+    for (const [pid, k] of runKits) {
+      const info = Net.members().find(m => m.pid === pid);
+      const kit = k || (info && { cls: info.cls, lv: info.lv, equip: { weapon: info.weapon }, sockets: info.sockets || {} });
+      if (!kit) continue;
+      const q = createPlayer(kitProf(kit));
+      q.remote = true; q.pid = pid; q.apartT = 0;
+      out.push(q);
+    }
+    return out;
   }
-  // 방장: 손님 위치 소식을 손님 몸에(방장 쪽에서도 스틱 값으로 걷게 해 두고, 소식이 오면 그 자리로)
-  function remotePos(m) {
-    const q = World.remote;
+  // 방장: 손님 위치 소식을 그 손님 몸에(방장 쪽에서도 스틱 값으로 걷게 해 두고, 소식이 오면 그 자리로)
+  function remotePos(q, m) {
     q.x = m.x; q.y = m.y;
     if (q.state !== 'act' && (m.fx || m.fy)) q.fv = { x: m.fx, y: m.fy };
     q.rmove = m.mx !== undefined ? { x: m.mx, y: m.my } : null;
@@ -232,8 +283,8 @@ const Coop = (() => {
   }
   // 손님: 내 동작을 방장 쪽 내 몸에
   function sendAct(a) { Net.send(Object.assign({ t: 'act' }, a)); }
-  Net.on('act', m => {
-    const q = World.remote;
+  Net.on('act', (m, from) => {
+    const q = World.remotes.find(q => q.pid === from);
     if (!q || Game.scene !== 'run') return;
     q.x = m.x; q.y = m.y;
     World.as(q, () => {
@@ -246,11 +297,11 @@ const Coop = (() => {
       q.act.push = !!m.push;
     });
   });
-  // 방장: 손님 몸이 맞음 → 손님 기기에서 무적 · 방어 · 피해(대시 중이면 빗나감)
+  // 방장: 손님 몸이 맞음 → 그 손님 기기에서 무적 · 방어 · 피해(대시 중이면 빗나감)
   function remoteHurt(q, src, dmgRaw, knock) {
     if (q.dead || q.ifr) return 'miss';
     const enemy = !!src.def, slow = enemy ? !!((src.affixes && src.affixes.includes('frost')) || src.def.chillHit) : !!src.chill;
-    Net.send({ t: 'hurt', d: Math.round(dmgRaw * 10) / 10, k: knock, x: r1(src.x), y: r1(src.y), slow: slow ? 1 : 0, cz: enemy && (src.chill > 0 || src.state === 'frozen') ? 1 : 0 });
+    Net.sendTo(q.pid, { t: 'hurt', d: Math.round(dmgRaw * 10) / 10, k: knock, x: r1(src.x), y: r1(src.y), slow: slow ? 1 : 0, cz: enemy && (src.chill > 0 || src.state === 'frozen') ? 1 : 0 });
     return 'hit';
   }
   Net.on('hurt', m => {
@@ -259,41 +310,62 @@ const Coop = (() => {
     const r = hurtPlayer(p, { x: m.x, y: m.y, chill: m.cz, state: m.cz ? 'frozen' : '' }, m.d, m.k);
     if (r === 'hit' && m.slow) p.slowT = 2;
   });
-  // 방장: 몹 처치 → 손님도 자기 경험치 · 전리품
+  // 방장: 몹 처치 → 손님들도 각자 경험치 · 전리품
   function hostKill(e) { Net.send({ t: 'kill', id: e.id }); }
   Net.on('kill', m => { if (World.mirror && Game.scene === 'run') World.remoteKill(m.id); });
-  // 방장: 효과 알림 모으기(snap 에 실어 보냄)
-  function queue(ev) { if (evQ.length < 400) evQ.push(ev); }
+  // 방장: 효과 알림 모으기(그 손님 snap 에 실어 보냄)
+  function queue(pid, ev) { let q = evQ.get(pid); if (!q) evQ.set(pid, q = []); if (q.length < 400) q.push(ev); }
   // 손님: 몹 소식은 모아 두었다가 다음 계산 때 적용(world.js update)
   Net.on('snap', m => { if (World.mirror && Game.scene === 'run') { snapQ.push(m); if (snapQ.length > 6) snapQ.shift(); } });
   function applySnaps() { const q = snapQ; snapQ = []; for (const m of q) World.applySnap(m); }
   // 장비가 바뀜(던전 안 가방) → 방장 쪽 내 몸도
   function kitChanged() { if (World.mirror && Game.scene === 'run') Net.send({ t: 'kit', kit: myKit() }); }
-  Net.on('kit', m => { mateKit = m.kit; const q = World.remote; if (q) { q.prof = kitProf(m.kit); refreshStats(q); } });
-  // ── 쓰러짐 · 살리기 · 같이 나가기(4단계, 2026-10-25 사용자) ──
-  // 파티 던전에서 체력이 0 이 되면(유니크 두 번째 기회가 없을 때) 친구가 살아 있으면 쓰러져 기다린다(world.js playerDown).
-  // 쓰러진 친구 옆(REVIVE_R)에서 공격 버튼을 REVIVE_HOLD 초 누르고 있으면 revive → 그쪽 기기에서 체력 절반으로 일어남. 둘 다 쓰러지면 실패.
-  // 방장이 계단을 오르면 leave → 손님도 같이 결과 화면(쓰러져 있었어도). 손님은 혼자 먼저 나갈 수 있다.
-  const inParty = () => !!(Game.scene === 'run' && (World.remote || World.mirror));
-  // 같은 파티 던전의 친구가 살아 있나(쓰러졌거나 나갔으면 false)
+  Net.on('kit', (m, from) => { runKits.set(from, m.kit); const q = World.remotes.find(q => q.pid === from); if (q) { q.prof = kitProf(m.kit); refreshStats(q); } });
+
+  // ── 쓰러짐 · 살리기 · 같이 나가기(4단계) ──
+  // 파티 던전에서 체력이 0 이 되면(유니크 두 번째 기회가 없을 때) 살아 있는 파티원이 있으면 쓰러져 기다린다(world.js playerDown).
+  // 쓰러진 파티원 옆(REVIVE_R)에서 공격 버튼을 REVIVE_HOLD 초 누르고 있으면 revive → 그 기기에서 체력 절반으로 일어남. 모두 쓰러지면 실패.
+  // 방장이 계단을 오르면 leave → 손님들도 같이 결과 화면(쓰러져 있었어도). 손님은 혼자 먼저 나갈 수 있다.
+  const inParty = () => !!(Game.scene === 'run' && (World.remotes.length || World.mirror));
+  const runBodies = () => (World.remotes.length ? World.remotes : runMates());  // 방장 = 손님 몸들, 손님 = 받은 위치로 그리는 몸들
+  // 같은 파티 던전에 살아 있는 파티원이 있나
   function mateUp() {
-    if (World.remote) return !World.remote.dead;
-    if (World.mirror) return !!(Net.linked && mateNow && mateNow.s === 'run' && mateNow.r === World.partySeed && mateNow.st !== 'dead');
-    return false;
+    if (!inParty()) return false;
+    if (World.remotes.length) return World.remotes.some(q => !q.dead);
+    if (!Net.linked) return false;
+    return [...mates.values()].some(m => m.now && m.now.s === 'run' && m.now.r === World.partySeed && m.now.st !== 'dead');
   }
-  const downedMate = () => { if (!inParty()) return null; const m = World.remote || runMate(); return m && m.dead ? m : null; };
-  function canRevive() { const m = downedMate(), p = World.player; return !!(m && !p.dead && Math.hypot(m.x - p.x, m.y - p.y) < REVIVE_R); }
-  let reviveK = 0, reviveCd = 0;
+  function reviveTarget() {
+    const p = World.player;
+    if (!inParty() || p.dead) return null;
+    let best = null, bd = REVIVE_R;
+    for (const m of runBodies()) if (m.dead) { const d = Math.hypot(m.x - p.x, m.y - p.y); if (d < bd) { bd = d; best = m; } }
+    return best;
+  }
+  const canRevive = () => !!reviveTarget();
+  let reviveK = 0, reviveCd = 0, reviving = null;
   function reviveTick(dt) {
     reviveCd -= dt;
-    if (canRevive() && Input.isDown('attack') && !World.inputLock) {
+    const tg = reviveTarget();
+    if (tg && Input.isDown('attack') && !World.inputLock) {
+      if (reviving !== tg) { reviving = tg; reviveK = 0; }
       reviveK += dt;
-      if (reviveK >= REVIVE_HOLD && reviveCd <= 0) { Net.send({ t: 'revive' }); reviveK = 0; reviveCd = 1.5; Sfx.potion(); }
+      if (reviveK >= REVIVE_HOLD && reviveCd <= 0) {
+        if (Net.role === 'host') Net.sendTo(tg.pid, { t: 'revive' }); else Net.send({ t: 'revive', to: tg.pid });
+        reviveK = 0; reviveCd = 1.5; Sfx.potion();
+      }
     } else reviveK = Math.max(0, reviveK - dt * 2);
   }
-  Net.on('revive', () => { if (Game.scene === 'run' && World.player.downed) World.revive(); });
-  // 던전 그림용: 쓰러진 친구 · 살리는 정도(0~1) · 옆에 있나
-  const reviveInfo = () => { const m = downedMate(); return m ? { m, k: Math.min(1, reviveK / REVIVE_HOLD), near: canRevive() } : null; };
+  Net.on('revive', (m, from) => {
+    if (Net.role === 'host' && m.to && m.to !== Net.myId) { Net.sendTo(m.to, { t: 'revive', from }); return; }  // 손님 → 다른 손님 살리기는 방장이 전함
+    if (Game.scene === 'run' && World.player.downed) World.revive();
+  });
+  // 던전 그림용: 쓰러진 파티원마다 { m, k(살리는 정도 0~1), near(내가 옆에 있나) }
+  function reviveInfo() {
+    if (!inParty()) return [];
+    const tg = reviveTarget();
+    return runBodies().filter(m => m.dead).map(m => ({ m, k: m === tg && reviving === tg ? Math.min(1, reviveK / REVIVE_HOLD) : 0, near: m === tg }));
+  }
   function leaveTogether() { Net.send({ t: 'leave' }); }
   Net.on('leave', () => {
     if (!World.mirror || Game.scene !== 'run') return;
@@ -303,11 +375,11 @@ const Coop = (() => {
   });
 
   // ── 머리 위 말풍선(파티): 강화 결과 · 속성석/보석 합치기 · 유니크 획득 ──
-  // 2026-10-25 사용자: 파티 중 강화하면 머리 위에 그 장비 · 성공/실패 → 합쳐서 등급을 올려도, 유니크를 주워도(던전 안에서도).
-  // 내 머리 위에 띄우고 친구에게도 보낸다(bubble). BUBBLE_SHOW 초 동안, 새 일이 생기면 바뀜. 친구가 유니크를 얻으면 소리 · 알림 글도.
+  // 내 머리 위에 띄우고 파티원 모두에게도 보낸다(bubble, 방장이 전함). BUBBLE_SHOW 초 동안, 새 일이 생기면 바뀜. 파티원이 유니크를 얻으면 소리 · 알림 글도.
   // b = { kind: 'forge', item, ok, n(도전한 단계) } · { kind: 'stone', stone } · { kind: 'unique', item }
   const BUBBLE_SHOW = 4;
-  let bubMine = null, bubMate = null;
+  let bubMine = null;
+  const bubs = new Map();  // 피어 이름 → 말풍선
   function brag(b) {
     if (!Net.linked) return;
     b = JSON.parse(JSON.stringify(b));
@@ -315,16 +387,17 @@ const Coop = (() => {
     Net.send({ t: 'bubble', b });
   }
   const forgeShow = (item, ok, before) => brag({ kind: 'forge', item, ok, n: before + 1 });
-  Net.on('bubble', m => {
+  Net.on('bubble', (m, from) => {
+    relay(m, from);
     const b = m.b;
-    bubMate = Object.assign({ t: 0 }, b);
-    if (b.kind === 'unique') { Sfx.unique(0.6); Game.toast('친구가 유니크를 얻었어요 — ' + b.item.name); }
+    bubs.set(from, Object.assign({ t: 0 }, b));
+    const who = Net.members().find(x => x.pid === from);
+    if (b.kind === 'unique') { Sfx.unique(0.6); Game.toast((who ? clsOf(who).name + ' 친구' : '친구') + '가 유니크를 얻었어요 — ' + b.item.name); }
     else if (b.ok !== false && Game.scene === 'town') Sfx.stone();
   });
   function bubbleTick(dt) {
-    for (const f of [bubMine, bubMate]) if (f) f.t += dt;
-    if (bubMine && bubMine.t > BUBBLE_SHOW) bubMine = null;
-    if (bubMate && bubMate.t > BUBBLE_SHOW) bubMate = null;
+    if (bubMine && (bubMine.t += dt) > BUBBLE_SHOW) bubMine = null;
+    for (const [pid, f] of [...bubs]) if ((f.t += dt) > BUBBLE_SHOW) bubs.delete(pid);
   }
   // 말풍선 하나: (x, y) = 머리 위 끝(화면 좌표). 톡 튀어나와 살짝 떠오르고 끝에 흐려진다
   function bubble(ctx, f, x, y) {
@@ -360,80 +433,121 @@ const Coop = (() => {
     T_(ctx, main, -w / 2 + 44, -h + 33, f.kind === 'forge' ? 16 : 15, col);
     ctx.restore();
   }
-  // 마을(town.js) · 던전(world.js) 그림: 내 머리 위 · 친구 머리 위. sx/sy = 게임 좌표 → 화면 좌표, off = 발에서 머리 위까지
-  function drawBubbles(ctx, me, mate, sx, sy, off = 78) {
+  // 마을(town.js) · 던전(world.js) 그림: 내 머리 위 · 파티원 머리 위. sx/sy = 게임 좌표 → 화면 좌표, off = 발에서 머리 위까지
+  function drawBubbles(ctx, me, sx, sy, off = 78) {
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     if (bubMine && me) bubble(ctx, bubMine, sx(me.x), sy(me.y) - off);
-    if (bubMate && mate) bubble(ctx, bubMate, sx(mate.x), sy(mate.y) - off);
+    const here = Game.scene === 'run' ? runBodies() : townMates();
+    for (const b of here) { const f = bubs.get(b.pid); if (f) bubble(ctx, f, sx(b.x), sy(b.y) - off); }
     ctx.restore();
   }
 
-  // 한쪽이 던전을 나가거나 끊김: 방장 = 손님 몸을 빼고 혼자, 손님 = 몹을 내 기기에서 이어서(3초 기다림 — 같이 들어갈 때 조금 어긋나도 되게)
+  // 한쪽이 던전을 나가거나 끊김: 방장 = 그 손님 몸을 빼고 계속, 손님 = 방장이 나가면 몹을 내 기기에서 이어서(3초 기다림 — 같이 들어갈 때 조금 어긋나도 되게)
+  let apartT = 0;
+  const inSameRun = pid => { const m = mates.get(pid); return !!(Net.linked && m && m.now && m.now.s === 'run' && m.now.r === World.partySeed); };
   function partyWatch(dt) {
-    const inRun = Game.scene === 'run' && World.partySeed;
-    if (!inRun || !(World.remote || World.mirror)) { apartT = 0; return; }
-    const same = Net.linked && mateNow && mateNow.s === 'run' && mateNow.r === World.partySeed;
-    apartT = same ? 0 : apartT + dt;
-    if (apartT < 3) return;
-    apartT = 0;
-    if (World.remote) { World.dropRemote(); Game.toast('친구가 던전을 나갔어요'); }
-    else { World.takeover(); Game.toast('방장이 던전을 나가서 혼자 계속해요'); }
+    if (Game.scene !== 'run' || !World.partySeed) { apartT = 0; return; }
+    for (const q of [...World.remotes]) {
+      q.apartT = inSameRun(q.pid) ? 0 : (q.apartT || 0) + dt;
+      if (q.apartT >= 3) { World.dropRemote(q.pid); Game.toast(clsOf(q.prof).name + ' 친구가 던전을 나갔어요'); }
+    }
+    if (!World.mirror) { apartT = 0; return; }
+    apartT = inSameRun(Net.hostId) ? 0 : apartT + dt;
+    if (apartT >= 3) { apartT = 0; World.takeover(); Game.toast('방장이 던전을 나가서 혼자 계속해요'); }
   }
-  // 마을 · 던전에 그릴 친구 몸(없으면 null) · 친구가 지금 어디 있나(마을이 아니면 패널에 표시)
-  const townMate = () => (Game.scene === 'town' ? body : null);
-  const runMate = () => (Game.scene === 'run' ? body : null);
-  const mateWhere = () => (mateNow && mateNow.s !== 'town' ? WHERE[mateNow.s] || '' : '');
 
-  // ── 파티로 던전 들어가기(2026-10-25 사용자) ──
-  // 방장이 던전 고르기에서 들어가기 → 손님 레벨이 모자라면 방장에게 알림(혼자 갈지 물음) · 손님이 마을에 없어도 알림.
-  // 아니면 손님에게 "같이 들어갈까요?" → 예 = 둘 다 같은 씨앗으로 입장, 아니요 · 30초 대답 없음 = 방장에게 혼자 갈지 물음.
-  // 손님은 파티 중에 던전 입구로 혼자 못 간다(방장이 고름). 방장은 기다리는 동안 취소할 수 있다.
+  // ── 파티로 던전 들어가기 ──
+  // 방장이 던전 고르기에서 들어가기 → 파티원마다: 레벨이 모자람 · 마을에 없음은 못 감, 나머지에게 "같이 들어갈까요?".
+  // 방장 창(coopwait)에 파티원마다 대답이 보이고, 모두 대답하면(또는 방장이 '출발') 예라고 한 사람들과 같은 씨앗으로 들어간다(go).
+  // 예라고 한 손님은 출발 소식이 올 때까지 기다린다(coopgo). 아무도 못 가면 방장에게 혼자 갈지 묻는다.
   const INVITE_WAIT = 30;
-  let invite = null;  // 방장: { def, diff, seed, t }
+  const ST_TEXT = { wait: ['묻는 중', '#b48cff'], yes: ['같이 가요!', '#7dff8a'], no: ['안 가요', '#ff8a6a'], lv: ['레벨 부족', '#ff8a6a'], busy: ['마을에 없음', '#9a8e96'] };
+  let invite = null;  // 방장: { def, diff, seed, t, st: 피어 → 상태, kits: 피어 → 장비 }
+  let lastInvite = null;
   const diffName = diff => (diff ? ' · ' + DIFFS[diff].name : '');
   function askSolo(text, sub) {
     const iv = lastInvite;
     if (!iv || Game.scene !== 'select') { Game.toast(text); return; }
     Game.overlay({ type: 'confirm', text, sub: sub || '혼자 들어갈까요?', defaultYes: false, yes: () => Game.startRun(iv.def, iv.diff) });
   }
-  let lastInvite = null;
   // 방장: 던전 고르기에서 들어가기를 눌렀을 때(ui.js select). true = 파티가 맡음(바로 들어가지 않음)
   function hostEnter(def, diff) {
     if (!Net.linked || Net.role !== 'host') return false;
-    const m = Net.mate;
     lastInvite = { def, diff };
-    if (m.lv < def.lv) { askSolo('친구(' + clsOf(m).name + ' Lv.' + m.lv + ')는 레벨이 모자라 같이 못 들어가요', '입장 Lv.' + def.lv + ' — 혼자 들어갈까요?'); return true; }
-    if (!mateNow || mateNow.s !== 'town') { askSolo('친구가 마을에 없어요' + (mateWhere() ? ' (' + mateWhere() + ')' : ''), '혼자 들어갈까요?'); return true; }
-    invite = { def, diff, seed: 1 + Math.floor(Math.random() * 2e9), t: INVITE_WAIT };
-    Net.send({ t: 'invite', id: def.id, diff, seed: invite.seed });
+    const st = new Map();
+    for (const m of Net.members()) {
+      const now = (mates.get(m.pid) || {}).now;
+      st.set(m.pid, m.lv < def.lv ? 'lv' : !now || now.s !== 'town' ? 'busy' : 'wait');
+    }
+    const asks = [...st].filter(([, s]) => s === 'wait').map(([pid]) => pid);
+    if (!asks.length) {
+      const allLv = [...st.values()].every(s => s === 'lv');
+      askSolo(allLv ? '파티원 모두 레벨이 모자라 같이 못 들어가요' : '지금 같이 갈 수 있는 파티원이 없어요', (allLv ? '입장 Lv.' + def.lv + ' — ' : '') + '혼자 들어갈까요?');
+      return true;
+    }
+    invite = { def, diff, seed: 1 + Math.floor(Math.random() * 2e9), t: INVITE_WAIT, st, kits: new Map() };
+    for (const pid of asks) Net.sendTo(pid, { t: 'invite', id: def.id, diff, seed: invite.seed });
     Game.overlay({ type: 'coopwait' });
     return true;
   }
   function inviteEnd() {
     invite = null;
-    const top = Game.overlays[Game.overlays.length - 1];
-    if (top && top.type === 'coopwait') Game.closeOverlay();
+    const i = Game.overlays.findIndex(o => o.type === 'coopwait');
+    if (i >= 0) { if (i === Game.overlays.length - 1) Game.closeOverlay(); else Game.overlays.splice(i, 1); }
   }
-  // 방장이 기다리는 창: 취소만 된다
+  // 방장: 모두 대답했나 → 출발 / 아무도 못 감
+  function checkInvite() {
+    if (!invite) return;
+    const st = [...invite.st];
+    if (st.some(([, s]) => s === 'wait')) return;
+    if (st.some(([, s]) => s === 'yes')) go(); else { inviteEnd(); askSolo('같이 갈 파티원이 없어요'); }
+  }
+  // 방장: 예라고 한 사람들과 출발(아직 대답 안 한 사람에게는 취소)
+  function go() {
+    const iv = invite, yes = [...iv.st].filter(([, s]) => s === 'yes').map(([pid]) => pid);
+    for (const [pid, s] of iv.st) if (s === 'wait') Net.sendTo(pid, { t: 'inviteCancel' });
+    inviteEnd();
+    runKits = new Map(yes.map(pid => [pid, iv.kits.get(pid)]));
+    const size = 1 + yes.length;
+    for (const pid of yes) Net.sendTo(pid, { t: 'go', id: iv.def.id, diff: iv.diff, seed: iv.seed, size });
+    Game.startRun(iv.def, iv.diff, iv.seed, size);
+  }
+  // 방장이 기다리는 창: 파티원마다 대답 · 출발(예가 한 명이라도 있으면) · 취소
   function waitUpdate() {
-    if (Input.wasPressed('back') || Input.wasPressed('pause') || Input.wasPressed('ok')) { Net.send({ t: 'inviteCancel' }); inviteEnd(); Game.toast('같이 들어가기를 취소했어요'); }
+    if (!invite) return;
+    const anyYes = [...invite.st.values()].includes('yes');
+    if (Input.wasPressed('ok') && anyYes) { go(); return; }
+    if (Input.wasPressed('back') || Input.wasPressed('pause')) {
+      for (const [pid, s] of invite.st) if (s === 'wait' || s === 'yes') Net.sendTo(pid, { t: 'inviteCancel' });
+      inviteEnd(); Game.toast('같이 들어가기를 취소했어요');
+    }
   }
   function waitDraw(ctx) {
     time += 1 / 60;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, 960, 540);
     UI.zone(0, 0, 960, 540, { key: null });
-    Gfx.panel(ctx, 230, 180, 500, 180, { border: '#b48cff' });
     if (!invite) return;
-    T_(ctx, invite.def.name + diffName(invite.diff), 480, 222, 19, '#f0e0b8', 'center');
-    T_(ctx, '친구에게 같이 들어갈지 묻는 중' + dots(), 480, 254, 15, '#b48cff', 'center');
-    T_(ctx, Math.ceil(invite.t) + '초', 480, 278, 12, '#8a7e88', 'center');
-    UI.zone(400, 300, 160, 40, { key: 'back', now: true });
-    Gfx.panel(ctx, 410, 304, 140, 34, { border: '#5a4650', bg: '#1d151b' });
-    T_(ctx, '취소 ' + L('back'), 480, 327, 14, '#e8e0d0', 'center');
+    const rows = [...invite.st], h = 150 + rows.length * 26, top = 270 - h / 2;
+    Gfx.panel(ctx, 230, top, 500, h, { border: '#b48cff' });
+    T_(ctx, invite.def.name + diffName(invite.diff), 480, top + 34, 19, '#f0e0b8', 'center');
+    T_(ctx, '파티원에게 같이 들어갈지 묻는 중' + dots() + '  ' + Math.ceil(invite.t) + '초', 480, top + 58, 13, '#b48cff', 'center');
+    rows.forEach(([pid, s], i) => {
+      const m = Net.members().find(x => x.pid === pid), y = top + 88 + i * 26, [txt, col] = ST_TEXT[s];
+      T_(ctx, m ? clsOf(m).name + ' Lv.' + m.lv : '?', 420, y, 14, colorOf(pid), 'right');
+      T_(ctx, txt, 440, y, 14, col);
+    });
+    const anyYes = rows.some(([, s]) => s === 'yes'), by = top + h - 44;
+    [['출발 ' + L('ok'), 'ok', anyYes ? '#7dff8a' : '#5a5058'], ['취소 ' + L('back'), 'back', '#e8e0d0']].forEach(([s, k, c], i) => {
+      const bx = 480 - 130 + i * 140;
+      UI.zone(bx, by, 120, 34, { key: k, now: true });
+      Gfx.panel(ctx, bx, by, 120, 32, { border: i ? '#5a4650' : anyYes ? '#4a8a50' : '#3a3036', bg: '#1d151b' });
+      T_(ctx, s, bx + 60, by + 21, 14, c, 'center');
+    });
   }
   // 손님: 초대를 받음
+  let goWait = null;  // 손님: 예라고 하고 출발을 기다리는 중 { def, diff, seed }
   Net.on('invite', m => {
     const def = DUNGEONS.find(d => d.id === m.id);
     if (!def || Game.scene !== 'town') { Net.send({ t: 'inviteNo', why: 'busy' }); return; }
@@ -443,37 +557,67 @@ const Coop = (() => {
     Game.overlay({ type: 'confirm', invite: m.seed, defaultYes: true,
       text: '방장이 ' + def.name + diffName(m.diff) + '에 들어가요',
       sub: '같이 들어갈까요? (입장 Lv.' + def.lv + ')',
-      yes: () => { Net.send({ t: 'inviteYes', seed: m.seed, kit: myKit() }); Game.startRun(def, m.diff, m.seed); },  // kit = 방장 쪽 내 몸 장비
+      yes: () => { Net.send({ t: 'inviteYes', seed: m.seed, kit: myKit() }); goWait = { def, diff: m.diff, seed: m.seed }; Game.overlay({ type: 'coopgo' }); },  // kit = 방장 쪽 내 몸 장비
       no: () => Net.send({ t: 'inviteNo', why: 'no' }) });
   });
-  // 손님: 방장이 취소함 → 묻는 창을 닫는다
+  // 손님: 방장이 출발 → 같은 씨앗으로 들어간다(size = 파티 인원, 몹 체력 배율을 방장과 같게)
+  Net.on('go', m => {
+    if (!goWait || m.seed !== goWait.seed) return;
+    const g = goWait;
+    closeGoWait();
+    Game.startRun(g.def, g.diff, g.seed, m.size);
+  });
+  function closeGoWait() {
+    goWait = null;
+    const i = Game.overlays.findIndex(o => o.type === 'coopgo');
+    if (i >= 0) { if (i === Game.overlays.length - 1) Game.closeOverlay(); else Game.overlays.splice(i, 1); }
+  }
+  // 손님: 출발을 기다리는 창(취소하면 안 가요로)
+  function goUpdate() {
+    if (Input.wasPressed('back') || Input.wasPressed('pause')) { Net.send({ t: 'inviteNo', why: 'no' }); closeGoWait(); }
+  }
+  function goDraw(ctx) {
+    time += 1 / 60;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, 960, 540);
+    UI.zone(0, 0, 960, 540, { key: null });
+    Gfx.panel(ctx, 260, 200, 440, 140, { border: '#b48cff' });
+    if (!goWait) return;
+    T_(ctx, goWait.def.name + diffName(goWait.diff), 480, 236, 18, '#f0e0b8', 'center');
+    T_(ctx, '방장이 출발하기를 기다리는 중' + dots(), 480, 264, 14, '#b48cff', 'center');
+    UI.zone(420, 284, 120, 40, { key: 'back', now: true });
+    Gfx.panel(ctx, 420, 288, 120, 32, { border: '#5a4650', bg: '#1d151b' });
+    T_(ctx, '취소 ' + L('back'), 480, 309, 14, '#e8e0d0', 'center');
+  }
+  // 손님: 방장이 취소함 → 묻는 창 · 기다리는 창을 닫는다
   Net.on('inviteCancel', () => {
     const os = Game.overlays, i = os.findIndex(o => o.invite);
-    if (i < 0) return;
-    if (i === os.length - 1) Game.closeOverlay(); else os.splice(i, 1);
-    Game.toast('방장이 같이 들어가기를 취소했어요');
+    const had = i >= 0 || goWait;
+    if (i >= 0) { if (i === os.length - 1) Game.closeOverlay(); else os.splice(i, 1); }
+    closeGoWait();
+    if (had) Game.toast('방장이 같이 들어가기를 취소했어요');
   });
   // 방장: 대답
-  Net.on('inviteYes', m => {
-    if (!invite || m.seed !== invite.seed) return;
-    mateKit = m.kit || null;
-    const iv = invite;
-    inviteEnd();
-    Game.startRun(iv.def, iv.diff, iv.seed);
+  Net.on('inviteYes', (m, from) => {
+    if (!invite || m.seed !== invite.seed || !invite.st.has(from)) return;
+    invite.st.set(from, 'yes'); invite.kits.set(from, m.kit || null);
+    checkInvite();
   });
-  Net.on('inviteNo', m => {
-    if (!invite) return;
-    inviteEnd();
-    askSolo(m.why === 'lv' ? '친구는 레벨이 모자라 같이 못 들어가요' : m.why === 'busy' ? '친구가 지금 마을에 없어요' : '친구가 안 들어간대요');
+  Net.on('inviteNo', (m, from) => {
+    if (!invite || !invite.st.has(from)) return;
+    invite.st.set(from, m.why === 'lv' ? 'lv' : m.why === 'busy' ? 'busy' : 'no');
+    checkInvite();
   });
+
   // ── 손님: 방장의 던전 고르기를 같이 본다(2026-10-25 사용자: 던파 파티 던전 입장처럼) ──
   // 방장이 고르기 화면에 들어가면 손님(마을, 다른 창이 없을 때)에게 같은 창이 열리고 커서 · 난이도가 따라 움직인다. 손님은 보기만(닫기는 됨).
   // 잠김 표시 = 실제 규칙: 앞 던전 · 난이도는 방장 것, 입장 레벨은 내 것. 방장이 들어가기를 누르면 그 위에 "같이 들어갈까요?"
   let viewClosed = false;
+  const hostNow = () => (mates.get(Net.hostId) || {}).now;
   const viewOpen = () => Game.overlays.some(o => o.type === 'coopview');
   function viewTick() {
     if (Net.role !== 'guest') return;
-    const on = mateNow && mateNow.s === 'select';
+    const hn = hostNow(), on = hn && hn.s === 'select';
     if (!on) {
       viewClosed = false;
       const i = Game.overlays.findIndex(o => o.type === 'coopview');
@@ -486,17 +630,18 @@ const Coop = (() => {
     if (Input.wasPressed('back') || Input.wasPressed('pause')) { viewClosed = true; Game.closeOverlay(); }
   }
   function viewDraw(ctx, prof, t) {
-    if (!mateNow || mateNow.sel === undefined) return;
+    const hn = hostNow();
+    if (!hn || hn.sel === undefined) return;
     const S = UI.select, keep = [S.sel, S.diff, S.top];
-    S.sel = mateNow.sel; S.diff = mateNow.diff;
+    S.sel = hn.sel; S.diff = hn.diff;
     const cl = {};
-    for (const id of mateNow.cl || []) cl[id] = true;
-    S.draw(ctx, Object.assign({}, prof, { cleared: cl, clearedDiff: mateNow.cd || {} }), t);
+    for (const id of hn.cl || []) cl[id] = true;
+    S.draw(ctx, Object.assign({}, prof, { cleared: cl, clearedDiff: hn.cd || {} }), t);
     [S.sel, S.diff, S.top] = keep;
     UI.zone(0, 0, 960, 540, { key: null });  // 보기만: 눌러도 아무 일 없게
-    const m = Net.mate;
+    const m = Net.members().find(x => x.host);
     Gfx.panel(ctx, 250, 6, 460, 30, { border: '#b48cff' });
-    T_(ctx, '방장(' + clsOf(m).name + ' Lv.' + m.lv + ')이 던전을 고르는 중' + dots(), 480, 27, 14, '#e0d0ff', 'center');
+    T_(ctx, '방장' + (m ? '(' + clsOf(m).name + ' Lv.' + m.lv + ')' : '') + '이 던전을 고르는 중' + dots(), 480, 27, 14, '#e0d0ff', 'center');
     ctx.fillStyle = '#05030a'; ctx.fillRect(0, 524, 960, 16);
     T_(ctx, '방장이 들어가면 같이 갈지 물어요 · 닫기 ' + L('back'), 480, 535, 11, '#8a7e88', 'center');
     time += 1 / 60;
@@ -515,7 +660,7 @@ const Coop = (() => {
     T_(ctx, s, 480, 522, 13, '#8a7e88', 'center');
   }
 
-  return { open, update, draw, tick, townMate, runMate, mateWhere, hostEnter, guestBlocked, waitUpdate, waitDraw, viewUpdate, viewDraw,
-    remotePlayer, remoteHurt, sendAct, hostKill, queue, applySnaps, kitChanged,
+  return { open, update, draw, tick, townMates, runMates, panelLines, colorOf, hostEnter, guestBlocked, waitUpdate, waitDraw, goUpdate, goDraw, viewUpdate, viewDraw,
+    remotePlayers, remoteHurt, sendAct, hostKill, queue, applySnaps, kitChanged,
     inParty, mateUp, canRevive, reviveTick, reviveInfo, leaveTogether, forgeShow, brag, drawBubbles };
 })();

@@ -28,29 +28,34 @@ const World = (() => {
   let partySeed = 0;  // 파티로 들어온 던전이면 그 씨앗(혼자면 0)
 
   // ── 파티 같이 싸우기(3단계, 2026-10-25) ──
-  // 방장: 몹 · 탄 · 장판 · 속성석 효과를 모두 계산한다. 손님 몸 rp(remote) = 손님 장비로 만든 플레이어 — 손님이 보낸 위치 · 동작으로 움직이고
-  //   손님 공격도 방장 쪽에서 rp 로 다시 휘둘러 맞힌다(속성석 효과가 똑같이). 몹은 가까운 사람을 노리고, rp 가 맞으면 손님에게 알린다(손님 쪽에서 무적 · 피해 계산).
-  // 손님(mirror): 몹 계산을 안 하고 방장이 1초 20번 보내는 몹 · 탄 · 장판(snap)을 따라 그린다. 자기 이동 · 대시 · 동작은 바로, 맞히기는 방장이.
+  // 방장: 몹 · 탄 · 장판 · 속성석 효과를 모두 계산한다. 손님 몸들 rps(remote, 최대 3) = 손님 장비로 만든 플레이어 — 손님이 보낸 위치 · 동작으로 움직이고
+  //   손님 공격도 방장 쪽에서 그 몸으로 다시 휘둘러 맞힌다(속성석 효과가 똑같이). 몹은 가까운 사람을 노리고, 손님 몸이 맞으면 그 손님에게 알린다(손님 쪽에서 무적 · 피해 계산).
+  // 손님(mirror): 몹 계산을 안 하고 방장이 1초 20번 보내는 몹 · 탄 · 장판(snap, 내 둘레)을 따라 그린다. 자기 이동 · 대시 · 동작은 바로, 맞히기는 방장이.
   //   몹이 쓰러질 때마다 방장이 알려 주면(kill) 손님 쪽에서 자기 경험치 · 전리품을 굴린다(전리품은 각자 따로 보임).
-  // actor = 지금 계산 중인 쪽(rp 이면 화면 흔들림 · 히트스톱은 방장 화면 대신 손님에게)
-  let rp = null, mirror = false, actor = null, nextId = 1, flow2 = null, goneIds = [];  // goneIds = 방장에서 사라진 몹(손님에게 알림)
+  // actor = 지금 계산 중인 쪽(손님 몸이면 화면 흔들림 · 히트스톱은 방장 화면 대신 그 손님에게)
+  let rps = [], mirror = false, actor = null, nextId = 1, goneIds = [];  // goneIds = 방장에서 사라진 몹(손님에게 알림)
+  const flows = new Map();  // 손님 몸 → 그쪽 칸 거리표
   const byId = new Map();
   function addEnemy(e) { e.id = nextId++; byId.set(e.id, e); enemies.push(e); return e; }
   const actorRemote = () => !!(actor && actor.remote);
-  // 방장 → 손님 효과 알림(손님 가까이에서 생긴 것만)
-  function emit(ev, x, y) {
-    if (!rp || mirror) return;
-    if (x !== undefined && (Math.abs(x - rp.x) > 360 || Math.abs(y - rp.y) > 240)) return;
-    Coop.queue(ev);
+  // 방장 → 손님 효과 알림(그 손님 가까이에서 생긴 것만). only = 그 손님에게만
+  function emit(ev, x, y, only) {
+    if (!rps.length || mirror) return;
+    for (const q of rps) {
+      if (only && q !== only) continue;
+      if (x !== undefined && (Math.abs(x - q.x) > 360 || Math.abs(y - q.y) > 240)) continue;
+      Coop.queue(q.pid, ev);
+    }
   }
 
-  function start(def, profile, diff = 0, seed = 0) {
+  // party = 파티 인원(방장이 정해 손님에게도 같이 — 몹 체력 배율이 같아야 해서)
+  function start(def, profile, diff = 0, seed = 0, party = 1) {
     RUN.diff = diff;
     RUN.ease = def.ease || null;  // 던전마다 몹 세기 낮춤(역병 하수도 2026-10-25)
-    RUN.party = seed ? PARTY_HP : 1;  // 파티면 몹 · 보스 체력 ×1.6(★ 규칙)
+    RUN.party = seed ? PARTY_HP[Math.min(4, Math.max(2, party))] : 1;  // 파티면 몹 · 보스 체력 ×1.6 · 2.2 · 2.8(★ 규칙, 인원별)
     partySeed = seed;
     mirror = !!seed && Net.role === 'guest';
-    actor = null; nextId = 1; byId.clear(); flow2 = null; goneIds = [];
+    actor = null; nextId = 1; byId.clear(); flows.clear(); goneIds = [];
     lv = seed ? seeded(seed, () => Dungeon.generate(def)) : Dungeon.generate(def);
     lv.ilvlR = diffIlvl(def, diff);  // 난이도에 따른 장비 레벨 범위
     dIdx = DUNGEONS.indexOf(def);
@@ -65,13 +70,13 @@ const World = (() => {
     hitstopT = 0; shakeT = 0; time = 0; storyT = 0; comboN = 0; flow = null; flowT = 0; lastTile = -1;
     if (seed) seeded(seed + 7, () => { populate(); placeHazards(); });
     else { populate(); placeHazards(); }
-    // 방장: 손님 몸(손님이 보낸 장비로). 처음 자리는 내 옆, 손님 위치가 오면 그리로
-    rp = seed && Net.role === 'host' ? Coop.remotePlayer() : null;
-    if (rp) { rp.x = p.x + 14; rp.y = p.y; }
+    // 방장: 같이 들어온 손님마다 몸(손님이 보낸 장비로). 처음 자리는 내 옆, 손님 위치가 오면 그리로
+    rps = seed && Net.role === 'host' ? Coop.remotePlayers() : [];
+    rps.forEach((q, i) => { q.x = p.x + 14 * (i + 1); q.y = p.y; });
     msg = def.name + (diff ? ' · ' + DIFFS[diff].name : ''); msgT = 2.4;
   }
-  // 방장: 손님이 던전을 나감 · 끊김 → 손님 몸을 뺀다(몹은 나만 노린다)
-  function dropRemote() { rp = null; flow2 = null; }
+  // 방장: 그 손님이 던전을 나감 · 끊김 → 그 몸을 뺀다(몹은 남은 사람을 노린다)
+  function dropRemote(pid) { const q = rps.find(q => q.pid === pid); rps = rps.filter(q => q.pid !== pid); if (q) flows.delete(q); }
   // 손님: 방장이 던전을 나감 · 끊김 → 이제부터 몹을 내 기기에서 계산(혼자 계속)
   function takeover() {
     if (!mirror) return;
@@ -208,7 +213,7 @@ const World = (() => {
 
   // 칸 길찾기: 플레이어 칸에서 퍼진 거리표(0.3초마다)를 따라 한 칸씩 가까워진다
   function flowDir(e) {
-    const tg = e.tgt || p, fl = tg === rp && flow2 ? flow2 : flow;  // 파티: 손님을 노리는 몹은 손님 쪽 거리표
+    const tg = e.tgt || p, fl = (tg !== p && flows.get(tg)) || flow;  // 파티: 손님을 노리는 몹은 그 손님 쪽 거리표
     if (!fl) return null;
     const W = lv.W, tx = Math.floor(e.x / T), ty = Math.floor(e.y / T);
     const here = fl[ty * W + tx];
@@ -260,15 +265,20 @@ const World = (() => {
     flowT -= dt;
     if (flowT <= 0) {
       flowT = 0.3; flow = Dungeon.bfs(lv, Math.floor(p.x / T), Math.floor(p.y / T), 45);
-      flow2 = rp ? Dungeon.bfs(lv, Math.floor(rp.x / T), Math.floor(rp.y / T), 45) : null;
+      for (const q of rps) flows.set(q, Dungeon.bfs(lv, Math.floor(q.x / T), Math.floor(q.y / T), 45));
     }
 
     actor = p; updatePlayer(p, dt, lv, true); actor = null;
-    if (rp) { actor = rp; rp.sp = rp.maxSp; updatePlayer(rp, dt, lv, true); actor = null; }  // 손님 몸: 기력은 손님 쪽에서 셈
-    // 몹마다 노릴 사람 = 가까운 살아 있는 사람(파티면 나 · 손님 중)
-    const near = e => { if (!rp || rp.dead) return p; if (p.dead) return rp; return Math.hypot(rp.x - e.x, rp.y - e.y) < Math.hypot(p.x - e.x, p.y - e.y) ? rp : p; };
+    for (const q of rps) { actor = q; q.sp = q.maxSp; updatePlayer(q, dt, lv, true); actor = null; }  // 손님 몸: 기력은 손님 쪽에서 셈
+    // 몹마다 노릴 사람 = 가까운 살아 있는 사람(파티면 나 · 손님들 중)
+    const all = [p, ...rps];
+    const near = e => {
+      let best = null, bd = Infinity;
+      for (const t of all) { if (t.dead) continue; const d = Math.hypot(t.x - e.x, t.y - e.y); if (d < bd) { bd = d; best = t; } }
+      return best || p;
+    };
     for (const e of enemies) e.tgt = near(e);
-    if (rp) { assignRoles(enemies.filter(e => e.tgt === p), p); assignRoles(enemies.filter(e => e.tgt === rp), rp); }
+    if (rps.length) for (const t of all) assignRoles(enemies.filter(e => e.tgt === t), t);
     else assignRoles(enemies, p);
     for (const e of enemies) {
       // 멀리서 자는 몹은 상태이상만 흐르게(아무것도 안 한다)
@@ -276,8 +286,8 @@ const World = (() => {
       if (!e.awake && Math.abs(e.x - t.x) > 360 && Math.abs(e.y - t.y) > 260) continue;
       updateEnemy(e, dt, lv, t);
     }
-    separateEnemies(enemies, lv, p, rp);
-    enemies = enemies.filter(e => { const gone = e.state === 'dead' && e.t > (e.def.boss ? 1.6 : 1.2); if (gone) { byId.delete(e.id); if (rp) goneIds.push(e.id); } return !gone; });
+    separateEnemies(enemies, lv, all);
+    enemies = enemies.filter(e => { const gone = e.state === 'dead' && e.t > (e.def.boss ? 1.6 : 1.2); if (gone) { byId.delete(e.id); if (rps.length) goneIds.push(e.id); } return !gone; });
     updateShots(dt);
     updatePlayerShots(dt);
     updateFields(dt);
@@ -290,8 +300,8 @@ const World = (() => {
     comboT -= dt;
     if (comboT <= 0) comboN = 0;
 
-    // 보스방에 들어서면 보스가 깨어난다(파티면 둘 중 누구든)
-    if (!bossAwake && (Dungeon.roomAt(lv, p.x, p.y) === lv.boss || (rp && Dungeon.roomAt(lv, rp.x, rp.y) === lv.boss))) {
+    // 보스방에 들어서면 보스가 깨어난다(파티면 누구든)
+    if (!bossAwake && [p, ...rps].some(t => Dungeon.roomAt(lv, t.x, t.y) === lv.boss)) {
       bossAwake = true;
       const b = enemies.find(e => e.rank === 'boss');
       if (b) { b.awake = true; b.spawnT = 0.8; msg = b.name; msgT = 2.2; Sfx.roar(); shake(4); Story.trigger('boss', lv.def); }
@@ -302,17 +312,17 @@ const World = (() => {
       if (d < 12 && !lv.stairs.asked) {
         lv.stairs.asked = true;
         // 파티(4단계): 방장이 오르면 파티원도 같이 마을로, 손님은 혼자 먼저 갈 수 있다
-        const party = Coop.inParty(), host = !!rp;
+        const party = Coop.inParty(), host = rps.length > 0;
         Game.overlay({ type: 'confirm', defaultYes: true,
           text: party ? (host ? '파티원과 같이 마을로 돌아갈까요?' : '혼자 먼저 마을로 돌아갈까요?') : '계단을 올라 마을로 돌아갈까요?',
-          sub: party ? (host ? '친구도 같이 계단을 올라 결과 화면으로 가요' : '방장이 계단을 오르면 같이 나가요') : undefined,
+          sub: party ? (host ? '파티원도 같이 계단을 올라 결과 화면으로 가요' : '방장이 계단을 오르면 같이 나가요') : undefined,
           yes: () => { Sfx.stairs(); if (party && host) Coop.leaveTogether(); finish('clear'); } });
       }
       if (d > 22) lv.stairs.asked = false;
     }
     Coop.reviveTick(dt);  // 파티: 쓰러진 친구 옆에서 공격 버튼을 누르고 있으면 살리기
-    if (p.downed) { msg = '쓰러졌다 — 친구가 살려 줄 때까지 기다려요'; msgT = 0.5; }
-    if (p.dead && p.deadT > 1.6 && !ended && !(p.downed && Coop.mateUp())) finish('dead');  // 파티: 친구도 쓰러지거나 나가면 실패
+    if (p.downed) { msg = '쓰러졌다 — 파티원이 살려 줄 때까지 기다려요'; msgT = 0.5; }
+    if (p.dead && p.deadT > 1.6 && !ended && !(p.downed && Coop.mateUp())) finish('dead');  // 파티: 모두 쓰러지거나 나가면 실패
   }
 
   // 손님: 방장이 보낸 자리로 몹을 부드럽게 옮기고, 탄 · 검기 · 장판은 다음 소식까지 그대로 날아가게
@@ -369,8 +379,10 @@ const World = (() => {
     else if (k === 'tx') { text(ev[1], ev[2], ev[3], ev[4], ev[5], ev[6]); if (ev[7]) Sfx.hit(!!ev[6]); }  // 내가 친 피해면 타격음
     else if (k === 'fx') {
       const f = ev[1];
-      if (f.follow === 'mate') f.follow = Coop.runMate() || { x: f.x || 0, y: f.y || 0 };
-      else if (f.follow === 'at') f.follow = { x: f.ax, y: f.ay };
+      if (typeof f.follow === 'string' && f.follow.startsWith('p:')) {  // 파티원 몸을 따라가는 그림(고리 · 잔상)
+        const pid = f.follow.slice(2);
+        f.follow = Coop.runMates().find(b => b.pid === pid) || { x: f.ax || f.x || 0, y: f.ay || f.y || 0 };
+      } else if (f.follow === 'at') f.follow = { x: f.ax, y: f.ay };
       fx.push(f);
     }
     else if (k === 'sh') shake(ev[1]);
@@ -383,8 +395,8 @@ const World = (() => {
     for (const k in o) { const v = o[k], t = typeof v; if (t === 'number') r[k] = r2(v); else if (t === 'string' || t === 'boolean') r[k] = v; }
     return r;
   }
-  function snapshot() {
-    const near = o => Math.abs(o.x - rp.x) < 420 && Math.abs(o.y - rp.y) < 300;
+  function snapshot(q) {  // q = 그 손님 몸(그 둘레 것만)
+    const near = o => Math.abs(o.x - q.x) < 420 && Math.abs(o.y - q.y) < 300;
     const e = [];
     for (const m of enemies) {
       if (!near(m) && m.rank !== 'boss') continue;
@@ -396,7 +408,7 @@ const World = (() => {
     const sh = shots.filter(near).map(s => [r1(s.x), r1(s.y), r1(s.vx), r1(s.vy), s.r, s.color]);
     const ps = pshots.filter(near).map(s => Object.assign(prim(s), { stone: !!s.stone, sc: s.def && s.def.wave && s.def.wave.scale || 1 }));
     const fd = fields.filter(near).map(prim);
-    return { t: 'snap', e, sh, ps, fd, g: goneIds.splice(0) };  // g = 사라진 몹(손님 둘레 밖에서 죽은 것도 지우게)
+    return { t: 'snap', e, sh, ps, fd };  // g(사라진 몹)는 coop.js 가 takeGone 으로 손님 모두에게 같이 붙인다
   }
 
   // 계단 자리: 보스방 안에서 보스가 쓰러진 곳(전리품 · 상자가 흩어지는 곳)에서 가장 먼 빈 칸(2026-10-24 사용자: 낙템 줍다 계단 밟지 않게)
@@ -444,7 +456,7 @@ const World = (() => {
     for (const s of shots) {
       s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
       if (!Dungeon.walkable(lv, s.x, s.y + 4, 1)) s.life = 0;
-      for (const t of rp ? [p, rp] : [p]) {  // 파티: 손님 몸에 맞으면 손님에게 알린다(hurtPlayer)
+      for (const t of [p, ...rps]) {  // 파티: 손님 몸에 맞으면 그 손님에게 알린다(hurtPlayer)
         if (s.life > 0 && !t.dead && Math.hypot(t.x - s.x, (t.y - 8) - s.y) < s.r + BODY_R + 2) {
           if (hurtPlayer(t, s, s.dmg, s.knock) !== 'miss') { s.life = 0; sparks(s.x, s.y + 8, 8, 5, s.color); if (s.chill) t.slowT = 2; }  // 얼음 임프 탄: 느려짐
         }
@@ -456,7 +468,7 @@ const World = (() => {
   // 플레이어 검기: 몹을 꿰뚫으며(한 마리에 한 번) 날아가고, 벽이나 사거리 끝에서 사라진다
   function updatePlayerShots(dt) {
     for (const s of pshots) {
-      const p = s.owner || World.player;  // 쏜 사람(파티: 손님 몸 rp 일 수도)
+      const p = s.owner || World.player;  // 쏜 사람(파티: 손님 몸일 수도)
       actor = p;
       // 마력탄: 앞쪽(±1 rad) 100 안의 가장 가까운 적 쪽으로 천천히 돈다(초당 4 rad)
       if (s.homing) {
@@ -490,7 +502,7 @@ const World = (() => {
   // 장판: 0.5초마다 안에 있는 몹에게 속성 효과
   function updateFields(dt) {
     for (const f of fields) {
-      const p = f.p || World.player;  // 깐 사람(파티: 손님 몸 rp 일 수도)
+      const p = f.p || World.player;  // 깐 사람(파티: 손님 몸일 수도)
       actor = p;
       f.t += dt; f.tick -= dt;
       if (f.tick <= 0) { f.tick += 0.5; Elements.fieldTick(f); }
@@ -514,7 +526,7 @@ const World = (() => {
         actor = null;
         addFx({ type: 'burst', x: f.x, y: f.y, r: f.r, col: ELEMENTS.fire.color, t: 0, life: 0.35 });
         Sfx.blast(); shake(3);
-        for (const t of rp ? [World.player, rp] : [World.player]) if (!t.dead && Math.hypot(t.x - f.x, (t.y - f.y) * 1.4) < f.r + BODY_R) hurtPlayer(t, f, f.dmg, 160);
+        for (const t of [World.player, ...rps]) if (!t.dead && Math.hypot(t.x - f.x, (t.y - f.y) * 1.4) < f.r + BODY_R) hurtPlayer(t, f, f.dmg, 160);
       }
     }
     actor = null;
@@ -637,7 +649,7 @@ const World = (() => {
   // ── 몹이 쓰러짐 ──
   function onKill(e) {
     Elements.onDeath(e);  // 연쇄 폭발(화염 패시브)
-    if (rp) Coop.hostKill(e);  // 파티: 손님도 자기 경험치 · 전리품을 굴린다
+    if (rps.length) Coop.hostKill(e);  // 파티: 손님들도 자기 경험치 · 전리품을 굴린다
     const d = e.def;
     // 화염 강화: 죽은 자리에 잠시 뒤 불꽃 폭발(예고 원)
     if ((e.affixes && e.affixes.includes('fire')) || d.deathBlast) fields.push({ blast: true, x: e.x, y: e.y, r: 26, el: 'fire', t: 0, tick: 99, delay: 0.8, life: 1.1, dmg: 14 * e.dmgMul });
@@ -735,25 +747,35 @@ const World = (() => {
     texts.push({ x: x + (Math.random() - 0.5) * 4, y, z, s, col, t: 0, life: big ? 1.4 : 0.8, big });
   }
   function number(x, y, z, n, col, big) { text(x, y, z, String(n), col, big); }
-  // 화면 흔들림 · 히트스톱: 손님 몸(rp)이 친 것은 방장 화면 대신 손님 화면에서, 몹 · 함정이 낸 흔들림은 둘 다
+  // 화면 흔들림 · 히트스톱: 손님 몸이 친 것은 방장 화면 대신 그 손님 화면에서, 몹 · 함정이 낸 흔들림은 모두
   function shake(s) {
-    if (actorRemote()) { emit(['sh', s]); return; }
+    if (actorRemote()) { emit(['sh', s], undefined, undefined, actor); return; }  // 그 손님에게만
     if (!actor) emit(['sh', s]);
     shakeT = Math.max(shakeT, s);
   }
   function hitstop(t) {
-    if (actorRemote()) { emit(['hs', t]); return; }
+    if (actorRemote()) { emit(['hs', t], undefined, undefined, actor); return; }
     hitstopT = Math.max(hitstopT, t);
   }
-  // 효과 그림 더하기(파티 방장: 손님에게도). 손님 자기 동작 그림(고리 · 잔상)은 손님 쪽에서 바로 그리므로 안 보낸다
+  // 효과 그림 더하기(파티 방장: 손님들에게도). 손님 자기 동작 그림(고리 · 잔상)은 그 손님 쪽에서 바로 그리므로 그 손님에게는 안 보낸다.
+  // 사람을 따라가는 그림은 'p:피어 이름'(받는 쪽에서 그 파티원 몸을 따라감)
   function addFx(f) {
     fx.push(f);
-    if (!rp || mirror || f.follow === rp) return;
+    if (!rps.length || mirror) return;
     const c = prim(f);
     if (f.fv) c.fv = { x: r2(f.fv.x), y: r2(f.fv.y) };
-    if (f.follow) { if (f.follow === p) c.follow = 'mate'; else { c.follow = 'at'; c.ax = r1(f.follow.x); c.ay = r1(f.follow.y); } }
-    const x = f.x !== undefined ? f.x : f.x0 !== undefined ? f.x0 : f.follow ? f.follow.x : rp.x, y = f.y !== undefined ? f.y : f.y0 !== undefined ? f.y0 : f.follow ? f.follow.y : rp.y;
-    emit(['fx', c], x, y);
+    const fol = f.follow;
+    if (fol) {
+      c.ax = r1(fol.x); c.ay = r1(fol.y);
+      c.follow = fol === p ? 'p:' + Net.myId : fol.remote && fol.pid ? 'p:' + fol.pid : 'at';
+    }
+    const x = f.x !== undefined ? f.x : f.x0 !== undefined ? f.x0 : fol ? fol.x : undefined;
+    const y = f.y !== undefined ? f.y : f.y0 !== undefined ? f.y0 : fol ? fol.y : undefined;
+    for (const q of rps) {
+      if (fol === q) continue;
+      if (x !== undefined && (Math.abs(x - q.x) > 360 || Math.abs(y - q.y) > 240)) continue;
+      Coop.queue(q.pid, ['fx', c]);
+    }
   }
 
   // ── 그리기 ──
@@ -783,8 +805,8 @@ const World = (() => {
     const vis = enemies.filter(e => inView(e.x, e.y));
     for (const e of vis) list.push({ y: e.y, draw: () => Art.enemy(ctx, e, time, p) });
     list.push({ y: p.y, draw: () => Art.player(ctx, p, time) });
-    const mate = rp || Coop.runMate();  // 파티 친구(방장 화면 = 손님 몸 rp 그대로 · 손님 화면 = 방장이 보낸 위치)
-    if (mate && inView(mate.x, mate.y)) list.push({ y: mate.y, draw: () => { Art.shadow(ctx, mate.x, mate.y, 6, 0, 1); Art.player(ctx, mate, time); } });
+    const mates = rps.length ? rps : Coop.runMates();  // 파티원(방장 화면 = 손님 몸들 그대로 · 손님 화면 = 받은 위치로 그리는 몸들)
+    for (const m of mates) if (inView(m.x, m.y)) list.push({ y: m.y, draw: () => { Art.shadow(ctx, m.x, m.y, 6, 0, 1); Art.player(ctx, m, time); } });
     list.sort((a, b) => a.y - b.y);
     for (const e of vis) { Art.aura(ctx, e, time); Art.shadow(ctx, e.x, e.y, e.r + 2, e.z, e.spawnT > 0 ? 0.4 : 1); }
     Art.shadow(ctx, p.x, p.y, 6, 0, 1);
@@ -797,13 +819,13 @@ const World = (() => {
     for (const e of vis) if (Math.hypot(e.x - p.x, e.y - p.y) < LIGHT_R + 30) { Art.enemyBar(ctx, e); Art.nameTag(ctx, e); }
     for (const d of lv.drops) if (d.kind === 'item' && Math.hypot(d.x - p.x, d.y - p.y) < LIGHT_R + 60) Art.dropLabel(ctx, d);
     for (const t of texts) Art.floatText(ctx, t);
-    if (mate && inView(mate.x, mate.y)) {  // 친구 이름표는 어둠 위에(어디 있는지 보이게)
+    for (const m of mates) if (inView(m.x, m.y)) {  // 파티원 이름표(직업, 파티 순서 색)는 어둠 위에(어디 있는지 보이게)
+      const nm = (m.cls && m.cls.name) || '친구';
       ctx.font = 'bold 6px ' + Gfx.FONT; ctx.textAlign = 'center'; ctx.fillStyle = '#000';
-      ctx.fillText('친구', mate.x + 0.5, mate.y - 25.5); ctx.fillStyle = '#d8c0ff'; ctx.fillText('친구', mate.x, mate.y - 26); ctx.textAlign = 'left';
+      ctx.fillText(nm, m.x + 0.5, m.y - 25.5); ctx.fillStyle = Coop.colorOf(m.pid); ctx.fillText(nm, m.x, m.y - 26); ctx.textAlign = 'left';
     }
-    // 쓰러진 친구: 머리 위 살리기 고리(누르고 있는 만큼 차오름) · 옆에 가면 안내
-    const rv = Coop.reviveInfo();
-    if (rv && inView(rv.m.x, rv.m.y)) {
+    // 쓰러진 파티원: 머리 위 살리기 고리(누르고 있는 만큼 차오름) · 옆에 가면 안내
+    for (const rv of Coop.reviveInfo()) if (inView(rv.m.x, rv.m.y)) {
       const x = rv.m.x, y = rv.m.y - 16;
       ctx.save();
       ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(0,0,0,0.6)';
@@ -815,8 +837,8 @@ const World = (() => {
       ctx.restore();
     }
     ctx.restore();
-    if (mate) mateArrow(ctx, mate);
-    Coop.drawBubbles(ctx, p, mate, x => (x - cam.x) * SCALE, y => (y - cam.y) * SCALE, 88);  // 파티 말풍선(유니크 획득 등)
+    for (const m of mates) mateArrow(ctx, m);
+    Coop.drawBubbles(ctx, p, x => (x - cam.x) * SCALE, y => (y - cam.y) * SCALE, 88);  // 파티 말풍선(유니크 획득 등)
     Hud.draw(ctx);
   }
   // 파티 친구가 화면 밖이면 화면 가장자리에 그쪽을 가리키는 화살표 + 거리(2026-10-25 사용자). 쓰러졌으면 붉게 "쓰러짐"
@@ -828,7 +850,7 @@ const World = (() => {
     const k = Math.min((480 - M) / Math.max(0.001, Math.abs(Math.cos(a))), (cy - M) / Math.max(0.001, Math.abs(Math.sin(a))));
     let ax = cx + Math.cos(a) * k, ay = cy + Math.sin(a) * k;
     if (ax > 770 && ay < 190) { ax = 960 - M; ay = 190; }  // 오른쪽 위 자동 지도 · 던전 이름 · 시간 자리는 피해서 그 아래 오른쪽 끝에
-    const down = m.dead, col = down ? '#ff6a5a' : '#c9a8ff', pulse = 0.75 + 0.25 * Math.sin(time * 6);
+    const down = m.dead, col = down ? '#ff6a5a' : Coop.colorOf(m.pid), pulse = 0.75 + 0.25 * Math.sin(time * 6);
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.translate(Math.round(ax), Math.round(ay));
@@ -846,7 +868,7 @@ const World = (() => {
     Gfx.spr(ctx, m.cls.sprite + '_idle_anim_f0', Math.round(ax), Math.round(ay) + 10, { scale: 1.5 });  // 친구 얼굴(작게)
     const d = Math.round(Math.hypot(m.x - p.x, m.y - p.y) / T);
     const ty = ay > cy ? ay - 26 : ay + 34;
-    Gfx.text(ctx, (down ? '쓰러짐 ' : '친구 ') + d + 'm', Math.round(ax), Math.round(ty), 12, col, 'center');
+    Gfx.text(ctx, (down ? '쓰러짐 ' : ((m.cls && m.cls.name) || '친구') + ' ') + d + 'm', Math.round(ax), Math.round(ty), 12, col, 'center');
     ctx.restore();
   }
 
@@ -884,8 +906,9 @@ const World = (() => {
     applySnap, remoteKill, snapshot, dropRemote, takeover,
     as: (a, fn) => { const k = actor; actor = a; try { fn(); } finally { actor = k; } },  // a 가 하는 일로 계산(파티 방장: 손님 몸 동작)
     inputLock: false,  // 파티 던전에서 창을 연 동안: 던전은 흐르고 내 몸은 입력 없음(player.js moveInput)
-    get remote() { return rp; }, get mirror() { return mirror; }, get actor() { return actor; },
-    get mate() { return rp || Coop.runMate(); },  // 파티 친구 몸(자동 지도 · 화살표)
+    get remotes() { return rps; }, get mirror() { return mirror; }, get actor() { return actor; },
+    get mates() { return rps.length ? rps : Coop.runMates(); },  // 파티원 몸들(자동 지도 · 화살표)
+    takeGone: () => goneIds.splice(0),  // 방장: 그동안 사라진 몹(손님 모두에게)
     combo: () => { comboN++; comboT = 1.8; },
     playerDied: () => { p.hp = 0; p.dead = true; p.state = 'dead'; p.act = null; p.deadT = 0; shakeT = 4; },
     // 파티 쓰러짐(4단계): 누운 채 기다린다 — 친구가 옆에서 공격 버튼을 2초 누르면 일어남, 둘 다 쓰러지면 실패

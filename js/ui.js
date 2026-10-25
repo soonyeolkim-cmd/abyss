@@ -207,7 +207,8 @@ const UI = (() => {
         const why = d.needs && !prof.cleared[d.needs] ? DUNGEONS.find(x => x.id === d.needs).name + ' 보스를 쓰러뜨리면 열려요' : 'Lv.' + d.lv + '부터 들어갈 수 있어요 (지금 Lv.' + prof.lv + ')';
         T_(ctx, lockd ? '잠김 — ' + why : d.desc, 162, y + 52, 13, lockd ? '#8a6060' : '#9a8e96');
         // 파티 방장: 친구 레벨이 모자란 던전 표시
-        if (!lockd && Net.linked && Net.role === 'host' && Net.mate.lv < d.lv) T_(ctx, '친구 Lv.' + Net.mate.lv + ' — 같이 못 가요', 880, y + 52, 12, '#d88aff', 'right');
+        const low = !lockd && Net.linked && Net.role === 'host' ? Net.members().filter(m => m.lv < d.lv) : [];
+        if (low.length) T_(ctx, low.length === 1 ? clsOf(low[0]).name + ' Lv.' + low[0].lv + ' — 같이 못 가요' : '파티원 ' + low.length + '명 레벨 부족', 880, y + 52, 12, '#d88aff', 'right');
       });
       // 고른 난이도 설명
       const df = DIFFS[this.diff];
