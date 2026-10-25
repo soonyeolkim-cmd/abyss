@@ -1,5 +1,5 @@
 // 함께하기 창(마을 메뉴 → 함께하기, overlay 'coop'): 방 만들기 · 방 들어가기(4자리 방 코드) · 방 안(두 캐릭터 · 연결 속도).
-// 창을 닫아도 방은 그대로 열려 있다(마을 왼쪽 아래 패널에 방 코드 · 친구 표시). 던전 같이 들어가기는 2단계.
+// 창을 닫아도 방은 그대로 열려 있다(마을 왼쪽 아래 패널에 방 코드 · 친구 표시). 이어지면 마을에서 서로 걷는 모습이 보인다(아래 tick). 던전 같이 들어가기는 2단계.
 // 방 코드 넣기: ↑↓ 숫자 바꾸기 · ←→ 자리 옮기기 · 키보드 숫자키 바로 · Backspace 지우기 · 폰은 숫자판을 손가락으로.
 const Coop = (() => {
   const T_ = Gfx.text;
@@ -102,7 +102,7 @@ const Coop = (() => {
     col(590, '친구', { cls: m.cls, lv: m.lv, equip: { weapon: m.weapon } }, host ? '손님' : '방장');
     const pg = Net.ping, q = !pg ? ['재는 중', '#9a8e96'] : pg < 90 ? ['좋음', '#7dff8a'] : pg < 200 ? ['보통', '#ffd36a'] : ['느림', '#ff8a6a'];
     T_(ctx, '연결 ' + q[0] + (pg ? ' · ' + pg + 'ms' : ''), 480, Y + 252, 13, q[1], 'center');
-    T_(ctx, '던전 같이 들어가기는 다음 단계에서 만들어요', 480, Y + 272, 12, '#8a7e88', 'center');
+    T_(ctx, '마을에서 서로 보여요 · 던전 같이 들어가기는 다음 단계에서 만들어요', 480, Y + 272, 12, '#8a7e88', 'center');
   }
 
   function drawButtons(ctx, bs) {
@@ -137,11 +137,48 @@ const Coop = (() => {
     UI_hint(ctx, '숫자 ↑↓ · 자리 ←→ · 숫자키 · 들어가기 ' + L('ok') + ' · 지우기/뒤로 ' + L('back'));
   }
 
+  // ── 마을에서 함께(2026-10-25 사용자: 연결되면 마을에서부터 서로 보이게) ──
+  // 서로 지금 장면 · 마을 위치 · 바라보는 쪽 · 걷는 중을 보낸다(바뀌면 1초에 20번까지, 안 바뀌어도 1초마다 한 번).
+  // 받은 위치로 부드럽게 따라가는 '친구 몸'을 만들어 town.js 가 내 캐릭터와 함께 그린다. 마을 일(말 걸기 · 상점)은 각자.
+  const WHERE = { town: '마을', run: '던전', select: '던전 고르는 중', result: '결과 화면', title: '캐릭터 선택' };
+  let mateNow = null, body = null, bodyKey = '', sendT = 0, keepT = 0, lastSent = '';
+  Net.on('pos', m => { mateNow = m; });
+  const r1 = v => Math.round(v * 10) / 10;
+
+  // 매 화면(game.js frame): 내 위치 보내기 · 친구 몸 따라가기
+  function tick(dt) {
+    if (!Net.linked) { mateNow = null; body = null; lastSent = ''; return; }
+    sendT -= dt; keepT -= dt;
+    if (sendT <= 0) {
+      sendT = 1 / 20;
+      const s = Game.scene, tp = s === 'town' ? Town.player : null;
+      const m = tp ? { t: 'pos', s, x: r1(tp.x), y: r1(tp.y), fx: r1(tp.fv.x), fy: r1(tp.fv.y), w: tp.state === 'walk' ? 1 : 0 } : { t: 'pos', s };
+      const key = JSON.stringify(m);
+      if (key !== lastSent || keepT <= 0) { Net.send(m); lastSent = key; keepT = 1; }
+    }
+    if (!mateNow || mateNow.s !== 'town' || Game.scene !== 'town') { body = null; return; }
+    const mt = Net.mate, k = mt.cls + ':' + (mt.weapon ? mt.weapon.uid + ':' + mt.weapon.base : '');
+    if (!body || k !== bodyKey) {  // 처음 · 직업 · 무기가 바뀌면 다시
+      bodyKey = k;
+      body = { cls: clsOf(mt), prof: { cls: mt.cls, equip: { weapon: mt.weapon } }, stats: { fx: {} },
+        x: mateNow.x, y: mateNow.y, fv: { x: 0, y: 1 }, state: 'idle', walkT: 0, flash: 0, charge: 0, act: null };
+    }
+    const d = Math.hypot(mateNow.x - body.x, mateNow.y - body.y);
+    if (d > 80) { body.x = mateNow.x; body.y = mateNow.y; }  // 너무 멀면 바로(마을에 새로 들어옴 등)
+    else { const f = 1 - Math.exp(-dt * 12); body.x += (mateNow.x - body.x) * f; body.y += (mateNow.y - body.y) * f; }
+    if (mateNow.fx || mateNow.fy) body.fv = { x: mateNow.fx, y: mateNow.fy };
+    body.state = mateNow.w || d > 2 ? 'walk' : 'idle';
+    if (body.state === 'walk') body.walkT += dt;
+  }
+  // 마을에 그릴 친구 몸(없으면 null) · 친구가 지금 어디 있나(마을이 아니면 패널에 표시)
+  const townMate = () => body;
+  const mateWhere = () => (mateNow && mateNow.s !== 'town' ? WHERE[mateNow.s] || '' : '');
+
   const dots = () => '.'.repeat(1 + Math.floor(time * 2) % 3);
   function UI_hint(ctx, s) {
     ctx.fillStyle = '#000'; ctx.fillRect(0, 496, 960, 44);
     T_(ctx, s, 480, 522, 13, '#8a7e88', 'center');
   }
 
-  return { open, update, draw };
+  return { open, update, draw, tick, townMate, mateWhere };
 })();

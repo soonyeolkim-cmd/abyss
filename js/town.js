@@ -132,6 +132,8 @@ const Town = (() => {
       Gfx.spr(ctx, Gfx.anim(s.sprite + '_idle_anim', time + s.x * 0.01, 6), s.x, s.y, { flip: !!s.flip });
     } });
     list.push({ y: p.y, draw: () => { Art.shadow(ctx, p.x, p.y, 6, 0, 1); Art.player(ctx, p, time); } });
+    const mate = Coop.townMate();  // 함께하기 친구(2026-10-25 사용자: 마을에서부터 같이 보이게)
+    if (mate) list.push({ y: mate.y, draw: () => { Art.shadow(ctx, mate.x, mate.y, 6, 0, 1); Art.player(ctx, mate, time); } });
     list.sort((a, b) => a.y - b.y);
     for (const it of list) it.draw();
     ctx.restore();
@@ -155,6 +157,8 @@ const Town = (() => {
         Gfx.text(ctx, k, sx(s.x), hy - 27, 13, '#ffd36a', 'center');
       }
     }
+    // 친구 머리 위 이름표
+    if (mate) Gfx.text(ctx, '친구 · ' + clsOf(mate.prof).name + ' Lv.' + Net.mate.lv, sx(mate.x), sy(mate.y) - 62, 12, '#d8c0ff', 'center');
     // 아래 왼쪽: 마을 이름 · 캐릭터
     const by = 438;
     Gfx.panel(ctx, 12, by, 250, 66);
@@ -165,7 +169,8 @@ const Town = (() => {
     Gfx.text(ctx, '물약 ' + prof.potions, 140, by + 54, 14, '#ff9a9a');
     // 함께하기 방이 열려 있으면 그 위에 방 코드 · 친구(창을 닫아도 방은 그대로)
     if (Net.state !== 'off' && Net.state !== 'error') {
-      const m = Net.mate, s = Net.state === 'ready' ? '함께 · ' + clsOf(m).name + ' Lv.' + m.lv + (Net.ping ? ' · ' + Net.ping + 'ms' : '')
+      const m = Net.mate, where = Coop.mateWhere();
+      const s = Net.state === 'ready' ? '함께 · ' + clsOf(m).name + ' Lv.' + m.lv + (where ? ' · ' + where : Net.ping ? ' · ' + Net.ping + 'ms' : '')
         : Net.state === 'joining' ? '방 ' + Net.code + ' 들어가는 중' : '방 ' + Net.code + ' · 친구 기다리는 중';
       Gfx.panel(ctx, 12, by - 38, 250, 32, { border: '#b48cff' });
       Gfx.text(ctx, s, 26, by - 17, 13, '#e0d0ff');

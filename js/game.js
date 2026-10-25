@@ -26,7 +26,7 @@ const Game = (() => {
   function toTitle() { if (Net.state !== 'off') Net.leave(); Save.write(prof); scene = 'title'; overlays = []; Input.clear(); UI.title.open(); }
 
   // 마을로 올 때는 던전 입구 앞에서 시작(처음 켤 때만 광장 가운데)
-  function open(name) { scene = name; overlays = []; Input.clear(); if (name === 'town') { Save.write(prof); Town.enter(prof, true); } }
+  function open(name) { scene = name; overlays = []; Input.clear(); if (name === 'town') { Save.write(prof); Town.enter(prof, true); Net.refresh(); } }
   function overlay(o) {
     if (o.type === 'inv') UI.inv.open(o.mode);
     if (o.type === 'stones') UI.stones.open(o.mode);
@@ -50,7 +50,7 @@ const Game = (() => {
   let runRef = null;
   const currentRun = () => runRef;
   // 장비 · 골드가 바뀌면 능력치 다시 계산하고 저장
-  function changed() { if (scene === 'run') refreshStats(World.player); if (scene === 'town') Town.refresh(); Save.write(prof); }
+  function changed() { if (scene === 'run') refreshStats(World.player); if (scene === 'town') Town.refresh(); Save.write(prof); Net.refresh(); }
   function toast(s) { toastMsg = s; toastT = 2; }
   function wipe() { Save.wipe(); prof = Save.fresh(); Save.write(prof); toast('기록을 지웠어요'); }
 
@@ -134,6 +134,7 @@ const Game = (() => {
     Input.poll();
     Net.update(dt);  // 함께하기: 연결 속도 · 끊김 살피기
     update(dt);
+    Coop.tick(dt);  // 함께하기: 내 마을 위치 보내기 · 친구 몸 따라가기
     Input.endFrame();
     draw();
     requestAnimationFrame(frame);

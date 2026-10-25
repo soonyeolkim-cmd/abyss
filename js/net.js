@@ -160,6 +160,7 @@ const Net = (() => {
 
   return {
     available, host, join, leave, send, update, VER,
+    refresh: () => { if (state === 'ready') send(me()); },  // 레벨 · 무기가 바뀌면 다시 소개(친구 화면의 내 모습)
     on: (t, fn) => { handlers[t] = fn; },
     get state() { return state; }, get role() { return role; }, get code() { return code; }, get opened() { return opened; },
     get mate() { return mate; }, get err() { return err; }, get ping() { return ping; },
