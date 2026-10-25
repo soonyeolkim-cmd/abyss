@@ -470,9 +470,9 @@ const enchantRate = (s, ups) => ENCHANT_RATE[Math.min(ups || 0, ENCHANT_MAX - 1)
 const SCROLL_NAMES = ['축복받은 강화 주문서', '강화 주문서'];
 const SCROLL_COLORS = ['#ffe08a', '#7dff8a'];
 const SCROLL_DROP = [0.65, 0.35];  // 떨어질 때 축복받은 · 보통 비율
-// 주문서가 떨어질 확률(2026-10-25 사용자: 너무 쌓인다 → 한 판 약 6 · 11장에서 약 3.5 · 5.5장으로 절반쯤)
-// 일반 몹 4% → 1.5%, 정예 10% → 4%, 고유 몹 1장 → 50%, 작은 상자 30% → 15%, 보스 2장 → 1장(보스 보물 상자 1장은 그대로)
-const SCROLL_DROP_RATE = { normal: 0.015, elite: 0.04, unique: 0.5, chest: 0.15, boss: 1 };
+// 주문서가 떨어질 확률(2026-10-25 사용자: 너무 쌓인다). 처음 일반 4% · 정예 10% · 고유 1장 · 작은 상자 30% · 보스 2장(한 판 약 6 · 12장)
+// → 절반쯤(1.5% · 4% · 50% · 15% · 1장) → '좀만 더' → 지금(한 판 약 3 · 4.5장). 보스 보물 상자 1장은 그대로
+const SCROLL_DROP_RATE = { normal: 0.01, elite: 0.028, unique: 0.35, chest: 0.1, boss: 1 };
 const INHERIT_CHANCE = 0.06;            // 주문서가 떨어질 때 계승 주문서일 확률
 const scrollKey = s => s.g + ':' + (s.r || 0);
 const scrollGroupOf = slot => Object.keys(SCROLL_GROUPS).find(g => SCROLL_GROUPS[g].slots.includes(slot));
