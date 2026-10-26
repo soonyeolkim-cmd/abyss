@@ -469,8 +469,11 @@ const DUNGEONS = [
 // Lv.100 콘텐츠(2026-10-26 사용자): 몹 레벨 lv 100 · 장비 Lv.100(혈석, 유니크는 안 떨어짐 — 제작으로만) · 입장 entry Lv.95 · 늘 1층부터(층 고르기 없음).
 // step: 예전 1.15(몹 Lv.90 기준, 2026-10-25 사용자: 1층 더 어렵게 두 번)를 몹 Lv.100 으로 옮기며 × POWER(95) / POWER(100) ≈ 0.86 —
 //   Lv.95 로 막 들어온 사람에게는 예전과 비슷한 손맛, Lv.100 장비를 갖추면 그만큼 쉬워진다(실제 손맛은 다시 잴 것)
+// → 2026-10-26 사용자 시험: '1층 몹 피가 너무 많다' — 몹만 세지는 곡선(ENEMY_RAMP)이 Lv.90 → 100 에서 체력 ×1.4 · 공격 ×1.22 를 더 붙인 걸 빠뜨려서
+//   심연의 문 영웅 대비 같은 역할 몹 체력 ×2.15 · 공격 ×1.88 이었다. 사용자 '체력 거의 절반, 공격은 1.3~1.5배' →
+//   stepHp 0.43(영웅 대비 체력 약 ×1.07) · stepDmg 0.64(공격 약 ×1.4). 레이드 체력(3층 중간 보스 × hpMul)도 같이 내려감
 // floors(2026-10-26 사용자: 기존 던전을 빌리던 것 → '살아 있는 심연' 전용 몹 · 풍경): 층마다 몹 무리(pool — 같은 이름 여러 번 = 더 자주) · 수호자 · 음악(빌린 곡)
-const ENDLESS = { max: 3, diff: 2, lv: 100, entry: 95, ilvl: [100, 104], step: 0.86, hp: 1.06, dmg: 1.04, reward: 0.05, rooms: 9, packs: 3,
+const ENDLESS = { max: 3, diff: 2, lv: 100, entry: 95, ilvl: [100, 104], stepHp: 0.43, stepDmg: 0.64, hp: 1.06, dmg: 1.04, reward: 0.05, rooms: 9, packs: 3,
   floors: [
     { pool: ['splitter', 'splitter', 'shieldbearer'], boss: 'split_mother', music: 'hell' },
     { pool: ['splitter', 'shieldbearer', 'blinker', 'blinker', 'tentacle'], boss: 'maw_lord', music: 'ice' },
@@ -489,7 +492,7 @@ const mixColor = (a, b, k) => '#' + [1, 3, 5].map(i => Math.round(parseInt(a.sli
 function endlessDef(floor) {
   if (floor > ENDLESS.max) return raidDef();  // 3층 다음 = 최종 보스 레이드(계단 '최종 보스 도전')
   const F = ENDLESS.floors[(floor - 1) % ENDLESS.floors.length], A = DUNGEONS.find(d => d.id === 'abyss').ease;
-  const fh = ENDLESS.step * Math.pow(ENDLESS.hp, floor - 1), fd = ENDLESS.step * Math.pow(ENDLESS.dmg, floor - 1);  // 영웅 배율은 난이도(ENDLESS.diff)가 곱한다
+  const fh = ENDLESS.stepHp * Math.pow(ENDLESS.hp, floor - 1), fd = ENDLESS.stepDmg * Math.pow(ENDLESS.dmg, floor - 1);  // 영웅 배율은 난이도(ENDLESS.diff)가 곱한다
   return {
     id: 'endless', endless: true, floor, timeId: 'endless' + floor, name: '끝없는 심연 ' + floor + '층',
     lv: ENDLESS.lv, entry: ENDLESS.entry, ilvl: ENDLESS.ilvl, rooms: ENDLESS.rooms, packs: ENDLESS.packs, roomMaps: true, needs: null,
@@ -863,7 +866,8 @@ const lvMax = prof => (endlessOpen(prof) ? LV_MAX_ABYSS : LV_MAX);
 // Lv.100 이상 유니크는 떨어지지 않는다 — 제작으로만(레이드 '심연의 핵', endgame-plan.md ⑤). 항아리도 이 단계부터 유니크 대신 레어
 const UNIQUE_CRAFT_LV = 100;
 const entryLv = def => def.entry || def.lv;  // 던전 입장 레벨(끝없는 심연은 몹 레벨과 따로)
-const EXP_NEED = 0.75;  // 다음 레벨까지 필요한 경험치 배율(2026-10-25 사용자: 레벨업 조금 더 빠르게 — 약 1.33배 빨라짐)
+// 다음 레벨까지 필요한 경험치 배율(2026-10-25 사용자: 레벨업 조금 더 빠르게 1 → 0.75, 약 1.33배 / 2026-10-26 사용자 "전체적으로 좀만 더" → 0.62, 거기서 약 1.2배)
+const EXP_NEED = 0.62;
 const expToNext = lv => Math.round((150 + 30 * lv) * POWER(lv) * EXP_NEED);
 // 장비 항아리(2026-10-25 사용자: 99 이후 콘텐츠의 도박을 지금 — 내 레벨대 장비 뽑기, 도박꾼 단지가 부위를 골라 팜). 등급은 이 표대로(사용자 "돈이 너무 잘 회수된다" → 레어 10% · 유니크 3%, 매직 35%, 나머지 일반 52%).
 // 착용 레벨 = 내 레벨 단계(바로 낄 수 있게). 값 = 80 × POWER(10 단위, 최소 120) — 60 → 30(싸게) → 40 → 80(2배)
