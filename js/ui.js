@@ -103,6 +103,27 @@ const UI = (() => {
     while (s.length > 1 && w() > maxW) s = s.slice(0, -2) + '…';
     T_(ctx, s, x, y, sz, col);
   }
+  // 띄어쓰기마다 끊어 maxW 안에 lines 줄까지 감싼다. 안 들어가면 글자를 줄이고(9까지), 그래도 넘치면 마지막 줄 끝을 '…'
+  function wrapText(ctx, s, x, y, size, maxW, lines, lh, col) {
+    let sz = size, out;
+    const split = () => {
+      ctx.font = 'bold ' + sz + 'px ' + Gfx.FONT;
+      const res = [];
+      let cur = '';
+      for (const w of s.split(' ')) {
+        const t = cur ? cur + ' ' + w : w;
+        if (cur && ctx.measureText(t).width > maxW) { res.push(cur); cur = w; } else cur = t;
+      }
+      if (cur) res.push(cur);
+      return res;
+    };
+    while ((out = split()).length > lines && sz > 9) sz--;
+    if (out.length > lines) { out = out.slice(0, lines); out[lines - 1] += '…'; }
+    out.forEach((ln, i) => {
+      while (ln.length > 1 && ctx.measureText(ln).width > maxW) ln = ln.slice(0, -2) + '…';
+      T_(ctx, ln, x, y + i * lh, sz, col);
+    });
+  }
   const menuNav = (sel, n) => {
     if (Input.nav('up')) sel = (sel + n - 1) % n;
     if (Input.nav('down')) sel = (sel + 1) % n;
@@ -342,7 +363,9 @@ const UI = (() => {
   // 장비 칸(56) 왼쪽 위 좌표: 끼는 자리대로 아바타 둘레에(2026-10-24 사용자) — 투구 머리 위 · 신발 발 아래 · 목걸이 목 옆 ·
   // 무기 칼 든 쪽 · 반지 그 아래 · 갑옷 · 장갑 반대쪽. 방향키는 그쪽에 있는 가장 가까운 칸으로 간다
   // 2026-10-24 사용자 다시 배열: 왼쪽 줄 방어구(투구 · 갑옷 · 장갑 · 신발, 머리부터 발까지), 오른쪽 줄 목걸이 · 무기(손 높이) · 반지, 가운데 아바타 + 아래 속성석 4칸
-  const EQUIP_POS = { helmet: [44, 80], armor: [44, 146], gloves: [44, 212], boots: [44, 278], amulet: [288, 80], weapon: [288, 179], ring: [288, 278] };
+  // 장비 칸 48(2026-10-26 사용자: 세트 효과 설명이 넘쳐서 칸을 줄이고 그 아래 두 줄 자리를 냄)
+  const EQ_S = 48;
+  const EQUIP_POS = { helmet: [44, 78], armor: [44, 136], gloves: [44, 194], boots: [44, 252], amulet: [296, 78], weapon: [296, 165], ring: [296, 252] };
   const BAG_TO_EQUIP = ['amulet', 'weapon', 'ring', 'ring'];  // 가방 줄에서 ← 로 들어올 때
   function equipStep(cur, dx, dy) {
     const [cx, cy] = EQUIP_POS[cur];
@@ -663,32 +686,36 @@ const UI = (() => {
         else if (SCRAP) { Gfx.essenceIcon(ctx, 244, 56, 16); T_(ctx, (prof.essence || 0) + ' · 가루 ' + (prof.essDust || 0) + '/' + ESSENCE.dustPer, 344, 62, 14, ESSENCE_COLOR, 'right'); }  // 위 오른쪽은 버튼 둘이라 골드는 여기
         else T_(ctx, clsOf(prof).name + ' Lv.' + prof.lv, 344, 62, 15, '#c8b8a0', 'right');
         // 가운데 아바타: 은은한 받침 빛 + 큰 캐릭터
-        const ax = 194, ay = 262;
+        const ax = 194, ay = 244;
         const glow = ctx.createRadialGradient(ax, ay - 50, 10, ax, ay - 50, 110);
         glow.addColorStop(0, 'rgba(255,220,150,0.10)'); glow.addColorStop(1, 'rgba(255,220,150,0)');
         ctx.fillStyle = glow; ctx.fillRect(ax - 110, ay - 160, 220, 220);
         Art.avatar(ctx, prof, ax, ay, 4, time);
         // 아바타 아래: 속성석 4칸(칸 이름 · 낀 돌, 직업마다 기술 이름)
         STONE_SLOTS.forEach((slot, i) => {
-          const bx = 117 + i * 40, by = 286, st = prof.sockets[slot], col = st ? ELEMENTS[st.el].color : null;
+          const bx = 117 + i * 40, by = 262, st = prof.sockets[slot], col = st ? ELEMENTS[st.el].color : null;
           ctx.fillStyle = 'rgba(24,18,22,0.95)'; ctx.fillRect(bx, by, 34, 34);
           ctx.strokeStyle = col || '#3a2e36'; ctx.lineWidth = col ? 2 : 1; ctx.strokeRect(bx + 1, by + 1, 32, 32);
           if (st) Gfx.stoneIcon(ctx, st, bx + 17, by + 18, 24);
           T_(ctx, clsOf(prof).slotShort[slot], bx + 17, by + 46, 10, col || '#6a6068', 'center');
         });
-        const sb = Elements.setBonus(prof);  // 속성석 세트 효과
-        if (sb) T_(ctx, '◆ ' + sb.name + ' — ' + sb.desc, 194, 352, 10, '#ffd36a', 'center');
-        // 장비 칸(56): 끼는 자리대로
+        // 속성석 세트 효과: 장비 칸 아래 판 너비(300)에 두 줄까지 감싸서(넘치면 글자를 줄임)
+        const sb = Elements.setBonus(prof);
+        if (sb) {
+          ctx.fillStyle = 'rgba(255,211,106,0.06)'; ctx.fillRect(40, 318, 308, 36);
+          wrapText(ctx, '◆ ' + sb.name + ' — ' + sb.desc, 46, 332, 12, 296, 2, 15, '#ffd36a');
+        }
+        // 장비 칸: 끼는 자리대로
         for (const slot of SLOTS) {
           const [x, y] = EQUIP_POS[slot];
-          zone(x, y, 56, 56, { on: () => this.zone === 'equip' && this.eslot === slot, pick: () => { this.zone = 'equip'; this.eslot = slot; } });
-          cell(ctx, x, y, 56, prof.equip[slot], this.zone === 'equip' && this.eslot === slot, SLOT_NAMES[slot], prof.lv);
+          zone(x, y, EQ_S, EQ_S, { on: () => this.zone === 'equip' && this.eslot === slot, pick: () => { this.zone = 'equip'; this.eslot = slot; } });
+          cell(ctx, x, y, EQ_S, prof.equip[slot], this.zone === 'equip' && this.eslot === slot, SLOT_NAMES[slot], prof.lv);
         }
         const s = Items.playerStats(prof);
         const rows = [['체력', s.hp], [statName('atk', prof), s.atk], ['방어력', s.def], ['최대 기력', s.sp], ['기력 회복', '+' + s.spRegen + '%'], ['치명타', s.crit + '%'], ['치명 피해', '+' + s.critDmg + '%'],
           ['공격 속도', '+' + s.aspd + '%'], ['이동 속도', '+' + s.move + '%'], ['피해', '+' + s.dmg + '%'], ['대시 기력', '-' + s.dashCost + '%']];
         rows.forEach(([k, v], i) => {
-          const x = 44 + (i % 2) * 160, y = 372 + Math.floor(i / 2) * 20;
+          const x = 44 + (i % 2) * 160, y = 374 + Math.floor(i / 2) * 20;
           T_(ctx, k, x, y, 13, '#9a8e96');
           T_(ctx, String(v), x + 140, y, 13, '#f0e8dc', 'right');
         });
@@ -786,7 +813,8 @@ const UI = (() => {
       if (!(sellView && s === 40)) T_(ctx, 'Lv' + Items.req(item), x + 3, y + s - 4, 10, '#ff8a7a');  // 팔기 창에서는 그 자리에 판매가
     }
     // 강화 단계(왼쪽 위)
-    if (item && item.ups) T_(ctx, '+' + item.ups, x + 4, y + 13, 11, '#ffd36a');
+    // 장비 칸(EQ_S 48, 낀 것 = 늘 착용 레벨이 됨)은 위가 좁아 부위 이름과 겹쳐서 왼쪽 아래로
+    if (item && item.ups) { if (s === EQ_S) T_(ctx, '+' + item.ups, x + 4, y + s - 4, 11, '#ffd36a'); else T_(ctx, '+' + item.ups, x + 4, y + 13, 11, '#ffd36a'); }
     // 보석 칸: 오른쪽 아래 작은 네모(낀 보석 색)
     if (item && item.gems) item.gems.forEach((g, i) => {
       const q = Math.max(5, Math.round(s / 10)), gx = x + s - 4 - (i + 1) * (q + 2), gy = y + s - 4 - q;
