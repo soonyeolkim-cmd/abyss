@@ -420,9 +420,9 @@ const UI = (() => {
   function bulkScrap(prof) {
     const junk = new Set(Items.junk(prof));
     const idx = prof.bag.map((it, i) => i).filter(i => { const it = prof.bag[i]; return scrapDust(it) > 0 && (junk.has(i) || (isLv100(it) && !it.ups)); });
-    if (!idx.length) { Game.toast('분해할 장비가 없어요 (Lv.100 장비 · 낀 것보다 약한 태초 흰 · 파랑만 한꺼번에)'); return; }
+    if (!idx.length) { Game.toast('한꺼번에 분해할 장비가 없어요'); return; }
     const dust = idx.reduce((a, i) => a + scrapDust(prof.bag[i]), 0);
-    Game.overlay({ type: 'confirm', text: '장비 ' + idx.length + '개를 분해할까요? (가루 +' + dust + ')', sub: 'Lv.100 장비는 등급 상관없이 모두 · 태초는 낀 것보다 약한 흰 · 파랑만 · 유니크 · 강화된 것은 남겨요 · 보석은 주머니로',
+    Game.overlay({ type: 'confirm', text: '장비 ' + idx.length + '개를 분해할까요? (가루 +' + dust + ')', sub: '유니크 · 강화된 것은 남겨요 · 낀 보석은 주머니로',
       yes: () => scrapAll(prof, idx) });
   }
   function bulkSell(prof) {
@@ -660,7 +660,7 @@ const UI = (() => {
       sellView = SELL ? 'sell' : SCRAP ? 'scrap' : false;
       ctx.fillStyle = SELL ? 'rgba(30,12,6,0.97)' : SCRAP ? 'rgba(18,8,30,0.97)' : 'rgba(0,0,0,0.96)'; ctx.fillRect(0, 0, 960, 540);
       if (SELL) { T_(ctx, '◆ 판매 창 — 가방 장비를 골라 팔아요 ◆', 480, 17, 13, '#ffb86a', 'center'); }
-      if (SCRAP) { T_(ctx, '◆ 분해 창 — 태초 장비를 부숴 심연 정수 가루로 ◆', 480, 17, 13, ESSENCE_COLOR, 'center'); }
+      if (SCRAP) { T_(ctx, '◆ 분해 창 — 태초 · Lv.100 장비를 부숴 심연 정수 가루로 ◆', 480, 17, 13, ESSENCE_COLOR, 'center'); }
       const sel = this.selected(prof);
       // 왼쪽: 장비 또는 상점
       Gfx.panel(ctx, 24, 24, 340, 470, B);
@@ -781,8 +781,8 @@ const UI = (() => {
       } else if (sel.from === 'btn') {
         const sell = INV_BTNS[o.mode][this.btn].sell, scrap = INV_BTNS[o.mode][this.btn].scrap;
         if (scrap) {
-          T_(ctx, 'Lv.100 장비는 등급 상관없이 모두, 태초는 낀 것보다 약한 흰 · 파랑만 분해해요', 400, 370, 14, '#c8b8a0');
-          T_(ctx, '유니크 · 강화된 것은 남겨요 — 태초 노랑은 하나씩 골라서', 400, 394, 13, '#9a8e96');
+          T_(ctx, 'Lv.100 장비는 등급 상관없이 모두 분해해요', 400, 370, 14, '#c8b8a0');
+          T_(ctx, '태초는 낀 것보다 약한 흰 · 파랑만 · 유니크 · 강화된 것은 남겨요', 400, 394, 13, '#9a8e96');
           T_(ctx, '가루: 흰 ' + ESSENCE.dust[0] + ' · 파랑 ' + ESSENCE.dust[1] + ' · 노랑 ' + ESSENCE.dust[2] + ' — 가루 ' + ESSENCE.dustPer + '개 = 심연 정수 1개', 400, 418, 13, ESSENCE_COLOR);
         } else T_(ctx, sell ? '같은 칸에 낀 것보다 못한 장비를 한꺼번에 팔아요' : '칸마다 가방과 낀 것 중 가장 좋은 장비를 껴요', 400, 370, 14, '#c8b8a0');
         if (!scrap) T_(ctx, sell ? '흰 · 파랑만 팔아요 — 노랑 · 주황 · 강화된 것 · 못 끼는 것 · 더 좋은 것은 남겨요' : '지금 낄 수 있는 것 중 능력치 점수가 가장 높은 것 (색 · 보석 칸 · 유니크 효과 포함)', 400, 394, 13, '#9a8e96');

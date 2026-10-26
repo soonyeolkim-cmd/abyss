@@ -326,7 +326,7 @@ Object.assign(ENEMIES, {
 // 체력 = 3층 중간 보스(mid.hp 배율 전) × hpMul(파티면 인원 배율도). 약점(청록 심장)이 드러난 동안만 제대로 맞는다(exposedMul, 어느 쪽 · 어떤 공격이든).
 // 패턴 셋을 패턴마다 repeat[0]~[1] 번씩 섞은 순서로(같은 패턴 연달아 없음), 심장이 한 번 드러날 때마다 다음 패턴 — 한 번에 깎이는 체력 = 최대 / 순서 길이(6~9).
 // 패턴이 바뀔 때 shift 초 무적 · 포효. 체력이 줄수록 공격 사이가 짧아짐(최대 ×0.65). (2026-10-26 사용자: 예전 체력 66 · 33% 3단계 → 섞기)
-//   ① 껍질: 평소 ×shellCut('팅' — 2026-10-26 사용자 0: 심장이 드러날 때만 피가 단다, 속성 피해도 elements.js 에서 0). 내려찍기를 slams 번 피하면(맞은 건 안 셈, 2026-10-26 사용자 2 → 3) 지쳐 slamExpose 초 노출 / 돌진하다 방 기둥에 부딪히면 기둥이 깨지며 pillarExpose 초(껍질이 다시 나오면 기둥도 다시)
+//   ① 껍질: 평소 ×shellCut('팅' — 2026-10-26 사용자 0: 심장이 드러날 때만 피가 단다, 속성 피해도 elements.js 에서 0). 내 자리로 날아드는 도약 내려찍기(leap)를 대시로 slams 번 피하면(맞은 것 · 대시 없이 안 맞은 것은 안 셈, 2026-10-26 사용자) 지쳐 slamExpose 초 노출 / 돌진하다 방 기둥에 부딪히면 기둥이 깨지며 pillarExpose 초(껍질이 다시 나오면 기둥도 다시)
 //   ② 수정 보호막: 방 네 귀퉁이 공허 수정 4개가 있는 동안 피해 없음 → 다 부수면 crystalExpose 초 노출 · 공허 장판 · 탄.
 //      crystalTime 초(패턴 바뀌는 shift 뒤부터) 안에 다 못 부수면 남은 수정마다 모두에게 최대 체력 crystalPct 피해(방어 · 대시 무적 무시) 후 노출 없이 다음 패턴
 //      (2026-10-26 사용자: 남은 수만큼 한 명씩 즉사는 파티가 어려워서 → 비율 피해. 걸어서 네 귀퉁이를 다 돌면 약 1400px ≈ 17초(속도 82) → 25초 → 사용자 "너무 길다" 10초 → 사용자 15초 — 파티는 나눠서, 혼자면 몇 개는 맞을 각오)
@@ -340,6 +340,7 @@ Object.assign(ENEMIES, {
 //   → 체력 = 중간 보스 × 1.2(드러날 때만 제대로 맞으니 실제로는 중간 보스 몇 배 걸림) · 내려찍기 2번 · ×2 · 노출 시간 늘리고 제한 5분
 //   → 섞기로 바꾸며 드러나야 하는 횟수가 3 → 6~9 번이 되어 제한 5 → 7분 · 빠른 깸 2 → 3분 30초
 const RAID_RULE = { hpMul: 1.2, time: 420, shellCut: 0, exposedMul: 2, slams: 3, slamExpose: 4, pillarExpose: 6, crystalExpose: 7, crystalTime: 15, crystalPct: 0.2, repeat: [2, 3], shift: 1.2,
+  leap: { wind: 0.9, air: 0.35, h: 46 },  // 껍질 도약 내려찍기: wind 초 동안 내 발밑 예고(따라옴) → air 초 동안 그 자리로 날아와 내려찍기(높이 h)
   stun: 1.5, orbPct: 0.25, markT: 5, markMul: 1.3, wave: { delay: 0.5, speed: 240, w: 12, pct: 0.15, maxR: 560 },
   orbExpose: 5, orbSpeed: 120, orbBack: 1.15, rallyMax: 3, rallyChance: 0.5, essence: 10, fastTime: 210, fastCore: 0.5, extraCore: 0.15 };
 Object.assign(ENEMIES, {
@@ -488,16 +489,14 @@ const DUNGEONS = [
 //   cd 공격 사이 쉼 배율(enemy.js bossThink · recover 뒤), rec 내려찍기 · 탄 · 돌진 뒤 굳는 시간 배율 } — 층마다 수호자(floors boss)에 붙인다
 // floors(2026-10-26 사용자: 기존 던전을 빌리던 것 → '살아 있는 심연' 전용 몹 · 풍경): 층마다 몹 무리(pool — 같은 이름 여러 번 = 더 자주) · 수호자 · 음악(빌린 곡)
 const ENDLESS = { max: 3, diff: 2, lv: 100, entry: 95, ilvl: [100, 104], stepHp: 0.30, stepDmg: 0.80, bossHp: 0.43, bossDmg: 0.64, hp: 1.06, dmg: 1.04, reward: 0.05, rooms: 9, packs: 2, packAdd: 3,
-  mid: { hp: 3, dmg: 1.25, cd: 0.3, rec: 0.6 },  // 2026-10-26 사용자 '체력 20% 줄이고 공격 · 빈도 높이자': hp 5 → 4 · dmg 1.25 새로(레이드는 raidDef 가 나눔) · cd 0.4 → 0.3 · rec 0.75 → 0.6
-  // → 이어서 '체력 초기(×1)의 3배 수준': hp 4 → 3
+  mid: { hp: 3, dmg: 1.25, cd: 0.6, rec: 0.6 },  // 2026-10-26 사용자 '체력 20% 줄이고 공격 · 빈도 높이자': hp 5 → 4 · dmg 1.25 새로(레이드는 raidDef 가 나눔) · cd 0.4 → 0.3 · rec 0.75 → 0.6
+  // → 이어서 '체력 초기(×1)의 3배 수준': hp 4 → 3 · 3층 문지기만 쉼 2배(cd 0.6) → '1 · 2층도 3층 수준으로': cd 0.3 → 0.6(셋 다)
   floors: [
     { pool: ['splitter', 'splitter', 'shieldbearer'], boss: 'split_mother', music: 'hell' },
     { pool: ['splitter', 'shieldbearer', 'blinker', 'blinker', 'tentacle'], boss: 'maw_lord', music: 'ice' },
     { pool: ['splitter', 'shieldbearer', 'blinker', 'tentacle', 'warder'], boss: 'abyss_warden', music: 'order' },
   ] };
-for (const F of ENDLESS.floors) Object.assign(ENEMIES[F.boss], { cdMul: ENDLESS.mid.cd, recMul: ENDLESS.mid.rec });
-ENEMIES.abyss_warden.cdMul = ENDLESS.mid.cd * 2;  // 3층 문지기: 예고가 가장 짧아 몰아치는 느낌 → 공격 사이 쉼만 2배(2026-10-26 사용자)
-// 풍경 '살아 있는 심연': 0x72 벽돌에 검보라를 곱하고(tint) 바닥에 핏빛 혈관(veins — dungeon.js paint, 맥박은 world.js drawVeins)
+for (const F of ENDLESS.floors) Object.assign(ENEMIES[F.boss], { cdMul: ENDLESS.mid.cd, recMul: ENDLESS.mid.rec });// 풍경 '살아 있는 심연': 0x72 벽돌에 검보라를 곱하고(tint) 바닥에 핏빛 혈관(veins — dungeon.js paint, 맥박은 world.js drawVeins)
 const LIVING = { tint: '#7a4a86', vein: '#5a1430', veinLit: '#c8306a' };
 // 끝없는 심연 단계(2026-10-26 사용자): 광산 도시 실베인 던전 고르기에 줄로 하나씩(벨록 던전 줄 모양). 만렙을 10씩 풀 때마다 한 단계씩 늘린다(1단계 = Lv.100 '살아 있는 심연')
 // boss = 줄 왼쪽에 서 있는 그 단계 최종 보스(레이드)

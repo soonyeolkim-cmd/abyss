@@ -543,6 +543,7 @@ const World = (() => {
     shots = m.sh.map(s => ({ x: s[0], y: s[1], vx: s[2], vy: s[3], r: s[4], color: s[5] }));
     pshots = m.ps.map(s => Object.assign(s, { hit: new Set(), def: { wave: { scale: s.sc || 1 } } }));
     fields = m.fd;
+    if (m.rd) Raid.unsnap(m.rd);
     for (const ev of m.ev) replay(ev);
   }
   // 손님: 방장 쪽에서 생긴 효과를 내 화면에
@@ -583,7 +584,7 @@ const World = (() => {
     const sh = shots.filter(near).map(s => [r1(s.x), r1(s.y), r1(s.vx), r1(s.vy), s.r, s.color]);
     const ps = pshots.filter(near).map(s => Object.assign(prim(s), { stone: !!s.stone, sc: s.def && s.def.wave && s.def.wave.scale || 1 }));
     const fd = fields.filter(near).map(prim);
-    return { t: 'snap', e, sh, ps, fd, fl: floorNo(), cl: lv.roomMaps ? [...lv.cleared] : undefined, pc: lv.def.raid ? lv.columns : undefined };  // pc = 레이드 기둥(부서진 것 빼고)  // g(사라진 몹)는 coop.js 가 takeGone 으로 손님 모두에게 같이 붙인다
+    return { t: 'snap', e, sh, ps, fd, fl: floorNo(), cl: lv.roomMaps ? [...lv.cleared] : undefined, pc: lv.def.raid ? lv.columns : undefined, rd: lv.def.raid ? Raid.snap() : undefined };  // rd = 레이드 보스 패턴 · 피함 셈 · 도약 자리  // pc = 레이드 기둥(부서진 것 빼고)  // g(사라진 몹)는 coop.js 가 takeGone 으로 손님 모두에게 같이 붙인다
   }
 
   // 계단 자리: 보스방 안에서 보스가 쓰러진 곳(전리품 · 상자가 흩어지는 곳)에서 가장 먼 빈 칸(2026-10-24 사용자: 낙템 줍다 계단 밟지 않게)
@@ -1060,6 +1061,7 @@ const World = (() => {
     drawDoors(ctx);
     if (lv.stairs) Art.stairs(ctx, lv.stairs, time);
     for (const f of fields) if (f.wave || inView(f.x, f.y)) Art.field(ctx, f, time);  // 레이드 파동은 방 전체로 퍼지니 늘 그림
+    if (lv.def.raid) Raid.ground(ctx);  // 레이드 도약 내려찍기 예고(내 발밑)
     for (const d of lv.drops) if (inView(d.x, d.y)) Art.drop(ctx, d, time);
     // 앞뒤(y) 정렬: 기둥 · 상자 · 캐릭터
     const list = [];

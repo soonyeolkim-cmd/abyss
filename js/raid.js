@@ -12,7 +12,7 @@ const Raid = (() => {
   const bossOf = () => World.enemies().find(e => e.def.raid && live(e));
   const MECHS = ['shell', 'crystal', 'orb'];
   const NAME = { shell: '껍질', crystal: '수정 보호막', orb: '공허 구슬' };
-  const HINT = { shell: '껍질이 단단하다 — 내려찍기를 ' + R.slams + '번 피하거나 기둥에 부딪히게 해 심장을 노려라', crystal: '수정 보호막 — 네 귀퉁이 공허 수정을 모두 부숴라', orb: '공허 구슬 — 쳐서 되돌려라!' };
+  const HINT = { shell: '껍질이 단단하다 — 날아드는 내려찍기를 대시로 ' + R.slams + '번 피하거나 기둥에 부딪히게 해 심장을 노려라', crystal: '수정 보호막 — 네 귀퉁이 공허 수정을 모두 부숴라', orb: '공허 구슬 — 쳐서 되돌려라!' };
 
   // ── 방: 넓은 방 하나 + 기둥 넷(1단계: 돌진을 기둥에 부딪히게 하면 기둥이 깨지며 심장이 드러남) ──
   function level(def) {
@@ -122,7 +122,7 @@ const Raid = (() => {
   // ── 보스 생각(움직임 상태일 때) ──
   function think(e, dt, lv, p) {
     const d = e.def;
-    e.moving = false;
+    e.moving = false; e.z = 0;  // 도약 중 다른 상태(빙결 등)로 끊겨도 땅으로
     if (e.spawnT > 0) { e.spawnT -= dt; return; }
     if (p.dead) return;
     if (!e.mech) begin(e);
@@ -137,11 +137,12 @@ const Raid = (() => {
   function attack(e, lv, p, pd) {
     const d = e.def, r = Math.random(), near = pd < 64;
     const slam = () => { e.state = 'slam'; e.t = e.windupT = d.slam.windup; };
+    const leap = () => { e.state = 'leapWind'; e.t = e.windupT = R.leap.wind; e.lx = p.x; e.ly = p.y; };
     const rage = 0.65 + 0.35 * e.hp / e.maxHp;  // 체력이 줄수록 공격 사이가 짧아짐(예전 단계가 오르던 맛)
-    if (e.mech === 'shell') {  // 내려찍기(R.slams 번이면 지침) · 휘두르기 · 멀면 돌진(기둥에 부딪히게)
-      if (near) { if (r < 0.7) slam(); else { e.state = 'windup'; e.t = e.windupT = d.atk.windup; } }
-      else if (r < 0.75) { e.state = 'chargeWind'; e.t = e.windupT = d.charge.windup; e.chargeV = unit(p.x - e.x, p.y - e.y, e.fv); }
-      else slam();
+    if (e.mech === 'shell') {  // 도약 내려찍기(대시로 R.slams 번 피하면 지침) · 휘두르기 · 멀면 돌진(기둥에 부딪히게)
+      if (near) { if (r < 0.7) leap(); else { e.state = 'windup'; e.t = e.windupT = d.atk.windup; } }
+      else if (r < 0.6) { e.state = 'chargeWind'; e.t = e.windupT = d.charge.windup; e.chargeV = unit(p.x - e.x, p.y - e.y, e.fv); }
+      else leap();
       e.atkCd = (1.0 + Math.random() * 0.7) * rage;
     } else if (e.mech === 'crystal') {  // 공허 장판 · 탄 부채꼴 · 가까우면 내려찍기
       if (r < 0.4) puddles(e, p);
@@ -198,14 +199,39 @@ const Raid = (() => {
         e.t -= dt;
         if (e.t <= 0) { ring(e); Sfx.blast(); e.state = 'recover'; e.t = 0.7; }
         break;
+      case 'leapWind':  // 예고가 노리는 사람 발밑을 따라다님 → 끝나면 그 자리로 날아오름
+        e.t -= dt; e.kx = 0; e.ky = 0;
+        e.lx = p.x; e.ly = p.y;
+        if (e.t <= 0) {
+          const lv = World.level;
+          for (let k = 1; k >= 0 && !Dungeon.walkable(lv, e.lx, e.ly, e.r); k -= 0.1) { e.lx = e.x + (p.x - e.x) * k; e.ly = e.y + (p.y - e.y) * k; }  // 기둥 · 벽에 걸리면 내 쪽으로 물려 앉음
+          e.sx = e.x; e.sy = e.y; e.state = 'leap'; e.t = R.leap.air; e.leapDash = false;
+          World.dust(e.x, e.y, 10); Sfx.dash();
+        }
+        break;
+      case 'leap': {  // 날아오는 중: 대시를 쓰면 기록 → 내려앉을 때 안 맞았으면 '피함'
+        e.t -= dt; e.kx = 0; e.ky = 0;
+        if (p.state === 'dodge') e.leapDash = true;
+        const k = Math.min(1, 1 - e.t / R.leap.air);
+        e.x = e.sx + (e.lx - e.sx) * k; e.y = e.sy + (e.ly - e.sy) * k; e.z = Math.sin(Math.PI * k) * R.leap.h;
+        if (e.t <= 0) land(e, p);
+        break;
+      }
     }
   }
-  // enemy.js 고리: 내려찍기가 끝남(껍질: 피한 것만 세서 slams 번이면 지침) · 돌진이 벽에 박힘(기둥이면 부서짐)
-  // 2026-10-26 사용자: 맞든 안 맞든 세던 것 → 피한(hit = false) 것만. 셈은 보스 머리 위 '피함 N/slams'(labels)
-  function slammed(e, hit) {
-    if (e.mech !== 'shell' || hit) return;
+  function land(e, p) {
+    const d = e.def;
+    e.x = e.lx; e.y = e.ly; e.z = 0;
+    World.shake(6); World.dust(e.x, e.y, 16); Sfx.stone();
+    World.fx({ type: 'shock', x: e.x, y: e.y, r: d.slam.radius, t: 0, life: 0.3 });
+    const hit = groundDist(p.x - e.x, p.y - e.y) <= d.slam.radius + BODY_R && hurtPlayer(p, e, d.slam.dmg * e.dmgMul, 200) !== 'miss';
+    e.state = 'recover'; e.t = 0.8;
+    if (e.mech !== 'shell' || hit || !e.leapDash) return;  // 대시로 피한 것만 센다(멀리 있거나 맞으면 안 셈)
+    World.text(p.x, p.y, 40, '피함!', '#ffd36a');
     if (++e.slams >= R.slams) expose(e, R.slamExpose, '지쳤다 —');
   }
+  // 껍질 패턴 지침(2026-10-26 사용자): 제자리 내려찍기를 맞든 안 맞든 세던 것 → 피한 것만 → 멀리 있으면 그냥 차서
+  //   내 자리로 날아드는 도약 내려찍기(leapWind · leap · land)를 대시로 피한 것만 센다. 셈은 보스 머리 위 '피함 N/slams'(labels)
   // 돌진에 맞은 사람(enemy.js charge): 껍질 패턴이면 짓밟혀 R.stun 초 기절(2026-10-26 사용자 — 기둥으로 유도하라는 벌)
   const chargeSrc = e => (e.mech === 'shell' ? Object.assign(Object.create(e), { stun: R.stun }) : e);
   function pillar(e, lv) {
@@ -358,6 +384,18 @@ const Raid = (() => {
     const b = bossOf(), at = (b && b.crystalAt) || c.seenAt + R.shift + R.crystalTime;
     return at - World.time;
   }
+  // 바닥(world.js draw, 장판과 같은 층): 도약 내려찍기가 내려앉을 자리 — 노리는 사람 발밑, 판정 = 이 타원. 보스가 화면 밖이어도 그림
+  function ground(ctx) {
+    const b = bossOf();
+    if (!b || (b.state !== 'leapWind' && b.state !== 'leap')) return;
+    const R = b.def.slam.radius, k = b.state === 'leap' ? 1 : 1 - b.t / b.windupT;
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,40,30,' + (0.12 + 0.2 * k) + ')';
+    ctx.strokeStyle = 'rgba(255,80,60,' + (0.5 + 0.5 * k) + ')';
+    ctx.beginPath(); ctx.ellipse(b.lx, b.ly, R, R * GROUND_Y, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(b.lx, b.ly, R * k, R * GROUND_Y * k, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
   // 어둠 위(world.js draw, 2배 글): 수정 머리 위 남은 초 — 5초 아래면 붉게 깜빡. 방 귀퉁이 어둠 속에서도 보이게
   // 껍질 패턴: 보스 머리 위 내려찍기 피한 횟수
   function labels(ctx) {
@@ -365,7 +403,7 @@ const Raid = (() => {
     ctx.font = 'bold 8px ' + Gfx.FONT; ctx.textAlign = 'center';
     const b = bossOf();
     if (b && b.mech === 'shell' && b.state !== 'exposed' && b.state !== 'phaseShift' && !(b.spawnT > 0)) {
-      const s = '피함 ' + (b.slams || 0) + '/' + R.slams, y = b.y - b.h - 6;
+      const s = '피함 ' + (b.slams || 0) + '/' + R.slams, y = b.y - (b.z || 0) - b.h - 6;
       ctx.fillStyle = '#000'; ctx.fillText(s, b.x + 0.5, y + 0.5);
       ctx.fillStyle = '#ffd36a'; ctx.fillText(s, b.x, y);
     }
@@ -393,5 +431,12 @@ const Raid = (() => {
     Gfx.text(ctx, '남은 시간 ' + Math.floor(left / 60) + ':' + String(Math.floor(left % 60)).padStart(2, '0'), 640, 58, 13, left < 30 ? '#ff6a5a' : '#f0e0b8');
   }
 
-  return { level, bossSpot, think, state, slammed, chargeSrc, pillar, part, reflect, partDied, cut, clamp, drawBoss, drawPart, labels, arrows, hud };
+  // 파티: 방장 → 손님(world.js snapshot rd) — 손님 화면에도 도약 예고 · '피함 N/slams'
+  function snap() { const b = bossOf(); return b ? [b.id, Math.round(b.lx || 0), Math.round(b.ly || 0), b.slams || 0, b.mech || ''] : undefined; }
+  function unsnap(a) {
+    const b = World.enemies().find(e => e.id === a[0]);
+    if (b) { b.lx = a[1]; b.ly = a[2]; b.slams = a[3]; b.mech = a[4]; }
+  }
+
+  return { level, bossSpot, think, state, chargeSrc, ground, snap, unsnap, pillar, part, reflect, partDied, cut, clamp, drawBoss, drawPart, labels, arrows, hud };
 })();
