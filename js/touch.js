@@ -30,6 +30,7 @@ const Touch = (() => {
     #tc .pill { border-radius: 20px; flex-direction: row; font-size: 15px; background: rgba(30, 22, 30, 0.78); }
     #tc .back { border-radius: 10px; flex-direction: row; gap: 4px; font-size: 15px; background: rgba(30, 22, 30, 0.8); border-color: rgba(255, 214, 140, 0.45); }
     #tc .back b { font-size: 20px; margin-top: -2px; }
+    #tc .back span { white-space: nowrap; }
     #tc.menu .play, #tc:not(.menu) .menu, #tc.town .fight { display: none; }
     #tc .b.far { opacity: 0.45; }
     #tc .b .cd { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; display: none; }
@@ -87,15 +88,24 @@ const Touch = (() => {
   const backLabel = back.querySelector('span');
   // 그 창의 Z 일(모두 넣기 · 수량 정하기 등): 오른쪽 아래
   const spec = makeBtn('KeyZ', '', {}, 120, 40, 'pill menu');
+  // 아이폰 둥근 모서리 · 노치(2026-10-26 사용자: 왼쪽 위 뒤로 버튼이 곡면에 걸려 이상함): iOS 가 알려 주는 안전 영역(env(safe-area-inset-*))을 재서 피한다.
+  //   안전 영역이 있는 폰(가로)은 모서리 곡면이 약 55px 라, 위 버튼은 모서리 아래(CORNER)로 내리고 아래 버튼은 홈 막대 위로 올린다. 노치는 옆 가운데라 위쪽은 괜찮다
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)';
+  document.body.appendChild(probe);
+  const safe = () => { const c = getComputedStyle(probe); return { t: parseFloat(c.paddingTop) || 0, r: parseFloat(c.paddingRight) || 0, b: parseFloat(c.paddingBottom) || 0, l: parseFloat(c.paddingLeft) || 0 }; };
+  const CORNER = 52;
+  let backW = 84;  // 띠에 맞춘 뒤로 버튼 너비(글자가 긴 '건너뛰기'는 mode 에서 넓힘)
   function placeSide() {
-    const r = canvas.getBoundingClientRect(), W = window.innerWidth, gap = 8;
-    // 뒤로: 캔버스 왼쪽 빈 띠가 넉넉하면 거기(화면을 안 가림), 아니면 화면 왼쪽 위 모서리
-    const band = Math.round(r.left), wide = band >= 58, bw = wide ? Math.min(96, band - 8) : 84;
-    Object.assign(back.style, { left: (wide ? Math.round((band - bw) / 2) : gap) + 'px', top: gap + 'px', width: bw + 'px', height: '36px', fontSize: (bw < 80 ? 13 : 15) + 'px' });
-    Object.assign(spec.style, { left: '', right: Math.max(gap, Math.round((W - r.right - 120) / 2)) + 'px', bottom: gap + 'px' });
+    const r = canvas.getBoundingClientRect(), W = window.innerWidth, gap = 8, S = safe(), round = S.l > 0 || S.r > 0 || S.t > 0;
+    const topY = round ? Math.max(CORNER, S.t + gap) : gap;
+    // 뒤로: 캔버스 왼쪽 빈 띠가 넉넉하면 거기(화면을 안 가림), 아니면 화면 왼쪽 위(안전 영역 안)
+    const band = Math.round(r.left), wide = band >= 58, bw = backW = wide ? Math.min(96, band - 8) : 84;
+    Object.assign(back.style, { left: (wide ? Math.round((band - bw) / 2) : Math.max(gap, S.l + 4)) + 'px', top: topY + 'px', width: (backLabel.textContent.length > 2 ? Math.max(bw, 92) : bw) + 'px', height: '36px', fontSize: (bw < 80 ? 13 : 15) + 'px' });
+    Object.assign(spec.style, { left: '', right: Math.max(gap, Math.round((W - r.right - 120) / 2), round ? 14 : 0) + 'px', bottom: Math.max(gap, S.b + 6) + 'px' });
     // 메뉴: 캔버스 오른쪽 빈 띠에 들어가면 거기 위, 아니면 왼쪽 위(오른쪽 위는 던전 자동 지도 자리)
     const fit = W - r.right >= 46;  // 버튼 겉 크기 54(50 + 테두리) — 캔버스 가장자리(지도 오른쪽 끝 바깥)에 조금 걸치는 것까지는 괜찮다
-    Object.assign(menuBtn.style, fit ? { left: Math.min(W - 58, Math.round(r.right + (W - r.right - 54) / 2)) + 'px', top: '8px' } : { left: '12px', top: '12px' });
+    Object.assign(menuBtn.style, fit ? { left: Math.min(W - 58, Math.round(r.right + (W - r.right - 54) / 2)) + 'px', top: topY + 'px' } : { left: Math.max(12, S.l + 4) + 'px', top: Math.max(12, topY) + 'px' });
   }
   placeSide();
   window.addEventListener('resize', placeSide);
@@ -212,7 +222,7 @@ const Touch = (() => {
     // 이야기 · 광차: 같은 자리 '건너뛰기'(장면 통째) — 한 줄 넘기기는 화면 아무 데나 누르기
     const top = Game.overlays[Game.overlays.length - 1], talk = top && top.type === 'talk', ride = top && top.type === 'ride';
     const bl = talk || ride ? '건너뛰기' : '뒤로';
-    if (backLabel.textContent !== bl) backLabel.textContent = bl;
+    if (backLabel.textContent !== bl) { backLabel.textContent = bl; back.style.width = (bl.length > 2 ? Math.max(backW, 92) : backW) + 'px'; }  // 긴 글자는 한 줄에 들어가게 넓게
     // 기력이 모자란 기술 버튼은 흐리게(던전에서만)
     const p = !m && Game.scene === 'run' ? World.player : null;
     if (p) {
