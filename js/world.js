@@ -613,6 +613,7 @@ const World = (() => {
       prof.endless = Object.assign(prof.endless || {}, { raid: ((prof.endless && prof.endless.raid) || 0) + 1 });
     } else if (lv.def.endless) {  // 끝없는 심연: 깬 던전 수(10개)에는 안 들어가고 최고 층만
       run.endlessCleared = Math.max(run.endlessCleared || 0, lv.def.floor);
+      if (!p.dead) { p.hp = p.maxHp; text(p.x, p.y, 44, '체력 회복!', '#7dff8a', true); }  // 중간 보스를 잡으면 체력 가득(2026-10-26 사용자, 파티 손님은 remoteKill → reward 로 각자). 쓰러진 사람은 계단에서 일어남(descend)
       prof.endless = Object.assign(prof.endless || {}, { best: Math.max(endlessBest(prof), lv.def.floor) });
     } else {
       prof.cleared[lv.def.id] = true;

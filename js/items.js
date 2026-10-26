@@ -146,7 +146,7 @@ const Items = (() => {
     let sub = RARITY[item.rarity].name + ' ' + (item.uniq ? b.name : SLOT_NAMES[item.slot]);
     if (b.slot === 'weapon') sub += ' · ' + WEAPON_KINDS[b.kind].name;
     const r = req(item), low = prof && prof.lv < r;
-    lines.push({ t: sub + ' · ' + (r ? '착용 Lv.' + r : '착용 레벨 없음') + ' · 판매 ' + item.value + 'G', c: low ? '#ff6a5a' : '#9a8e96' });
+    lines.push({ t: sub + ' · ' + (r ? '착용 Lv.' + r : '착용 레벨 없음') + (noSell(item) ? ' · 판매 안 됨' : ' · 판매 ' + item.value + 'G'), c: low ? '#ff6a5a' : '#9a8e96' });
     const ench = item.ench || {};
     // 능력치는 한 줄로(유니크 효과 줄까지 7줄에 들어가게)
     // 단계 능력치 한 줄 + 등급 고정 옵션 한 줄(길어서 비교 칸을 넘지 않게)

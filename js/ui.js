@@ -386,7 +386,7 @@ const UI = (() => {
     // 대장장이 '장비 팔기'(2026-10-24 사용자): 왼쪽은 낀 장비, 가방 장비를 고르면 판다
     sell: [{ label: '좋은 것 일괄 착용', go: prof => bulkEquip(prof) }, { label: '약한 장비 일괄 판매', sell: true, go: prof => bulkSell(prof) }],
     // 대장장이 '장비 분해'(2026-10-25 사용자: 심연 정수) — 태초 흰 · 파랑 · 노랑 장비 → 정수 가루
-    scrap: [{ label: '좋은 것 일괄 착용', go: prof => bulkEquip(prof) }, { label: '약한 장비 일괄 분해', scrap: true, go: prof => bulkScrap(prof) }],
+    scrap: [{ label: '좋은 것 일괄 착용', go: prof => bulkEquip(prof) }, { label: '장비 일괄 분해', scrap: true, go: prof => bulkScrap(prof) }],
   };
   // 장비를 벗을 때 낀 보석도 뺄지 묻는다(2026-10-24 사용자) — 예 = 주머니로, 아니요 = 장비에 그대로
   function askGemsOff(prof, item) {
@@ -415,12 +415,14 @@ const UI = (() => {
     Game.toast('정수 가루 +' + dust + ((prof.essence || 0) > before ? ' → 심연 정수 +' + ((prof.essence || 0) - before) : '') + (gems ? ' · 보석 ' + gems + '개는 주머니로' : ''));
     Game.changed();
   }
-  // 일괄 분해 = 일괄 판매와 같은 '약한 장비'(흰 · 파랑 · 낀 것보다 약함 · 강화 안 됨) 가운데 태초(착용 Lv.90 이상)만
+  // 일괄 분해 = 일괄 판매와 같은 '약한 장비'(흰 · 파랑 · 낀 것보다 약함 · 강화 안 됨) 가운데 태초(착용 Lv.90 이상)
+  //   + Lv.100 장비는 등급 · 낀 것과 비교 상관없이 모두(2026-10-26 사용자 — 심연 드롭은 분해용). 유니크 · 강화된 것은 빼고
   function bulkScrap(prof) {
-    const idx = Items.junk(prof).filter(i => scrapDust(prof.bag[i]) > 0);
-    if (!idx.length) { Game.toast('분해할 장비가 없어요 (태초 · 낀 것보다 약한 흰 · 파랑만 한꺼번에)'); return; }
+    const junk = new Set(Items.junk(prof));
+    const idx = prof.bag.map((it, i) => i).filter(i => { const it = prof.bag[i]; return scrapDust(it) > 0 && (junk.has(i) || (isLv100(it) && !it.ups)); });
+    if (!idx.length) { Game.toast('분해할 장비가 없어요 (Lv.100 장비 · 낀 것보다 약한 태초 흰 · 파랑만 한꺼번에)'); return; }
     const dust = idx.reduce((a, i) => a + scrapDust(prof.bag[i]), 0);
-    Game.overlay({ type: 'confirm', text: '낀 것보다 약한 장비 ' + idx.length + '개를 분해할까요? (가루 +' + dust + ')', sub: '노랑 · 유니크 · 강화된 것 · 더 좋은 것은 한꺼번에 분해하지 않아요 · 보석은 주머니로',
+    Game.overlay({ type: 'confirm', text: '장비 ' + idx.length + '개를 분해할까요? (가루 +' + dust + ')', sub: 'Lv.100 장비는 등급 상관없이 모두 · 태초는 낀 것보다 약한 흰 · 파랑만 · 유니크 · 강화된 것은 남겨요 · 보석은 주머니로',
       yes: () => scrapAll(prof, idx) });
   }
   function bulkSell(prof) {
@@ -567,7 +569,7 @@ const UI = (() => {
       if (o.mode === 'shop' && sel.from !== 'shop') { Game.toast('여기서는 사기만 해요 — 팔려면 상인 엘린의 「팔기」'); return; }  // 가방은 보기만
       if (o.mode === 'scrap' && sel.from === 'bag') {
         const it = sel.item, idx = this.idx, dust = scrapDust(it);
-        if (it.uniq) { Sfx.deny(); Game.toast('유니크는 분해할 수 없어요 — 창고 컬렉션에 넣어 주세요'); return; }
+        if (it.uniq) { Sfx.deny(); Game.toast(noSell(it) ? 'Lv.' + UNIQUE_CRAFT_LV + ' 유니크는 분해도 판매도 할 수 없어요' : '유니크는 분해할 수 없어요 — 창고 컬렉션에 넣어 주세요'); return; }
         if (!dust) { Sfx.deny(); Game.toast('태초(착용 Lv.' + ESSENCE.minReq + ' 이상) 장비만 분해할 수 있어요'); return; }
         const go = () => { if (prof.bag[idx] === it) scrapAll(prof, [idx]); };
         const gemsIn = (it.gems || []).filter(Boolean);
@@ -579,6 +581,7 @@ const UI = (() => {
       if (o.mode === 'sell' && sel.from === 'bag') {
         if (sel.from === 'bag') {
           const it = sel.item, idx = this.idx;
+          if (noSell(it)) { Sfx.deny(); Game.toast('Lv.' + UNIQUE_CRAFT_LV + ' 유니크는 분해도 판매도 할 수 없어요'); return; }
           const sell = () => {
             if (prof.bag[idx] !== it) return;
             prof.gold += it.value; prof.bag[idx] = null;
@@ -744,7 +747,7 @@ const UI = (() => {
       T_(ctx, '가방이 가득 차면 낀 것보다 못한 장비는 주울 때 골드로 바뀌어요', 400, 300, 12, '#7a7078');
       // 오른쪽 아래: 설명 + 비교
       Gfx.panel(ctx, 380, 334, 556, 160, B);
-      if (SELL && sel.from === 'bag' && sel.item) T_(ctx, '판매 가격 +' + sel.item.value + 'G', 916, 364, 16, '#ffd34d', 'right');
+      if (SELL && sel.from === 'bag' && sel.item) T_(ctx, noSell(sel.item) ? '판매 안 됨' : '판매 가격 +' + sel.item.value + 'G', 916, 364, 16, noSell(sel.item) ? '#8a7e88' : '#ffd34d', 'right');
       if (SCRAP && sel.from === 'bag' && sel.item) { const d = scrapDust(sel.item); T_(ctx, d ? '가루 +' + d : '분해 안 됨', 916, 364, 15, d ? ESSENCE_COLOR : '#8a7e88', 'right'); }
       if (sel.item) {
         const lines = Items.describe(sel.item, prof);
@@ -778,8 +781,8 @@ const UI = (() => {
       } else if (sel.from === 'btn') {
         const sell = INV_BTNS[o.mode][this.btn].sell, scrap = INV_BTNS[o.mode][this.btn].scrap;
         if (scrap) {
-          T_(ctx, '같은 칸에 낀 것보다 못한 태초 장비를 한꺼번에 분해해요', 400, 370, 14, '#c8b8a0');
-          T_(ctx, '흰 · 파랑만 — 노랑은 하나씩 골라서, 유니크 · 강화된 것 · 더 좋은 것은 남겨요', 400, 394, 13, '#9a8e96');
+          T_(ctx, 'Lv.100 장비는 등급 상관없이 모두, 태초는 낀 것보다 약한 흰 · 파랑만 분해해요', 400, 370, 14, '#c8b8a0');
+          T_(ctx, '유니크 · 강화된 것은 남겨요 — 태초 노랑은 하나씩 골라서', 400, 394, 13, '#9a8e96');
           T_(ctx, '가루: 흰 ' + ESSENCE.dust[0] + ' · 파랑 ' + ESSENCE.dust[1] + ' · 노랑 ' + ESSENCE.dust[2] + ' — 가루 ' + ESSENCE.dustPer + '개 = 심연 정수 1개', 400, 418, 13, ESSENCE_COLOR);
         } else T_(ctx, sell ? '같은 칸에 낀 것보다 못한 장비를 한꺼번에 팔아요' : '칸마다 가방과 낀 것 중 가장 좋은 장비를 껴요', 400, 370, 14, '#c8b8a0');
         if (!scrap) T_(ctx, sell ? '흰 · 파랑만 팔아요 — 노랑 · 주황 · 강화된 것 · 못 끼는 것 · 더 좋은 것은 남겨요' : '지금 낄 수 있는 것 중 능력치 점수가 가장 높은 것 (색 · 보석 칸 · 유니크 효과 포함)', 400, 394, 13, '#9a8e96');
@@ -799,7 +802,10 @@ const UI = (() => {
     ctx.strokeRect(x + 1, y + 1, s - 2, s - 2);
     if (on) { ctx.strokeStyle = sellView === 'scrap' && s === 40 ? ESSENCE_COLOR : sellView && s === 40 ? '#ff6a4a' : '#ffd36a'; ctx.lineWidth = 3; ctx.strokeRect(x - 2, y - 2, s + 4, s + 4); }
     if (item) Gfx.icon(ctx, item, x + s / 2, y + s / 2, s * 0.7);
-    if (item && sellView === 'sell' && s === 40) T_(ctx, item.value >= 10000 ? Math.round(item.value / 1000) + 'k' : String(item.value), x + 3, y + s - 3, 9, '#ffd34d');  // 판매가
+    if (item && sellView === 'sell' && s === 40) {  // 판매가 · 못 파는 것(Lv.100 유니크)은 어둡게
+      if (noSell(item)) { ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(x + 2, y + 2, s - 4, s - 4); }
+      else T_(ctx, item.value >= 10000 ? Math.round(item.value / 1000) + 'k' : String(item.value), x + 3, y + s - 3, 9, '#ffd34d');
+    }
     if (item && sellView === 'scrap' && s === 40) {  // 분해: 나오는 가루 수 · 안 되는 건 어둡게
       const d = scrapDust(item);
       if (d) T_(ctx, '+' + d, x + 3, y + s - 3, 10, ESSENCE_COLOR);

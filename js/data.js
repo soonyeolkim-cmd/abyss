@@ -329,7 +329,7 @@ Object.assign(ENEMIES, {
 //   ① 껍질: 평소 ×shellCut('팅' — 2026-10-26 사용자 0: 심장이 드러날 때만 피가 단다, 속성 피해도 elements.js 에서 0). 내려찍기를 slams 번 피하면(맞은 건 안 셈, 2026-10-26 사용자 2 → 3) 지쳐 slamExpose 초 노출 / 돌진하다 방 기둥에 부딪히면 기둥이 깨지며 pillarExpose 초(껍질이 다시 나오면 기둥도 다시)
 //   ② 수정 보호막: 방 네 귀퉁이 공허 수정 4개가 있는 동안 피해 없음 → 다 부수면 crystalExpose 초 노출 · 공허 장판 · 탄.
 //      crystalTime 초(패턴 바뀌는 shift 뒤부터) 안에 다 못 부수면 남은 수정마다 모두에게 최대 체력 crystalPct 피해(방어 · 대시 무적 무시) 후 노출 없이 다음 패턴
-//      (2026-10-26 사용자: 남은 수만큼 한 명씩 즉사는 파티가 어려워서 → 비율 피해. 걸어서 네 귀퉁이를 다 돌면 약 1400px ≈ 17초(속도 82) → 25초 → 사용자 "너무 길다" 10초 — 파티는 나눠서, 혼자면 몇 개는 맞을 각오)
+//      (2026-10-26 사용자: 남은 수만큼 한 명씩 즉사는 파티가 어려워서 → 비율 피해. 걸어서 네 귀퉁이를 다 돌면 약 1400px ≈ 17초(속도 82) → 25초 → 사용자 "너무 길다" 10초 → 사용자 15초 — 파티는 나눠서, 혼자면 몇 개는 맞을 각오)
 // 벌(2026-10-26 사용자가 고름): 껍질 돌진에 맞으면 stun 초 기절 · 구슬을 못 쳐내고 맞으면 최대 체력 orbPct + 공허 표식 markT 초(받는 피해 ×markMul) ·
 //   패턴이 바뀔 때 포효 파동 wave(delay 뒤 speed 로 퍼지는 두께 w 고리, 맞으면 최대 체력 pct — 대시로 넘으면 안 맞음)
 //   ③ 되받아치기: 공허 구슬을 던짐 → 어떤 공격으로든 치면 보스 쪽으로 되돌아감(orbBack 배 빨라짐) → 맞으면 orbExpose 초 노출.
@@ -339,7 +339,7 @@ Object.assign(ENEMIES, {
 // 2026-10-26 시험(무적 · 공격 ×40 시험 캐릭터): hpMul 5 · 내려찍기 3번 · 노출 ×1.5 로는 1단계만 2분, hpMul 3 이어도 2단계에서 4분이 넘음
 //   → 체력 = 중간 보스 × 1.2(드러날 때만 제대로 맞으니 실제로는 중간 보스 몇 배 걸림) · 내려찍기 2번 · ×2 · 노출 시간 늘리고 제한 5분
 //   → 섞기로 바꾸며 드러나야 하는 횟수가 3 → 6~9 번이 되어 제한 5 → 7분 · 빠른 깸 2 → 3분 30초
-const RAID_RULE = { hpMul: 1.2, time: 420, shellCut: 0, exposedMul: 2, slams: 3, slamExpose: 4, pillarExpose: 6, crystalExpose: 7, crystalTime: 10, crystalPct: 0.2, repeat: [2, 3], shift: 1.2,
+const RAID_RULE = { hpMul: 1.2, time: 420, shellCut: 0, exposedMul: 2, slams: 3, slamExpose: 4, pillarExpose: 6, crystalExpose: 7, crystalTime: 15, crystalPct: 0.2, repeat: [2, 3], shift: 1.2,
   stun: 1.5, orbPct: 0.25, markT: 5, markMul: 1.3, wave: { delay: 0.5, speed: 240, w: 12, pct: 0.15, maxR: 560 },
   orbExpose: 5, orbSpeed: 120, orbBack: 1.15, rallyMax: 3, rallyChance: 0.5, essence: 10, fastTime: 210, fastCore: 0.5, extraCore: 0.15 };
 Object.assign(ENEMIES, {
@@ -488,13 +488,15 @@ const DUNGEONS = [
 //   cd 공격 사이 쉼 배율(enemy.js bossThink · recover 뒤), rec 내려찍기 · 탄 · 돌진 뒤 굳는 시간 배율 } — 층마다 수호자(floors boss)에 붙인다
 // floors(2026-10-26 사용자: 기존 던전을 빌리던 것 → '살아 있는 심연' 전용 몹 · 풍경): 층마다 몹 무리(pool — 같은 이름 여러 번 = 더 자주) · 수호자 · 음악(빌린 곡)
 const ENDLESS = { max: 3, diff: 2, lv: 100, entry: 95, ilvl: [100, 104], stepHp: 0.30, stepDmg: 0.80, bossHp: 0.43, bossDmg: 0.64, hp: 1.06, dmg: 1.04, reward: 0.05, rooms: 9, packs: 2, packAdd: 3,
-  mid: { hp: 4, dmg: 1.25, cd: 0.3, rec: 0.6 },  // 2026-10-26 사용자 '체력 20% 줄이고 공격 · 빈도 높이자': hp 5 → 4 · dmg 1.25 새로(레이드는 raidDef 가 나눔) · cd 0.4 → 0.3 · rec 0.75 → 0.6
+  mid: { hp: 3, dmg: 1.25, cd: 0.3, rec: 0.6 },  // 2026-10-26 사용자 '체력 20% 줄이고 공격 · 빈도 높이자': hp 5 → 4 · dmg 1.25 새로(레이드는 raidDef 가 나눔) · cd 0.4 → 0.3 · rec 0.75 → 0.6
+  // → 이어서 '체력 초기(×1)의 3배 수준': hp 4 → 3
   floors: [
     { pool: ['splitter', 'splitter', 'shieldbearer'], boss: 'split_mother', music: 'hell' },
     { pool: ['splitter', 'shieldbearer', 'blinker', 'blinker', 'tentacle'], boss: 'maw_lord', music: 'ice' },
     { pool: ['splitter', 'shieldbearer', 'blinker', 'tentacle', 'warder'], boss: 'abyss_warden', music: 'order' },
   ] };
 for (const F of ENDLESS.floors) Object.assign(ENEMIES[F.boss], { cdMul: ENDLESS.mid.cd, recMul: ENDLESS.mid.rec });
+ENEMIES.abyss_warden.cdMul = ENDLESS.mid.cd * 2;  // 3층 문지기: 예고가 가장 짧아 몰아치는 느낌 → 공격 사이 쉼만 2배(2026-10-26 사용자)
 // 풍경 '살아 있는 심연': 0x72 벽돌에 검보라를 곱하고(tint) 바닥에 핏빛 혈관(veins — dungeon.js paint, 맥박은 world.js drawVeins)
 const LIVING = { tint: '#7a4a86', vein: '#5a1430', veinLit: '#c8306a' };
 // 끝없는 심연 단계(2026-10-26 사용자): 광산 도시 실베인 던전 고르기에 줄로 하나씩(벨록 던전 줄 모양). 만렙을 10씩 풀 때마다 한 단계씩 늘린다(1단계 = Lv.100 '살아 있는 심연')
@@ -912,6 +914,9 @@ const ESSENCE = { boss: f => 2 + f, unique: 0.5, elite: 0.06, floorMul: f => 1 +
 const ESSENCE_COLOR = '#c58aff';
 const CORE_COLOR = '#5fe0d0';  // 심연의 핵(레이드 보상, Lv.100 유니크 제작 재료 — 제작은 나중)
 const scrapDust = it => (it && !it.uniq && it.rarity <= 2 && Items.req(it) >= ESSENCE.minReq ? ESSENCE.dust[it.rarity] : 0);
+// 2026-10-26 사용자: Lv.100 장비(심연 드롭)는 등급 상관없이 일괄 분해 · Lv.100 유니크(제작품)는 분해도 판매도 안 됨
+const isLv100 = it => !!it && Items.req(it) >= UNIQUE_CRAFT_LV;
+const noSell = it => isLv100(it) && !!it.uniq;
 function addEssence(prof, n, dust = 0) {
   prof.essence = (prof.essence || 0) + n;
   prof.essDust = (prof.essDust || 0) + dust;
