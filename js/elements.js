@@ -37,6 +37,8 @@ const Elements = (() => {
   const isRes = el => { const b = setOf(); return b && b.res === el ? b.sc : 0; };
   const isDuo = key => { const b = setOf(); return b && b.duo === key ? b.sc : 0; };
   const pk = (prof, el) => STONE_SIZES[Math.max(0, best(prof, el))].power;  // 패시브 세기 = 가장 큰 돌
+  // 패시브 · 조합 효과 그림 단계 = 그 속성 가장 큰 돌(2026-10-26 사용자: 단계가 안 보이는 그림 점검 — 예전엔 늘 0단계로 그려짐)
+  const bestTier = (prof, el) => tier({ size: Math.max(0, best(prof, el)) });
   const slotOpen = s => s.size >= EL_UNLOCK.slot;
   // 잠깐 뒤에 하기(뇌운 · 연쇄 폭발)
   let later = [];
@@ -50,7 +52,7 @@ const Elements = (() => {
       if (thorT >= 3) {
         thorT = 0;
         const p = P(), list = World.enemies().filter(e => live(e) && e.shockT > 0).slice(0, 4);
-        for (const e of list) { World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25 }); damage(e, p.stats.atk * 0.5 * th, 'thunder'); }
+        for (const e of list) { World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25, tier: bestTier(p.prof, 'thunder') }); damage(e, p.stats.atk * 0.5 * th, 'thunder'); }
         if (list.length) Sfx.zap();
       }
     }
@@ -89,16 +91,16 @@ const Elements = (() => {
     if (b.duo === 'fire+frost' && e.burn && (e.chill > 0 || e.state === 'frozen')) {  // 증기 폭발
       e.duoCd = 1; e.burn = null; e.chill = 0;
       World.text(e.x, e.y, e.h + 8, '증기 폭발!', '#e8f4ff'); Sfx.blast(); World.shake(2);
-      explode(e.x, e.y, 34, atk * 1.2 * sc, 'frost');
+      explode(e.x, e.y, 34, atk * 1.2 * sc, 'frost', null, Math.max(bestTier(p.prof, 'fire'), bestTier(p.prof, 'frost')));
     } else if (b.duo === 'fire+thunder' && e.burn && e.shockT > 0) {  // 과부하
       e.duoCd = 1;
       World.text(e.x, e.y, e.h + 8, '과부하!', ELEMENTS.thunder.color); Sfx.zap();
-      explode(e.x, e.y, 30, atk * 0.8 * sc, 'thunder', o => { const dx = o.x - p.x, dy = o.y - p.y, d = Math.hypot(dx, dy) || 1; o.kx = (o.kx || 0) + dx / d * 220; o.ky = (o.ky || 0) + dy / d * 220; });
+      explode(e.x, e.y, 30, atk * 0.8 * sc, 'thunder', o => { const dx = o.x - p.x, dy = o.y - p.y, d = Math.hypot(dx, dy) || 1; o.kx = (o.kx || 0) + dx / d * 220; o.ky = (o.ky || 0) + dy / d * 220; }, Math.max(bestTier(p.prof, 'fire'), bestTier(p.prof, 'thunder')));
     } else if (b.duo === 'fire+poison' && e.burn && e.poison && e.poison.n >= 2) {  // 독연
       e.duoCd = 1.5;
       World.text(e.x, e.y, e.h + 8, '독연!', ELEMENTS.poison.color);
       damage(e, e.poison.n * e.poison.per * 2 * sc, 'poison');
-      World.field({ x: e.x, y: e.y, r: 26, el: 'poison', life: 2.5, k: sc, p });
+      World.field({ x: e.x, y: e.y, r: 26, el: 'poison', life: 2.5, k: sc, p, tier: Math.max(bestTier(p.prof, 'fire'), bestTier(p.prof, 'poison')) });
     }
   }
   function chill(e, n, k) {
@@ -135,11 +137,11 @@ const Elements = (() => {
       const pkk = pk(p.prof, 'poison');
       e.poison.n = Math.floor(max / 2);
       World.text(e.x, e.y, e.h + 6, '독 폭발!', ELEMENTS.poison.color);
-      explode(e.x, e.y, 32, p.stats.atk * 0.6 * pkk, 'poison', o => { if (o !== e) poison(o, 3, p, pkk, true); });
+      explode(e.x, e.y, 32, p.stats.atk * 0.6 * pkk, 'poison', o => { if (o !== e) poison(o, 3, p, pkk, true); }, bestTier(p.prof, 'poison'));
     }
   }
   // 번개가 가까운 적에게 차례로 튄다
-  function chain(from, p, count, dmg, k) {
+  function chain(from, p, count, dmg, k, T = 0) {  // T = 그림 단계(번개 줄기 굵기 · 갈래)
     if (isRes('thunder')) count += 2;  // 뇌신: 연쇄 번개 2번 더
     let cur = from;
     const hit = new Set([from]);
@@ -152,7 +154,7 @@ const Elements = (() => {
       }
       if (!best) break;
       if (i === 0) Sfx.zap();
-      World.fx({ type: 'bolt', x0: cur.x, y0: cur.y - cur.h * 0.5, x1: best.x, y1: best.y - best.h * 0.5, t: 0, life: 0.2 });
+      World.fx({ type: 'bolt', x0: cur.x, y0: cur.y - cur.h * 0.5, x1: best.x, y1: best.y - best.h * 0.5, t: 0, life: 0.2 + T * 0.04, tier: T });
       hit.add(best);
       damage(best, dmg, 'thunder');
       shock(best, k);
@@ -205,15 +207,15 @@ const Elements = (() => {
     switch (s.el) {
       case 'fire':
         burn(e, p, k * (big ? 1.5 : 1));
-        if (wave && open) explode(e.x, e.y, 24, p.stats.atk * 0.4 * swd * k, 'fire', o => burn(o, p, k));  // 작열 검기
+        if (wave && open) explode(e.x, e.y, 24, p.stats.atk * 0.4 * swd * k, 'fire', o => burn(o, p, k), tier(s));  // 작열 검기
         break;
       case 'frost': chill(e, wave ? 1 + sw + (def.crit && open ? 1 : 0) : big ? 2 : 1, k); break;  // 암살자 얼음 돌진(보통부터): 냉기 1 더
       case 'thunder':
         shock(e, k);
         // 연쇄 번개 베기(보통부터): 모든 기본 공격에서 튄다. 그 전에는 마무리 · 검기만
-        if ((big && def.slot === 'basic') || wave) chain(e, p, 1 + Math.floor(s.size / 2), p.stats.atk * (wave ? 0.5 * swd : 0.4) * k, k);
-        else if (def.slot === 'basic' && open) chain(e, p, 1, p.stats.atk * 0.3 * k, k);
-        if (wave && open) { World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25 }); damage(e, p.stats.atk * 0.6 * swd * k, 'thunder'); }  // 벼락 검기
+        if ((big && def.slot === 'basic') || wave) chain(e, p, 1 + Math.floor(s.size / 2), p.stats.atk * (wave ? 0.5 * swd : 0.4) * k, k, tier(s));
+        else if (def.slot === 'basic' && open) chain(e, p, 1, p.stats.atk * 0.3 * k, k, tier(s));
+        if (wave && open) { World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25, tier: tier(s) }); damage(e, p.stats.atk * 0.6 * swd * k, 'thunder'); }  // 벼락 검기
         break;
       case 'poison': poison(e, wave ? (open ? 3 : 2) + (sw > 1 ? 2 : 0) : big ? 2 : 1, p, k); break;  // 독침 검기 = 3중첩(검사 검기는 5)
     }
@@ -227,38 +229,43 @@ const Elements = (() => {
       World.text(e.x, e.y, e.h + 6, '파쇄!', '#bfefff');
       Sfx.frost();
       damage(e, p.stats.atk * 1.2 * k, 'frost');
-      explode(e.x, e.y, 30, 0, 'frost', o => { if (o !== e) chill(o, 2, k); });
+      explode(e.x, e.y, 30, 0, 'frost', o => { if (o !== e) chill(o, 2, k); }, bestTier(p.prof, 'frost'));
     }
     // 날벼락: 10% 확률로 하늘에서 벼락
     if (!e.dying && has(p.prof, 'thunder', 'p1') && Math.random() < 0.1) {
       const k = pk(p.prof, 'thunder');
-      World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25 });
+      World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25, tier: bestTier(p.prof, 'thunder') });
       Sfx.zap();
       damage(e, p.stats.atk * 1.0 * k, 'thunder');
       shock(e, k);
     }
   }
   // 기본 공격을 휘두를 때(보통부터): 화염구 · 얼음 파편 · 독 분사
+  // 기본 칸 부과 능력 크기(2026-10-26 사용자: '낮은 단계는 현저하게 작게, 태초는 지금 그대로') — 돌 크기마다 배율(보통부터 열림).
+  // 그림과 판정이 같이 줄어든다(이펙트 범위 = 판정 범위): 화염구 폭발 반지름 22 × · 화염구 · 얼음 파편(투사체 — 사용자가 말한 것) 그림 · 판정 크기 × · 독 분사 길이 46 ×
+  // 탄에는 vs(그림 배율, 태초 1 = 예전 크기)를 실어 보내고 판정 r 도 같은 배율로
+  const BASIC_SZ = [0.4, 0.4, 0.45, 0.55, 0.7, 0.85, 1];
   function basicSwing(p, d) {
     if (World.mirror) return;  // 파티 손님: 속성석 효과는 방장 쪽 내 몸이 낸다(그림은 방장이 보내 줌)
     const s = socket(p.prof, 'basic');
     if (!s || !slotOpen(s)) return;
-    const k = power(s), col = ELEMENTS[s.el].color, a0 = Math.atan2(p.fv.y, p.fv.x);
+    const k = power(s), col = ELEMENTS[s.el].color, a0 = Math.atan2(p.fv.y, p.fv.x), sc = BASIC_SZ[s.size];
     const shot = (a, o) => World.playerShot(Object.assign({ x: p.x + Math.cos(a) * 8, y: p.y + Math.sin(a) * 8, vx: Math.cos(a) * o.speed, vy: Math.sin(a) * o.speed,
-      ball: true, col, hit: new Set(), def: { name: o.name, mult: o.mult, knock: 40, stun: 0.15 } }, o));
+      ball: true, col, tier: tier(s), vs: sc, hit: new Set(), def: { name: o.name, mult: o.mult, knock: 40, stun: 0.15 } }, o));
     if (s.el === 'fire') {
       const n = d.fin ? 3 : 1;
-      for (let i = 0; i < n; i++) shot(a0 + (i - (n - 1) / 2) * 0.28, { name: '화염구', speed: 190, left: 110, r: 5, mult: 0.35 * k, once: true,
-        onEnd: sh => explode(sh.x, sh.y, 22, p.stats.atk * 0.3 * k, 'fire', e => burn(e, p, k)) });
+      for (let i = 0; i < n; i++) shot(a0 + (i - (n - 1) / 2) * 0.28, { name: '화염구', speed: 190, left: 110, r: 5 * sc, mult: 0.35 * k, once: true,
+        onEnd: sh => explode(sh.x, sh.y, Math.round(22 * sc), p.stats.atk * 0.3 * k, 'fire', e => burn(e, p, k), tier(s)) });
     } else if (s.el === 'frost') {
-      for (const da of [-0.22, 0.22]) shot(a0 + da, { name: '얼음 파편', speed: 230, left: 85, r: 4, mult: 0.2 * k, onHitE: e => chill(e, 1, k) });
+      for (const da of [-0.22, 0.22]) shot(a0 + da, { name: '얼음 파편', speed: 230, left: 85, r: 4 * sc, mult: 0.2 * k, onHitE: e => chill(e, 1, k) });
     } else if (s.el === 'poison') {
-      // 그림 = 판정 부채꼴 그대로(길이 46 · 반각 41°, 2026-10-26 이펙트 범위 = 판정 범위) — 마법사 숨결과 같은 흩뿌림
-      World.fx({ type: 'breath', x: p.x, y: p.y, a: a0, R: 46, arc: Math.acos(0.75) * 180 / Math.PI, big: !!d.fin, seed: Math.random() * 1000, t: 0, life: 0.35, col, tier: tier(s), el: 'poison', ss: s.size });
+      // 그림 = 판정 부채꼴 그대로(길이 46 × 크기 배율 · 반각 41°, 2026-10-26 이펙트 범위 = 판정 범위) — 마법사 숨결과 같은 흩뿌림
+      const PR = Math.round(46 * sc);
+      World.fx({ type: 'breath', x: p.x, y: p.y, a: a0, R: PR, arc: Math.acos(0.75) * 180 / Math.PI, big: !!d.fin, seed: Math.random() * 1000, t: 0, life: 0.35, col, tier: tier(s), el: 'poison', ss: s.size });
       for (const e of World.enemies()) {
         if (!live(e)) continue;
         const dx = e.x - p.x, dy = e.y - p.y, dist = Math.hypot(dx, dy);
-        if (dist > 46 + e.r || (dist > 8 && (dx * p.fv.x + dy * p.fv.y) / dist < 0.75)) continue;
+        if (dist > PR + e.r || (dist > 8 && (dx * p.fv.x + dy * p.fv.y) / dist < 0.75)) continue;
         poison(e, d.fin ? 3 : 1, p, k);
         damage(e, p.stats.atk * 0.12 * k, 'poison');
       }
@@ -280,10 +287,10 @@ const Elements = (() => {
     const p = P();
     if (!p || World.mirror) return;
     const plague = isRes('poison');  // 역병: 독 걸린 적이 쓰러지면 둘레로 독이 옮는다
-    if (plague && e.poison) { const x = e.x, y = e.y; after(0.1, () => explode(x, y, 34, 0, 'poison', o => poison(o, Math.round(4 * plague), p, plague, true))); }
+    if (plague && e.poison) { const x = e.x, y = e.y; after(0.1, () => explode(x, y, 34, 0, 'poison', o => poison(o, Math.round(4 * plague), p, plague, true), bestTier(p.prof, 'poison'))); }
     if (!e.burn || !(has(p.prof, 'fire', 'p1') || isRes('fire'))) return;  // 업화: 연쇄 폭발이 없어도 늘 터진다
     const k = pk(p.prof, 'fire'), x = e.x, y = e.y;
-    after(0.15, () => { Sfx.blast(); explode(x, y, 30, p.stats.atk * 0.8 * k, 'fire', o => burn(o, p, k)); });
+    after(0.15, () => { Sfx.blast(); explode(x, y, 30, p.stats.atk * 0.8 * k, 'fire', o => burn(o, p, k), bestTier(p.prof, 'fire')); });
   }
 
   // 회전베기를 휘두를 때(차지 칸): 둘레에 속성 폭발
@@ -313,7 +320,7 @@ const Elements = (() => {
         nova(0.4);
         const far = near.slice().sort((a, b) => groundDist(a.x - p.x, a.y - p.y) - groundDist(b.x - p.x, b.y - p.y)).slice(0, 2 + s.size);
         for (const e of far) {
-          World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25 });
+          World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25, tier: tier(s) });
           damage(e, atk * 0.7 * k, 'thunder');
           shock(e, k);
         }
@@ -353,24 +360,24 @@ const Elements = (() => {
       let best = null, bd = Infinity;
       for (const e of World.enemies()) { const d = groundDist(e.x - p.x, e.y - p.y); if (live(e) && d <= 48 + e.r && d < bd) { bd = d; best = e; } }
       novaAt(p.x, p.y, 48, 'thunder', tier(s), s.size, 0.3);
-      if (best) { World.fx({ type: 'strike', x: best.x, y: best.y, t: 0, life: 0.25 }); Sfx.zap(); damage(best, atk * 0.6 * k, 'thunder'); shock(best, k); }
+      if (best) { World.fx({ type: 'strike', x: best.x, y: best.y, t: 0, life: 0.25, tier: tier(s) }); Sfx.zap(); damage(best, atk * 0.6 * k, 'thunder'); shock(best, k); }
     }
     if (!slotOpen(s)) return;
     if (s.el === 'fire') { Sfx.fire(); explode(p.x, p.y, 26, atk * 0.6 * k, 'fire', e => burn(e, p, k), tier(s)); }
     if (s.el === 'frost') { Sfx.frost(); explode(p.x, p.y, 26, atk * 0.3 * k, 'frost', e => chill(e, 2, k), tier(s)); }
-    if (s.el === 'poison') World.field({ x: p.x, y: p.y, r: 30, el: 'poison', life: 3, k, p });
+    if (s.el === 'poison') World.field({ x: p.x, y: p.y, r: 30, el: 'poison', life: 3, k, p, tier: tier(s) });
   }
 
   // 회전베기 부과 능력(보통부터): 불길 고리 · 얼음 장판 · 뇌운 · 독 터뜨리기
   function chargeExtra(p, s, k, R, near) {
     const atk = p.stats.atk;
-    if (s.el === 'fire') World.field({ x: p.x, y: p.y, r: R * 0.8, el: 'fire', life: 2.5, k, p });
-    if (s.el === 'frost') World.field({ x: p.x, y: p.y, r: R * 0.8, el: 'frost', life: 3, k, p });
+    if (s.el === 'fire') World.field({ x: p.x, y: p.y, r: R * 0.8, el: 'fire', life: 2.5, k, p, tier: tier(s) });
+    if (s.el === 'frost') World.field({ x: p.x, y: p.y, r: R * 0.8, el: 'frost', life: 3, k, p, tier: tier(s) });
     if (s.el === 'thunder') after(1, () => {  // 뇌운: 1초 뒤 같은 반지름 R 안에 한 번 더(그림도 다시)
       novaAt(p.x, p.y, R, 'thunder', tier(s), s.size, 0.35);
       const far = World.enemies().filter(e => live(e) && groundDist(e.x - p.x, e.y - p.y) <= R + e.r)
         .sort((a, b) => groundDist(a.x - p.x, a.y - p.y) - groundDist(b.x - p.x, b.y - p.y)).slice(0, 2 + s.size);
-      for (const e of far) { World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25 }); damage(e, atk * 0.5 * k, 'thunder'); shock(e, k); }
+      for (const e of far) { World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25, tier: tier(s) }); damage(e, atk * 0.5 * k, 'thunder'); shock(e, k); }
       if (far.length) Sfx.zap();
     });
     if (s.el === 'poison') {

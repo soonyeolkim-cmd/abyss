@@ -52,7 +52,7 @@ function updateEnemy(e, dt, room, p) {
   if (d.rooted) { e.kx = 0; e.ky = 0; }  // 땅속 촉수는 안 밀림(속성 폭발 밀어내기도)
   if (d.burrow && !e.under && e.awake) e.upT += dt;  // 솟아 있는 시간(내리치는 동안도 센다)
   if (e.kx || e.ky) {
-    Dungeon.move(room, e, e.kx * dt, e.ky * dt, e.r);
+    mobMove(room, e, e.kx * dt, e.ky * dt);
     const f = Math.exp(-(e.state === 'air' ? 1.5 : 7) * dt);
     e.kx *= f; e.ky *= f;
     if (Math.hypot(e.kx, e.ky) < 2) { e.kx = 0; e.ky = 0; }
@@ -133,7 +133,7 @@ function updateEnemy(e, dt, room, p) {
     case 'charge':
       e.t -= dt;
       e.hitWall = false;
-      Dungeon.move(room, e, e.chargeV.x * d.charge.speed * dt, e.chargeV.y * d.charge.speed * dt, e.r);
+      mobMove(room, e, e.chargeV.x * d.charge.speed * dt, e.chargeV.y * d.charge.speed * dt);  // 보스 방 끝에 닿으면 벽처럼 멈춤
       if (!e.hitDone && Math.hypot(p.x - e.x, p.y - e.y) < e.r + BODY_R + 4) {
         e.hitDone = true;
         hurtPlayer(p, e, d.charge.dmg * e.dmgMul, 220);
@@ -238,6 +238,7 @@ function tentacleThink(e, dt, lv, p) {
   e.atkCd -= dt;
   const pd = Math.hypot(p.x - e.x, p.y - e.y);
   if (e.under) {
+    if (pd > MOB_LEASH) return;  // 멀면 땅속에서 가만히
     e.underT += dt;
     if ((pd < 14 && e.underT > 0.8) || e.underT > B.chase) { e.under = false; e.state = 'rise'; e.t = e.windupT = B.rise; return; }  // 들어가자마자 다시 솟지는 않게
     const dir = Dungeon.los(lv, e.x, e.y - 4, p.x, p.y - 4) ? unit(p.x - e.x, p.y - e.y, e.fv) : World.flowDir(e);
@@ -257,11 +258,19 @@ function wakeCheck(e, lv, p) {
 }
 
 // 시야가 막혔거나 멀면 칸 길찾기(플레이어 쪽으로 거리가 줄어드는 칸)를 따라간다
+// 보스는 자기 방(lv.boss) 밖으로 못 나간다(2026-10-26 사용자: 보스가 너무 멀리 나와 있음) — 방 끝은 벽처럼(돌진이면 멍해짐)
+const inBossRoom = (lv, x, y) => !lv.boss || Dungeon.roomAt(lv, x, y) === lv.boss;
+function mobMove(lv, e, dx, dy) {
+  if (!e.def.boss) { Dungeon.move(lv, e, dx, dy, e.r); return; }
+  const x = e.x, y = e.y;
+  Dungeon.move(lv, e, dx, dy, e.r);
+  if (!inBossRoom(lv, e.x, e.y)) { e.x = x; e.y = y; e.hitWall = true; }
+}
 function chase(e, dt, lv, p) {
   const dir = World.flowDir(e);
   if (!dir) return false;
   const step = e.def.speed * e.speedMul * dt;
-  Dungeon.move(lv, e, dir.x * step, dir.y * step, e.r);
+  mobMove(lv, e, dir.x * step, dir.y * step);
   e.fv = dir;
   e.moving = true;
   e.walkT += dt;
@@ -282,6 +291,8 @@ function aiMove(e, dt, room, p) {
     e.state = 'blinkOut'; e.t = d.blink.out; e.blinkCd = d.blink.cd[0] + Math.random() * (d.blink.cd[1] - d.blink.cd[0]);
     return;
   }
+  // 멀리 있는 몹은 깨어 있어도 제자리(2026-10-26 사용자: 내가 가까이 가기 전엔 안 움직이게 — 멀리서 함정을 밟고 다니지 않게)
+  if (pd > MOB_LEASH) return;
   if (!see || pd > 110) { if (chase(e, dt, room, p)) return; }
   let wx, wy;
   if (d.ranged) {
@@ -338,7 +349,7 @@ function bossThink(e, dt, room, p) {
   if (pd > 26) {
     if (!Dungeon.los(room, e.x, e.y - 4, p.x, p.y - 4) && chase(e, dt, room, p)) return;
     const step = d.speed * dt;
-    Dungeon.move(room, e, e.fv.x * step, e.fv.y * step, e.r);
+    mobMove(room, e, e.fv.x * step, e.fv.y * step);
     e.moving = true;
     e.walkT += dt;
   }

@@ -4,6 +4,7 @@ const VIEW_W = 480, VIEW_H = 270, SCALE = 2;  // 게임 화면은 480x270 을 2�
 const T = 16;
 const HUD_H = 44;                              // 아래 체력 구슬 판 높이(게임 화면 픽셀)
 const LIGHT_R = 120;                           // 플레이어 빛 반경(이 밖은 어둡다)
+const MOB_LEASH = 220;                         // 깨어 있는 몹도 이보다 멀면 제자리(쫓아오지 않음, 2026-10-26 사용자)
 const WAKE_R = 130;                            // 몹이 깨어나는 거리(시야가 트였을 때)
 const GRAVITY = 900;
 const MAX_ATTACKERS = 3;  // 한꺼번에 덤비는 몹 수(2026-10-24 사용자 '너무 쉽다' → 2에서 3)
