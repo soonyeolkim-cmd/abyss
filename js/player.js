@@ -355,7 +355,7 @@ function updateAct(p, dt, room) {
     // 마력탄: 가볍게 따라가는 빛 구슬, 처음 닿은 적에서 터진다(마력탄 칸 속성석 색).
     // 그림 단계 tier(2026-10-26 사용자: 속성석 레벨에 따라 멋져지게, 구간마다): 0 = 없음 · 조각 · 작은 / 1 = 보통 · 큰 / 2 = 완전한 / 3 = 전설 · 태초(art.js orb)
     if (d.orb) {
-      const st = Elements.socket(p.prof, 'wave'), tier = !st ? 0 : st.size >= 5 ? 3 : st.size >= 4 ? 2 : st.size >= 2 ? 1 : 0;
+      const st = Elements.socket(p.prof, 'wave'), tier = Elements.tier(st);
       World.playerShot({ x: p.x + p.fv.x * 8, y: p.y + p.fv.y * 8, vx: p.fv.x * d.orb.speed, vy: p.fv.y * d.orb.speed, left: d.orb.range, r: d.orb.r,
         ball: true, orb: true, once: true, homing: true, def: d, hit: new Set(), stone: st, col: st ? ELEMENTS[st.el].color : '#b39cff',
         tier, el: st ? st.el : '', ss: st ? st.size : 0,
@@ -383,13 +383,16 @@ function updateAct(p, dt, room) {
       const c = d.circle, tgt = World.enemies().filter(e => !e.dying && e.state !== 'dead' && !(e.spawnT > 0) && Math.hypot(e.x - p.x, e.y - p.y) <= c.range)
         .sort((u, v) => Math.hypot(u.x - p.x, u.y - p.y) - Math.hypot(v.x - p.x, v.y - p.y))
         .find(e => ((e.x - p.x) * p.fv.x + (e.y - p.y) * p.fv.y) >= 0);
-      const st = Elements.socket(p.prof, 'charge');
+      const st = Elements.socket(p.prof, 'charge');  // 그림 단계 · 속성(art.js magicCircle · fx 'nova')
       World.field({ magic: true, x: tgt ? tgt.x : p.x + p.fv.x * c.ahead, y: tgt ? tgt.y : p.y + p.fv.y * c.ahead, r: c.r, delay: c.delay, life: c.delay + 0.4,
-        def: d, p, col: st ? ELEMENTS[st.el].color : '#b39cff' });
+        def: d, p, col: st ? ELEMENTS[st.el].color : '#b39cff', tier: Elements.tier(st), el: st ? st.el : '', ss: st ? st.size : 0 });
     }
     // 마법사 마력 숨결: 지팡이 앞으로 퍼지는 부채꼴 빛(기본 칸 속성석 색). 칸 능력은 맞을 때(Elements.breathHit)
-    if (d.breath) World.fx({ type: 'breath', follow: p, a: Math.atan2(p.fv.y, p.fv.x), R: a.hd.reach[1], arc: a.hd.arc, big: !!d.fin, seed: Math.random() * 1000, t: 0, life: a.a + 0.3,
-      col: Elements.color(p.prof, 'basic', null) || '#c9b8ff' });
+    if (d.breath) {  // 그림 단계 · 속성: 기본 칸 속성석(art.js fx 'breath')
+      const st = Elements.socket(p.prof, 'basic');
+      World.fx({ type: 'breath', follow: p, a: Math.atan2(p.fv.y, p.fv.x), R: a.hd.reach[1], arc: a.hd.arc, big: !!d.fin, seed: Math.random() * 1000, t: 0, life: a.a + 0.3,
+        col: st ? ELEMENTS[st.el].color : '#c9b8ff', tier: Elements.tier(st), el: st ? st.el : '', ss: st ? st.size : 0 });
+    }
     else if (d.slot === 'basic') Elements.basicSwing(p, d);   // 기본 칸 속성석(보통부터): 화염구 · 얼음 파편 · 독 분사
     // 검기: 앞으로 날아가며 꿰뚫는다. 가까이서 칼에 맞은 몹은 검기에 또 맞지 않게 같은 목록을 쓴다
     if (d.wave) World.playerShot({ x: p.x + p.fv.x * 8, y: p.y + p.fv.y * 8, vx: p.fv.x * d.wave.speed, vy: p.fv.y * d.wave.speed,

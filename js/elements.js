@@ -6,6 +6,8 @@ const Elements = (() => {
   const socket = (prof, slot) => (prof.equip.weapon && prof.sockets ? prof.sockets[slot] || null : null);  // sockets 없음 = 파티 친구 그림용 몸
   const power = s => STONE_SIZES[s.size].power;
   const color = (prof, slot, fallback = '#ffffff') => { const s = socket(prof, slot); return s ? ELEMENTS[s.el].color : fallback; };
+  // 그림 단계(2026-10-26 사용자: 속성석 레벨에 따라 멋져지게 · 구간마다): 0 = 없음 · 조각 · 작은 / 1 = 보통 · 큰 / 2 = 완전한 / 3 = 전설 · 태초
+  const tier = s => (!s ? 0 : s.size >= 5 ? 3 : s.size >= 4 ? 2 : s.size >= 2 ? 1 : 0);
   const live = e => !e.dying && e.state !== 'dead' && e.spawnT <= 0;
 
   // ── 크기별로 열리는 능력(EL_ABIL) ──
@@ -288,13 +290,13 @@ const Elements = (() => {
     switch (s.el) {
       case 'fire':
         Sfx.fire();
-        World.fx({ type: 'burst', x: p.x, y: p.y, r: R, col, t: 0, life: 0.35 });
+        if (!p.nova) World.fx({ type: 'burst', x: p.x, y: p.y, r: R, col, t: 0, life: 0.35 });  // 마법진은 터질 때 속성 폭발(nova)을 따로 그린다
         World.shake(3);
         for (const e of near) { damage(e, atk * 0.8 * k, 'fire'); burn(e, p, k); }
         break;
       case 'frost':
         Sfx.frost();
-        World.fx({ type: 'burst', x: p.x, y: p.y, r: R, col, t: 0, life: 0.4 });
+        if (!p.nova) World.fx({ type: 'burst', x: p.x, y: p.y, r: R, col, t: 0, life: 0.4 });
         for (const e of near) { damage(e, atk * 0.4 * k, 'frost'); chill(e, 3, k); }
         break;
       case 'thunder': {
@@ -396,6 +398,7 @@ const Elements = (() => {
   // 장판: 0.5초마다 안에 있는 몹에게
   function fieldTick(f) {
     if (World.mirror) return;  // 파티 손님: 속성석 효과는 방장 쪽 내 몸이 낸다(그림은 방장이 보내 줌)
+    if (f.magic) return;  // 마법진(el 은 그림용): 터질 때 chargeBurst 가 따로 한다
     for (const e of World.enemies()) {
       if (!live(e) || Math.hypot(e.x - f.x, (e.y - f.y) * 1.6) > f.r + e.r) continue;
       if (f.el === 'fire') burn(e, f.p, f.k);
@@ -503,5 +506,5 @@ const Elements = (() => {
     return true;
   }
 
-  return { setBonus, socket, power, color, onHit, basicSwing, breathHit, dashStart, dashMove, dashEnd, onDeath, step, reset, has, passives, best, chargeBurst, waveTrail, waveEnd, fieldTick, tick, vuln, describe, stacks, add, take, key };
+  return { setBonus, socket, power, color, tier, onHit, basicSwing, breathHit, dashStart, dashMove, dashEnd, onDeath, step, reset, has, passives, best, chargeBurst, waveTrail, waveEnd, fieldTick, tick, vuln, describe, stacks, add, take, key };
 })();

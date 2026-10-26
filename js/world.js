@@ -678,10 +678,12 @@ const World = (() => {
           if (e.dying || e.state === 'dead' || Math.hypot(e.x - f.x, (e.y - f.y) * 1.4) > f.r + e.r) continue;
           if (hitEnemy(e, f.def, p)) landed = true;
         }
-        addFx({ type: 'burst', x: f.x, y: f.y, r: f.r * 1.1, col: f.col, t: 0, life: 0.4 });
-        sparks(f.x, f.y - 6, 16, 18, f.col);
-        Elements.chargeBurst(Object.assign(Object.create(p), { x: f.x, y: f.y }));
-        Sfx.blast(); Sfx.spell(); shake(4);
+        // 속성 폭발 그림(art.js fx 'nova'): 마법진 칸 속성석 속성 · 단계마다 다르게
+        const T = f.tier || 0;
+        addFx({ type: 'nova', x: f.x, y: f.y, r: f.r * 1.1, col: f.col, el: f.el || '', tier: T, ss: f.ss || 0, seed: Math.random() * 1000, t: 0, life: 0.5 + T * 0.08 });
+        sparks(f.x, f.y - 6, 16, 18 + T * 6, f.col, T >= 2);
+        Elements.chargeBurst(Object.assign(Object.create(p), { x: f.x, y: f.y, nova: true }));
+        Sfx.blast(); Sfx.spell(); shake(4 + T);
         if (landed) hitstop(0.07);
       }
       // 화염 강화 몹의 죽음 폭발: 예고 뒤 한 번 터진다
