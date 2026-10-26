@@ -77,7 +77,8 @@ const Jar = (() => {
     if (bagSlot < 0) { Sfx.deny(); Game.toast('가방이 가득 찼어요 — 장비를 팔거나 정리해 주세요'); return; }
     prof.gold -= p;
     // 등급 = data.js JAR 표(유니크 · 레어 · 매직, 나머지 일반)
-    const il = jarLv(prof), s = slot(), uniqs = Object.keys(UNIQUES).filter(u => UNIQUES[u].slot === s), r = Math.random();
+    // Lv.100 단계부터는 유니크가 안 나오고 그 몫이 레어로(유니크는 제작으로만, UNIQUE_CRAFT_LV)
+    const il = jarLv(prof), s = slot(), uniqs = il >= UNIQUE_CRAFT_LV ? [] : Object.keys(UNIQUES).filter(u => UNIQUES[u].slot === s), r = Math.random();
     item = uniqs.length && r < JAR.uniq
       ? Items.make(il, { slot: s, rarity: 3, uniq: uniqs[Math.floor(Math.random() * uniqs.length)] })
       : Items.make(il, { slot: s, rarity: r < JAR.uniq + JAR.rare ? 2 : r < JAR.uniq + JAR.rare + JAR.magic ? 1 : 0 });
@@ -143,7 +144,8 @@ const Jar = (() => {
       }
     });
     const pc = v => Math.round(v * 100) + '%';
-    T_(ctx, '일반 ' + pc(1 - JAR.uniq - JAR.rare - JAR.magic) + ' · 매직 ' + pc(JAR.magic) + ' · 레어 ' + pc(JAR.rare) + ' · 유니크 ' + pc(JAR.uniq), 44, 404, 13, '#c8b8a0');
+    const craftOnly = jarLv(prof) >= UNIQUE_CRAFT_LV;  // Lv.100 단계: 유니크 몫이 레어로
+    T_(ctx, '일반 ' + pc(1 - JAR.uniq - JAR.rare - JAR.magic) + ' · 매직 ' + pc(JAR.magic) + ' · 레어 ' + pc(JAR.rare + (craftOnly ? JAR.uniq : 0)) + (craftOnly ? ' · 유니크는 제작으로만' : ' · 유니크 ' + pc(JAR.uniq)), 44, 404, 13, '#c8b8a0');
     const cur = prof.equip[slot()];
     T_(ctx, '지금 낀 ' + SLOT_NAMES[slot()] + ': ' + (cur ? Items.nameOf(cur) + (cur.ups ? ' +' + cur.ups : '') : '없음'), 44, 428, 12, cur ? RARITY[cur.rarity].color : '#6a6068');
     // 레벨 고르기(지난 레벨 항아리는 그 레벨일 때 값 그대로)

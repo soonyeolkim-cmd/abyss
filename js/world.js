@@ -869,7 +869,7 @@ const World = (() => {
     if (p.stats.fx.vamp) p.hp = Math.min(p.maxHp, p.hp + Math.max(2, Math.round(p.maxHp * UNIQUE_FX.vamp)));  // 유니크 흡혈 칼날
     if (d.boss) {
       const bossItems = [mk(lv.ilvlR[1], { boost: 0.8 })];
-      if (Math.random() < UNIQUE_DROP.boss * DIFFS[RUN.diff].uniq * lowUniq(prof.lv, dlv())) bossItems.push(Items.makeUnique(lv.ilvlR[1]));
+      if (lv.ilvlR[1] < UNIQUE_CRAFT_LV && Math.random() < UNIQUE_DROP.boss * DIFFS[RUN.diff].uniq * lowUniq(prof.lv, dlv())) bossItems.push(Items.makeUnique(lv.ilvlR[1]));  // Lv.100 유니크는 제작으로만
       loot(e.x, e.y, { gold: goldRoll(d.gold), items: bossItems, stones: [rollStone(STONE_BOSS_BOOST), rollStone(STONE_BOSS_BOOST)], scrolls: Array.from({ length: SCROLL_DROP_RATE.boss }, rollScroll), essence: essenceRoll('boss') });
       shake(5);
       bossCleared(e);
@@ -877,7 +877,7 @@ const World = (() => {
     }
     if (e.rank === 'unique') {
       const uItems = [mk(lv.ilvlR[1], { boost: 0.6 })];
-      if (Math.random() < UNIQUE_DROP.unique * DIFFS[RUN.diff].uniq * lowUniq(prof.lv, dlv())) uItems.push(Items.makeUnique(lv.ilvlR[1]));
+      if (lv.ilvlR[1] < UNIQUE_CRAFT_LV && Math.random() < UNIQUE_DROP.unique * DIFFS[RUN.diff].uniq * lowUniq(prof.lv, dlv())) uItems.push(Items.makeUnique(lv.ilvlR[1]));
       loot(e.x, e.y, { gold: goldRoll(d.gold, 4), items: uItems, stones: [rollStone()], scrolls: Math.random() < SCROLL_DROP_RATE.unique ? [rollScroll()] : [], essence: essenceRoll('unique') });
       return;
     }
@@ -889,9 +889,10 @@ const World = (() => {
   }
 
   function gainExp(n) {
-    if (prof.lv >= LV_MAX) { prof.exp = 0; return; }  // 만렙이면 경험치는 더 안 쌓인다
+    const MAX = lvMax(prof);  // 끝없는 심연이 열리면 109
+    if (prof.lv >= MAX) { prof.exp = 0; return; }  // 만렙이면 경험치는 더 안 쌓인다
     prof.exp += n; run.exp += n;
-    while (prof.lv < LV_MAX && prof.exp >= expToNext(prof.lv)) {
+    while (prof.lv < MAX && prof.exp >= expToNext(prof.lv)) {
       prof.exp -= expToNext(prof.lv);
       prof.lv++;
       run.levelUps++;
@@ -899,9 +900,9 @@ const World = (() => {
       p.hp = p.maxHp;
       Sfx.levelUp();
       text(p.x, p.y, 44, '레벨 업!  Lv.' + prof.lv, '#7dff8a', true);
-      msg = '레벨 업! Lv.' + prof.lv + (prof.lv >= LV_MAX ? ' (만렙)' : ''); msgT = 1.6;
+      msg = '레벨 업! Lv.' + prof.lv + (prof.lv >= MAX ? ' (만렙)' : ''); msgT = 1.6;
     }
-    if (prof.lv >= LV_MAX) prof.exp = 0;
+    if (prof.lv >= MAX) prof.exp = 0;
   }
 
   // ── 효과 ──

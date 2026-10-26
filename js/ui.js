@@ -208,24 +208,19 @@ const UI = (() => {
   // ── 던전 고르기 ──
   // 난이도(2026-10-24): 고른 던전 줄에서 ←→ 로 보통 · 모험 · 영웅. 아래 난이도 보스를 잡아야 열린다
   // 던전 고르기 줄: 던전 10개 + (진엔딩 뒤) 끝없는 심연 한 줄
-  const ENDLESS_ROW = { endless: true, id: 'endless', name: '끝없는 심연', lv: 90, boss: 'abyss_lord' };
+  const ENDLESS_ROW = { endless: true, id: 'endless', name: '끝없는 심연', lv: ENDLESS.entry, boss: 'abyss_lord' };  // lv = 입장 레벨(몹은 Lv.100)
   const selectRows = prof => (endlessOpen(prof) ? [...DUNGEONS, ENDLESS_ROW] : DUNGEONS);
-  const endlessTop = prof => Math.min(ENDLESS.max, endlessBest(prof) + 1);  // 고를 수 있는 가장 깊은 층(깬 층 + 1, 지금 만든 층까지)
   const select = {
     sel: 0, diff: 0, floor: 1, fb: -1,
     update(prof) {
       const rows = selectRows(prof);
       this.sel = menuNav(Math.min(this.sel, rows.length - 1), rows.length);  // 끝없는 심연이 없는 캐릭터로 바꿔도 범위 안
       const d = rows[this.sel];
-      if (d.endless) {  // 끝없는 심연: ←→ = 층, 난이도 없음
-        const top = endlessTop(prof);
-        if (this.fb !== endlessBest(prof)) { this.fb = endlessBest(prof); this.floor = top; }  // 새로 깨면 다음 층으로
-        if (Input.nav('left')) this.floor = Math.max(1, this.floor - 1);
-        if (Input.nav('right')) this.floor = Math.min(top, this.floor + 1);
+      if (d.endless) {  // 끝없는 심연: 늘 1층부터(2026-10-26 사용자: 층 고르기 없앰), 난이도 없음, 입장 Lv.95
         if (Input.wasPressed('back')) { Game.open('town'); return; }
         if (Input.wasPressed('ok')) {
-          const d = endlessDef(this.floor);
-          if (!Coop.hostEnter(d, ENDLESS.diff)) Game.startRun(d, ENDLESS.diff);  // 파티 방장이면 친구에게 먼저 묻는다
+          if (prof.lv < ENDLESS.entry) Game.toast('Lv.' + ENDLESS.entry + '부터 들어갈 수 있어요 (지금 Lv.' + prof.lv + ')');
+          else { const d = endlessDef(1); if (!Coop.hostEnter(d, ENDLESS.diff)) Game.startRun(d, ENDLESS.diff); }  // 파티 방장이면 친구에게 먼저 묻는다
         }
         return;
       }
@@ -295,12 +290,11 @@ const UI = (() => {
         const low = !lockd && Net.linked && Net.role === 'host' ? Net.members().filter(m => m.lv < d.lv) : [];
         if (low.length) T_(ctx, low.length === 1 ? clsOf(low[0]).name + ' Lv.' + low[0].lv + ' — 같이 못 가요' : '파티원 ' + low.length + '명 레벨 부족', 880, y + 52, 12, '#d88aff', 'right');
       });
-      if (sd.endless) {  // 끝없는 심연: 고른 층 설명
-        const f = this.floor, scene = DUNGEONS.find(x => x.id === ENDLESS.scenes[(f - 1) % ENDLESS.scenes.length]);
-        const bt = prof.bestTimes && prof.bestTimes[timeKey('endless' + f, ENDLESS.diff)];
-        if (bt) T_(ctx, '최고 기록 ' + fmtTime(bt), 930, 535, 11, '#ffd36a', 'right');
-        T_(ctx, f + '층 (' + scene.name + '의 모습) — 몹 체력 ×' + (ENDLESS.step * Math.pow(ENDLESS.hp, f - 1)).toFixed(2) + ' · 공격 ×' + (ENDLESS.step * Math.pow(ENDLESS.dmg, f - 1)).toFixed(2) + ' · 골드 · 경험치 +' + Math.round(ENDLESS.reward * (f - 1) * 100) + '%  (심연의 문 영웅 대비, 보상은 영웅)', 480, 516, 13, '#d8b0ff', 'center');
-        if (!Input.touchMode()) T_(ctx, '던전 ↑↓ · 층 ←→ · 들어가기 ' + L('ok') + ' · 돌아가기 ' + L('back'), 480, 535, 11, '#6a6068', 'center');
+      if (sd.endless) {  // 끝없는 심연: 1층부터 3층까지 이어서
+        const bt = prof.bestTimes && prof.bestTimes[timeKey('endless' + ENDLESS.max, ENDLESS.diff)];
+        if (bt) T_(ctx, '3층 최고 기록 ' + fmtTime(bt), 930, 535, 11, '#ffd36a', 'right');
+        T_(ctx, '1층부터 ' + ENDLESS.max + '층까지 이어서 · 몹 Lv.' + ENDLESS.lv + ' · 나오는 장비 Lv.' + reqLevel(ENDLESS.ilvl[0]) + '(혈석, 유니크는 제작으로만) · 보상은 영웅', 480, 516, 13, '#d8b0ff', 'center');
+        if (!Input.touchMode()) T_(ctx, '던전 ↑↓ · 들어가기 ' + L('ok') + ' · 돌아가기 ' + L('back'), 480, 535, 11, '#6a6068', 'center');
         return;
       }
       // 고른 난이도 설명
@@ -310,9 +304,9 @@ const UI = (() => {
       T_(ctx, df.name + (this.diff ? ' — 몹 체력 ×' + df.hp + ' · 공격 ×' + df.dmg + ' · 노랑 이상 ×' + df.rare + ' · 유니크 ×' + df.uniq + (df.stoneFavor ? ' · 큰 속성석 · 보석이 더 잘' : '') + ' · 골드 · 경험치 ×' + df.gold : ' — 기본 난이도'), 480, 516, 13, df.color, 'center');
       if (!Input.touchMode()) T_(ctx, '던전 ↑↓ · 난이도 ←→ · 들어가기 ' + L('ok') + ' · 돌아가기 ' + L('back'), 480, 535, 11, '#6a6068', 'center');
     },
-    // 끝없는 심연 줄: 보랏빛 띠 · 일렁이는 심연의 군주 · 최고 층 · 층 탭(깬 층 + 1 까지, 지금은 ENDLESS.max 층까지)
+    // 끝없는 심연 줄: 보랏빛 띠 · 일렁이는 심연의 군주 · 최고 층 · 입장 레벨(층 고르기는 없음 — 늘 1층부터)
     endlessRow(ctx, prof, time, y, on) {
-      const best = endlessBest(prof), top = endlessTop(prof);
+      const best = endlessBest(prof), low = prof.lv < ENDLESS.entry;
       Gfx.panel(ctx, 60, y, 840, 64, { border: on ? '#ffd36a' : '#7a5ab0', bg: '#1a1222' });
       const g = ctx.createLinearGradient(62, 0, 300, 0);
       g.addColorStop(0, 'rgba(138,96,224,' + (0.25 + 0.1 * Math.sin(time * 2)) + ')'); g.addColorStop(1, 'rgba(138,96,224,0)');
@@ -322,16 +316,8 @@ const UI = (() => {
       const boss = ENEMIES.abyss_lord;
       Gfx.spr(ctx, Gfx.anim(boss.sprite + '_idle_anim', time, 6), 112, y + 60, { scale: 1.5 * Math.min(1.4, boss.scale || 1), tint: boss.tint, tintAlpha: boss.tintAlpha });
       T_(ctx, '∞ 끝없는 심연', 160, y + 28, 20, on ? '#ffd36a' : '#d8b0ff');
-      T_(ctx, best ? '최고 ' + best + '층' : '아직 안 깸', 880, y + 28, 13, best ? '#ffd36a' : '#9a8e96', 'right');
-      T_(ctx, '방 하나 = 맵 하나 · 적을 다 잡으면 문이 열림 · 수호자 뒤 바로 다음 층', 162, y + 52, 13, '#9a8e96');
-      if (!on) return;
-      for (let f = 1; f <= ENDLESS.max; f++) {
-        const tx = 664 + (f - 1) * 74, open = f <= top, cur = this.floor === f;
-        zone(tx, y + 34, 68, 28, { on: () => this.floor === f, pick: () => { if (open) this.floor = f; } });
-        ctx.fillStyle = cur ? 'rgba(255,211,106,0.18)' : 'rgba(255,255,255,0.04)'; ctx.fillRect(tx, y + 38, 68, 20);
-        ctx.strokeStyle = cur ? '#d8b0ff' : '#4a3a40'; ctx.lineWidth = cur ? 2 : 1; ctx.strokeRect(tx + 0.5, y + 38.5, 67, 19);
-        T_(ctx, (f <= best ? '✔ ' : '') + f + '층', tx + 34, y + 53, 12, !open ? '#5a5058' : cur ? '#d8b0ff' : '#9a8e96', 'center');
-      }
+      T_(ctx, '입장 Lv.' + ENDLESS.entry + ' · ' + (best ? '최고 ' + best + '층' : '아직 안 깸'), 880, y + 28, 13, low ? '#8a6060' : best ? '#ffd36a' : '#9a8e96', 'right');
+      T_(ctx, low ? '잠김 — Lv.' + ENDLESS.entry + '부터 들어갈 수 있어요 (지금 Lv.' + prof.lv + ')' : '1층부터 3층까지 이어서 · 방 하나 = 맵 하나 · 적을 다 잡으면 문이 열림', 162, y + 52, 13, low ? '#8a6060' : '#9a8e96');
     },
   };
 
@@ -1421,7 +1407,7 @@ const UI = (() => {
   // ── 창고: 유니크 컬렉션(2026-10-24 사용자) ──
   // 줄 = 부위 갈래 8개(무기 경량 · 무기 중량 · 투구 · 갑옷 · 장갑 · 신발 · 목걸이 · 반지), 칸 = 재질 단계(착용 레벨 없음 · 10 … 90).
   // 가방의 유니크를 맞는 칸에 넣고, 갈래마다 달성률을 보여 준다. 넣은 유니크는 창고에 보관(꺼내면 가방으로, 칸은 다시 빈다).
-  const VAULT_COLS = GEAR_TIERS.length;
+  const VAULT_COLS = Math.min(GEAR_TIERS.length, 10);  // 컬렉션은 Lv.90(태초)까지 — Lv.100 유니크는 제작으로만(endgame-plan.md ⑤)
   function vaultFind(prof, key) {  // 가방에서 그 칸에 맞는 유니크(강화 안 된 것 먼저)
     let best = -1;
     prof.bag.forEach((it, i) => { if (it && it.uniq && vaultKey(it) === key && (best < 0 || (prof.bag[best].ups && !it.ups))) best = i; });

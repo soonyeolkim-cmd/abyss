@@ -563,12 +563,12 @@ const Coop = (() => {
     const st = new Map();
     for (const m of Net.members()) {
       const now = (mates.get(m.pid) || {}).now;
-      st.set(m.pid, m.lv < def.lv ? 'lv' : !now || now.s !== 'town' ? 'busy' : 'wait');
+      st.set(m.pid, m.lv < entryLv(def) ? 'lv' : !now || now.s !== 'town' ? 'busy' : 'wait');
     }
     const asks = [...st].filter(([, s]) => s === 'wait').map(([pid]) => pid);
     if (!asks.length) {
       const allLv = [...st.values()].every(s => s === 'lv');
-      askSolo(allLv ? '파티원 모두 레벨이 모자라 같이 못 들어가요' : '지금 같이 갈 수 있는 파티원이 없어요', (allLv ? '입장 Lv.' + def.lv + ' — ' : '') + '혼자 들어갈까요?');
+      askSolo(allLv ? '파티원 모두 레벨이 모자라 같이 못 들어가요' : '지금 같이 갈 수 있는 파티원이 없어요', (allLv ? '입장 Lv.' + entryLv(def) + ' — ' : '') + '혼자 들어갈까요?');
       return true;
     }
     invite = { def, diff, seed: 1 + Math.floor(Math.random() * 2e9), t: INVITE_WAIT, st, kits: new Map() };
@@ -637,11 +637,11 @@ const Coop = (() => {
     const def = runDef(m);
     if (!def || Game.scene !== 'town') { Net.send({ t: 'inviteNo', why: 'busy' }); return; }
     const prof = Game.prof;
-    if (prof.lv < def.lv) { Net.send({ t: 'inviteNo', why: 'lv' }); return; }
+    if (prof.lv < entryLv(def)) { Net.send({ t: 'inviteNo', why: 'lv' }); return; }
     Sfx.ui('ok');  // 초대 알림(예전엔 겹친 이름 wake 가 소리를 냈음)
     Game.overlay({ type: 'confirm', invite: m.seed, defaultYes: true,
       text: '방장이 ' + def.name + diffName(m.diff, def) + '에 들어가요',
-      sub: '같이 들어갈까요? (입장 Lv.' + def.lv + ')',
+      sub: '같이 들어갈까요? (입장 Lv.' + entryLv(def) + ')',
       yes: () => { Net.send({ t: 'inviteYes', seed: m.seed, kit: myKit() }); goWait = { def, diff: m.diff, seed: m.seed }; Game.overlay({ type: 'coopgo' }); },  // kit = 방장 쪽 내 몸 장비
       no: () => Net.send({ t: 'inviteNo', why: 'no' }) });
   });

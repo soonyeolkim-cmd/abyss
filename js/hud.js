@@ -30,7 +30,7 @@ const Hud = (() => {
   // 레벨 메달(2026-10-25 사용자: 체력 구슬 · 경험치 막대 근처에 예쁘게) — 구슬 오른쪽 아래 테두리에 붙은 금테 메달, 경험치 막대가 여기서 시작.
   // 안쪽 보랏빛 + 위 반짝임, 'LV' 작게 · 숫자 크게. 만렙이면 테두리 빛 · 숫자 금빛
   function lvBadge(ctx, cx, cy, lv) {
-    const max = lv >= LV_MAX, r = 19;
+    const max = lv >= lvMax(Game.prof), r = 19;
     ctx.save();
     if (max) { ctx.shadowColor = 'rgba(255,210,100,0.8)'; ctx.shadowBlur = 10; }
     ctx.beginPath(); ctx.arc(cx, cy, r + 4, 0, Math.PI * 2); ctx.fillStyle = '#120c10'; ctx.fill();
@@ -315,7 +315,7 @@ const Hud = (() => {
     ctx.fillStyle = g; ctx.fillRect(0, PY, 960, 540 - PY);
     ctx.fillStyle = '#5a4436'; ctx.fillRect(0, PY, 960, 2);
     // 경험치: 판 맨 아래(글자와 안 겹치게, 2026-10-24 사용자)
-    Gfx.bar(ctx, 140, PY + 79, 680, 5, prof.lv >= LV_MAX ? 1 : prof.exp / expToNext(prof.lv), prof.lv >= LV_MAX ? '#ffd36a' : '#c8a040', '#2a2010');  // 만렙이면 금빛으로 가득
+    Gfx.bar(ctx, 140, PY + 79, 680, 5, prof.lv >= lvMax(prof) ? 1 : prof.exp / expToNext(prof.lv), prof.lv >= lvMax(prof) ? '#ffd36a' : '#c8a040', '#2a2010');  // 만렙이면 금빛으로 가득
     // 체력 구슬 · 특수기 구슬
     globe(ctx, 66, PY + 30, 50, p.hp / p.maxHp, ['#ff4a3a', '#7a0a0a'], '#2a0606', Math.ceil(Math.max(0, p.hp)) + '/' + p.maxHp);
     globe(ctx, 894, PY + 30, 50, p.sp / p.maxSp, ['#5a9aff', '#0a2a7a'], '#06102a', Math.floor(p.sp) + '/' + p.maxSp);

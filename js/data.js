@@ -402,7 +402,10 @@ const DUNGEONS = [
 // 들어선 방은 문이 닫혀 있고 그 방 몹을 다 잡아야 열린다. 한 층 = 방 rooms 개(큰길 + 샛길 2), 방마다 무리 packs 개,
 // 층 끝 수호자를 잡고 계단을 내려가면 마을로 안 가고 바로 다음 층(world.js descend) — 런이 이어진다. 파티로도 들어감(흩어져 싸워도 됨).
 // 보상: 장비 단계 · 속성석은 심연의 문과 같고, 골드 · 경험치는 층마다 +reward. 깨면 최고 층(prof.endless.best) — 다음엔 깬 층 + 1 까지 고를 수 있음
-const ENDLESS = { max: 3, diff: 2, step: 1.15, hp: 1.06, dmg: 1.04, reward: 0.05, rooms: 9, packs: 3, scenes: ['hell', 'ice', 'order'] };  // step 1.04 → 1.08 → 1.15(2026-10-25 사용자: 1층 더 어렵게, 두 번)
+// Lv.100 콘텐츠(2026-10-26 사용자): 몹 레벨 lv 100 · 장비 Lv.100(혈석, 유니크는 안 떨어짐 — 제작으로만) · 입장 entry Lv.95 · 늘 1층부터(층 고르기 없음).
+// step: 예전 1.15(몹 Lv.90 기준, 2026-10-25 사용자: 1층 더 어렵게 두 번)를 몹 Lv.100 으로 옮기며 × POWER(95) / POWER(100) ≈ 0.86 —
+//   Lv.95 로 막 들어온 사람에게는 예전과 비슷한 손맛, Lv.100 장비를 갖추면 그만큼 쉬워진다(실제 손맛은 다시 잴 것)
+const ENDLESS = { max: 3, diff: 2, lv: 100, entry: 95, ilvl: [100, 104], step: 0.86, hp: 1.06, dmg: 1.04, reward: 0.05, rooms: 9, packs: 3, scenes: ['hell', 'ice', 'order'] };
 const endlessBest = prof => (prof.endless && prof.endless.best) || 0;
 const endlessOpen = prof => !!(prof.story && prof.story.trueEnding);
 const mixColor = (a, b, k) => '#' + [1, 3, 5].map(i => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - k) + parseInt(b.slice(i, i + 2), 16) * k).toString(16).padStart(2, '0')).join('');
@@ -411,7 +414,7 @@ function endlessDef(floor) {
   const fh = ENDLESS.step * Math.pow(ENDLESS.hp, floor - 1), fd = ENDLESS.step * Math.pow(ENDLESS.dmg, floor - 1);  // 영웅 배율은 난이도(ENDLESS.diff)가 곱한다
   return Object.assign({}, base, {
     id: 'endless', endless: true, floor, timeId: 'endless' + floor, name: '끝없는 심연 ' + floor + '층',
-    lv: 90, ilvl: [90, 94], rooms: ENDLESS.rooms, packs: ENDLESS.packs, roomMaps: true, needs: null, tint: mixColor(base.tint || '#c8b8a0', '#8a60e0', 0.45),
+    lv: ENDLESS.lv, entry: ENDLESS.entry, ilvl: ENDLESS.ilvl, rooms: ENDLESS.rooms, packs: ENDLESS.packs, roomMaps: true, needs: null, tint: mixColor(base.tint || '#c8b8a0', '#8a60e0', 0.45),
     ease: { hp: A.hp * fh, dmg: A.dmg * fd, bhp: A.bhp * fh, bdmg: A.bdmg * fd }, gainMul: 1 + ENDLESS.reward * (floor - 1),
     desc: base.name + '의 모습을 한 심연의 틈.',
   });
@@ -522,7 +525,8 @@ const GEAR_TIERS = [
   { mat: '흑요석', tint: '#2a2234' },  // Lv.60~69 검정
   { mat: '성화', tint: '#ff5a20' },    // Lv.70~79 주황빨강
   { mat: '별빛', tint: '#f4f6ff' },    // Lv.80~89 흰빛
-  { mat: '태초', tint: '#ffc018' },    // Lv.90~ 금색
+  { mat: '태초', tint: '#ffc018' },    // Lv.90~99 금색
+  { mat: '혈석', tint: '#d0306a' },    // Lv.100~ 핏빛 자홍(2026-10-26 사용자: 끝없는 심연 Lv.100 장비, '살아 있는 심연' 혈관 색)
 ];
 // 롯드 그림: 마법 지팡이 그림의 윗부분(머리 + 짧은 자루)만 잘라 쓴다 — 스태프와 같은 머리, 길이만 짧게
 FRAMES.weapon_rod = [FRAMES.weapon_red_magic_staff[0], FRAMES.weapon_red_magic_staff[1], 8, 18];
@@ -767,6 +771,12 @@ const STONE_BOSS_BOOST = 0.8;  // 보스 · 큰 상자: 큰 쪽이 더 잘 나�
 // 레벨업에 필요한 경험치
 // 다음 레벨까지 경험치: 같은 레벨 몹 경험치(역할 × POWER)로 치면 Lv.1 은 약 18마리, Lv.40 은 약 135마리(던전 두 판쯤) — 천천히 오르게
 const LV_MAX = 99;  // 만렙(2026-10-25 사용자: 일단 99)
+// 끝없는 심연에 갈 수 있게 되면(진엔딩) 만렙이 109 로 풀린다(2026-10-26 사용자 — 10씩 풀기, endgame-plan.md)
+const LV_MAX_ABYSS = 109;
+const lvMax = prof => (endlessOpen(prof) ? LV_MAX_ABYSS : LV_MAX);
+// Lv.100 이상 유니크는 떨어지지 않는다 — 제작으로만(레이드 '심연의 핵', endgame-plan.md ⑤). 항아리도 이 단계부터 유니크 대신 레어
+const UNIQUE_CRAFT_LV = 100;
+const entryLv = def => def.entry || def.lv;  // 던전 입장 레벨(끝없는 심연은 몹 레벨과 따로)
 const EXP_NEED = 0.75;  // 다음 레벨까지 필요한 경험치 배율(2026-10-25 사용자: 레벨업 조금 더 빠르게 — 약 1.33배 빨라짐)
 const expToNext = lv => Math.round((150 + 30 * lv) * POWER(lv) * EXP_NEED);
 // 장비 항아리(2026-10-25 사용자: 99 이후 콘텐츠의 도박을 지금 — 내 레벨대 장비 뽑기, 도박꾼 단지가 부위를 골라 팜). 등급은 이 표대로(사용자 "돈이 너무 잘 회수된다" → 레어 10% · 유니크 3%, 매직 35%, 나머지 일반 52%).
