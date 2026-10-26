@@ -59,7 +59,9 @@ const Art = (() => {
       } else {
         const s0 = d.swing[0] * RAD, s1 = d.swing[1] * RAD;
         th = aim + (ph === 0 ? s0 : ph === 1 ? lerp(s0, s1, k) : s1);
-        if (ph >= 1 && (ph === 1 || t - a.s - a.a < 0.1)) trail = { a0: aim + s0, a1: th, fade: ph === 1 ? 1 : 1 - (t - a.s - a.a) / 0.1 };
+        // 칼 궤적은 판정 부채꼴(정면 ± arc) 안만 그린다 — 칼은 시작각부터 휘둘러도 궤적은 판정 각도에서 시작 · 끝(2026-10-26 이펙트 범위 = 판정 범위)
+        const arc = Math.min(Math.PI, ((a.hd && a.hd.arc) || d.arc || 180) * RAD), clip = v => Math.max(-arc, Math.min(arc, v));
+        if (ph >= 1 && (ph === 1 || t - a.s - a.a < 0.1)) trail = { a0: aim + clip(s0), a1: aim + clip(th - aim), fade: ph === 1 ? 1 : 1 - (t - a.s - a.a) / 0.1 };
       }
     } else if (p.charge > 0) {
       // 기를 모으는 중: 칼을 뒤로 젖혀 든다(다 모이면 떨린다)
@@ -91,7 +93,7 @@ const Art = (() => {
         hx = p.x - p.fv.y * (flip ? -4 : 4); hy = p.y - 7 + p.fv.x * (flip ? -1 : 1);
       } else {
         th = aim - (main.th - aim);
-        if (main.trail) trail = { a0: aim - (main.trail.a0 - aim), a1: th, fade: main.trail.fade };
+        if (main.trail) trail = { a0: aim - (main.trail.a0 - aim), a1: aim - (main.trail.a1 - aim), fade: main.trail.fade };  // 오른손 궤적의 거울(판정 각도 안)
       }
     } else if (p.state === 'hurt' || p.state === 'dead') {
       th = Math.PI / 2 + (flip ? -0.5 : 0.5);
@@ -174,14 +176,26 @@ const Art = (() => {
     }
   }
   // 칼끝이 지나간 자리: 두툼한 색 초승달 + 안쪽 흰 날 + 칼끝 쪽 반짝(휘두른 뒤 0.1초 흐려지며 사라짐)
+  // 그 칸 속성석 단계(2026-10-26 사용자: 마법사처럼 검사도 레벨에 따라): 1 = 궤적을 따라 속성 알갱이 · 2 = 바깥 빛 한 겹 더 · 알갱이 더 · 3 = 칼끝 오로라.
+  // 궤적 반지름은 칼 길이 그대로(판정 reach 와 거의 같음 — 이펙트 범위 = 판정 범위)
   function bladeTrail(ctx, p, w, hx, hy, trail) {
     const R = FRAMES[Items.base(w).icon][3] - WEAPON_GRIP + 5;
-    const col = (p.act ? Elements.color(p.prof, p.act.def.slot || 'none', null) : null) || 'rgb(170,215,255)';
+    const st = p.act && p.prof.sockets ? Elements.socket(p.prof, p.act.def.slot || 'none') : null, T = Elements.tier(st);
+    const col = st ? ELEMENTS[st.el].color : 'rgb(170,215,255)';
     const { a0, a1 } = trail, f = trail.fade === undefined ? 1 : Math.max(0, trail.fade);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    crescent(ctx, hx, hy, R - 2, a0, a1, 11, col, 0.42 * f);
+    if (T >= 3) { ctx.globalAlpha = f; Gfx.aurora(ctx, hx + Math.cos(a1) * R * 0.7, hy + Math.sin(a1) * R * 0.6, 9, st.size); ctx.globalCompositeOperation = 'lighter'; }
+    if (T >= 2) crescent(ctx, hx, hy, R - 3, a0, a1, 15, col, 0.22 * f);
+    crescent(ctx, hx, hy, R - 2, a0, a1, 11, col, (0.42 + T * 0.06) * f);
     crescent(ctx, hx, hy, R, a0 + (a1 - a0) * 0.3, a1, 4, '#ffffff', 0.8 * f);
+    if (T) {
+      const n = 2 + T * 2, fr = Math.floor(performance.now() / 50);
+      for (let i = 0; i < n; i++) {
+        const u = (i + 0.5) / n, a = a1 - (a1 - a0) * u * 0.85, rr = R - 3 - (i % 3) * 2;
+        elemBit(ctx, st.el, hx + Math.cos(a) * rr, hy + Math.sin(a) * rr * 0.82 - (st.el === 'fire' ? u * 4 : st.el === 'poison' ? -u * 3 : 0), 1.2 + T * 0.4, f * (1 - u * 0.5), i, col, fr);
+      }
+    }
     const g = ctx.createRadialGradient(hx + Math.cos(a1) * R, hy + Math.sin(a1) * R * 0.82, 0, hx + Math.cos(a1) * R, hy + Math.sin(a1) * R * 0.82, 7);
     g.addColorStop(0, 'rgba(255,255,255,' + 0.45 * f + ')'); g.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = g; ctx.fillRect(hx + Math.cos(a1) * R - 7, hy + Math.sin(a1) * R * 0.82 - 7, 14, 14);
@@ -407,6 +421,41 @@ const Art = (() => {
     ctx.beginPath(); ctx.moveTo(s.x - dy * w, y + dx * w); ctx.lineTo(s.x - dx * len, y - dy * len); ctx.lineTo(s.x + dy * w, y - dx * w); ctx.closePath(); ctx.fill();
   }
 
+  // 속성 알갱이 하나(검사 칼 궤적 · 회전베기 · 검기 공용, 2026-10-26): 불 = 불티 빛 · 얼음 = 마름모 얼음 조각 · 번개 = 짧게 꺾인 전기 · 독 = 방울. 끝나면 'lighter' 로 둔다
+  function elemBit(ctx, el, x, y, s, a, i, col, fr) {
+    if (a <= 0.02) return;
+    if (el === 'fire') { glow(ctx, x, y, s * 1.8, i % 2 ? '#ffd36a' : col, a); ctx.globalCompositeOperation = 'lighter'; return; }
+    ctx.globalCompositeOperation = 'lighter';
+    if (el === 'frost') {
+      ctx.globalAlpha = a; ctx.fillStyle = i % 2 ? '#ffffff' : Gfx.mix(col, 0.5, 'white');
+      ctx.beginPath(); ctx.moveTo(x, y - s * 1.5); ctx.lineTo(x + s * 0.6, y); ctx.lineTo(x, y + s * 1.5); ctx.lineTo(x - s * 0.6, y); ctx.closePath(); ctx.fill();
+    } else if (el === 'thunder') {
+      const b = Math.sin(fr * 4.7 + i * 3.1) * Math.PI * 2, L = s * 2.5;
+      ctx.globalAlpha = a; ctx.strokeStyle = i % 2 ? '#ffffff' : Gfx.mix(col, 0.4, 'white'); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(b) * L * 0.5 + 1, y + Math.sin(b) * L * 0.5); ctx.lineTo(x + Math.cos(b + 0.5) * L, y + Math.sin(b + 0.5) * L); ctx.stroke();
+    } else if (el === 'poison') {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = a; ctx.fillStyle = i % 2 ? '#d8ffb0' : col;
+      ctx.beginPath(); ctx.arc(x, y, s, 0, Math.PI * 2); ctx.fill();
+      ctx.globalCompositeOperation = 'lighter';
+    }
+  }
+  // 회전베기 · 선풍 베기 고리의 속성 알갱이(단계 1부터, 단계마다 는다): 도는 두 칼끝 뒤를 따라, 판정 반지름 안쪽
+  function ringMotif(ctx, f, R, spin, e, T, c) {
+    const n = 3 + T * 3, fr = Math.floor(f.t * 20), x0 = f.follow.x, y0 = f.follow.y - 3;
+    for (let j = 0; j < 2; j++) for (let i = 0; i < n; i++) {
+      const u = (i + 0.5) / n, a = spin + j * Math.PI - u * 2.2, rr = R - 5 - (i % 3) * 3;
+      elemBit(ctx, f.el, x0 + Math.cos(a) * rr, y0 + Math.sin(a) * rr * GROUND_Y - (f.el === 'fire' ? u * 7 : f.el === 'poison' ? -u * 3 : 0), 1.3 + T * 0.45, e * (1 - u * 0.55), i + j, c, fr);
+    }
+  }
+  // 검기 속성 알갱이(단계 1부터): 초승달 뒤로 흩어지며 남음(지나온 길 = 이미 판정이 지나간 곳). 돌린 좌표(날아가는 쪽 = +x) 안에서
+  function waveMotif(ctx, s, T, hex, fade) {
+    const n = 3 + T * 3, t = s.t || 0, fr = Math.floor(t * 20);
+    for (let i = 0; i < n; i++) {
+      const u = (t * 3 + i / n) % 1, side = (((i * 0.618) % 1) * 2 - 1) * 11 * (1 - u * 0.3);
+      elemBit(ctx, s.stone.el, -6 - u * (16 + T * 6), side + (s.stone.el === 'fire' ? -u * 4 : s.stone.el === 'poison' ? u * u * 6 : 0), 1.3 + T * 0.4, fade * (1 - u), i, hex, fr);
+    }
+  }
   // 속성 탄은 보석과 같은 색으로 진하게(2026-10-25 사용자: 화염 탄이 보석보다 옅고 하얗다).
   // 예전엔 '더하기' 빛으로 겹쳐 그려 색이 하얗게 떴다 → 몸은 보석 색 그대로 덮어 칠하고, 바깥은 보석의 어두운 색 테두리, 가운데만 작게 밝게
   function glow(ctx, x, y, r, col, a) {
@@ -540,7 +589,11 @@ const Art = (() => {
     if (s.def && s.def.wave && s.def.wave.scale) ctx.scale(s.def.wave.scale, s.def.wave.scale);  // 검기 크기
     ctx.globalCompositeOperation = 'lighter';
     for (let i = 2; i >= 1; i--) crescent(ctx, -8 - i * 6, 0, 13, -1.25, 1.25, 7 - i * 1.5, col, 0.22 / i * fade, 1, true);
-    if (s.stone) {  // 속성 검기: 보석 색 그대로(어두운 테두리 · 가는 밝은 날)
+    if (s.stone) {  // 속성 검기: 보석 색 그대로(어두운 테두리 · 가는 밝은 날). 검기 칸 속성석 단계: 1 = 뒤로 흩어지는 속성 알갱이 · 2 = 잔상 한 겹 더 · 3 = 오로라
+      const T = Elements.tier(s.stone);
+      if (T >= 3) { ctx.globalAlpha = fade; Gfx.aurora(ctx, -6, 0, 15, s.stone.size); }
+      if (T >= 2) { ctx.globalCompositeOperation = 'lighter'; crescent(ctx, -26, 0, 13, -1.1, 1.1, 5, hex, 0.3 * fade, 1, true); }
+      if (T) waveMotif(ctx, s, T, hex, fade);
       ctx.globalCompositeOperation = 'source-over';
       crescent(ctx, -8, 0, 13, -1.34, 1.34, 10, dark, 0.95 * fade, 1, true);
       crescent(ctx, -8, 0, 13, -1.3, 1.3, 8, hex, fade, 1, true);
@@ -588,7 +641,7 @@ const Art = (() => {
         }
         case 'shock':
           ctx.strokeStyle = 'rgba(255,200,120,' + (1 - k) + ')'; ctx.lineWidth = 3;
-          ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r * (0.5 + k * 0.6), f.r * 0.6 * (0.5 + k * 0.6), 0, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r * (0.5 + k * 0.5), f.r * GROUND_Y * (0.5 + k * 0.5), 0, 0, Math.PI * 2); ctx.stroke();
           break;
         case 'shadowpath': {  // 암살자 그림자 베기 · 백스탭 순간이동: 지나간 직선에 어두운 빛 띠(굵기 w) + 색 띠 + 흰 날 + 양 끝 번쩍임
           const pts = f.follow ? [f.pts[0], [f.follow.x, f.follow.y]] : f.pts;  // follow = 몸을 따라 늘어나는 띠(그림자 베기)
@@ -614,19 +667,24 @@ const Art = (() => {
           const c = f.col && f.col !== '#ffffff' ? f.col : 'rgb(190,225,255)', R = f.r * (0.7 + 0.3 * k), spin = k * Math.PI * 2.4, e = 1 - k;
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
-          ctx.globalAlpha = 0.16 * e; ctx.fillStyle = c;
-          ctx.beginPath(); ctx.ellipse(f.follow.x, f.follow.y - 2, R, R * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+          const T = f.tier || 0;
+          if (T >= 3) { ctx.globalAlpha = e; Gfx.aurora(ctx, f.follow.x, f.follow.y - 3, R * 0.85, f.ss || 6); ctx.globalCompositeOperation = 'lighter'; }
+          ctx.globalAlpha = (0.16 + T * 0.04) * e; ctx.fillStyle = c;
+          ctx.beginPath(); ctx.ellipse(f.follow.x, f.follow.y, R, R * GROUND_Y, 0, 0, Math.PI * 2); ctx.fill();
           for (let j = 0; j < 2; j++) {
             const h = spin + j * Math.PI;
-            crescent(ctx, f.follow.x, f.follow.y - 6, R, h - 2.6, h, 10 * e + 2, c, 0.5 * e, 0.6);
-            crescent(ctx, f.follow.x, f.follow.y - 6, R + 1, h - 1.5, h, 3 * e + 1, '#ffffff', 0.75 * e, 0.6);
+            crescent(ctx, f.follow.x, f.follow.y - 3, R - 3, h - 2.6, h, 9 * e + 2, c, (0.5 + T * 0.08) * e, GROUND_Y);
+            crescent(ctx, f.follow.x, f.follow.y - 3, R - 2, h - 1.5, h, 3 * e + 1, '#ffffff', 0.75 * e, GROUND_Y);
+            if (T >= 2) crescent(ctx, f.follow.x, f.follow.y - 3, R * 0.62, h - 1.6, h + 0.6, 4 * e + 1, c, 0.45 * e, GROUND_Y);  // 안쪽 고리 하나 더
           }
+          if (T) ringMotif(ctx, f, R, spin, e, T, c);
           ctx.restore();
           break;
         }
         case 'breath': {  // 마법사 마력 숨결(2026-10-26 사용자: 각진 부채꼴이 어색 → 흩뿌려지는 느낌): 지팡이 끝에서 부드러운 빛 뭉치들이
           // 조금씩 늦게 나와 바깥으로 흘러가며 커지고 옅어진다(가운데로 몰림 · 좌우 흔들림). 뭉치 자리 · 크기는 f.seed 로 정해 둔다. 가운데 몸통 빛 · 반짝이 덧붙임
-          const o = f.follow || f, ox = o.x + Math.cos(f.a) * 6, oy = o.y - 8 + Math.sin(f.a) * 6, h = f.arc * Math.PI / 180;
+          // 판정 부채꼴(몸 가운데에서 길이 R · 반각 h) 안에서만 그린다(2026-10-26 이펙트 범위 = 판정 범위). 높이만 지팡이 쪽으로 8 올림
+          const o = f.follow || f, ox = o.x, oy = o.y - 8, h = f.arc * Math.PI / 180;
           const rnd = (i, j) => { const v = Math.sin((f.seed || 0) + i * 12.9898 + j * 78.233) * 43758.5453; return v - Math.floor(v); };
           // 기본 칸 속성석 단계(f.tier, 2026-10-26): 1 = 속성 알갱이(불티 · 얼음 반짝이 · 전기 · 독 방울) · 2 = 뭉치 · 알갱이 더 · 3 = 지팡이 끝 오로라
           const T = f.tier || 0, n = Math.round((f.big ? 30 : 20) * (1 + 0.1 * T)), white = f.col === '#c9b8ff';
@@ -637,28 +695,29 @@ const Art = (() => {
             ctx.beginPath(); ctx.arc(x, y, s, 0, Math.PI * 2); ctx.fill();
           };
           ctx.save();
-          if (T >= 3) { ctx.globalAlpha = 1 - k; Gfx.aurora(ctx, ox, oy, 10 + f.R * 0.12, f.ss || 6); }
+          if (T >= 3) { ctx.globalAlpha = 1 - k; Gfx.aurora(ctx, ox + Math.cos(f.a) * f.R * 0.45, oy + Math.sin(f.a) * f.R * 0.45, f.R * 0.3, f.ss || 6); }
           ctx.globalCompositeOperation = 'lighter';
           // 몸통: 가운데 줄을 따라 겹친 큰 뭉치 넷 — 테두리 없는 부드러운 부채꼴 빛
           const grow = Math.min(1, k * 3 + 0.2), wide = Math.tan(Math.min(h, 1.2));
           for (let j = 0; j < 4; j++) {
-            const d = f.R * (0.2 + 0.24 * j) * grow;
-            puff(ox + Math.cos(f.a) * d, oy + Math.sin(f.a) * d * 0.85, Math.max(4, d * wide * 0.95 + 4), 0.32 * (1 - k) * (1 - j * 0.15));
+            const d = f.R * (0.22 + 0.17 * j) * grow;
+            puff(ox + Math.cos(f.a) * d, oy + Math.sin(f.a) * d, Math.max(3, Math.min(d * wide * 0.9 + 3, f.R - d)), 0.32 * (1 - k) * (1 - j * 0.15));
           }
           for (let i = 0; i < n; i++) {
             const delay = rnd(i, 1) * 0.28, q = Math.max(0, Math.min(1, (k - delay) / 0.7));
             if (q <= 0 || q >= 1) continue;
-            const spread = (rnd(i, 2) + rnd(i, 3) - 1) * h * 1.15, wob = Math.sin(q * 6 + i) * 0.12 * h;
-            const ang = f.a + spread + wob, d = f.R * (0.08 + 0.92 * (1 - (1 - q) * (1 - q))) * (0.75 + 0.3 * rnd(i, 4));
-            const x = ox + Math.cos(ang) * d, y = oy + Math.sin(ang) * d * 0.85, s = (4 + 9 * q) * (0.7 + 0.6 * rnd(i, 5)) * (f.big ? 1.25 : 1);
-            puff(x, y, s, Math.pow(Math.sin(Math.PI * q), 0.6) * 0.7);
+            const spread = (rnd(i, 2) * 2 - 1) * h * 0.85, wob = Math.sin(q * 6 + i) * 0.1 * h;
+            const ang = f.a + spread + wob, s0 = (3 + 7 * q) * (0.7 + 0.6 * rnd(i, 5)) * (f.big ? 1.2 : 1);
+            const d = Math.min(f.R * (0.15 + 0.85 * (1 - (1 - q) * (1 - q))) * (0.8 + 0.2 * rnd(i, 4)), f.R - s0 * 0.6);
+            const s = Math.min(s0, Math.max(2, d * Math.tan(Math.max(0.05, h - Math.abs(spread + wob))) + 2));  // 부채꼴 옆 선 밖으로 안 나가게
+            puff(ox + Math.cos(ang) * d, oy + Math.sin(ang) * d, s, Math.pow(Math.sin(Math.PI * q), 0.6) * 0.7);
           }
           ctx.fillStyle = '#ffffff';
           for (let i = 0; i < (f.big ? 10 : 6); i++) {  // 반짝이: 뭉치보다 빨리 멀리
             const q = Math.max(0, Math.min(1, (k - rnd(i, 6) * 0.3) / 0.5));
             if (q <= 0 || q >= 1) continue;
-            const ang = f.a + (rnd(i, 7) * 2 - 1) * h, d = f.R * 1.05 * q;
-            ctx.globalAlpha = 0.9 * (1 - q); ctx.fillRect(Math.round(ox + Math.cos(ang) * d), Math.round(oy + Math.sin(ang) * d * 0.85), 1, 1);
+            const ang = f.a + (rnd(i, 7) * 2 - 1) * h * 0.9, d = f.R * 0.95 * q;
+            ctx.globalAlpha = 0.9 * (1 - q); ctx.fillRect(Math.round(ox + Math.cos(ang) * d), Math.round(oy + Math.sin(ang) * d), 1, 1);
           }
           if (T) breathMotif(ctx, f, k, T, ox, oy, h, rnd);
           ctx.restore();
@@ -713,8 +772,8 @@ const Art = (() => {
     for (let i = 0; i < m; i++) {
       const q = Math.max(0, Math.min(1, (k - rnd(i, 8) * 0.3) / 0.6));
       if (q <= 0 || q >= 1) continue;
-      const ang = f.a + (rnd(i, 9) * 2 - 1) * h * 1.05, d = f.R * (0.15 + 0.95 * (1 - (1 - q) * (1 - q))) * (0.7 + 0.35 * rnd(i, 10));
-      const x = ox + Math.cos(ang) * d, y = oy + Math.sin(ang) * d * 0.85, fade = Math.sin(Math.PI * q);
+      const ang = f.a + (rnd(i, 9) * 2 - 1) * h * 0.85, d = f.R * (0.15 + 0.75 * (1 - (1 - q) * (1 - q))) * (0.8 + 0.2 * rnd(i, 10));
+      const x = ox + Math.cos(ang) * d, y = oy + Math.sin(ang) * d, fade = Math.sin(Math.PI * q);
       if (f.el === 'fire') {
         glow(ctx, x, y - q * 8, 2 + T * 0.6, i % 2 ? '#ffd36a' : '#ff9a4a', 0.95 * fade);
         ctx.globalCompositeOperation = 'lighter';
@@ -738,14 +797,15 @@ const Art = (() => {
   //   불 = 바깥으로 튀며 솟는 불꽃 덩이 · 얼음 = 바깥을 겨눈 얼음 조각 · 번개 = 사방으로 뻗는 전기 · 독 = 부풀어 퍼지는 독구름 · 없음 = 보랏빛 별 고리.
   //   단계(f.tier) 1부터 고리 한 겹 더, 2부터 솟는 빛기둥, 3은 오로라. 알갱이 수도 단계마다 는다
   function nova(ctx, f, k) {
-    const T = f.tier || 0, P = Math.PI * 2, e = 1 - k, ease = 1 - e * e, light = Gfx.mix(f.col, 0.5, 'white'), y0 = f.y - 4;
+    // 판정 반지름 f.r 안에서만(2026-10-26 이펙트 범위 = 판정 범위): 바닥 빛 · 고리 · 알갱이 모두 f.r 까지. bare = 빛기둥 · 오로라 없이(검사 회전베기 속성 폭발)
+    const T = f.tier || 0, P = Math.PI * 2, e = 1 - k, ease = 1 - e * e, light = Gfx.mix(f.col, 0.5, 'white'), y0 = f.y;
     const rnd = (i, j) => { const v = Math.sin((f.seed || 0) + i * 12.9898 + j * 78.233) * 43758.5453; return v - Math.floor(v); };
     ctx.save();
-    if (T >= 3) { ctx.globalAlpha = e; Gfx.aurora(ctx, f.x, y0, f.r * (1 + 0.4 * ease), f.ss || 6); }
+    if (T >= 3 && !f.bare) { ctx.globalAlpha = e; Gfx.aurora(ctx, f.x, y0, f.r * 0.85, f.ss || 6); }
     ctx.globalCompositeOperation = 'lighter';
     // 바닥 빛: 테두리 없이 번지는 둥근 빛
-    const gR = f.r * (0.5 + 0.7 * ease);
-    ctx.save(); ctx.translate(f.x, y0); ctx.scale(1, 0.6);
+    const gR = f.r * (0.5 + 0.5 * ease);
+    ctx.save(); ctx.translate(f.x, y0); ctx.scale(1, GROUND_Y);
     const g = ctx.createRadialGradient(0, 0, 0, 0, 0, gR);
     g.addColorStop(0, light); g.addColorStop(0.5, f.col); g.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.globalAlpha = 0.5 * e; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, gR, 0, P); ctx.fill();
@@ -753,12 +813,12 @@ const Art = (() => {
       const q = Math.max(0, Math.min(1, (k - j * 0.12) / 0.75));
       if (q <= 0 || q >= 1) continue;
       ctx.globalAlpha = (j ? 0.6 : 0.9) * (1 - q); ctx.strokeStyle = j ? '#ffffff' : f.col; ctx.lineWidth = (j ? 1.5 : 3) * (1 - q) + 1;
-      ctx.beginPath(); ctx.arc(0, 0, f.r * (0.3 + 0.95 * (1 - (1 - q) * (1 - q))), 0, P); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, f.r * (0.3 + 0.68 * (1 - (1 - q) * (1 - q))), 0, P); ctx.stroke();
     }
     ctx.restore();
-    if (k < 0.3) glow(ctx, f.x, y0 - 2, f.r * 0.7, '#ffffff', 0.8 * (1 - k / 0.3));  // 가운데 번쩍임
+    if (k < 0.3) glow(ctx, f.x, y0 - 2, f.r * (f.bare ? 0.4 : 0.6), '#ffffff', (f.bare ? 0.5 : 0.8) * (1 - k / 0.3));  // 가운데 번쩍임
     ctx.globalCompositeOperation = 'lighter';
-    if (T >= 2) {  // 솟는 빛기둥: 가늘어지며 사라짐
+    if (T >= 2 && !f.bare) {  // 솟는 빛기둥: 가늘어지며 사라짐
       const H = 34 + T * 12, w = f.r * 0.36 * e;
       const lg = ctx.createLinearGradient(f.x, f.y, f.x, f.y - H);
       lg.addColorStop(0, light); lg.addColorStop(0.35, f.col); lg.addColorStop(1, 'rgba(0,0,0,0)');
@@ -767,14 +827,14 @@ const Art = (() => {
     }
     const n = 8 + T * 4;
     for (let i = 0; i < n; i++) {
-      const ang = (i + rnd(i, 1) * 0.6) * P / n, sp = 0.6 + 0.5 * rnd(i, 2), q = Math.min(1, k * (1.1 + 0.4 * rnd(i, 3)));
+      const ang = (i + rnd(i, 1) * 0.6) * P / n, sp = 0.66 + 0.3 * rnd(i, 2), q = Math.min(1, k * (1.1 + 0.4 * rnd(i, 3)));
       if (q >= 1) continue;
-      const d = f.r * sp * (1 - (1 - q) * (1 - q)), x = f.x + Math.cos(ang) * d, y = y0 + Math.sin(ang) * d * 0.6;
+      const d = (f.r - (f.el === 'frost' ? 6 : 3)) * sp * (1 - (1 - q) * (1 - q)), x = f.x + Math.cos(ang) * d, y = y0 + Math.sin(ang) * d * GROUND_Y;
       if (f.el === 'fire') {  // 튀며 솟는 불꽃 덩이
-        glow(ctx, x, y - q * (10 + T * 3), (4 + T + 4 * rnd(i, 4)) * (1 - q * 0.5), i % 3 ? f.col : '#ffd36a', 0.9 * (1 - q));
+        glow(ctx, x, y - q * (10 + T * 3), Math.min(f.r * 0.15, 4 + T + 3 * rnd(i, 4)) * (1 - q * 0.5), i % 3 ? f.col : '#ffd36a', 0.9 * (1 - q));
         ctx.globalCompositeOperation = 'lighter';
       } else if (f.el === 'frost') {  // 바깥을 겨눈 얼음 조각
-        const L = 4 + T * 1.5 + 3 * rnd(i, 4), W = 1.5 + T * 0.3, c = Math.cos(ang), s = Math.sin(ang) * 0.6, m = Math.hypot(c, s), ux = c / m, uy = s / m;
+        const L = Math.min(f.r * 0.14, 4 + T * 1.5 + 3 * rnd(i, 4)), W = 1.5 + T * 0.3, c = Math.cos(ang), s = Math.sin(ang) * GROUND_Y, m = Math.hypot(c, s), ux = c / m, uy = s / m;
         ctx.globalAlpha = 1 - q * q; ctx.fillStyle = i % 2 ? '#ffffff' : light;
         ctx.beginPath(); ctx.moveTo(x + ux * L, y + uy * L); ctx.lineTo(x - uy * W, y + ux * W); ctx.lineTo(x - ux * L * 0.4, y - uy * L * 0.4); ctx.lineTo(x + uy * W, y - ux * W); ctx.closePath(); ctx.fill();
       } else if (f.el === 'thunder') {  // 사방으로 뻗는 전기: 가운데에서 그 자리까지 꺾인 선(0.05초마다 모양이 바뀜)
@@ -786,7 +846,7 @@ const Art = (() => {
         ctx.stroke();
       } else if (f.el === 'poison') {  // 부풀어 퍼지는 독구름
         ctx.globalCompositeOperation = 'source-over';
-        const s = (5 + T + 5 * rnd(i, 4)) * (0.6 + 0.8 * q), cg = ctx.createRadialGradient(x, y - q * 4, 0, x, y - q * 4, s);
+        const s = Math.min(f.r * 0.15, 5 + T + 4 * rnd(i, 4)) * (0.6 + 0.6 * q), cg = ctx.createRadialGradient(x, y - q * 4, 0, x, y - q * 4, s);
         cg.addColorStop(0, i % 2 ? '#d8ffb0' : f.col); cg.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.globalAlpha = 0.6 * (1 - q); ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(x, y - q * 4, s, 0, P); ctx.fill();
         ctx.globalCompositeOperation = 'lighter';
@@ -804,13 +864,14 @@ const Art = (() => {
   //   2 완전한 = + 바깥 룬 고리(반대로 도는 점) · 차오르는 빛기둥   3 전설 · 태초 = + 오로라(속성석 테두리와 같은 색) · 더 밝게
   function magicCircle(ctx, f, time) {
     const k = Math.min(1, f.t / f.delay), after = Math.max(0, f.t - f.delay);
-    const R = f.r * (after ? 1 + after * 1.5 : 0.65 + 0.35 * k), a = after ? Math.max(0, 1 - after / 0.4) : 0.45 + 0.55 * k;
+    // 터진 뒤에는 커지지 않고 그 자리에서 사라진다(판정 = f.r, 2026-10-26 이펙트 범위 = 판정 범위)
+    const R = f.r * (after ? 1 : 0.65 + 0.35 * k), a = after ? Math.max(0, 1 - after / 0.3) : 0.45 + 0.55 * k;
     if (a <= 0) return;
     const T = f.tier || 0;
-    if (T >= 3) { ctx.save(); ctx.globalAlpha = a; Gfx.aurora(ctx, f.x, f.y - 2, R * 1.15, f.ss || 6); ctx.restore(); }
+    if (T >= 3) { ctx.save(); ctx.globalAlpha = a; Gfx.aurora(ctx, f.x, f.y, R * 0.85, f.ss || 6); ctx.restore(); }
     ctx.save();
     ctx.translate(f.x, f.y);
-    ctx.scale(1, 0.6);
+    ctx.scale(1, GROUND_Y);
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = 0.18 * a; ctx.fillStyle = f.col;
     ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.fill();
@@ -837,11 +898,11 @@ const Art = (() => {
   // 마법진 바닥 무늬(납작하게 눌린 좌표 — magicCircle 안에서)
   function circleGround(ctx, f, time, R, a, T, rot) {
     const P = Math.PI * 2, light = Gfx.mix(f.col, 0.5, 'white');
-    if (T >= 2) {  // 바깥 룬 고리: 반대로 도는 점 16개 + 가는 원
+    if (T >= 2) {  // 안쪽 룬 고리(판정 안): 반대로 도는 점 12개 + 가는 원
       ctx.globalAlpha = 0.7 * a; ctx.strokeStyle = f.col; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.arc(0, 0, R * 1.14, 0, P); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, R * 0.5, 0, P); ctx.stroke();
       ctx.fillStyle = light;
-      for (let i = 0; i < 16; i++) { const t = -rot * 0.8 + i * P / 16; ctx.fillRect(Math.round(Math.cos(t) * R * 1.14) - 1, Math.round(Math.sin(t) * R * 1.14) - 1, 2, 2); }
+      for (let i = 0; i < 12; i++) { const t = -rot * 0.8 + i * P / 12; ctx.fillRect(Math.round(Math.cos(t) * R * 0.5) - 1, Math.round(Math.sin(t) * R * 0.5) - 1, 2, 2); }
       ctx.globalAlpha = 0.5 * a; ctx.strokeStyle = '#ffffff';
       ctx.beginPath(); ctx.arc(0, 0, R * 0.3, 0, P); ctx.stroke();
     }
@@ -893,7 +954,7 @@ const Art = (() => {
     const n = (f.el === 'fire' ? 8 : 5) + T * 3;
     for (let i = 0; i < n; i++) {
       const t = i * P / n + i * 0.7, u = (time * (f.el === 'fire' ? 1.8 : 0.9) + i * 0.37) % 1;
-      const ring = f.el === 'fire' ? 0.95 : 0.3 + 0.6 * ((i * 0.53) % 1), bx = f.x + Math.cos(t) * R * ring, by = f.y + Math.sin(t) * R * 0.6 * ring;
+      const ring = f.el === 'fire' ? 0.88 : 0.3 + 0.55 * ((i * 0.53) % 1), bx = f.x + Math.cos(t) * R * ring, by = f.y + Math.sin(t) * R * GROUND_Y * ring;
       if (f.el === 'fire') {  // 둘레에서 피어올라 작아지는 불꽃
         glow(ctx, bx, by - u * (12 + T * 4), (5 + T * 1.5) * (1 - u * 0.6), i % 2 ? '#ffd36a' : f.col, a * (1 - u * 0.4));
       } else if (f.el === 'frost') {  // 천천히 떠오르는 서리 반짝이

@@ -8,6 +8,7 @@ const Elements = (() => {
   const color = (prof, slot, fallback = '#ffffff') => { const s = socket(prof, slot); return s ? ELEMENTS[s.el].color : fallback; };
   // 그림 단계(2026-10-26 사용자: 속성석 레벨에 따라 멋져지게 · 구간마다): 0 = 없음 · 조각 · 작은 / 1 = 보통 · 큰 / 2 = 완전한 / 3 = 전설 · 태초
   const tier = s => (!s ? 0 : s.size >= 5 ? 3 : s.size >= 4 ? 2 : s.size >= 2 ? 1 : 0);
+  const burstR = s => 40 + s.size * 4;  // 차지 칸(회전베기 · 마법진) 속성 폭발 반지름
   const live = e => !e.dying && e.state !== 'dead' && e.spawnT <= 0;
 
   // ── 크기별로 열리는 능력(EL_ABIL) ──
@@ -62,7 +63,7 @@ const Elements = (() => {
   function explode(x, y, r, dmg, el, extra) {
     World.fx({ type: 'burst', x, y, r, col: ELEMENTS[el].color, t: 0, life: 0.3 });
     for (const e of World.enemies()) {
-      if (!live(e) || Math.hypot(e.x - x, (e.y - y) * 1.3) > r + e.r) continue;
+      if (!live(e) || groundDist(e.x - x, e.y - y) > r + e.r) continue;
       if (dmg > 0) damage(e, dmg, el);
       if (extra) extra(e);
     }
@@ -247,7 +248,8 @@ const Elements = (() => {
     } else if (s.el === 'frost') {
       for (const da of [-0.22, 0.22]) shot(a0 + da, { name: '얼음 파편', speed: 230, left: 85, r: 4, mult: 0.2 * k, onHitE: e => chill(e, 1, k) });
     } else if (s.el === 'poison') {
-      World.fx({ type: 'burst', x: p.x + p.fv.x * 22, y: p.y + p.fv.y * 22, r: 18, col, t: 0, life: 0.25 });
+      // 그림 = 판정 부채꼴 그대로(길이 46 · 반각 41°, 2026-10-26 이펙트 범위 = 판정 범위) — 마법사 숨결과 같은 흩뿌림
+      World.fx({ type: 'breath', x: p.x, y: p.y, a: a0, R: 46, arc: Math.acos(0.75) * 180 / Math.PI, big: !!d.fin, seed: Math.random() * 1000, t: 0, life: 0.35, col, tier: tier(s), el: 'poison', ss: s.size });
       for (const e of World.enemies()) {
         if (!live(e)) continue;
         const dx = e.x - p.x, dy = e.y - p.y, dist = Math.hypot(dx, dy);
@@ -284,19 +286,21 @@ const Elements = (() => {
     if (World.mirror) return;  // 파티 손님: 속성석 효과는 방장 쪽 내 몸이 낸다(그림은 방장이 보내 줌)
     const s = socket(p.prof, 'charge');
     if (!s) return;
-    const k = power(s), atk = p.stats.atk, R = 40 + s.size * 4, col = ELEMENTS[s.el].color;
-    const near = World.enemies().filter(e => live(e) && Math.hypot(e.x - p.x, e.y - p.y) <= R + e.r);
+    const k = power(s), atk = p.stats.atk, R = burstR(s), col = ELEMENTS[s.el].color;
+    // 불 · 얼음 폭발 그림 = 판정 반지름 R 그대로(art.js fx 'nova', bare = 빛기둥 · 오로라 없이). 마법진은 world.js 가 R 까지 그린다(p.nova)
+    const nova = life => { if (!p.nova) World.fx({ type: 'nova', x: p.x, y: p.y, r: R, col, el: s.el, tier: tier(s), ss: s.size, bare: true, seed: Math.random() * 1000, t: 0, life }); };
+    const near = World.enemies().filter(e => live(e) && groundDist(e.x - p.x, e.y - p.y) <= R + e.r);
     if (slotOpen(s)) chargeExtra(p, s, k, R, near);
     switch (s.el) {
       case 'fire':
         Sfx.fire();
-        if (!p.nova) World.fx({ type: 'burst', x: p.x, y: p.y, r: R, col, t: 0, life: 0.35 });  // 마법진은 터질 때 속성 폭발(nova)을 따로 그린다
+        nova(0.4);
         World.shake(3);
         for (const e of near) { damage(e, atk * 0.8 * k, 'fire'); burn(e, p, k); }
         break;
       case 'frost':
         Sfx.frost();
-        if (!p.nova) World.fx({ type: 'burst', x: p.x, y: p.y, r: R, col, t: 0, life: 0.4 });
+        nova(0.45);
         for (const e of near) { damage(e, atk * 0.4 * k, 'frost'); chill(e, 3, k); }
         break;
       case 'thunder': {
@@ -388,7 +392,7 @@ const Elements = (() => {
     const k = power(shot.stone), frostOrb = shot.orb && slotOpen(shot.stone), R = frostOrb ? 40 : 28;  // 마법사 서리 구슬(보통부터): 넓게 + 냉기
     World.fx({ type: 'burst', x: shot.x, y: shot.y, r: R, col: ELEMENTS.frost.color, t: 0, life: 0.3 });
     for (const e of World.enemies()) {
-      if (!live(e) || Math.hypot(e.x - shot.x, e.y - shot.y) > R + e.r) continue;
+      if (!live(e) || groundDist(e.x - shot.x, e.y - shot.y) > R + e.r) continue;
       damage(e, p.stats.atk * (shot.orb ? 0.4 : 1.2) * k, 'frost');  // 검사 검기 끝 얼음 파편은 2배(2026-10-25)
       if (frostOrb) chill(e, 2, k);
       chill(e, 1, k);
@@ -400,7 +404,7 @@ const Elements = (() => {
     if (World.mirror) return;  // 파티 손님: 속성석 효과는 방장 쪽 내 몸이 낸다(그림은 방장이 보내 줌)
     if (f.magic) return;  // 마법진(el 은 그림용): 터질 때 chargeBurst 가 따로 한다
     for (const e of World.enemies()) {
-      if (!live(e) || Math.hypot(e.x - f.x, (e.y - f.y) * 1.6) > f.r + e.r) continue;
+      if (!live(e) || groundDist(e.x - f.x, e.y - f.y) > f.r + e.r) continue;
       if (f.el === 'fire') burn(e, f.p, f.k);
       if (f.el === 'poison') { poison(e, 1, f.p, f.k); damage(e, f.p.stats.atk * 0.08 * f.k, 'poison'); }
       if (f.el === 'frost') chill(e, 1, f.k);  // 얼음 장판 · 얼음 길
@@ -506,5 +510,5 @@ const Elements = (() => {
     return true;
   }
 
-  return { setBonus, socket, power, color, tier, onHit, basicSwing, breathHit, dashStart, dashMove, dashEnd, onDeath, step, reset, has, passives, best, chargeBurst, waveTrail, waveEnd, fieldTick, tick, vuln, describe, stacks, add, take, key };
+  return { setBonus, socket, power, color, tier, burstR, onHit, basicSwing, breathHit, dashStart, dashMove, dashEnd, onDeath, step, reset, has, passives, best, chargeBurst, waveTrail, waveEnd, fieldTick, tick, vuln, describe, stacks, add, take, key };
 })();

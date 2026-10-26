@@ -675,12 +675,14 @@ const World = (() => {
         f.done = true;
         let landed = false;
         for (const e of enemies) {
-          if (e.dying || e.state === 'dead' || Math.hypot(e.x - f.x, (e.y - f.y) * 1.4) > f.r + e.r) continue;
+          if (e.dying || e.state === 'dead' || groundDist(e.x - f.x, e.y - f.y) > f.r + e.r) continue;
           if (hitEnemy(e, f.def, p)) landed = true;
         }
         // 속성 폭발 그림(art.js fx 'nova'): 마법진 칸 속성석 속성 · 단계마다 다르게
         const T = f.tier || 0;
-        addFx({ type: 'nova', x: f.x, y: f.y, r: f.r * 1.1, col: f.col, el: f.el || '', tier: T, ss: f.ss || 0, seed: Math.random() * 1000, t: 0, life: 0.5 + T * 0.08 });
+        // 그림 반지름 = 마법진 판정 f.r, 불 · 얼음 속성석이면 그 폭발 판정(Elements.burstR)이 더 넓으면 거기까지
+        const nr = f.el === 'fire' || f.el === 'frost' ? Math.max(f.r, Elements.burstR({ size: f.ss || 0 })) : f.r;
+        addFx({ type: 'nova', x: f.x, y: f.y, r: nr, col: f.col, el: f.el || '', tier: T, ss: f.ss || 0, seed: Math.random() * 1000, t: 0, life: 0.5 + T * 0.08 });
         sparks(f.x, f.y - 6, 16, 18 + T * 6, f.col, T >= 2);
         Elements.chargeBurst(Object.assign(Object.create(p), { x: f.x, y: f.y, nova: true }));
         Sfx.blast(); Sfx.spell(); shake(4 + T);
@@ -692,7 +694,7 @@ const World = (() => {
         actor = null;
         addFx({ type: 'burst', x: f.x, y: f.y, r: f.r, col: ELEMENTS.fire.color, t: 0, life: 0.35 });
         Sfx.blast(); shake(3);
-        for (const t of [World.player, ...rps]) if (!t.dead && Math.hypot(t.x - f.x, (t.y - f.y) * 1.4) < f.r + BODY_R) hurtPlayer(t, f, f.dmg, 160);
+        for (const t of [World.player, ...rps]) if (!t.dead && groundDist(t.x - f.x, t.y - f.y) < f.r + BODY_R) hurtPlayer(t, f, f.dmg, 160);
       }
     }
     actor = null;

@@ -112,7 +112,7 @@ function updateEnemy(e, dt, room, p) {
         World.shake(4);
         World.dust(e.x, e.y, 14);
         World.fx({ type: 'shock', x: e.x, y: e.y, r: d.slam.radius, t: 0, life: 0.3 });
-        if (Math.hypot(p.x - e.x, p.y - e.y) <= d.slam.radius + BODY_R) hurtPlayer(p, e, d.slam.dmg * e.dmgMul, 200);
+        if (groundDist(p.x - e.x, p.y - e.y) <= d.slam.radius + BODY_R) hurtPlayer(p, e, d.slam.dmg * e.dmgMul, 200);
         e.state = 'recover'; e.t = 0.8;
       }
       break;

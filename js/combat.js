@@ -6,12 +6,17 @@ function unit(dx, dy, fallback) {
   return l > 0.001 ? { x: dx / l, y: dy / l } : fallback;
 }
 
+// 바닥에 깔리는 범위(둘레 공격 · 폭발 · 장판 · 마법진 · 보스 내려찍기)는 그림과 같은 납작한 타원(세로 = 가로 × GROUND_Y)으로 판정한다
+// (2026-10-26 사용자: 이펙트 범위 = 판정 범위 — 예전엔 판정이 동그라미라 그림 바로 아래 · 위 적도 맞았다)
+const GROUND_Y = 0.6;
+const groundDist = (dx, dy) => Math.hypot(dx, dy / GROUND_Y);
+
 // 공격 범위: 바라보는 쪽 부채꼴(거리 reach · 각도 arc) 또는 둘레(radius). tr = 맞는 쪽 몸 반지름
 function inHitbox(o, face, def, t, tr) {
   if ((t.z || 0) > AIR_REACH) return false;
   const dx = t.x - o.x, dy = t.y - o.y;
   const dist = Math.hypot(dx, dy);
-  if (def.radius) return dist <= def.radius + tr;
+  if (def.radius) return groundDist(dx, dy) <= def.radius + tr;
   const along = dx * face.x + dy * face.y;
   if (along < def.reach[0] - tr || along > def.reach[1] + tr) return false;
   // noBody(대시 찌르기): 칼날 줄 — 앞으로 reach 만큼, 칼날 줄에서 몸 반지름 + 5px 안쪽만

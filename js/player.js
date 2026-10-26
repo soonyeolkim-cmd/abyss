@@ -347,7 +347,10 @@ function updateAct(p, dt, room) {
   if (!a.fxDone && a.time >= tA) {
     a.fxDone = true;
     if (d.dash) World.fx({ type: 'streak', x0: a.x0, y0: a.y0, follow: p, t: 0, life: 0.25 });
-    if (d.spin) World.fx({ type: 'ring', follow: p, r: a.hd.radius, t: 0, life: 0.3, col: Elements.color(p.prof, d.slot || 'none') });
+    if (d.spin) {  // 그림 단계 · 속성: 그 칸 속성석(art.js fx 'ring')
+      const st = Elements.socket(p.prof, d.slot || 'none');
+      World.fx({ type: 'ring', follow: p, r: a.hd.radius, t: 0, life: 0.3, col: Elements.color(p.prof, d.slot || 'none'), tier: Elements.tier(st), el: st ? st.el : '', ss: st ? st.size : 0 });
+    }
     if (a.kind === 'charge' && !d.circle && !d.knives) Elements.chargeBurst(p);
     if (a.kind === 'stab') Elements.chargeBurst(p);  // 백스탭도 차지 칸 속성석 폭발(대상 등 뒤 자리에서)
     if (a.fly) World.fx({ type: 'shadowpath', pts: [[a.fly.x0, a.fly.y0]], follow: p, w: 8, t: 0, life: 0.3, col: '#b9a0ff' });  // 날아온 길  // 회전베기 칸 속성석: 둘레 폭발(마법진은 터질 때 그 자리에서)
