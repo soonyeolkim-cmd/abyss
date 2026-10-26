@@ -144,6 +144,7 @@ function hitEnemy(e, def, p, w) {
 function hurtPlayer(p, src, dmgRaw, knock) {
   if (src && src.disarmT > 0) dmgRaw *= 1 - (src.disarmCut || 0);  // 싸이 무장해제된 몹(탄은 쏠 때 몹 상태를 물려받음)
   if (p.remote) return Coop.remoteHurt(p, src, dmgRaw, knock);  // 파티 방장: 손님 몸이 맞음 → 손님 기기에서 무적 · 피해 계산
+  if (src && src.pct) return after(p, src, pctHurt(p, src));
   if (p.dead || p.safe || p.iframes > 0) return 'miss';
   const fx = p.stats.fx || {};
   // 유니크 잎사귀 방패: 준비돼 있으면 한 번 막는다
@@ -160,6 +161,7 @@ function hurtPlayer(p, src, dmgRaw, knock) {
   if (fx.skin) dmgBase *= UNIQUE_FX.skin;                          // 굳은 피부
   if (fx.dashguard && p.guardT > 0) dmgBase *= UNIQUE_FX.dashguard;  // 잔상 보호막
   if (src && (src.chill > 0 || src.state === 'frozen') && Elements.has(p.prof, 'frost', 'p2')) dmgBase *= 0.7;  // 한기(빙결석 전설부터)
+  if (p.markT > 0) dmgBase *= RAID_RULE.markMul;  // 레이드 공허 표식
   if (p.hidden) endHide(p, '들켰다!');  // 숨은 중에 맞으면 드러남
   const dmg = Math.max(1, Math.round(dmgBase));
   p.hp -= dmg;
@@ -170,6 +172,28 @@ function hurtPlayer(p, src, dmgRaw, knock) {
   World.shake(2);
   Sfx.hurt();
   World.number(p.x, p.y, 30, dmg, '#ff6a5a');
+  if (p.hp <= 0) downOrRevive(p);
+  return after(p, src, 'hit');
+}
+// 맞은 뒤 레이드 벌: src.stun = 그 초만큼 기절(돌진 짓밟기) · src.mark = 그 초만큼 공허 표식(받는 피해 ×markMul)
+function after(p, src, r) {
+  if (r !== 'hit' || !src || p.dead) return r;
+  if (src.stun) { p.state = 'stun'; p.t = src.stun; p.act = null; p.charge = 0; World.text(p.x, p.y, 40, '기절!', '#ffd36a'); }
+  if (src.mark) { p.markT = src.mark; World.text(p.x, p.y, 48, '공허 표식!', '#c06aff'); }
+  return r;
+}
+
+// 최대 체력의 pct 만큼(방어 · 잎사귀 방패 무시) — 레이드 벌. src.unavoid 면 대시 무적도 무시(수정 폭발), 아니면 대시로 피함(구슬 · 파동)
+function pctHurt(p, src) {
+  if (p.dead || p.safe || (!src.unavoid && p.iframes > 0)) return 'miss';
+  const dmg = Math.max(1, Math.round(p.maxHp * src.pct * (p.markT > 0 ? RAID_RULE.markMul : 1)));
+  if (p.hidden) endHide(p, '들켰다!');
+  p.hp -= dmg;
+  p.state = 'hurt'; p.t = 0.3; p.act = null; p.charge = 0;
+  p.iframes = 0.5; p.flash = 0.12;
+  World.shake(5);
+  Sfx.hurt();
+  World.number(p.x, p.y, 30, dmg, '#c06aff');
   if (p.hp <= 0) downOrRevive(p);
   return 'hit';
 }

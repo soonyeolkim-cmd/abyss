@@ -720,6 +720,15 @@ const World = (() => {
         Sfx.blast(); shake(3);
         for (const t of [World.player, ...rps]) if (!t.dead && groundDist(t.x - f.x, t.y - f.y) < f.r + BODY_R) hurtPlayer(t, f, f.dmg, 160);
       }
+      // 레이드 파동(패턴이 바뀔 때 포효): delay 뒤 고리가 speed 로 퍼짐 — 고리 띠(두께 w, art.js 그림 그대로)가 지나가는 사람마다 한 번(대시 무적이면 피함)
+      if (f.wave && f.t >= f.delay) {
+        const R = (f.t - f.delay) * f.speed;
+        f.hit = f.hit || [];
+        for (const t of [World.player, ...rps]) {
+          if (t.dead || f.hit.includes(t) || Math.abs(groundDist(t.x - f.x, t.y - f.y) - R) > f.w / 2 + BODY_R * 0.5) continue;
+          if (hurtPlayer(t, { x: f.x, y: f.y, pct: f.pct }, 0, 120) !== 'miss') f.hit.push(t);
+        }
+      }
     }
     actor = null;
     fields = fields.filter(f => f.t < f.life);
@@ -1049,7 +1058,7 @@ const World = (() => {
     drawHazards(ctx);
     drawDoors(ctx);
     if (lv.stairs) Art.stairs(ctx, lv.stairs, time);
-    for (const f of fields) if (inView(f.x, f.y)) Art.field(ctx, f, time);
+    for (const f of fields) if (f.wave || inView(f.x, f.y)) Art.field(ctx, f, time);  // 레이드 파동은 방 전체로 퍼지니 늘 그림
     for (const d of lv.drops) if (inView(d.x, d.y)) Art.drop(ctx, d, time);
     // 앞뒤(y) 정렬: 기둥 · 상자 · 캐릭터
     const list = [];
@@ -1085,6 +1094,7 @@ const World = (() => {
     for (const e of vis) if (Math.hypot(e.x - p.x, e.y - p.y) < LIGHT_R + 30) { Art.enemyBar(ctx, e); Art.nameTag(ctx, e); }
     for (const d of lv.drops) if (d.kind === 'item' && Math.hypot(d.x - p.x, d.y - p.y) < LIGHT_R + 60) Art.dropLabel(ctx, d);
     for (const t of texts) Art.floatText(ctx, t);
+    if (lv.def.raid) Raid.labels(ctx);  // 레이드 공허 수정: 터지기까지 남은 초
     for (const m of mates) if (inView(m.x, m.y)) {  // 파티원 이름표(직업, 파티 순서 색)는 어둠 위에(어디 있는지 보이게)
       const nm = (m.cls && m.cls.name) || '친구';
       ctx.font = 'bold 6px ' + Gfx.FONT; ctx.textAlign = 'center'; ctx.fillStyle = '#000';
@@ -1105,6 +1115,7 @@ const World = (() => {
     ctx.restore();
     if (fadeT > 0) { ctx.fillStyle = 'rgba(0,0,0,' + Math.min(1, fadeT / FADE * 1.2) + ')'; ctx.fillRect(0, 0, VIEW_W, VIEW_H); }  // 방을 옮길 때 어둠이 걷힘
     for (const m of mates) if (!lv.roomMaps || roomOf(m) === roomOf(p)) mateArrow(ctx, m);  // 다른 방 친구는 방 지도에만
+    if (lv.def.raid) Raid.arrows(ctx, edgeArrow);  // 화면 밖 공허 수정 쪽 화살표 + 터지기까지 남은 초
     Coop.drawBubbles(ctx, p, x => (x - cam.x) * SCALE, y => (y - cam.y) * SCALE, 88);  // 파티 말풍선(유니크 획득 등)
     Hud.draw(ctx);
   }
@@ -1144,14 +1155,20 @@ const World = (() => {
 
   // 파티 친구가 화면 밖이면 화면 가장자리에 그쪽을 가리키는 화살표 + 거리(2026-10-25 사용자). 쓰러졌으면 붉게 "쓰러짐"
   function mateArrow(ctx, m) {
-    const viewH = (VIEW_H - HUD_H) * SCALE, sx = (m.x - cam.x) * SCALE, sy = (m.y - 10 - cam.y) * SCALE;
+    const down = m.dead, col = down ? '#ff6a5a' : Coop.colorOf(m.pid), d = Math.round(Math.hypot(m.x - p.x, m.y - p.y) / T);
+    edgeArrow(ctx, m.x, m.y - 10, col, (ax, ay) => Gfx.spr(ctx, m.cls.sprite + '_idle_anim_f0', ax, ay + 10, { scale: 1.5 }),  // 친구 얼굴(작게)
+      (down ? '쓰러짐 ' : ((m.cls && m.cls.name) || '친구') + ' ') + d + 'm');
+  }
+  // 화면 밖 (x, y) 쪽 가장자리 화살표: 둥근 바탕 + 화살촉 + 가운데 그림(icon) + 옆 글. 레이드 공허 수정(남은 초)도 같이 씀
+  function edgeArrow(ctx, wx, wy, col, icon, label) {
+    const viewH = (VIEW_H - HUD_H) * SCALE, sx = (wx - cam.x) * SCALE, sy = (wy - cam.y) * SCALE;
     if (sx > 10 && sx < 950 && sy > 10 && sy < viewH - 10) return;  // 보이면 그만
     const cx = 480, cy = (viewH - 26) / 2, a = Math.atan2(sy - cy, sx - cx), M = 34;  // 아래쪽은 체력 구슬 · 알림 글을 피해 조금 위로
     // 가운데에서 친구 쪽으로 그은 줄이 가장자리(여백 M)와 만나는 곳
     const k = Math.min((480 - M) / Math.max(0.001, Math.abs(Math.cos(a))), (cy - M) / Math.max(0.001, Math.abs(Math.sin(a))));
     let ax = cx + Math.cos(a) * k, ay = cy + Math.sin(a) * k;
     if (ax > 770 && ay < 190) { ax = 960 - M; ay = 190; }  // 오른쪽 위 자동 지도 · 던전 이름 · 시간 자리는 피해서 그 아래 오른쪽 끝에
-    const down = m.dead, col = down ? '#ff6a5a' : Coop.colorOf(m.pid), pulse = 0.75 + 0.25 * Math.sin(time * 6);
+    const pulse = 0.75 + 0.25 * Math.sin(time * 6);
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.translate(Math.round(ax), Math.round(ay));
@@ -1166,10 +1183,9 @@ const World = (() => {
     ctx.restore();
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    Gfx.spr(ctx, m.cls.sprite + '_idle_anim_f0', Math.round(ax), Math.round(ay) + 10, { scale: 1.5 });  // 친구 얼굴(작게)
-    const d = Math.round(Math.hypot(m.x - p.x, m.y - p.y) / T);
+    icon(Math.round(ax), Math.round(ay));
     const ty = ay > cy ? ay - 26 : ay + 34;
-    Gfx.text(ctx, (down ? '쓰러짐 ' : ((m.cls && m.cls.name) || '친구') + ' ') + d + 'm', Math.round(ax), Math.round(ty), 12, col, 'center');
+    Gfx.text(ctx, label, Math.round(ax), Math.round(ty), 12, col, 'center');
     ctx.restore();
   }
 

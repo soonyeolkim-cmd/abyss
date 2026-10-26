@@ -117,7 +117,19 @@ const Art = (() => {
     const pose = weaponPose(p, time);
     o.flip = pose.flip;
     if (p.state === 'walk') name = Gfx.anim(base + '_run_anim', p.walkT, 10);
-    if (p.state === 'hurt') name = base + '_hit_anim_f0';
+    if (p.state === 'hurt' || p.state === 'stun') name = base + '_hit_anim_f0';
+    // 레이드 벌 표시(머리 위): 기절 = 도는 노란 별 셋 · 공허 표식 = 맥동하는 보랏빛 눈(남은 시간 동안)
+    if (p.state === 'stun' && !p.dead) {
+      ctx.fillStyle = '#ffd36a';
+      for (let i = 0; i < 3; i++) { const a = time * 6 + i * 2.1; ctx.fillRect(Math.round(p.x + Math.cos(a) * 7) - 1, Math.round(p.y - 25 + Math.sin(a) * 2), 2, 2); }
+    }
+    if (p.markT > 0 && !p.dead) {
+      const y = Math.round(p.y - 31), k = 0.6 + 0.4 * Math.sin(time * 8);
+      ctx.save(); ctx.globalAlpha = k;
+      ctx.fillStyle = '#c06aff'; ctx.beginPath(); ctx.ellipse(p.x, y, 4, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#1a0a22'; ctx.fillRect(Math.round(p.x) - 1, y - 1, 2, 2);
+      ctx.restore();
+    }
     if (p.state === 'dodge') {
       name = Gfx.anim(base + '_run_anim', time, 20);
       for (let i = 3; i >= 1; i--) Gfx.spr(ctx, name, p.x - p.dodgeV.x * i * 6, p.y - p.dodgeV.y * i * 6, { flip: o.flip, flash: '#9ad8ff', alpha: 0.25 / i });
@@ -1146,8 +1158,27 @@ const Art = (() => {
     ctx.restore();
   }
 
+  // 레이드 파동: delay 동안 보스 발밑에서 보랏빛이 모이며 깜빡(예고) → 바닥 고리 띠(반지름 R, 두께 w = 판정 띠)가 퍼짐
+  function voidWave(ctx, f, time) {
+    ctx.save();
+    ctx.translate(f.x, f.y); ctx.scale(1, GROUND_Y);
+    if (f.t < f.delay) {
+      const k = f.t / f.delay;
+      ctx.strokeStyle = 'rgba(192,106,255,' + (0.4 + 0.5 * Math.abs(Math.sin(time * 18))) + ')'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(0, 0, 34 * (1 - k) + 10, 0, Math.PI * 2); ctx.stroke();  // 안쪽으로 모이는 고리
+    } else {
+      const R = (f.t - f.delay) * f.speed, fade = Math.min(1, (f.life - f.t) / 0.3);
+      ctx.globalAlpha = 0.85 * fade;
+      ctx.strokeStyle = '#c06aff'; ctx.lineWidth = f.w;
+      ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = '#f0d0ff'; ctx.lineWidth = 2;  // 띠 가운데 밝은 줄(띠 안)
+      ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
+  }
   function field(ctx, f, time) {
     if (f.magic) { magicCircle(ctx, f, time); return; }
+    if (f.wave) { voidWave(ctx, f, time); return; }
     if (f.blast) {
       // 화염 강화 몹의 죽음 폭발 예고: 붉은 원이 차오른다
       if (f.done) return;

@@ -112,7 +112,7 @@ function updateEnemy(e, dt, room, p) {
       break;
     case 'recover':
       e.t -= dt;
-      if (e.t <= 0) { e.state = 'move'; e.atkCd = 0.6 + Math.random() * 0.9; }
+      if (e.t <= 0) { e.state = 'move'; e.atkCd = (0.6 + Math.random() * 0.9) * (d.cdMul || 1); }  // cdMul = 끝없는 심연 중간 보스(더 자주)
       break;
     // ── 보스 패턴 ──
     case 'slam':
@@ -122,7 +122,7 @@ function updateEnemy(e, dt, room, p) {
         World.dust(e.x, e.y, 14);
         World.fx({ type: 'shock', x: e.x, y: e.y, r: d.slam.radius, t: 0, life: 0.3 });
         if (groundDist(p.x - e.x, p.y - e.y) <= d.slam.radius + BODY_R) hurtPlayer(p, e, d.slam.dmg * e.dmgMul, 200);
-        e.state = 'recover'; e.t = 0.8;
+        e.state = 'recover'; e.t = 0.8 * (d.recMul || 1);
         if (d.raid) Raid.slammed(e);  // 레이드 1단계: 내려찍기 3번이면 지쳐 심장이 드러남
       }
       break;
@@ -136,7 +136,7 @@ function updateEnemy(e, dt, room, p) {
       mobMove(room, e, e.chargeV.x * d.charge.speed * dt, e.chargeV.y * d.charge.speed * dt);  // 보스 방 끝에 닿으면 벽처럼 멈춤
       if (!e.hitDone && Math.hypot(p.x - e.x, p.y - e.y) < e.r + BODY_R + 4) {
         e.hitDone = true;
-        hurtPlayer(p, e, d.charge.dmg * e.dmgMul, 220);
+        hurtPlayer(p, d.raid ? Raid.chargeSrc(e) : e, d.charge.dmg * e.dmgMul, 220);  // 레이드 껍질 패턴: 짓밟혀 기절
       }
       if (e.hitWall && d.raid && Raid.pillar(e, room)) {
         // 레이드 1단계: 기둥에 박으면 기둥이 부서지며 심장이 드러남(Raid.pillar 가 상태를 바꿈)
@@ -144,14 +144,14 @@ function updateEnemy(e, dt, room, p) {
         e.state = 'tired'; e.t = 1.1;  // 벽에 박으면 멍해진다 — 때릴 기회
         World.shake(4); World.dust(e.x, e.y, 10);
         World.text(e.x, e.y, e.h + 6, '쿵!', '#ffd36a');
-      } else if (e.t <= 0) { e.state = 'recover'; e.t = 0.5; }
+      } else if (e.t <= 0) { e.state = 'recover'; e.t = 0.5 * (d.recMul || 1); }
       break;
     case 'fan':
       e.t -= dt;
       if (e.t <= 0) {
         const n = d.fan.count;
         for (let k = 0; k < n; k++) shootAt(e, p, { shot: d.fan.speed, dmg: d.fan.dmg, knock: 90, color: d.fan.color }, n, k);
-        e.state = 'recover'; e.t = 0.7;
+        e.state = 'recover'; e.t = 0.7 * (d.recMul || 1);
       }
       break;
     // ── 끝없는 심연 몹 ──
@@ -343,7 +343,7 @@ function bossThink(e, dt, room, p) {
       else { e.state = 'windup'; e.windupT = e.t = d.atk.windup; }
     } else if (d.fan && r < 0.45) { e.state = 'fan'; e.t = d.fan.windup; e.windupT = e.t; }
     else { e.state = 'chargeWind'; e.t = d.charge.windup; e.windupT = e.t; e.chargeV = { x: e.fv.x, y: e.fv.y }; }
-    e.atkCd = 1.2 + Math.random() * 0.8;
+    e.atkCd = (1.2 + Math.random() * 0.8) * (d.cdMul || 1);
     return;
   }
   if (pd > 26) {

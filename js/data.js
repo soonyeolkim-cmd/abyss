@@ -323,17 +323,25 @@ Object.assign(ENEMIES, {
 });
 // ── 끝없는 심연 최종 보스 레이드 '심연의 파수꾼'(2026-10-26 사용자, js/raid.js) ──
 // 3층 중간 보스를 깨고 계단에서 '최종 보스 도전'. 큰 방 하나 · 제한 시간 time 초 · 쓰러지거나 시간이 다 되면 실패(골드는 안 잃음, 1~3층 전리품은 그대로).
-// 체력 = 3층 중간 보스 × hpMul(파티면 인원 배율도). 3단계(체력 66 · 33%) — 약점(청록 심장)이 드러난 동안만 제대로 맞는다(exposedMul, 어느 쪽 · 어떤 공격이든):
-//   ① 껍질: 평소 ×shellCut('팅'). 내려찍기 slams 번 뒤 지쳐 slamExpose 초 노출 / 돌진하다 방 기둥에 부딪히면 기둥이 깨지며 pillarExpose 초
-//   ② 수정 보호막: 방 네 귀퉁이 공허 수정 4개가 있는 동안 피해 없음 → 다 부수면 crystalExpose 초 노출, crystalBack 초 뒤 수정이 다시 · 공허 장판 · 탄
+// 체력 = 3층 중간 보스(mid.hp 배율 전) × hpMul(파티면 인원 배율도). 약점(청록 심장)이 드러난 동안만 제대로 맞는다(exposedMul, 어느 쪽 · 어떤 공격이든).
+// 패턴 셋을 패턴마다 repeat[0]~[1] 번씩 섞은 순서로(같은 패턴 연달아 없음), 심장이 한 번 드러날 때마다 다음 패턴 — 한 번에 깎이는 체력 = 최대 / 순서 길이(6~9).
+// 패턴이 바뀔 때 shift 초 무적 · 포효. 체력이 줄수록 공격 사이가 짧아짐(최대 ×0.65). (2026-10-26 사용자: 예전 체력 66 · 33% 3단계 → 섞기)
+//   ① 껍질: 평소 ×shellCut('팅'). 내려찍기 slams 번 뒤 지쳐 slamExpose 초 노출 / 돌진하다 방 기둥에 부딪히면 기둥이 깨지며 pillarExpose 초(껍질이 다시 나오면 기둥도 다시)
+//   ② 수정 보호막: 방 네 귀퉁이 공허 수정 4개가 있는 동안 피해 없음 → 다 부수면 crystalExpose 초 노출 · 공허 장판 · 탄.
+//      crystalTime 초(패턴 바뀌는 shift 뒤부터) 안에 다 못 부수면 남은 수정마다 모두에게 최대 체력 crystalPct 피해(방어 · 대시 무적 무시) 후 노출 없이 다음 패턴
+//      (2026-10-26 사용자: 남은 수만큼 한 명씩 즉사는 파티가 어려워서 → 비율 피해. 걸어서 네 귀퉁이를 다 돌면 약 1400px ≈ 17초(속도 82) → 25초)
+// 벌(2026-10-26 사용자가 고름): 껍질 돌진에 맞으면 stun 초 기절 · 구슬을 못 쳐내고 맞으면 최대 체력 orbPct + 공허 표식 markT 초(받는 피해 ×markMul) ·
+//   패턴이 바뀔 때 포효 파동 wave(delay 뒤 speed 로 퍼지는 두께 w 고리, 맞으면 최대 체력 pct — 대시로 넘으면 안 맞음)
 //   ③ 되받아치기: 공허 구슬을 던짐 → 어떤 공격으로든 치면 보스 쪽으로 되돌아감(orbBack 배 빨라짐) → 맞으면 orbExpose 초 노출.
 //      보스가 rallyChance 로 다시 쳐 냄(랠리, rallyMax 번까지 — 그다음엔 꼭 맞음) · 사방 탄
 // 보상: 심연의 핵 1(+ fastTime 초 안 = fastCore, 아니면 extraCore 확률로 하나 더, 처음 깨면 하나 더) · 심연 정수 essence · 보통 보스 전리품(Lv.100 유니크는 제작으로만)
 // 수치는 실제로 재 보지 못함(hpMul · time 은 손맛 보고 다시)
 // 2026-10-26 시험(무적 · 공격 ×40 시험 캐릭터): hpMul 5 · 내려찍기 3번 · 노출 ×1.5 로는 1단계만 2분, hpMul 3 이어도 2단계에서 4분이 넘음
 //   → 체력 = 중간 보스 × 1.2(드러날 때만 제대로 맞으니 실제로는 중간 보스 몇 배 걸림) · 내려찍기 2번 · ×2 · 노출 시간 늘리고 제한 5분
-const RAID_RULE = { hpMul: 1.2, time: 300, shellCut: 0.1, exposedMul: 2, slams: 2, slamExpose: 4, pillarExpose: 6, crystalExpose: 7, crystalBack: 8,
-  orbExpose: 5, orbSpeed: 120, orbBack: 1.15, rallyMax: 3, rallyChance: 0.5, orbDmg: 1.5, essence: 10, fastTime: 120, fastCore: 0.5, extraCore: 0.15 };
+//   → 섞기로 바꾸며 드러나야 하는 횟수가 3 → 6~9 번이 되어 제한 5 → 7분 · 빠른 깸 2 → 3분 30초
+const RAID_RULE = { hpMul: 1.2, time: 420, shellCut: 0.1, exposedMul: 2, slams: 2, slamExpose: 4, pillarExpose: 6, crystalExpose: 7, crystalTime: 25, crystalPct: 0.2, repeat: [2, 3], shift: 1.2,
+  stun: 1.5, orbPct: 0.25, markT: 5, markMul: 1.3, wave: { delay: 0.5, speed: 240, w: 12, pct: 0.15, maxR: 560 },
+  orbExpose: 5, orbSpeed: 120, orbBack: 1.15, rallyMax: 3, rallyChance: 0.5, essence: 10, fastTime: 210, fastCore: 0.5, extraCore: 0.15 };
 Object.assign(ENEMIES, {
   abyss_raid: { name: '심연의 파수꾼', sprite: 'raid_warden', pix: true, idle: false, boss: true, raid: true, speed: 34, range: 30, superArmor: true, launchMul: 0, r: 16,
     atk: { windup: 0.6, active: 0.14, recovery: 0.7, knock: 200, reach: [0, 36], arc: 100, lunge: 120 },
@@ -476,13 +484,17 @@ const DUNGEONS = [
 // → 2026-10-26 사용자 '몹이 너무 많고 체력도 많다, 방도 너무 크다' (추천안): 몹만 stepHp 0.30(영웅 대비 ×0.75) · stepDmg 0.80(×1.75),
 //   방마다 무리 3 → 2 · 무리 크기 8~10 → 6~8(packAdd 3) — 층마다 몹 약 185 → 약 95. 중간 보스 · 레이드는 예전 세기 그대로(bossHp · bossDmg).
 //   방 크기는 dungeon.js generateRooms(약 절반)
+// → 2026-10-26 사용자 '중간 보스 피통 5배 이상 · 공격 좀 더 자주': mid { hp 체력 배율(레이드 체력은 그대로 — raidDef 가 나눔),
+//   cd 공격 사이 쉼 배율(enemy.js bossThink · recover 뒤), rec 내려찍기 · 탄 · 돌진 뒤 굳는 시간 배율 } — 층마다 수호자(floors boss)에 붙인다
 // floors(2026-10-26 사용자: 기존 던전을 빌리던 것 → '살아 있는 심연' 전용 몹 · 풍경): 층마다 몹 무리(pool — 같은 이름 여러 번 = 더 자주) · 수호자 · 음악(빌린 곡)
 const ENDLESS = { max: 3, diff: 2, lv: 100, entry: 95, ilvl: [100, 104], stepHp: 0.30, stepDmg: 0.80, bossHp: 0.43, bossDmg: 0.64, hp: 1.06, dmg: 1.04, reward: 0.05, rooms: 9, packs: 2, packAdd: 3,
+  mid: { hp: 5, cd: 0.4, rec: 0.75 },
   floors: [
     { pool: ['splitter', 'splitter', 'shieldbearer'], boss: 'split_mother', music: 'hell' },
     { pool: ['splitter', 'shieldbearer', 'blinker', 'blinker', 'tentacle'], boss: 'maw_lord', music: 'ice' },
     { pool: ['splitter', 'shieldbearer', 'blinker', 'tentacle', 'warder'], boss: 'abyss_warden', music: 'order' },
   ] };
+for (const F of ENDLESS.floors) Object.assign(ENEMIES[F.boss], { cdMul: ENDLESS.mid.cd, recMul: ENDLESS.mid.rec });
 // 풍경 '살아 있는 심연': 0x72 벽돌에 검보라를 곱하고(tint) 바닥에 핏빛 혈관(veins — dungeon.js paint, 맥박은 world.js drawVeins)
 const LIVING = { tint: '#7a4a86', vein: '#5a1430', veinLit: '#c8306a' };
 // 끝없는 심연 단계(2026-10-26 사용자): 광산 도시 실베인 던전 고르기에 줄로 하나씩(벨록 던전 줄 모양). 만렙을 10씩 풀 때마다 한 단계씩 늘린다(1단계 = Lv.100 '살아 있는 심연')
@@ -503,15 +515,15 @@ function endlessDef(floor) {
     lv: ENDLESS.lv, entry: ENDLESS.entry, ilvl: ENDLESS.ilvl, rooms: ENDLESS.rooms, packs: ENDLESS.packs, roomMaps: true, needs: null,
     pool: F.pool, boss: F.boss, music: F.music, hazard: 'void', tint: LIVING.tint, veins: true,
     banner: 'wall_banner_red', wall: ['wall_goo', 'wall_hole_2'], cols: 0.3, skulls: 0,
-    ease: { hp: A.hp * fh, dmg: A.dmg * fd, bhp: A.bhp * bh, bdmg: A.bdmg * bd }, packAdd: ENDLESS.packAdd, gainMul: 1 + ENDLESS.reward * (floor - 1),
+    ease: { hp: A.hp * fh, dmg: A.dmg * fd, bhp: A.bhp * bh * ENDLESS.mid.hp, bdmg: A.bdmg * bd }, packAdd: ENDLESS.packAdd, gainMul: 1 + ENDLESS.reward * (floor - 1),
     desc: '살아 숨 쉬는 심연의 틈.',
   };
 }
-// 최종 보스 레이드 던전: 3층 세기 그대로 + 보스 체력 × hpMul. 방 하나(js/raid.js level), 몹 무리 · 함정 없음
+// 최종 보스 레이드 던전: 3층 세기 그대로 + 보스 체력 = 3층 중간 보스(mid.hp 배율 전) × hpMul. 방 하나(js/raid.js level), 몹 무리 · 함정 없음
 function raidDef() {
   const d3 = endlessDef(ENDLESS.max);
   return Object.assign({}, d3, { raid: true, floor: ENDLESS.max + 1, timeId: 'endlessRaid', name: '최종 보스 — 심연의 파수꾼', boss: 'abyss_raid', pool: [], hazard: null, music: 'order',
-    ease: Object.assign({}, d3.ease, { bhp: d3.ease.bhp * RAID_RULE.hpMul }), desc: '심연의 밑바닥을 지키는 파수꾼.' });
+    ease: Object.assign({}, d3.ease, { bhp: d3.ease.bhp / ENDLESS.mid.hp * RAID_RULE.hpMul }), desc: '심연의 밑바닥을 지키는 파수꾼.' });
 }
 
 // ── 아이템 ──

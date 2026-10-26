@@ -165,6 +165,7 @@ function updatePlayer(p, dt, room, gates) {
   if (p.echo) updateEcho(p, dt);
   if (p.hidden && !p.dead && !p.remote) updateHide(p, dt);  // 방장 쪽 손님 몸은 손님이 보낸 숨기 상태만(길 · 기력은 손님 기기에서)
   p.slowT = Math.max(0, (p.slowT || 0) - dt);  // 냉기 강화 몹에게 맞으면 느려짐
+  p.markT = Math.max(0, (p.markT || 0) - dt);  // 레이드 공허 표식: 받는 피해 증가(combat.js)
   p.iframes = Math.max(0, p.iframes - dt);
   p.flash = Math.max(0, p.flash - dt);
   p.bufferT -= dt;
@@ -183,6 +184,10 @@ function updatePlayer(p, dt, room, gates) {
   switch (p.state) {
     case 'hurt':
       p.t -= dt;
+      if (p.t <= 0) p.state = 'idle';
+      break;
+    case 'stun':  // 레이드 돌진 짓밟기: 아무것도 못 함(머리 위 별은 art.js)
+      p.t -= dt; p.buffer = null;
       if (p.t <= 0) p.state = 'idle';
       break;
     case 'dodge':
