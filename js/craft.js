@@ -18,7 +18,7 @@ const Craft = (() => {
   }
   const gemEl = slot => (GEMS.might.slots.includes(slot) ? 'might' : 'guard');
   const scrollHave = prof => (prof.scrolls['any:0'] || 0) + (prof.scrolls['any:1'] || 0);
-  const gemHave = (prof, el) => { let n = 0; for (let s = CRAFT.gemSize; s < STONE_SIZES.length; s++) n += prof.stones[el + ':' + s] || 0; return n; };
+  const gemHave = (prof, el) => prof.stones[el + ':' + CRAFT.gemSize] || 0;  // 전설만(2026-10-26 사용자: 태초는 안 받음)
   // 재료 줄: 이름 · 그림 · 가진 수 · 필요 수
   function needs(prof, slot) {
     const el = gemEl(slot);
@@ -26,7 +26,7 @@ const Craft = (() => {
       { name: '심연의 핵', icon: 'core', have: prof.cores || 0, need: CRAFT.cores },
       { name: '심연 정수', icon: 'essence', have: prof.essence || 0, need: CRAFT.essence },
       { name: '강화 주문서 (축복 · 보통)', icon: 'scroll', have: scrollHave(prof), need: CRAFT.scrolls },
-      { name: STONE_SIZES[CRAFT.gemSize].name + ' ' + GEMS[el].stone + ' (이상)', icon: 'gem', el, have: gemHave(prof, el), need: CRAFT.gems },
+      { name: STONE_SIZES[CRAFT.gemSize].name + ' ' + GEMS[el].stone, icon: 'gem', el, have: gemHave(prof, el), need: CRAFT.gems },
       { name: '골드', icon: 'gold', have: prof.gold, need: CRAFT.gold },
     ];
   }
@@ -55,7 +55,7 @@ const Craft = (() => {
     prof.cores -= CRAFT.cores;
     prof.essence -= CRAFT.essence;
     for (let n = 0; n < CRAFT.scrolls; n++) if (!Items.takeScroll(prof, { g: 'any', r: 1 })) Items.takeScroll(prof, { g: 'any', r: 0 });  // 보통부터
-    for (let n = 0; n < CRAFT.gems; n++) for (let s = CRAFT.gemSize; s < STONE_SIZES.length; s++) if (Elements.take(prof, { el, size: s })) break;  // 전설부터
+    for (let n = 0; n < CRAFT.gems; n++) Elements.take(prof, { el, size: CRAFT.gemSize });  // 전설만
     prof.gold -= CRAFT.gold;
     made = Items.make(CRAFT.lv, { slot: r.slot, kind: r.kind, rarity: 3, uniq: uniqOf(r.slot) });
     prof.bag[slot] = made;

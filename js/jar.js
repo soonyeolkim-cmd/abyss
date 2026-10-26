@@ -42,14 +42,15 @@ const Jar = (() => {
   }
 
   // 고를 수 있는 레벨: 지금 레벨, 그 아래 10 단위 단계(지금 단계는 빼고 — Lv.95 면 80 · 70 · … · 10 · 1)
-  // 2026-10-26 사용자: 끝없는 심연에 들어갈 수 있으면(진엔딩 · 입장 Lv.95) Lv.100 아래여도 Lv.100(혈석) 항아리를 맨 위에 — 유니크는 안 나옴
+  // 2026-10-26 사용자: Lv.100 항아리는 없앰(잠깐 넣었던 Lv.95~99 의 Lv.100 혈석 항아리도) — 가장 높은 항아리 = JAR.maxLv(Lv.99).
+  // Lv.100 넘은 캐릭터는 Lv.99 항아리가 맨 위(그 아래 80 · 70 …)
+  const topLv = prof => Math.max(1, Math.min(prof.lv, JAR.maxLv));
   const levels = prof => {
-    const out = [Math.max(1, prof.lv)];
-    for (let b = Math.floor(prof.lv / 10) * 10 - 10; b >= 0; b -= 10) out.push(Math.max(1, b));
-    if (endlessOpen(prof) && prof.lv >= ENDLESS.entry && prof.lv < ENDLESS.lv) out.unshift(ENDLESS.lv);
+    const top = topLv(prof), out = [top];
+    for (let b = Math.floor(top / 10) * 10 - 10; b >= 0; b -= 10) out.push(Math.max(1, b));
     return out;
   };
-  const nowIdx = prof => levels(prof).indexOf(Math.max(1, prof.lv));  // 지금 레벨 항아리 자리(Lv.100 항아리가 앞에 붙으면 1)
+  const nowIdx = () => 0;  // 처음엔 맨 위(지금 레벨, Lv.100 넘으면 Lv.99)
   const jarLv = prof => { const ls = levels(prof); return ls[Math.min(lvSel, ls.length - 1)]; };
   const price = prof => JAR.price(jarLv(prof));
   // 이 부위 · 단계 유니크를 이미 가졌나(2026-10-25 사용자: 컬렉션 · 가방 · 끼고 있는 것 모두 봄, 무기는 내 직업 무기 두 종류가 다 있어야 '있음')
@@ -110,6 +111,8 @@ const Jar = (() => {
       return;
     }
     if (st === 'pop') { for (const s of shards) { s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 600 * dt; } if (t >= POP) { st = 'result'; t = 0; } return; }
+    // 뒤로(B): 결과를 보는 중이면 취소 = 새 항아리로(창은 그대로), 아니면 창 닫기. 메뉴 키는 늘 닫기
+    if (Input.wasPressed('back') && st === 'result') { st = 'ready'; item = null; Sfx.ui && Sfx.ui('back'); return; }
     if (Input.wasPressed('back') || Input.wasPressed('pause')) { Game.closeOverlay(); return; }
     // 부위 고르기(결과를 보다가 다른 부위로 가면 새 항아리)
     const n = SLOTS.length, before = sel;
@@ -156,13 +159,13 @@ const Jar = (() => {
     const cur = prof.equip[slot()];
     T_(ctx, '지금 낀 ' + SLOT_NAMES[slot()] + ': ' + (cur ? Items.nameOf(cur) + (cur.ups ? ' +' + cur.ups : '') : '없음'), 44, 428, 12, cur ? RARITY[cur.rarity].color : '#6a6068');
     // 레벨 고르기(지난 레벨 항아리는 그 레벨일 때 값 그대로)
-    const ly = 446, cur0 = jl === Math.max(1, prof.lv), up = jl > prof.lv;
+    const ly = 446, cur0 = lvSel === 0, cap = prof.lv > JAR.maxLv;  // cap = Lv.100 넘은 캐릭터(맨 위 = Lv.99 항아리)
     [[-1, 44], [1, 404]].forEach(([d, x]) => {
       const ok = d < 0 ? lvSel < ls.length - 1 : lvSel > 0;
       if (!busy) UI.zone(x, ly - 4, 44, 32, { pick: () => pickLv(prof, lvSel - d), now: true });
       T_(ctx, d < 0 ? '◀' : '▶', x + 22, ly + 19, 18, ok ? '#ffd36a' : '#3a2e36', 'center');
     });
-    T_(ctx, 'Lv.' + jl + ' 항아리' + (cur0 ? ' (지금 레벨)' : up ? ' (혈석 · 끝없는 심연)' : ' (지난 레벨 · 그때 값)'), 246, ly + 18, 15, cur0 ? '#f0e0b8' : up ? '#ff7ab0' : '#9ad8ff', 'center');
+    T_(ctx, 'Lv.' + jl + ' 항아리' + (cur0 ? (cap ? ' (가장 높은 항아리)' : ' (지금 레벨)') : ' (지난 레벨 · 그때 값)'), 246, ly + 18, 15, cur0 ? '#f0e0b8' : '#9ad8ff', 'center');
     T_(ctx, '깨 보기 전엔 몰라요! 고른 부위 · 고른 레벨대 장비가 하나 들어 있어요', 44, 486, 12, '#9a8e96');
 
     // ── 오른쪽: 항아리 무대 ──
@@ -209,21 +212,30 @@ const Jar = (() => {
       }
       T_(ctx, Items.nameOf(item), CX, JY + 34, 20, rarCol, 'center');
       T_(ctx, (item.uniq ? '유니크' : RARITY[item.rarity].name) + ' · ' + SLOT_NAMES[item.slot] + ' · 착용 Lv.' + Items.req(item), CX, JY + 56, 13, '#c8b8a0', 'center');
-      lines.slice(2, 7).forEach((l, i) => T_(ctx, l.t, CX, JY + 80 + i * 18, 13, l.c || '#e8dcc8', 'center'));
+      // 긴 줄(무기 특성 등)은 판 안(420)에 들어가게 글자를 줄인다(10까지)
+      lines.slice(2, 7).forEach((l, i) => {
+        let sz = 13;
+        for (; sz > 10; sz--) { ctx.font = 'bold ' + sz + 'px ' + Gfx.FONT; if (ctx.measureText(l.t).width <= 420) break; }
+        T_(ctx, l.t, CX, JY + 80 + i * 18, sz, l.c || '#e8dcc8', 'center');
+      });
     } else if (st === 'ready') {
       T_(ctx, '값 ' + p + 'G', CX, JY + 84, 22, prof.gold >= p ? '#ffd34d' : '#ff7a6a', 'center');
       T_(ctx, '착용 Lv.' + req + ' ' + SLOT_NAMES[slot()] + ' · 가방 빈칸 ' + prof.bag.filter(b => !b).length, CX, JY + 108, 13, '#9a8e96', 'center');
     }
-    // 깨기 버튼(흔들리고 깨지는 동안은 없음)
+    // 아래 버튼 둘(2026-10-26 사용자: 왼쪽 = 뽑기, 오른쪽 = 취소 · B 로도) — 흔들리고 깨지는 동안은 없음.
+    // 오른쪽: 결과를 보는 중이면 '취소'(새 항아리로 돌아감), 아니면 '닫기'(창 닫기) — 확인 · 뒤로 키와 같다
     if (!busy) {
-      const by = 432, bw = 300, bx = CX - bw / 2;
-      UI.zone(bx, by, bw, 40, { key: 'ok', now: true });
-      Gfx.panel(ctx, bx, by, bw, 38, { border: '#e8c040', bg: '#1d151b' });
-      T_(ctx, (st === 'result' ? '한 번 더 ' : '항아리 깨기 ') + p + 'G ' + L('ok'), CX, by + 25, 15, '#ffd36a', 'center');
+      const by = 432, bw = 200, gap = 12, lx = CX - bw - gap / 2, rx = CX + gap / 2;
+      UI.zone(lx, by, bw, 40, { key: 'ok', now: true });
+      Gfx.panel(ctx, lx, by, bw, 38, { border: '#e8c040', bg: '#1d151b' });
+      T_(ctx, (st === 'result' ? '한 번 더 ' : '깨기 ') + p + 'G ' + L('ok'), lx + bw / 2, by + 25, 14, '#ffd36a', 'center');
+      UI.zone(rx, by, bw, 40, { key: 'back', now: true });
+      Gfx.panel(ctx, rx, by, bw, 38, { border: '#6a5a62', bg: '#1d151b' });
+      T_(ctx, (st === 'result' ? '취소 ' : '닫기 ') + L('back'), rx + bw / 2, by + 25, 14, '#c8b8a0', 'center');
     }
     if (Input.touchMode()) return;  // 폰: 키 이름 안내 글 없음
     ctx.fillStyle = '#000'; ctx.fillRect(0, 496, 960, 44);
-    T_(ctx, '부위 고르기 ↑↓ · 레벨 ←→ · 항아리 깨기 ' + L('ok') + ' · 닫기 ' + L('back'), 480, 522, 13, '#8a7e88', 'center');
+    T_(ctx, '부위 고르기 ↑↓ · 레벨 ←→ · 항아리 깨기 ' + L('ok') + ' · ' + (st === 'result' ? '취소 ' : '닫기 ') + L('back'), 480, 522, 13, '#8a7e88', 'center');
   }
   const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + Math.max(0, Math.min(1, a)) + ')'; };
 

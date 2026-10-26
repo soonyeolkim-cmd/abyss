@@ -884,9 +884,9 @@ const lvMax = prof => (endlessOpen(prof) ? LV_MAX_ABYSS : LV_MAX);
 // Lv.100 이상 유니크는 떨어지지 않는다 — 제작으로만(레이드 '심연의 핵', endgame-plan.md ⑤). 항아리도 이 단계부터 유니크 대신 레어
 const UNIQUE_CRAFT_LV = 100;
 // Lv.100 유니크 제작(2026-10-26 사용자, 실베인 '심연 장인 고른' — js/craft.js): 부위(무기는 내 직업 무기 종류)를 고르면 그 부위 유니크 확정.
-// 재료 하나 = 심연의 핵 cores + 심연 정수 essence + 강화 주문서 scrolls 장(축복 · 보통 아무거나, 보통부터 씀) +
-//   전설 이상 보석 gems 개(무기 · 장신구 = 공격, 방어구 = 방어 — 전설부터 씀, 사용자: 완전한 2개 대신 전설 1개) + 골드 gold
-const CRAFT = { lv: UNIQUE_CRAFT_LV, cores: 1, essence: 20, scrolls: 20, gems: 1, gemSize: 5, gold: 200000 };
+// 재료 하나 = 심연의 핵 cores(Lv.100 제작에만 — 다른 곳에는 안 씀, 사용자) + 심연 정수 essence(20 → 60, 사용자: 한 바퀴 약 45개라 남아돎) + 강화 주문서 scrolls 장(축복 · 보통 아무거나, 보통부터 씀) +
+//   전설 보석 gems 개(무기 · 장신구 = 공격, 방어구 = 방어 — 전설만, 태초는 안 받음, 사용자: 완전한 2개 대신 전설 1개) + 골드 gold
+const CRAFT = { lv: UNIQUE_CRAFT_LV, cores: 1, essence: 60, scrolls: 20, gems: 1, gemSize: 5, gold: 200000 };
 // 원소 각인(2026-10-26 사용자: 속성석 소진처 — 네 속성을 다 받으니 어떤 속성을 끼든 같이 세지는 공통 효과로): 끝없는 심연이 열리면 세공사 미라 '원소 각인'.
 // 전설(size) 화염석 · 빙결석 · 뇌전석 · 맹독석 하나씩 + 골드 gold(다음 ★) → ★ +1(캐릭터마다, 최대 max). ★마다 낀 속성석 세기(power) +step —
 // 칸 능력 · 폭발 · 상태이상 · 패시브 피해가 모두 커지고, 범위는 돌 크기로 따로 정해져서 그대로(이펙트 범위 = 판정 범위). 보석은 안 받음.
@@ -898,7 +898,8 @@ const EXP_NEED = 0.62;
 const expToNext = lv => Math.round((150 + 30 * lv) * POWER(lv) * EXP_NEED);
 // 장비 항아리(2026-10-25 사용자: 99 이후 콘텐츠의 도박을 지금 — 내 레벨대 장비 뽑기, 도박꾼 단지가 부위를 골라 팜). 등급은 이 표대로(사용자 "돈이 너무 잘 회수된다" → 레어 10% · 유니크 3%, 매직 35%, 나머지 일반 52%).
 // 착용 레벨 = 내 레벨 단계(바로 낄 수 있게). 값 = 80 × POWER(10 단위, 최소 120) — 60 → 30(싸게) → 40 → 80(2배)
-const JAR = { price: lv => Math.max(120, Math.round(80 * POWER(lv) / 10) * 10), uniq: 0.03, rare: 0.10, magic: 0.35 };
+// maxLv = 항아리로 살 수 있는 가장 높은 레벨(2026-10-26 사용자: Lv.100 항아리 없앰 — Lv.100 장비는 끝없는 심연 드롭 · 제작으로만). Lv.100 넘은 캐릭터도 Lv.99 항아리까지
+const JAR = { maxLv: UNIQUE_CRAFT_LV - 1, price: lv => Math.max(120, Math.round(80 * POWER(lv) / 10) * 10), uniq: 0.03, rare: 0.10, magic: 0.35 };
 const POTION_PRICE = 25;
 // 상점: 가장 작은(조각) 속성석 · 보석도 판다(2026-10-24 사용자). 조각 3개 + 합성 300G = 작은 돌 하나
 const SHARD_PRICE = 150;
