@@ -297,7 +297,7 @@ Object.assign(ENEMIES, {
 Object.assign(ENEMIES, {
   splitter: { name: '분열체', sprite: 'splitter', pix: true, idle: false, speed: 40, range: 16, poise: 4, split: 'splitling', r: 7,
     atk: { windup: 0.55, active: 0.1, recovery: 0.6, knock: 120, reach: [0, 17], arc: 75, lunge: 130 } },
-  splitling: { name: '분열체 새끼', sprite: 'splitling', pix: true, idle: false, speed: 72, range: 14, poise: 2, r: 4, hp: 9, exp: 3, gold: [1, 2],
+  splitling: { name: '분열체 새끼', sprite: 'splitling', pix: true, idle: false, speed: 72, range: 14, poise: 2, r: 4, hp: 6, exp: 3, gold: [1, 2],
     atk: { windup: 0.35, active: 0.08, recovery: 0.45, dmg: 5, knock: 70, reach: [0, 14], arc: 70, lunge: 160 } },
   shieldbearer: { name: '방패병', sprite: 'shieldbearer', pix: true, idle: false, speed: 30, range: 19, poise: 6, superArmor: true, shield: true, turn: 2.2, solo: 2, r: 8,
     atk: { windup: 0.8, active: 0.12, recovery: 1.3, knock: 190, reach: [0, 22], arc: 80, lunge: 170 } },
@@ -473,8 +473,11 @@ const DUNGEONS = [
 // → 2026-10-26 사용자 시험: '1층 몹 피가 너무 많다' — 몹만 세지는 곡선(ENEMY_RAMP)이 Lv.90 → 100 에서 체력 ×1.4 · 공격 ×1.22 를 더 붙인 걸 빠뜨려서
 //   심연의 문 영웅 대비 같은 역할 몹 체력 ×2.15 · 공격 ×1.88 이었다. 사용자 '체력 거의 절반, 공격은 1.3~1.5배' →
 //   stepHp 0.43(영웅 대비 체력 약 ×1.07) · stepDmg 0.64(공격 약 ×1.4). 레이드 체력(3층 중간 보스 × hpMul)도 같이 내려감
+// → 2026-10-26 사용자 '몹이 너무 많고 체력도 많다, 방도 너무 크다' (추천안): 몹만 stepHp 0.30(영웅 대비 ×0.75) · stepDmg 0.80(×1.75),
+//   방마다 무리 3 → 2 · 무리 크기 8~10 → 6~8(packAdd 3) — 층마다 몹 약 185 → 약 95. 중간 보스 · 레이드는 예전 세기 그대로(bossHp · bossDmg).
+//   방 크기는 dungeon.js generateRooms(약 절반)
 // floors(2026-10-26 사용자: 기존 던전을 빌리던 것 → '살아 있는 심연' 전용 몹 · 풍경): 층마다 몹 무리(pool — 같은 이름 여러 번 = 더 자주) · 수호자 · 음악(빌린 곡)
-const ENDLESS = { max: 3, diff: 2, lv: 100, entry: 95, ilvl: [100, 104], stepHp: 0.43, stepDmg: 0.64, hp: 1.06, dmg: 1.04, reward: 0.05, rooms: 9, packs: 3,
+const ENDLESS = { max: 3, diff: 2, lv: 100, entry: 95, ilvl: [100, 104], stepHp: 0.30, stepDmg: 0.80, bossHp: 0.43, bossDmg: 0.64, hp: 1.06, dmg: 1.04, reward: 0.05, rooms: 9, packs: 2, packAdd: 3,
   floors: [
     { pool: ['splitter', 'splitter', 'shieldbearer'], boss: 'split_mother', music: 'hell' },
     { pool: ['splitter', 'shieldbearer', 'blinker', 'blinker', 'tentacle'], boss: 'maw_lord', music: 'ice' },
@@ -493,13 +496,14 @@ const mixColor = (a, b, k) => '#' + [1, 3, 5].map(i => Math.round(parseInt(a.sli
 function endlessDef(floor) {
   if (floor > ENDLESS.max) return raidDef();  // 3층 다음 = 최종 보스 레이드(계단 '최종 보스 도전')
   const F = ENDLESS.floors[(floor - 1) % ENDLESS.floors.length], A = DUNGEONS.find(d => d.id === 'abyss').ease;
-  const fh = ENDLESS.stepHp * Math.pow(ENDLESS.hp, floor - 1), fd = ENDLESS.stepDmg * Math.pow(ENDLESS.dmg, floor - 1);  // 영웅 배율은 난이도(ENDLESS.diff)가 곱한다
+  const gh = Math.pow(ENDLESS.hp, floor - 1), gd = Math.pow(ENDLESS.dmg, floor - 1);  // 영웅 배율은 난이도(ENDLESS.diff)가 곱한다
+  const fh = ENDLESS.stepHp * gh, fd = ENDLESS.stepDmg * gd, bh = ENDLESS.bossHp * gh, bd = ENDLESS.bossDmg * gd;
   return {
     id: 'endless', endless: true, floor, timeId: 'endless' + floor, name: '끝없는 심연 ' + floor + '층',
     lv: ENDLESS.lv, entry: ENDLESS.entry, ilvl: ENDLESS.ilvl, rooms: ENDLESS.rooms, packs: ENDLESS.packs, roomMaps: true, needs: null,
     pool: F.pool, boss: F.boss, music: F.music, hazard: 'void', tint: LIVING.tint, veins: true,
     banner: 'wall_banner_red', wall: ['wall_goo', 'wall_hole_2'], cols: 0.3, skulls: 0,
-    ease: { hp: A.hp * fh, dmg: A.dmg * fd, bhp: A.bhp * fh, bdmg: A.bdmg * fd }, gainMul: 1 + ENDLESS.reward * (floor - 1),
+    ease: { hp: A.hp * fh, dmg: A.dmg * fd, bhp: A.bhp * bh, bdmg: A.bdmg * bd }, packAdd: ENDLESS.packAdd, gainMul: 1 + ENDLESS.reward * (floor - 1),
     desc: '살아 숨 쉬는 심연의 틈.',
   };
 }

@@ -11,7 +11,7 @@ const World = (() => {
   const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
   const dlv = () => lv.def.lv;
-  const packAdd = () => Math.min(dIdx, 5);  // 뒤 던전일수록 무리가 크다(용암 지옥 +5 에서 멈춤)
+  const packAdd = () => lv.def.packAdd ?? Math.min(dIdx, 5);  // 뒤 던전일수록 무리가 크다(용암 지옥 +5 에서 멈춤), 끝없는 심연은 def.packAdd
 
   // 씨앗으로 정해지는 무작위(파티: 방장과 손님이 같은 씨앗이면 같은 층 · 같은 몹 배치). fn 동안만 Math.random 을 바꿔 둔다
   function seeded(seed, fn) {
@@ -296,7 +296,7 @@ const World = (() => {
       && !lv.chests.some(c => Math.abs(c.x - (x * T + 8)) < 20 && Math.abs(c.y - (y * T + 8)) < 20);
     for (const r of lv.rooms) {
       if (r === lv.start || r.boss) continue;
-      for (let k = lv.roomMaps ? rnd(2, 4) : rnd(1, 2); k > 0; k--) {
+      for (let k = lv.roomMaps ? rnd(1, 3) : rnd(1, 2); k > 0; k--) {  // 끝없는 심연 방이 작아져서(2026-10-26) 2~4 → 1~3
         const cx = rnd(r.x + 2, r.x + r.w - 3), cy = rnd(r.y + 2, r.y + r.h - 3), phase = Math.random() * SPIKE_CYCLE;
         let tiles = [[cx, cy]];
         if (H.pool) {

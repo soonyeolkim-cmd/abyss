@@ -8,7 +8,7 @@ const Jar = (() => {
   const T_ = Gfx.text;
   const L = a => Input.label(a);
   const SHAKE = 1.2, POP = 0.5;  // 흔들림 · 깨지는 연출 시간(초)
-  let st = 'ready', t = 0, item = null, shards = [], last = performance.now(), sel = 0, lvSel = 0;  // lvSel = 고른 레벨(0 = 지금 레벨)
+  let st = 'ready', t = 0, item = null, shards = [], last = performance.now(), sel = 0, lvSel = 0;  // lvSel = levels() 안 자리(0 = 맨 위 레벨)
 
   // 항아리 도트(32x32, 칸마다 계산): 갈색 질그릇 몸 · 목 · 테두리 · 금빛 띠 · 위를 덮은 보라 천과 끈
   let jarCanvas = null;
@@ -42,7 +42,14 @@ const Jar = (() => {
   }
 
   // 고를 수 있는 레벨: 지금 레벨, 그 아래 10 단위 단계(지금 단계는 빼고 — Lv.95 면 80 · 70 · … · 10 · 1)
-  const levels = prof => { const out = [Math.max(1, prof.lv)]; for (let b = Math.floor(prof.lv / 10) * 10 - 10; b >= 0; b -= 10) out.push(Math.max(1, b)); return out; };
+  // 2026-10-26 사용자: 끝없는 심연에 들어갈 수 있으면(진엔딩 · 입장 Lv.95) Lv.100 아래여도 Lv.100(혈석) 항아리를 맨 위에 — 유니크는 안 나옴
+  const levels = prof => {
+    const out = [Math.max(1, prof.lv)];
+    for (let b = Math.floor(prof.lv / 10) * 10 - 10; b >= 0; b -= 10) out.push(Math.max(1, b));
+    if (endlessOpen(prof) && prof.lv >= ENDLESS.entry && prof.lv < ENDLESS.lv) out.unshift(ENDLESS.lv);
+    return out;
+  };
+  const nowIdx = prof => levels(prof).indexOf(Math.max(1, prof.lv));  // 지금 레벨 항아리 자리(Lv.100 항아리가 앞에 붙으면 1)
   const jarLv = prof => { const ls = levels(prof); return ls[Math.min(lvSel, ls.length - 1)]; };
   const price = prof => JAR.price(jarLv(prof));
   // 이 부위 · 단계 유니크를 이미 가졌나(2026-10-25 사용자: 컬렉션 · 가방 · 끼고 있는 것 모두 봄, 무기는 내 직업 무기 두 종류가 다 있어야 '있음')
@@ -61,7 +68,7 @@ const Jar = (() => {
   }
   const catName = c => (VAULT_CATS.find(v => v.id === c) || {}).name || '';
   const slot = () => SLOTS[sel];
-  function open() { st = 'ready'; t = 0; item = null; shards = []; last = performance.now(); lvSel = 0; }
+  function open(prof) { st = 'ready'; t = 0; item = null; shards = []; last = performance.now(); lvSel = prof ? nowIdx(prof) : 0; }  // 처음엔 지금 레벨
   function pickLv(prof, k) {  // 레벨 바꾸기(결과를 보다가 바꾸면 새 항아리)
     const n = levels(prof).length, v = Math.max(0, Math.min(n - 1, k));
     if (v === lvSel) return;
@@ -110,7 +117,7 @@ const Jar = (() => {
     if (Input.nav('down')) sel = (sel + 1) % n;
     if (sel !== before && st === 'result') { st = 'ready'; item = null; }
     if (Input.nav('left')) pickLv(prof, lvSel + 1);   // ← = 더 낮은(지난) 레벨
-    if (Input.nav('right')) pickLv(prof, lvSel - 1);  // → = 지금 레벨 쪽
+    if (Input.nav('right')) pickLv(prof, lvSel - 1);  // → = 더 높은 레벨 쪽(지금 레벨 · Lv.100 혈석)
     if (Input.wasPressed('ok')) buy(prof);
   }
 
@@ -149,13 +156,13 @@ const Jar = (() => {
     const cur = prof.equip[slot()];
     T_(ctx, '지금 낀 ' + SLOT_NAMES[slot()] + ': ' + (cur ? Items.nameOf(cur) + (cur.ups ? ' +' + cur.ups : '') : '없음'), 44, 428, 12, cur ? RARITY[cur.rarity].color : '#6a6068');
     // 레벨 고르기(지난 레벨 항아리는 그 레벨일 때 값 그대로)
-    const ly = 446, cur0 = lvSel === 0;
+    const ly = 446, cur0 = jl === Math.max(1, prof.lv), up = jl > prof.lv;
     [[-1, 44], [1, 404]].forEach(([d, x]) => {
       const ok = d < 0 ? lvSel < ls.length - 1 : lvSel > 0;
       if (!busy) UI.zone(x, ly - 4, 44, 32, { pick: () => pickLv(prof, lvSel - d), now: true });
       T_(ctx, d < 0 ? '◀' : '▶', x + 22, ly + 19, 18, ok ? '#ffd36a' : '#3a2e36', 'center');
     });
-    T_(ctx, 'Lv.' + jl + ' 항아리' + (cur0 ? ' (지금 레벨)' : ' (지난 레벨 · 그때 값)'), 246, ly + 18, 15, cur0 ? '#f0e0b8' : '#9ad8ff', 'center');
+    T_(ctx, 'Lv.' + jl + ' 항아리' + (cur0 ? ' (지금 레벨)' : up ? ' (혈석 · 끝없는 심연)' : ' (지난 레벨 · 그때 값)'), 246, ly + 18, 15, cur0 ? '#f0e0b8' : up ? '#ff7ab0' : '#9ad8ff', 'center');
     T_(ctx, '깨 보기 전엔 몰라요! 고른 부위 · 고른 레벨대 장비가 하나 들어 있어요', 44, 486, 12, '#9a8e96');
 
     // ── 오른쪽: 항아리 무대 ──

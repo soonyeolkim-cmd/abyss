@@ -41,7 +41,7 @@ const Game = (() => {
     if (o.type === 'confirm') UI.confirm.sel = o.defaultYes ? 0 : 1;
     if (o.type === 'choice') UI.choice.sel = 0;
     if (o.type === 'coop') Coop.open();
-    if (o.type === 'jar') Jar.open();
+    if (o.type === 'jar') Jar.open(prof);
     overlays.push(o);
     Input.clear();
   }
