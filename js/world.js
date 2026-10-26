@@ -961,7 +961,13 @@ const World = (() => {
 
   // ── 그리기 ──
   const inView = (x, y, m = 40) => x > cam.x - m && x < cam.x + VIEW_W + m && y > cam.y - m && y < cam.y + VIEW_H + m;
-  function draw(ctx) {
+  // 도트풍(2026-10-26 사용자: 이펙트가 매끈해 도트 화면과 따로 놂): 바닥 · 몸 · 탄 · 이펙트 · 어둠을 게임 화소(1배) 캔버스에 그린 뒤
+  // 2배로 이웃 화소 그대로 키운다 — 마법진 · 폭발 · 칼 궤적 같은 선 · 빛도 캐릭터 도트와 같은 크기 화소. 글자(피해 숫자 · 이름표) · HUD 는 2배 화면에 또렷하게
+  const PX = document.createElement('canvas');
+  PX.width = VIEW_W; PX.height = VIEW_H;
+  const pxg = PX.getContext('2d');
+  function draw(out) {
+    let ctx = pxg;
     const viewH = VIEW_H - HUD_H;
     if (lv.roomMaps) {  // 방 하나 = 맵 하나: 지금 방(벽까지) 밖은 안 보이게, 방이 화면보다 작으면 가운데
       const r = lv.rooms[roomOf(p)], x0 = (r.x - 1) * T, x1 = (r.x + r.w + 1) * T, y0 = (r.y - 3) * T, y1 = (r.y + r.h + 1) * T;
@@ -972,12 +978,14 @@ const World = (() => {
       cam.x = Math.round(Math.max(0, Math.min(lv.W * T - VIEW_W, p.x - VIEW_W / 2)));
       cam.y = Math.round(Math.max(0, Math.min(lv.H * T - viewH, p.y - 10 - viewH / 2)));
     }
-    ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
     ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
     ctx.save();
-    ctx.translate(-cam.x + Math.round((Math.random() - 0.5) * shakeT * 2), -cam.y + Math.round((Math.random() - 0.5) * shakeT * 2));
+    const shX = Math.round((Math.random() - 0.5) * shakeT * 2), shY = Math.round((Math.random() - 0.5) * shakeT * 2);
+    ctx.translate(-cam.x + shX, -cam.y + shY);
     ctx.drawImage(lv.canvas, cam.x, cam.y, VIEW_W, VIEW_H, cam.x, cam.y, VIEW_W, VIEW_H);
     drawHazards(ctx);
     drawDoors(ctx);
@@ -1004,6 +1012,15 @@ const World = (() => {
     for (const s of pshots) Art.wave(ctx, s);
     Art.fx(ctx, fx);
     Art.darkness(ctx, p.x, p.y - 10, cam);
+    ctx.restore();
+    // 1배 화면을 2배로(이웃 화소 그대로) 얹고, 그 위 글자 · 막대는 2배 화면에 같은 자리(흔들림 포함)로
+    ctx = out;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(PX, 0, 0, VIEW_W, VIEW_H, 0, 0, VIEW_W * SCALE, VIEW_H * SCALE);
+    ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+    ctx.save();
+    ctx.translate(-cam.x + shX, -cam.y + shY);
     // 어둠 위에: 빛 안의 체력 막대 · 이름표 · 바닥 아이템 이름
     for (const e of vis) if (Math.hypot(e.x - p.x, e.y - p.y) < LIGHT_R + 30) { Art.enemyBar(ctx, e); Art.nameTag(ctx, e); }
     for (const d of lv.drops) if (d.kind === 'item' && Math.hypot(d.x - p.x, d.y - p.y) < LIGHT_R + 60) Art.dropLabel(ctx, d);
