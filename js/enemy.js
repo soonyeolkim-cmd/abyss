@@ -121,9 +121,9 @@ function updateEnemy(e, dt, room, p) {
         World.shake(4);
         World.dust(e.x, e.y, 14);
         World.fx({ type: 'shock', x: e.x, y: e.y, r: d.slam.radius, t: 0, life: 0.3 });
-        if (groundDist(p.x - e.x, p.y - e.y) <= d.slam.radius + BODY_R) hurtPlayer(p, e, d.slam.dmg * e.dmgMul, 200);
+        const hit = groundDist(p.x - e.x, p.y - e.y) <= d.slam.radius + BODY_R && hurtPlayer(p, e, d.slam.dmg * e.dmgMul, 200) !== 'miss';
         e.state = 'recover'; e.t = 0.8 * (d.recMul || 1);
-        if (d.raid) Raid.slammed(e);  // 레이드 1단계: 내려찍기 3번이면 지쳐 심장이 드러남
+        if (d.raid) Raid.slammed(e, hit);  // 레이드 껍질: 피한 내려찍기만 세서 RAID_RULE.slams 번이면 지쳐 심장이 드러남
       }
       break;
     case 'chargeWind':

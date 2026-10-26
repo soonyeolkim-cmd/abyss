@@ -12,7 +12,7 @@ const Raid = (() => {
   const bossOf = () => World.enemies().find(e => e.def.raid && live(e));
   const MECHS = ['shell', 'crystal', 'orb'];
   const NAME = { shell: '껍질', crystal: '수정 보호막', orb: '공허 구슬' };
-  const HINT = { shell: '껍질이 단단하다 — 내려찍기 뒤 · 기둥에 부딪힐 때 심장을 노려라', crystal: '수정 보호막 — 네 귀퉁이 공허 수정을 모두 부숴라', orb: '공허 구슬 — 쳐서 되돌려라!' };
+  const HINT = { shell: '껍질이 단단하다 — 내려찍기를 ' + R.slams + '번 피하거나 기둥에 부딪히게 해 심장을 노려라', crystal: '수정 보호막 — 네 귀퉁이 공허 수정을 모두 부숴라', orb: '공허 구슬 — 쳐서 되돌려라!' };
 
   // ── 방: 넓은 방 하나 + 기둥 넷(1단계: 돌진을 기둥에 부딪히게 하면 기둥이 깨지며 심장이 드러남) ──
   function level(def) {
@@ -200,9 +200,10 @@ const Raid = (() => {
         break;
     }
   }
-  // enemy.js 고리: 내려찍기가 끝남(1단계: slams 번이면 지침) · 돌진이 벽에 박힘(기둥이면 부서짐)
-  function slammed(e) {
-    if (e.mech !== 'shell') return;
+  // enemy.js 고리: 내려찍기가 끝남(껍질: 피한 것만 세서 slams 번이면 지침) · 돌진이 벽에 박힘(기둥이면 부서짐)
+  // 2026-10-26 사용자: 맞든 안 맞든 세던 것 → 피한(hit = false) 것만. 셈은 보스 머리 위 '피함 N/slams'(labels)
+  function slammed(e, hit) {
+    if (e.mech !== 'shell' || hit) return;
     if (++e.slams >= R.slams) expose(e, R.slamExpose, '지쳤다 —');
   }
   // 돌진에 맞은 사람(enemy.js charge): 껍질 패턴이면 짓밟혀 R.stun 초 기절(2026-10-26 사용자 — 기둥으로 유도하라는 벌)
@@ -358,9 +359,16 @@ const Raid = (() => {
     return at - World.time;
   }
   // 어둠 위(world.js draw, 2배 글): 수정 머리 위 남은 초 — 5초 아래면 붉게 깜빡. 방 귀퉁이 어둠 속에서도 보이게
+  // 껍질 패턴: 보스 머리 위 내려찍기 피한 횟수
   function labels(ctx) {
     const blink = Math.floor(performance.now() / 160) % 2;
     ctx.font = 'bold 8px ' + Gfx.FONT; ctx.textAlign = 'center';
+    const b = bossOf();
+    if (b && b.mech === 'shell' && b.state !== 'exposed' && b.state !== 'phaseShift' && !(b.spawnT > 0)) {
+      const s = '피함 ' + (b.slams || 0) + '/' + R.slams, y = b.y - b.h - 6;
+      ctx.fillStyle = '#000'; ctx.fillText(s, b.x + 0.5, y + 0.5);
+      ctx.fillStyle = '#ffd36a'; ctx.fillText(s, b.x, y);
+    }
     for (const c of parts('crystal')) {
       const left = crystalLeft(c);
       if (left <= 0 || left > R.crystalTime || c.spawnT > 0) continue;
