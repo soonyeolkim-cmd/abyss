@@ -59,6 +59,7 @@ const Art = (() => {
       } else {
         const s0 = d.swing[0] * RAD, s1 = d.swing[1] * RAD;
         th = aim + (ph === 0 ? s0 : ph === 1 ? lerp(s0, s1, k) : s1);
+        if (d.noBody) return { th, hx: hx + p.fv.x * push, hy: hy + p.fv.y * push, flip, trail: null, off: p.cls.dual ? offPose(p, time, { th, hx, hy, trail: null }, aim, flip) : undefined };  // 돌진 베기: 띠 판정이라 칼 궤적 대신 fx 'thrust'
         // 칼 궤적은 판정 부채꼴(정면 ± arc) 안만 그린다 — 칼은 시작각부터 휘둘러도 궤적은 판정 각도에서 시작 · 끝(2026-10-26 이펙트 범위 = 판정 범위)
         const arc = Math.min(Math.PI, ((a.hd && a.hd.arc) || d.arc || 180) * RAD), clip = v => Math.max(-arc, Math.min(arc, v));
         if (ph >= 1 && (ph === 1 || t - a.s - a.a < 0.1)) trail = { a0: aim + clip(s0), a1: aim + clip(th - aim), fade: ph === 1 ? 1 : 1 - (t - a.s - a.a) / 0.1 };
@@ -179,7 +180,7 @@ const Art = (() => {
   // 그 칸 속성석 단계(2026-10-26 사용자: 마법사처럼 검사도 레벨에 따라): 1 = 궤적을 따라 속성 알갱이 · 2 = 바깥 빛 한 겹 더 · 알갱이 더 · 3 = 칼끝 오로라.
   // 궤적 반지름은 칼 길이 그대로(판정 reach 와 거의 같음 — 이펙트 범위 = 판정 범위)
   function bladeTrail(ctx, p, w, hx, hy, trail) {
-    const R = FRAMES[Items.base(w).icon][3] - WEAPON_GRIP + 5;
+    const hd = p.act && p.act.hd, R = Math.max(FRAMES[Items.base(w).icon][3] - WEAPON_GRIP + 5, hd && hd.reach && p.act.kind !== 'stab' ? hd.reach[1] - 3 : 0);
     const st = p.act && p.prof.sockets ? Elements.socket(p.prof, p.act.def.slot || 'none') : null, T = Elements.tier(st);
     const col = st ? ELEMENTS[st.el].color : 'rgb(170,215,255)';
     const { a0, a1 } = trail, f = trail.fade === undefined ? 1 : Math.max(0, trail.fade);
@@ -738,6 +739,8 @@ const Art = (() => {
           break;
         }
         case 'nova': nova(ctx, f, k); break;
+        case 'thrust': thrustFx(ctx, f, k); break;
+        case 'sweep': sweepFx(ctx, f, k); break;
         case 'burst':  // 속성 폭발: 퍼지는 원 + 테두리
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
@@ -792,6 +795,64 @@ const Art = (() => {
         ctx.globalCompositeOperation = 'lighter';
       }
     }
+  }
+  // 찌르는 빛(fx 'thrust', 2026-10-26 이펙트 범위 = 판정 범위): 판정 그대로 — 부채꼴(길이 R · 반각 arc) 또는 띠(band = 반폭, noBody).
+  // 빠르게 뻗고 흐려진다. 안쪽 흰 줄기 · 끝 반짝. 그 칸 속성석 단계 1부터 속성 알갱이, 2부터 줄기 더, 3 오로라
+  function thrustFx(ctx, f, k) {
+    const o = f.follow || f, x0 = o.x, y0 = o.y - 6, e = 1 - k, ca = Math.cos(f.a), sa = Math.sin(f.a), T = f.tier || 0;
+    const L = f.R * (0.55 + 0.45 * Math.min(1, k * 4)), h = (f.arc || 0) * RAD, light = Gfx.mix(f.col, 0.5, 'white');
+    const at = (u, side) => [x0 + ca * u - sa * side, y0 + sa * u + ca * side];  // 앞으로 u · 옆으로 side
+    ctx.save();
+    if (T >= 3) { ctx.globalAlpha = e; Gfx.aurora(ctx, x0 + ca * L * 0.55, y0 + sa * L * 0.55, L * 0.35, f.ss || 6); }
+    ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createLinearGradient(x0, y0, x0 + ca * L, y0 + sa * L);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.55, f.col); g.addColorStop(1, light);
+    ctx.globalAlpha = (0.45 + T * 0.06) * e; ctx.fillStyle = g;
+    ctx.beginPath();
+    if (f.band) { const [ax, ay] = at(-4, -f.band), [bx, by] = at(L, -f.band * 0.6), [cx, cy] = at(L, f.band * 0.6), [dx, dy] = at(-4, f.band); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.lineTo(cx, cy); ctx.lineTo(dx, dy); }
+    else { ctx.moveTo(x0, y0); ctx.arc(x0, y0, L, f.a - h, f.a + h); }
+    ctx.closePath(); ctx.fill();
+    const n = 2 + (T >= 2 ? 2 : 0) + (f.band ? 1 : 0);
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1;
+    for (let i = 0; i < n; i++) {  // 흰 줄기: 판정 안에서 앞쪽으로
+      const v = n === 1 ? 0 : i / (n - 1) * 2 - 1, u0 = L * (0.25 + 0.15 * ((i * 0.37) % 1)), u1 = L * (0.8 + 0.2 * ((i * 0.61) % 1));
+      const side = u => f.band ? v * f.band * 0.5 : Math.tan(h) * u * v * 0.6;
+      const [ax, ay] = at(u0, side(u0)), [bx, by] = at(u1, side(u1));
+      ctx.globalAlpha = (i === Math.floor(n / 2) ? 0.9 : 0.5) * e; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+    }
+    const [tx, ty] = at(L * 0.92, 0);
+    star4(ctx, tx, ty, 3 + T + 3 * e, k * 3, '#ffffff', 0.8 * e);
+    if (T) {
+      const m = 2 + T * 2, fr = Math.floor(f.t * 20);
+      for (let i = 0; i < m; i++) {
+        const u = L * (0.3 + 0.65 * ((i * 0.618 + k * 0.5) % 1)), v = ((i * 0.43) % 1) * 2 - 1, side = f.band ? v * f.band * 0.7 : Math.tan(h) * u * v * 0.75;
+        const [bx, by] = at(u, side);
+        elemBit(ctx, f.el, bx, by - (f.el === 'fire' ? k * 4 : 0), 1.2 + T * 0.4, e, i, f.col, fr);
+      }
+    }
+    ctx.restore();
+  }
+  // 백스탭 큰 베기(fx 'sweep', 2026-10-26 사용자: 판정 반지름 42 · ±160° 그대로 그리기): 몸 둘레를 정면 기준 -arc → +arc 로 빠르게 휘두르는 그림자 초승달.
+  // 어두운 그림자 띠 + 색 띠 + 흰 날. 차지 칸 속성석 단계 1부터 알갱이, 2부터 안쪽 초승달 하나 더, 3 오로라
+  function sweepFx(ctx, f, k) {
+    const o = f.follow || f, x0 = o.x, y0 = o.y - 6, e = 1 - k, T = f.tier || 0, A = Math.min(Math.PI, (f.arc || 160) * RAD);
+    const q = Math.min(1, k * 2.4), a0 = f.a - A, a1 = f.a - A + 2 * A * q, R = f.R;
+    ctx.save();
+    if (T >= 3) { ctx.globalAlpha = e; Gfx.aurora(ctx, x0, y0, R * 0.7, f.ss || 6); }
+    crescent(ctx, x0, y0, R - 9, a0, a1, 18 * e + 2, '#2a1840', 0.45 * e, 1);  // 그림자 띠(판정 끝 R 안쪽)
+    ctx.globalCompositeOperation = 'lighter';
+    crescent(ctx, x0, y0, R - 7, a0, a1, 14 * e + 2, f.col, (0.55 + T * 0.06) * e, 1);
+    if (T >= 2) crescent(ctx, x0, y0, R * 0.6, a0 + 0.3, a1, 6 * e + 1, f.col, 0.4 * e, 1);
+    crescent(ctx, x0, y0, R - 2, a0 + (a1 - a0) * 0.4, a1, 3 * e + 1, '#ffffff', 0.85 * e, 1);
+    star4(ctx, x0 + Math.cos(a1) * (R - 4), y0 + Math.sin(a1) * (R - 4), 4 + 4 * e, k * 4, '#ffffff', 0.8 * e);
+    if (T) {
+      const m = 4 + T * 3, fr = Math.floor(f.t * 20);
+      for (let i = 0; i < m; i++) {
+        const u = (i + 0.5) / m, a = a1 - (a1 - a0) * u, rr = R - 6 - (i % 3) * 4;
+        elemBit(ctx, f.el, x0 + Math.cos(a) * rr, y0 + Math.sin(a) * rr - (f.el === 'fire' ? u * 5 : 0), 1.3 + T * 0.45, e * (1 - u * 0.5), i, f.col, fr);
+      }
+    }
+    ctx.restore();
   }
   // 마법진이 터질 때(fx 'nova'): 번쩍임 + 번지는 바닥 빛 + 퍼지는 고리 + 속성 모양
   //   불 = 바깥으로 튀며 솟는 불꽃 덩이 · 얼음 = 바깥을 겨눈 얼음 조각 · 번개 = 사방으로 뻗는 전기 · 독 = 부풀어 퍼지는 독구름 · 없음 = 보랏빛 별 고리.

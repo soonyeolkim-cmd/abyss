@@ -66,9 +66,9 @@ const CLASSES = {
     backstab: 0.3,  // 몹 등 뒤에서 치면 피해 +30%
     // 평타는 검사(한 대 약 0.3초)보다 훨씬 빠르게 — 한 대 약 0.13초(2026-10-25 사용자: 기술이 세지면 전투가 루즈해짐). 대신 한 대 배율은 낮다. off = 왼손으로 찌름
     combo: [
-      { name: '찌르기', slot: 'basic', startup: 0.035, active: 0.05, recovery: 0.07, mult: 0.6, knock: 40, stun: 0.22, reach: [0, 24], arc: 50, lunge: 4, thrust: true },
-      { name: '찌르기', slot: 'basic', startup: 0.035, active: 0.05, recovery: 0.07, mult: 0.65, knock: 40, stun: 0.22, reach: [0, 24], arc: 50, lunge: 4, thrust: true, off: true },
-      { name: '찌르기', slot: 'basic', startup: 0.035, active: 0.05, recovery: 0.07, mult: 0.7, knock: 50, stun: 0.25, reach: [0, 24], arc: 50, lunge: 4, thrust: true },
+      { name: '찌르기', slot: 'basic', startup: 0.035, active: 0.05, recovery: 0.07, mult: 0.6, knock: 40, stun: 0.22, reach: [0, 24], arc: 20, lunge: 4, thrust: true },
+      { name: '찌르기', slot: 'basic', startup: 0.035, active: 0.05, recovery: 0.07, mult: 0.65, knock: 40, stun: 0.22, reach: [0, 24], arc: 20, lunge: 4, thrust: true, off: true },
+      { name: '찌르기', slot: 'basic', startup: 0.035, active: 0.05, recovery: 0.07, mult: 0.7, knock: 50, stun: 0.25, reach: [0, 24], arc: 20, lunge: 4, thrust: true },  // 찌르기 반각 50 → 20(2026-10-26 사용자: 이펙트 범위 = 판정 범위, 찌르는 빛 폭만큼)
       { name: '교차 베기', slot: 'basic', fin: true, startup: 0.05, active: 0.08, recovery: 0.22, mult: 1.5, knock: 180, stun: 0.5, reach: [0, 28], arc: 100, lunge: 8, swing: [-90, 90], heavy: true },
     ],
     // 돌진 베기(특수, 2026-10-25 사용자: 받아치기는 안 어울려서 없애고 '반격에 성공했을 때 같은 공격'을 누르면 바로):

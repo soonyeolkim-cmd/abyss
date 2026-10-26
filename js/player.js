@@ -347,6 +347,14 @@ function updateAct(p, dt, room) {
   if (!a.fxDone && a.time >= tA) {
     a.fxDone = true;
     if (d.dash) World.fx({ type: 'streak', x0: a.x0, y0: a.y0, follow: p, t: 0, life: 0.25 });
+    // 찌르기 · 띠 판정(noBody: 대시 찌르기 · 돌진 베기)은 판정 모양 그대로 찌르는 빛(art.js fx 'thrust'), 백스탭은 판정 부채꼴 그대로 큰 베기(fx 'sweep').
+    // 그 칸 속성석 색 · 단계(2026-10-26 이펙트 범위 = 판정 범위)
+    if (((d.thrust || d.noBody) && a.hd.reach) || a.kind === 'stab') {
+      const st = Elements.socket(p.prof, d.slot || 'none'), o = { follow: p, a: Math.atan2(p.fv.y, p.fv.x), R: a.hd.reach[1], t: 0,
+        col: st ? ELEMENTS[st.el].color : a.kind === 'stab' ? '#b9a0ff' : '#dfe6ff', tier: Elements.tier(st), el: st ? st.el : '', ss: st ? st.size : 0 };
+      if (a.kind === 'stab') World.fx(Object.assign(o, { type: 'sweep', arc: a.hd.arc, life: a.a + 0.16 }));
+      else World.fx(Object.assign(o, { type: 'thrust', arc: d.noBody ? 0 : a.hd.arc, band: d.noBody ? 10 : 0, life: a.a + 0.1 }));
+    }
     if (d.spin) {  // 그림 단계 · 속성: 그 칸 속성석(art.js fx 'ring')
       const st = Elements.socket(p.prof, d.slot || 'none');
       World.fx({ type: 'ring', follow: p, r: a.hd.radius, t: 0, life: 0.3, col: Elements.color(p.prof, d.slot || 'none'), tier: Elements.tier(st), el: st ? st.el : '', ss: st ? st.size : 0 });
