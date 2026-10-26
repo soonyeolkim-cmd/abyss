@@ -399,7 +399,7 @@ const Hud = (() => {
   }
 
   // 방 하나 = 맵 하나(끝없는 심연): 던파식 방 지도 — 네모 칸 = 방, 줄 = 문. 지금 방(금빛 깜빡) · 깬 방(보라) · 안 깬 방(붉게).
-  // 안 가 본 방은 가려짐(2026-10-25 사용자: 처음엔 전체 지도를 안 보이게) — 가 본 방의 문 쪽에 '?' 칸만. 수호자 방 = 가 보면 붉은 테두리 + 점,
+  // 안 가 본 방은 가려짐(2026-10-25 사용자: 처음엔 전체 지도를 안 보이게) — 가 본 방의 문 쪽에 '?' 칸만. 수호자 방 = 처음부터 붉은 테두리 + 점,
   // 안 연 상자 = 노란 점, 계단 = 하늘색, 파티원 = 그 방에 파티 색 점(파티원이 가 본 방도 내 지도에 보임). 지도 틀은 층 전체 크기 그대로(크기로 길이 드러나지 않게)
   function drawRoomMap(ctx, lv, p) {
     const CWp = 24, CHp = 16, G = 6, gxs = lv.rooms.map(r => r.gx), gys = lv.rooms.map(r => r.gy);
@@ -413,6 +413,12 @@ const Hud = (() => {
     lv.rooms.forEach((r, i) => { if (!seenR(i)) return; for (const d of r.doors) { const [x, y] = pos(r); if (d.dir === 'r') ctx.fillRect(x + CWp, y + CHp / 2 - 1, G, 3); else if (d.dir === 'l') ctx.fillRect(x - G, y + CHp / 2 - 1, G, 3); else if (d.dir === 'd') ctx.fillRect(x + CWp / 2 - 1, y + CHp, 3, G); else ctx.fillRect(x + CWp / 2 - 1, y - G, 3, G); } });
     lv.rooms.forEach((r, i) => {
       const [x, y] = pos(r), seen = seenR(i), done = lv.cleared.has(i);
+      if (!seen && r.boss) {  // 수호자 방은 안 가 봤어도 처음부터 보임(2026-10-26 사용자) — 어두운 칸 + 붉은 테두리 · 점
+        ctx.fillStyle = '#2a1418'; ctx.fillRect(x, y, CWp, CHp);
+        ctx.lineWidth = 1; ctx.strokeStyle = '#d83a3a'; ctx.strokeRect(x + 0.5, y + 0.5, CWp - 1, CHp - 1);
+        ctx.fillStyle = '#d83a3a'; ctx.fillRect(x + CWp / 2 - 2, y + CHp / 2 - 2, 4, 4);
+        return;
+      }
       if (!seen) {  // 안 가 본 방: 가 본 방과 문으로 붙어 있으면 '?' 칸만, 아니면 안 그림
         if (!r.doors.some(d => seenR(d.to))) return;
         ctx.fillStyle = '#1c1424'; ctx.fillRect(x, y, CWp, CHp);
@@ -458,8 +464,12 @@ const Hud = (() => {
       lv.mapDirty = false;
     }
     ctx.drawImage(lv.mapCanvas, Math.round(ox - 4), oy - 4);
-    const b = lv.boss;
-    if (lv.explored[b.cy * lv.W + b.cx]) { ctx.strokeStyle = '#d83a3a'; ctx.lineWidth = 1; ctx.strokeRect(ox + b.x * s, oy + b.y * s, b.w * s, b.h * s); }
+    const b = lv.boss;  // 보스 방: 안 가 봤어도 처음부터 보임(2026-10-26 사용자) — 옅은 붉은 칸 + 테두리 + 가운데 점
+    if (b) {
+      ctx.fillStyle = 'rgba(216,58,58,0.18)'; ctx.fillRect(ox + b.x * s, oy + b.y * s, b.w * s, b.h * s);
+      ctx.strokeStyle = '#d83a3a'; ctx.lineWidth = 1; ctx.strokeRect(ox + b.x * s, oy + b.y * s, b.w * s, b.h * s);
+      ctx.fillStyle = '#d83a3a'; ctx.fillRect(ox + (b.x + b.w / 2) * s - 2, oy + (b.y + b.h / 2) * s - 2, 4, 4);
+    }
     for (const c of lv.chests) if (!c.open && lv.explored[Math.floor(c.y / T) * lv.W + Math.floor(c.x / T)]) { ctx.fillStyle = '#ffd34d'; ctx.fillRect(ox + c.x / T * s - 1.5, oy + c.y / T * s - 1.5, 3, 3); }
     if (lv.stairs) { ctx.fillStyle = '#7dd3ff'; ctx.fillRect(ox + lv.stairs.x / T * s - 2, oy + lv.stairs.y / T * s - 2, 4, 4); }
     for (const mt of World.mates) if (!mt.dead || Math.sin(performance.now() / 120) > 0) {  // 파티원: 파티 순서 색 점(쓰러졌으면 붉게 깜빡)
