@@ -699,6 +699,9 @@ const UI = (() => {
           if (st) Gfx.stoneIcon(ctx, st, bx + 17, by + 18, 24);
           T_(ctx, clsOf(prof).slotShort[slot], bx + 17, by + 46, 10, col || '#6a6068', 'center');
         });
+        // 원소 각인(2026-10-26): 위 장비 칸 사이 가운데에 ★N · 속성석 세기
+        const imp = Elements.stars(prof);
+        if (imp) T_(ctx, '원소 각인 ★' + imp + ' · 속성석 세기 +' + Math.round(IMPRINT.step * imp * 100) + '%', 194, 92, 11, '#7dd3ff', 'center');
         // 속성석 세트 효과: 장비 칸 아래 판 너비(300)에 두 줄까지 감싸서(넘치면 글자를 줄임)
         const sb = Elements.setBonus(prof);
         if (sb) {

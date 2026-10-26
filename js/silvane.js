@@ -8,6 +8,7 @@ const Silvane = (() => {
   // NPC 서는 자리(벨록과 같은 사람들)
   const POS = {
     smith: { ...px(5, 8), flip: false },          // 대장간 문 앞
+    artisan: { ...px(11, 10), flip: true },        // 심연 장인 고른(실베인에만): 엘린 노점 아래 풀밭 — 대장간 쪽(동생 브론)을 바라봄
     gate: px(19, 4, 20 * T),                       // 왕의 갱도 입구(절벽)
     shop: { x: 12 * T + 8, y: 7 * T + 9, flip: false },  // 노점 진열대 뒤(장사꾼 자리 — 앞에 서면 이름표가 진열 물약과 겹침)
     gambler: { ...px(27, 12, 28 * T), flip: false }, // 천막 앞

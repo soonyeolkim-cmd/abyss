@@ -381,6 +381,25 @@ const Gfx = (() => {
     ctx.restore();
   }
 
+  // 심연의 핵 아이콘(2026-10-26 제작 창): 바닥에 떨어진 핵(art.js drop 'core')과 같은 7x6 청록 심장 도트를 키워 그림
+  let coreCanvas = null;
+  function coreIcon(ctx, cx, cy, size) {
+    if (!coreCanvas) {
+      const c = document.createElement('canvas'); c.width = 7; c.height = 6;
+      const g = c.getContext('2d');
+      ['.oo.oo.', 'otTotTo', 'ottwttT', '.otttT.', '..otT..', '...o...'].forEach((row, j) => [...row].forEach((ch, i) => {
+        if (ch === '.') return;
+        g.fillStyle = ch === 'o' ? '#120a14' : ch === 't' ? CORE_COLOR : ch === 'T' ? '#2a8a88' : '#ffffff'; g.fillRect(i, j, 1, 1);
+      }));
+      coreCanvas = c;
+    }
+    const k = Math.max(1, Math.round(size / 7));
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(coreCanvas, Math.round(cx - 3.5 * k), Math.round(cy - 3 * k), 7 * k, 6 * k);
+    ctx.restore();
+  }
+
   // ── 글자 · 상자 (메뉴는 960x540 좌표에서 그린다) ──
   function text(ctx, s, x, y, size, color, align = 'left', weight = 'bold') {
     s = fmtGold(s);  // 골드 쉼표(12345G → 12,345G)
@@ -406,5 +425,5 @@ const Gfx = (() => {
     ctx.fillStyle = fg; ctx.fillRect(x, y, Math.round(w * Math.max(0, Math.min(1, k))), h);
   }
 
-  return { WEAPON_TINT, FONT, mix, ready, spr, anim, icon, stoneIcon, aurora, scrollIcon, essenceIcon, text, panel, bar };
+  return { WEAPON_TINT, FONT, mix, ready, spr, anim, icon, stoneIcon, aurora, scrollIcon, essenceIcon, coreIcon, text, panel, bar };
 })();

@@ -376,7 +376,7 @@ function updateAct(p, dt, room) {
     if (d.dash) World.fx({ type: 'streak', x0: a.x0, y0: a.y0, follow: p, t: 0, life: 0.25 });
     if (d.area) {  // 망치 내려찍기: 판정 타원 그대로 충격파(art.js nova) + 흙먼지
       const st = Elements.socket(p.prof, d.slot), x = p.x + p.fv.x * d.area.ahead, y = p.y + p.fv.y * d.area.ahead;
-      World.fx({ type: 'nova', x, y, r: d.area.r, col: st ? ELEMENTS[st.el].color : '#e8dcc0', el: st ? st.el : '', tier: Elements.tier(st), ss: st ? st.size : 0, bare: true, seed: Math.random() * 1000, t: 0, life: 0.4 });
+      World.fx({ type: 'nova', x, y, r: d.area.r, col: st ? ELEMENTS[st.el].color : '#e8dcc0', el: st ? st.el : '', tier: Elements.tier(st), ss: Elements.ss(st, p.prof), bare: true, seed: Math.random() * 1000, t: 0, life: 0.4 });
       World.fx({ type: 'shock', x, y, r: d.area.r, t: 0, life: 0.3 });
       for (let i = 0; i < 8; i++) { const an = i / 8 * Math.PI * 2; World.fx({ type: 'dust', x: x + Math.cos(an) * d.area.r * 0.6, y: y + Math.sin(an) * d.area.r * 0.6 * GROUND_Y, vx: Math.cos(an) * 20, vy: Math.sin(an) * 10, vz: 12, t: 0, life: 0.4 }); }
       World.shake(3);
@@ -385,13 +385,13 @@ function updateAct(p, dt, room) {
     // 그 칸 속성석 색 · 단계(2026-10-26 이펙트 범위 = 판정 범위)
     if (((d.thrust || d.noBody) && a.hd.reach) || a.kind === 'stab') {
       const st = Elements.socket(p.prof, d.slot || 'none'), o = { follow: p, a: Math.atan2(p.fv.y, p.fv.x), R: a.hd.reach[1], t: 0,
-        col: st ? ELEMENTS[st.el].color : a.kind === 'stab' ? '#b9a0ff' : '#dfe6ff', tier: Elements.tier(st), el: st ? st.el : '', ss: st ? st.size : 0 };
+        col: st ? ELEMENTS[st.el].color : a.kind === 'stab' ? '#b9a0ff' : '#dfe6ff', tier: Elements.tier(st), el: st ? st.el : '', ss: Elements.ss(st, p.prof) };
       if (a.kind === 'stab') World.fx(Object.assign(o, { type: 'sweep', arc: a.hd.arc, life: a.a + 0.16 }));
       else World.fx(Object.assign(o, { type: 'thrust', arc: d.noBody ? 0 : a.hd.arc, band: d.noBody ? 10 : 0, life: a.a + 0.1 }));
     }
     if (d.spin) {  // 그림 단계 · 속성: 그 칸 속성석(art.js fx 'ring')
       const st = Elements.socket(p.prof, d.slot || 'none');
-      World.fx({ type: 'ring', follow: p, r: a.hd.radius, t: 0, life: 0.3, col: Elements.color(p.prof, d.slot || 'none'), tier: Elements.tier(st), el: st ? st.el : '', ss: st ? st.size : 0 });
+      World.fx({ type: 'ring', follow: p, r: a.hd.radius, t: 0, life: 0.3, col: Elements.color(p.prof, d.slot || 'none'), tier: Elements.tier(st), el: st ? st.el : '', ss: Elements.ss(st, p.prof) });
     }
     if (a.kind === 'charge' && !d.circle && !d.knives) Elements.chargeBurst(p, d.spin ? a.hd.radius : 0);  // 회전베기: 속성 범위 = 베기 범위
     if (a.kind === 'stab') Elements.chargeBurst(p);  // 백스탭도 차지 칸 속성석 폭발(대상 등 뒤 자리에서)
@@ -403,7 +403,7 @@ function updateAct(p, dt, room) {
       const st = Elements.socket(p.prof, 'wave'), tier = Elements.tier(st);
       World.playerShot({ x: p.x + p.fv.x * 8, y: p.y + p.fv.y * 8, vx: p.fv.x * d.orb.speed, vy: p.fv.y * d.orb.speed, left: d.orb.range, r: d.orb.r,
         ball: true, orb: true, once: true, homing: true, def: d, hit: new Set(), stone: st, col: st ? ELEMENTS[st.el].color : '#b39cff',
-        tier, el: st ? st.el : '', ss: st ? st.size : 0,
+        tier, el: st ? st.el : '', ss: Elements.ss(st, p.prof),
         onEnd: s => {
           World.sparks(s.x, s.y - 8, 8, 10 + tier * 6, s.col, tier >= 2);
           const ob = wkOf(p).orbBurst;  // 스태프(광역): 맞은 자리에서 작게 터진다(바닥 타원 r — 그림 = 판정)
@@ -436,13 +436,13 @@ function updateAct(p, dt, room) {
         .find(e => ((e.x - p.x) * p.fv.x + (e.y - p.y) * p.fv.y) >= 0);
       const st = Elements.socket(p.prof, 'charge');  // 그림 단계 · 속성(art.js magicCircle · fx 'nova')
       World.field({ magic: true, x: tgt ? tgt.x : p.x + p.fv.x * c.ahead, y: tgt ? tgt.y : p.y + p.fv.y * c.ahead, r: wkOf(p).circleR || c.r, delay: c.delay, life: c.delay + 0.4,  // 스태프(광역): 반지름 52
-        def: d, p, col: st ? ELEMENTS[st.el].color : '#b39cff', tier: Elements.tier(st), el: st ? st.el : '', ss: st ? st.size : 0 });
+        def: d, p, col: st ? ELEMENTS[st.el].color : '#b39cff', tier: Elements.tier(st), el: st ? st.el : '', ss: Elements.ss(st, p.prof) });
     }
     // 마법사 마력 숨결: 지팡이 앞으로 퍼지는 부채꼴 빛(기본 칸 속성석 색). 칸 능력은 맞을 때(Elements.breathHit)
     if (d.breath) {  // 그림 단계 · 속성: 기본 칸 속성석(art.js fx 'breath')
       const st = Elements.socket(p.prof, 'basic');
       World.fx({ type: 'breath', follow: p, a: Math.atan2(p.fv.y, p.fv.x), R: a.hd.reach[1], arc: a.hd.arc, big: !!d.fin, seed: Math.random() * 1000, t: 0, life: a.a + 0.3,
-        col: st ? ELEMENTS[st.el].color : '#c9b8ff', tier: Elements.tier(st), el: st ? st.el : '', ss: st ? st.size : 0 });
+        col: st ? ELEMENTS[st.el].color : '#c9b8ff', tier: Elements.tier(st), el: st ? st.el : '', ss: Elements.ss(st, p.prof) });
     }
     else if (d.slot === 'basic') Elements.basicSwing(p, d);   // 기본 칸 속성석(보통부터): 화염구 · 얼음 파편 · 독 분사
     // 검기: 앞으로 날아가며 꿰뚫는다. 가까이서 칼에 맞은 몹은 검기에 또 맞지 않게 같은 목록을 쓴다

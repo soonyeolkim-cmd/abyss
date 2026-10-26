@@ -259,8 +259,8 @@ const Coop = (() => {
   // 손님 → 방장: 동작(act) · 위치(pos의 x · y · 스틱 · 무적) · 장비(kit). 방장 → 그 손님: 몹 소식(snap, 1초 20번) · 맞음(hurt). 방장 → 모두: 처치(kill).
   const evQ = new Map();  // 손님마다 모아 둔 효과 알림
   let snapQ = [], runKits = new Map();
-  const myKit = () => { const pr = Game.prof; return { cls: pr.cls || 'swordsman', lv: pr.lv, equip: pr.equip, sockets: pr.sockets }; };
-  const kitProf = k => ({ cls: k.cls, lv: k.lv, equip: k.equip, sockets: k.sockets, potions: 0, stones: {}, scrolls: {} });
+  const myKit = () => { const pr = Game.prof; return { cls: pr.cls || 'swordsman', lv: pr.lv, equip: pr.equip, sockets: pr.sockets, imprint: pr.imprint || 0 }; };  // imprint = 원소 각인(방장이 손님 속성석 세기를 셈)
+  const kitProf = k => ({ cls: k.cls, lv: k.lv, equip: k.equip, sockets: k.sockets, imprint: k.imprint || 0, potions: 0, stones: {}, scrolls: {} });
   // 방장: 같이 들어온 손님마다 그 장비로 만든 몸(world.js start)
   function remotePlayers() {
     const out = [];
@@ -411,6 +411,7 @@ const Coop = (() => {
     const who = Net.members().find(x => x.pid === from);
     const name = who ? clsOf(who).name + ' 친구' : '친구';
     if (b.kind === 'unique') { Sfx.unique(0.6); Game.toast(name + '가 유니크를 얻었어요 — ' + b.item.name); }
+    else if (b.kind === 'craft') { Sfx.unique(0.6); Game.toast(name + '가 Lv.' + CRAFT.lv + ' 유니크를 만들었어요! — ' + b.item.name); }
     else if (b.kind === 'jar') {
       const tier = jarTier(b.item);
       if (tier === 'jackpot') { Sfx.unique(0.6); Game.toast(name + '가 항아리에서 유니크를 뽑았어요! — ' + b.item.name); }
@@ -432,7 +433,7 @@ const Coop = (() => {
     let top, main, col, edge, glow, bg = '#1d151b';
     if (f.kind === 'forge') { top = '+' + f.n + ' 강화'; main = f.ok ? '성공!' : '실패'; col = f.ok ? '#ffd36a' : '#ff7a6a'; edge = f.ok ? '#ffd36a' : '#a05a5a'; glow = f.ok ? '255,211,106' : null; bg = f.ok ? '#2a1f0e' : '#1d1416'; }
     else if (f.kind === 'stone') { const c = ELEMENTS[f.stone.el].color; top = '합치기 성공!'; main = stoneName(f.stone); col = c; edge = c; glow = '255,255,255'; }
-    else { top = '유니크 획득!'; main = f.item.name; col = RARITY[f.item.rarity].color; edge = col; glow = '255,170,80'; bg = '#2a1a0c'; }
+    else { top = f.kind === 'craft' ? '유니크 제작!' : '유니크 획득!'; main = f.item.name; col = RARITY[f.item.rarity].color; edge = col; glow = '255,170,80'; bg = '#2a1a0c'; }
     ctx.font = 'bold 15px ' + Gfx.FONT;
     const w = Math.max(128, Math.ceil(ctx.measureText(main).width) + 58), h = 40;
     ctx.save();

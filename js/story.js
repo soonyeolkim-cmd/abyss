@@ -12,6 +12,7 @@ const SPEAKERS = {
   shop: { name: '상인 엘린', color: '#8aff9a', bg: '#142a1a', sprite: 'elf_m' },
   jewel: { name: '세공사 미라', color: '#7dd3ff', bg: '#141e2a', sprite: 'wizzard_f' },
   gambler: { name: '도박꾼 단지', color: '#e8a050', bg: '#2a1a24', sprite: 'gambler' },
+  artisan: { name: '심연 장인 고른', color: '#c06aff', bg: '#1e1428', sprite: 'dwarf_m', dy: -22 },  // 2026-10-26 실베인 — 브론의 형
 };
 
 // 마을 NPC 대사(2026-10-25 사용자: 카엘이 마을에 · 지하 도시이고 바깥은 위험하다는 사람)
@@ -55,6 +56,9 @@ const NPC_TALK = {
       ['jewel', '네 칸을 모두 보통 이상으로 채우면 세트 효과가 생겨. 네 개가 같은 속성이면 공명, 두 속성이 두 개씩이면 듀오!'],
       ['jewel', '보석은 장비에 끼우는 돌이야. 매직 등급 이상 장비마다 한 칸. 공격 보석은 무기 · 목걸이 · 반지, 방어 보석은 투구 · 갑옷 · 장갑 · 신발에.'],
       ['jewel', '보석도 세 개를 모아 합치면 커져. 아, 그리고 무기를 안 끼면 속성석이 잠드니까 꼭 무기를 들고 다녀!'],
+      // 원소 각인(2026-10-26): 끝없는 심연이 열린 뒤에만
+      ...(endlessOpen(Game.prof) ? [['jewel', '심연이 열린 뒤로 새 기술을 익혔어. 전설 화염석 · 빙결석 · 뇌전석 · 맹독석을 하나씩 가져오면 원소 각인을 새겨 줄게.'],
+        ['jewel', '각인 별 하나마다 네가 낀 속성석이 ' + Math.round(IMPRINT.step * 100) + '%씩 세져. 어떤 속성을 끼든 똑같이! 별 ' + IMPRINT.setAt + '개면 세트 효과도 더 세지고, 별 ' + IMPRINT.max + '개면… 직접 봐.']] : []),
     ];
   },
   shop: () => [
@@ -64,6 +68,15 @@ const NPC_TALK = {
     ['shop', '남는 조각 속성석 · 보석은 하나에 ' + SHARD_SELL + 'G에 사 드려요. 장비는 장비 팔기에서 팔면 되고요.'],
     ['shop', '가방이 가득 차면, 끼고 있는 것보다 약한 일반 · 매직 장비는 주울 때 저절로 골드가 돼요. 짐 걱정은 덜어도 돼요!'],
     ['shop', '장비 항아리요? 그건 저기 항아리 쓴 단지 씨한테 가 보세요. 좀… 별난 사람이에요.'],
+  ],
+  // 심연 장인 고른(2026-10-26): 수치는 data.js CRAFT · ESSENCE 와 같게
+  artisan: () => [
+    ['artisan', '흠, 브론 녀석이 보냈나? 난 그 녀석 형, 고른이다. 심연에서 나온 것만 다루지.'],
+    ['artisan', 'Lv.' + CRAFT.lv + ' 유니크는 심연 어디에서도 그냥 떨어지지 않아. 내가 직접 벼려야 한다.'],
+    ['artisan', '재료는 심연의 핵 ' + CRAFT.cores + '개, 심연 정수 ' + CRAFT.essence + '개, 강화 주문서 ' + CRAFT.scrolls + '장, ' + STONE_SIZES[CRAFT.gemSize].name + ' 보석 ' + CRAFT.gems + '개, 그리고 ' + CRAFT.gold + 'G.'],
+    ['artisan', '핵은 끝없는 심연 맨 밑의 파수꾼을 쓰러뜨려야 나온다. 정수는 심연의 정예 · 고유 몹과 층 수호자가 떨어뜨리고.'],
+    ['artisan', '보석은 무기 · 목걸이 · 반지면 공격 보석, 투구 · 갑옷 · 장갑 · 신발이면 방어 보석이다. 미라에게 합쳐 달라고 해.'],
+    ['artisan', '안 쓰는 태초 장비는 버리지 말고 가져와. 녹여서 정수 가루로 만들어 주마. 가루 ' + ESSENCE.dustPer + '개면 정수 하나다.'],
   ],
   gambler: () => [
     ['gambler', '크흐흐, 항아리 속이 궁금한가? 이 머리 말이냐? 운이 달아나지 말라고 뚜껑을 덮어 둔 거다.'],
@@ -246,7 +259,7 @@ const Story = (() => {
   // 마을 NPC 말 걸기(town.js)
   const pick = a => a[Math.floor(Math.random() * a.length)];
   function talkNpc(id) {
-    if (id === 'smith' || id === 'shop' || id === 'jewel' || id === 'gambler') { play(NPC_TALK[id]()); return; }  // 기존 NPC: 하는 일 설명
+    if (id === 'smith' || id === 'shop' || id === 'jewel' || id === 'gambler' || id === 'artisan') { play(NPC_TALK[id]()); return; }  // 기존 NPC: 하는 일 설명
     if (id === 'cartLocked') { play([['miner', '그 광차 말인가? 왕의 갱도 끝은 아직 심연의 문이 막고 있다네. 문부터 닫고 오게, 그럼 땅 위까지 태워 주지. 허허.']]); return; }  // 엔딩 전 광차
     if (id === 'miner') { if (!once('npc:miner', NPC_TALK.minerFirst)) play([['miner', pick(NPC_TALK.minerPool)]]); return; }
     if (id === 'kael') {

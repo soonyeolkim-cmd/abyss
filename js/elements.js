@@ -4,7 +4,13 @@ const Elements = (() => {
   const key = s => s.el + ':' + s.size;
   // 끼운 돌(무기가 없으면 잠듦)
   const socket = (prof, slot) => (prof.equip.weapon && prof.sockets ? prof.sockets[slot] || null : null);  // sockets 없음 = 파티 친구 그림용 몸
-  const power = s => STONE_SIZES[s.size].power;
+  // 세기 k = 돌 크기 power × 원소 각인(★마다 +IMPRINT.step) — prof 를 안 주면 지금 친 사람(P)
+  const stars = prof => Math.min(IMPRINT.max, (prof && prof.imprint) || 0);
+  const imprintMul = prof => 1 + IMPRINT.step * stars(prof);
+  const power = (s, prof) => STONE_SIZES[s.size].power * imprintMul(prof || (P() && P().prof));
+  // 원소 각인 ★max 이정표: 칸 4개 모두 전설 이상이면 전설 돌 그림도 태초 오로라(fx ss)
+  const allLegend = prof => STONE_SLOTS.every(k => prof.sockets && prof.sockets[k] && prof.sockets[k].size >= IMPRINT.size);
+  const ssOf = (s, prof) => (!s ? 0 : s.size >= IMPRINT.size && prof && stars(prof) >= IMPRINT.max && allLegend(prof) ? STONE_SIZES.length - 1 : s.size);
   const color = (prof, slot, fallback = '#ffffff') => { const s = socket(prof, slot); return s ? ELEMENTS[s.el].color : fallback; };
   // 그림 단계(2026-10-26 사용자: 속성석 레벨에 따라 멋져지게 · 구간마다): 0 = 없음 · 조각 · 작은 / 1 = 보통 · 큰 / 2 = 완전한 / 3 = 전설 · 태초
   const tier = s => (!s ? 0 : s.size >= 5 ? 3 : s.size >= 4 ? 2 : s.size >= 2 ? 1 : 0);
@@ -27,7 +33,8 @@ const Elements = (() => {
     if (ss.some(s => !s || s.size < SET_MIN)) return null;
     const n = {};
     for (const s of ss) n[s.el] = (n[s.el] || 0) + 1;
-    const els = Object.keys(n).sort(), sc = STONE_SIZES[Math.min(...ss.map(s => s.size))].power / STONE_SIZES[SET_MIN].power;
+    const els = Object.keys(n).sort(), sc = STONE_SIZES[Math.min(...ss.map(s => s.size))].power / STONE_SIZES[SET_MIN].power
+      * (stars(prof) >= IMPRINT.setAt ? IMPRINT.setMul : 1);  // 원소 각인 ★5 이정표: 세트 효과 수치 ×1.2
     if (els.length === 1) return { res: els[0], name: SET_RES[els[0]].name, desc: SET_RES[els[0]].desc(sc), sc };
     if (els.length === 2 && n[els[0]] === 2) { const key = els.join('+'), d = SET_DUO[key]; return { duo: key, name: d.name, desc: d.desc(sc), sc }; }
     return null;
@@ -36,7 +43,7 @@ const Elements = (() => {
   const setOf = () => { const p = P(); return p ? setBonus(p.prof) : null; };
   const isRes = el => { const b = setOf(); return b && b.res === el ? b.sc : 0; };
   const isDuo = key => { const b = setOf(); return b && b.duo === key ? b.sc : 0; };
-  const pk = (prof, el) => STONE_SIZES[Math.max(0, best(prof, el))].power;  // 패시브 세기 = 가장 큰 돌
+  const pk = (prof, el) => STONE_SIZES[Math.max(0, best(prof, el))].power * imprintMul(prof);  // 패시브 세기 = 가장 큰 돌(× 원소 각인)
   // 패시브 · 조합 효과 그림 단계 = 그 속성 가장 큰 돌(2026-10-26 사용자: 단계가 안 보이는 그림 점검 — 예전엔 늘 0단계로 그려짐)
   const bestTier = (prof, el) => tier({ size: Math.max(0, best(prof, el)) });
   const slotOpen = s => s.size >= EL_UNLOCK.slot;
@@ -261,7 +268,7 @@ const Elements = (() => {
     } else if (s.el === 'poison') {
       // 그림 = 판정 부채꼴 그대로(길이 46 × 크기 배율 · 반각 41°, 2026-10-26 이펙트 범위 = 판정 범위) — 마법사 숨결과 같은 흩뿌림
       const PR = Math.round(46 * sc);
-      World.fx({ type: 'breath', x: p.x, y: p.y, a: a0, R: PR, arc: Math.acos(0.75) * 180 / Math.PI, big: !!d.fin, seed: Math.random() * 1000, t: 0, life: 0.35, col, tier: tier(s), el: 'poison', ss: s.size });
+      World.fx({ type: 'breath', x: p.x, y: p.y, a: a0, R: PR, arc: Math.acos(0.75) * 180 / Math.PI, big: !!d.fin, seed: Math.random() * 1000, t: 0, life: 0.35, col, tier: tier(s), el: 'poison', ss: ssOf(s, p.prof) });
       for (const e of World.enemies()) {
         if (!live(e)) continue;
         const dx = e.x - p.x, dy = e.y - p.y, dist = Math.hypot(dx, dy);
@@ -301,7 +308,7 @@ const Elements = (() => {
     if (!s) return;
     const k = power(s), atk = p.stats.atk, R = R0 || burstR(s), col = ELEMENTS[s.el].color;
     // 불 · 얼음 폭발 그림 = 판정 반지름 R 그대로(art.js fx 'nova', bare = 빛기둥 · 오로라 없이). 마법진은 world.js 가 R 까지 그린다(p.nova)
-    const nova = life => { if (!p.nova) World.fx({ type: 'nova', x: p.x, y: p.y, r: R, col, el: s.el, tier: tier(s), ss: s.size, bare: true, seed: Math.random() * 1000, t: 0, life }); };
+    const nova = life => { if (!p.nova) World.fx({ type: 'nova', x: p.x, y: p.y, r: R, col, el: s.el, tier: tier(s), ss: ssOf(s, p.prof), bare: true, seed: Math.random() * 1000, t: 0, life }); };
     const near = World.enemies().filter(e => live(e) && groundDist(e.x - p.x, e.y - p.y) <= R + e.r);
     if (slotOpen(s)) chargeExtra(p, s, k, R, near);
     switch (s.el) {
@@ -450,7 +457,7 @@ const Elements = (() => {
   // ── 설명(메뉴) ──
   function describe(s, slot, prof) {
     const mage = clsOf(prof).id === 'mage';
-    const k = power(s), pc = v => Math.round(v * 100) + '%';
+    const k = power(s, prof), pc = v => Math.round(v * 100) + '%';
     const T = {
       fire: {
         basic: ['맞히면 화상 3초: 초당 공격력의 ' + pc(0.3 * k), '마무리(찌르기)는 1.5배'],
@@ -526,5 +533,5 @@ const Elements = (() => {
     return true;
   }
 
-  return { setBonus, socket, power, color, tier, burstR, onHit, basicSwing, breathHit, dashStart, dashMove, dashEnd, onDeath, step, reset, has, passives, best, chargeBurst, waveTrail, waveEnd, fieldTick, tick, vuln, describe, stacks, add, take, key };
+  return { setBonus, socket, power, ss: ssOf, stars, color, tier, burstR, onHit, basicSwing, breathHit, dashStart, dashMove, dashEnd, onDeath, step, reset, has, passives, best, chargeBurst, waveTrail, waveEnd, fieldTick, tick, vuln, describe, stacks, add, take, key };
 })();

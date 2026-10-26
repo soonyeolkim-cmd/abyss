@@ -22,9 +22,16 @@ const Town = (() => {
       go: () => Game.overlay({ type: 'choice', title: '대장장이 브론', items: [
         { label: '주문서 강화 · 강화 옮기기', go: () => Game.overlay({ type: 'smith' }) },
         { label: '장비 팔기', go: () => Game.overlay({ type: 'inv', mode: 'sell' }) },
-        { label: '장비 분해 (심연 정수)', go: () => Game.overlay({ type: 'inv', mode: 'scrap' }) },  // 2026-10-25 사용자: 태초 장비 → 정수 가루
         EQUIP_ITEM,
         { label: '강화 이야기 듣기', go: () => Story.talkNpc('smith') },  // 2026-10-25 사용자: 기존 NPC도 대화로 설명
+      ] }) },
+    // 심연 장인 고른(2026-10-26 사용자: 브론의 형, 실베인에만 — only) — Lv.100 유니크 제작(js/craft.js) · 장비 분해(브론에게서 옮김)
+    { id: 'artisan', only: 'silvane', name: '심연 장인 고른', role: 'Lv.100 유니크 제작 · 장비 분해', sprite: 'dwarf_m', ...px(1, 1),
+      go: () => Game.overlay({ type: 'choice', title: '심연 장인 고른', items: [
+        { label: '유니크 제작 (Lv.100)', go: () => Game.overlay({ type: 'craft' }) },
+        { label: '장비 분해 (심연 정수)', go: () => Game.overlay({ type: 'inv', mode: 'scrap' }) },  // 2026-10-25 사용자: 태초 장비 → 정수 가루
+        EQUIP_ITEM,
+        { label: '제작 이야기 듣기', go: () => Story.talkNpc('artisan') },
       ] }) },
     // 던전 입구(2026-10-25 사용자: 도박꾼과 자리 바꿈) — 아래 가운데 내려가는 계단, 양옆 깃대(GATE_POLES)
     { id: 'gate', name: '던전 입구', role: '던전 고르기', ...px(14, 14), x: 15 * T, go: () => { if (!Coop.guestBlocked()) Game.open('select'); } },  // 파티 손님은 방장이 고른다
@@ -48,6 +55,7 @@ const Town = (() => {
       go: () => Game.overlay({ type: 'choice', title: '세공사 미라', items: [
         { label: '속성석 · 보석 합치기', go: () => Game.overlay({ type: 'stones', mode: 'craft' }) },
         { label: '속성석 · 보석 관리', go: () => Game.overlay({ type: 'manage' }) },
+        ...(endlessOpen(prof) ? [{ label: '원소 각인 (★' + Elements.stars(prof) + ')', go: () => Game.overlay({ type: 'imprint' }) }] : []),  // 2026-10-26 끝없는 심연이 열린 뒤
         EQUIP_ITEM,
         { label: '속성석 · 보석 이야기 듣기', go: () => Story.talkNpc('jewel') },
       ] }) },
@@ -92,6 +100,7 @@ const Town = (() => {
   const maps = {}, HOME = {};
   for (const s of STATIONS) HOME[s.id] = { x: s.x, y: s.y, flip: s.flip, role: s.role };
   const mapOf = w => maps[w] || (maps[w] = w === 'belloc' ? build() : Silvane.build());
+  const here = () => STATIONS.filter(s => !s.only || s.only === where);  // 지금 마을에 서 있는 사람(only = 그 마을에만)
   const silvaneOpen = pr => !!(pr && pr.story && pr.story['abyss:town']);
   function place(w) {
     where = w; lv = mapOf(w);
@@ -231,7 +240,7 @@ const Town = (() => {
     // 가장 가까운 말 걸 곳
     near = null;
     let bd = TALK_R;
-    for (const s of STATIONS) { const d = Math.hypot(s.x - p.x, s.y - p.y); if (d < bd) { bd = d; near = s; } }
+    for (const s of here()) { const d = Math.hypot(s.x - p.x, s.y - p.y); if (d < bd) { bd = d; near = s; } }
     if (near && (Input.wasPressed('ok') || Input.wasPressed('attack'))) { Sfx.pickup(); near.go(); }
   }
 
@@ -266,8 +275,8 @@ const Town = (() => {
     if (where === 'belloc') bellocWorld(ctx, list); else Silvane.world(ctx, list, time);
     // 오르반: 곰방대 연기(위로 흔들리며 흐려지는 회색 덩이) · 안전모 등불의 따뜻한 빛(일렁임) — 맨 위에
     list.push({ y: 1e6, draw: () => drawMinerFx(ctx, STATIONS.find(s => s.id === 'miner')) });
-    for (const s of STATIONS) if (s.prop) list.push({ y: s.y, draw: () => { Art.shadow(ctx, s.x, s.y, 7, 0, 1); Gfx.spr(ctx, s.prop, s.x, s.y); } });
-    for (const s of STATIONS) if (s.sprite) list.push({ y: s.y, draw: () => {
+    for (const s of here()) if (s.prop) list.push({ y: s.y, draw: () => { Art.shadow(ctx, s.x, s.y, 7, 0, 1); Gfx.spr(ctx, s.prop, s.x, s.y); } });
+    for (const s of here()) if (s.sprite) list.push({ y: s.y, draw: () => {
       Art.shadow(ctx, s.x, s.y, 6, 0, 1);
       Gfx.spr(ctx, Gfx.anim(s.sprite + '_idle_anim', time + s.x * 0.01, 6), s.x, s.y, { flip: !!s.flip });
     } });
@@ -370,7 +379,7 @@ const Town = (() => {
   // 글자(960x540 화면 좌표): 이름표 · 말 걸기 · 현수막 글 · 혼잣말 · 파티 · 아래 왼쪽 패널 · 안내
   function drawLabels(ctx, sx, sy, mates) {
     const labelY = s => sy(s.y) - (s.sprite ? 62 : 44);
-    for (const s of STATIONS) {
+    for (const s of here()) {
       const on = s === near, hy = labelY(s);
       // 말 걸 곳의 '말 걸기' · 설명이 옆 이름표를 덮지 않게, 가까운 이웃 이름표는 그동안 숨김(벨록 광차 ↔ 오르반)
       if (near && !on && Math.abs(sx(s.x) - sx(near.x)) < 130 && Math.abs(hy - labelY(near)) < 60) continue;
