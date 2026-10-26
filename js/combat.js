@@ -66,7 +66,7 @@ function hitEnemy(e, def, p, w) {
     e.tingT = World.time + 0.5;
     World.text(e.x, e.y, e.h + 8, blocked ? '팅!' : '보호막', blocked ? '#ece0cc' : '#5fe0d0');
   }
-  // 레이드 보스: 껍질 '팅'(×0.1) · 보호막 · 단계 바뀌는 중(0) · 심장이 드러나면 더 크게(js/raid.js cut)
+  // 레이드 보스: 껍질 '팅'(×0) · 보호막 · 단계 바뀌는 중(0) · 심장이 드러나면 더 크게(js/raid.js cut)
   const rc = ed.raid ? Raid.cut(e) : null;
   if (rc) {
     dmg *= rc[0];

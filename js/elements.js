@@ -186,7 +186,7 @@ const Elements = (() => {
   // 속성 피해(상태이상 · 폭발 · 번개): 숫자를 띄우고, 쓰러지면 처치
   function damage(e, amount, el) {
     if (e.dying || e.state === 'dead' || World.mirror || untouchable(e) || e.def.part === 'orb') return;  // 파티 손님: 피해는 방장 쪽에서 · 땅속 촉수 · 사라진 순간이동자는 안 맞음
-    const rc = e.def.raid ? Raid.cut(e)[0] : 1;  // 레이드 보스: 껍질 · 보호막은 속성 피해도 막는다
+    const rc = e.def.raid ? (e.state === 'exposed' ? Raid.cut(e)[0] : 0) : 1;  // 레이드 보스: 심장이 드러난 동안만 속성 피해(화상 · 독 · 폭발 · 번개)가 들어간다(2026-10-26 사용자)
     if (!rc) return;
     const d = Math.max(1, Math.round(amount * vuln(e) * rc * (e.wardT > 0 ? WARD.cut : 1)));  // 보호막 사제 둘레(방패병 방패는 속성 피해를 못 막음)
     e.hp -= d;

@@ -326,7 +326,7 @@ Object.assign(ENEMIES, {
 // 체력 = 3층 중간 보스(mid.hp 배율 전) × hpMul(파티면 인원 배율도). 약점(청록 심장)이 드러난 동안만 제대로 맞는다(exposedMul, 어느 쪽 · 어떤 공격이든).
 // 패턴 셋을 패턴마다 repeat[0]~[1] 번씩 섞은 순서로(같은 패턴 연달아 없음), 심장이 한 번 드러날 때마다 다음 패턴 — 한 번에 깎이는 체력 = 최대 / 순서 길이(6~9).
 // 패턴이 바뀔 때 shift 초 무적 · 포효. 체력이 줄수록 공격 사이가 짧아짐(최대 ×0.65). (2026-10-26 사용자: 예전 체력 66 · 33% 3단계 → 섞기)
-//   ① 껍질: 평소 ×shellCut('팅'). 내려찍기 slams 번 뒤 지쳐 slamExpose 초 노출 / 돌진하다 방 기둥에 부딪히면 기둥이 깨지며 pillarExpose 초(껍질이 다시 나오면 기둥도 다시)
+//   ① 껍질: 평소 ×shellCut('팅' — 2026-10-26 사용자 0: 심장이 드러날 때만 피가 단다, 속성 피해도 elements.js 에서 0). 내려찍기 slams 번 뒤 지쳐 slamExpose 초 노출 / 돌진하다 방 기둥에 부딪히면 기둥이 깨지며 pillarExpose 초(껍질이 다시 나오면 기둥도 다시)
 //   ② 수정 보호막: 방 네 귀퉁이 공허 수정 4개가 있는 동안 피해 없음 → 다 부수면 crystalExpose 초 노출 · 공허 장판 · 탄.
 //      crystalTime 초(패턴 바뀌는 shift 뒤부터) 안에 다 못 부수면 남은 수정마다 모두에게 최대 체력 crystalPct 피해(방어 · 대시 무적 무시) 후 노출 없이 다음 패턴
 //      (2026-10-26 사용자: 남은 수만큼 한 명씩 즉사는 파티가 어려워서 → 비율 피해. 걸어서 네 귀퉁이를 다 돌면 약 1400px ≈ 17초(속도 82) → 25초 → 사용자 "너무 길다" 10초 — 파티는 나눠서, 혼자면 몇 개는 맞을 각오)
@@ -339,7 +339,7 @@ Object.assign(ENEMIES, {
 // 2026-10-26 시험(무적 · 공격 ×40 시험 캐릭터): hpMul 5 · 내려찍기 3번 · 노출 ×1.5 로는 1단계만 2분, hpMul 3 이어도 2단계에서 4분이 넘음
 //   → 체력 = 중간 보스 × 1.2(드러날 때만 제대로 맞으니 실제로는 중간 보스 몇 배 걸림) · 내려찍기 2번 · ×2 · 노출 시간 늘리고 제한 5분
 //   → 섞기로 바꾸며 드러나야 하는 횟수가 3 → 6~9 번이 되어 제한 5 → 7분 · 빠른 깸 2 → 3분 30초
-const RAID_RULE = { hpMul: 1.2, time: 420, shellCut: 0.1, exposedMul: 2, slams: 2, slamExpose: 4, pillarExpose: 6, crystalExpose: 7, crystalTime: 10, crystalPct: 0.2, repeat: [2, 3], shift: 1.2,
+const RAID_RULE = { hpMul: 1.2, time: 420, shellCut: 0, exposedMul: 2, slams: 2, slamExpose: 4, pillarExpose: 6, crystalExpose: 7, crystalTime: 10, crystalPct: 0.2, repeat: [2, 3], shift: 1.2,
   stun: 1.5, orbPct: 0.25, markT: 5, markMul: 1.3, wave: { delay: 0.5, speed: 240, w: 12, pct: 0.15, maxR: 560 },
   orbExpose: 5, orbSpeed: 120, orbBack: 1.15, rallyMax: 3, rallyChance: 0.5, essence: 10, fastTime: 210, fastCore: 0.5, extraCore: 0.15 };
 Object.assign(ENEMIES, {
