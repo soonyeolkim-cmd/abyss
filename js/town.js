@@ -245,12 +245,18 @@ const Town = (() => {
     { label: '캐릭터 선택 화면으로', go: () => Game.toTitle() },  // 지우기 · 코드는 캐릭터 선택 화면에서(2026-10-24)
   ];
 
-  function draw(ctx) {
+  // 도트풍(2026-10-26 사용자: 던전처럼 마을도): 바닥 · 사람 · 빛을 게임 화소(1배) 캔버스에 그린 뒤 2배로 이웃 화소 그대로 키운다. 글자는 2배 화면에 또렷하게
+  const PX = document.createElement('canvas');
+  PX.width = VIEW_W; PX.height = VIEW_H;
+  const pxg = PX.getContext('2d');
+  function draw(out) {
+    let ctx = pxg;
     if (!lv.painted && Gfx.ready()) { lv.canvas = where === 'belloc' ? Dungeon.paint(lv) : Silvane.paint(lv); lv.painted = true; }
     const viewH = VIEW_H;
     cam.x = Math.round(Math.max(0, Math.min(lv.W * T - VIEW_W, p.x - VIEW_W / 2)));
     cam.y = Math.round(Math.max(0, Math.min(lv.H * T - viewH, p.y - 10 - viewH / 2)));
-    ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
     ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, VIEW_W, VIEW_H);
     ctx.save();
@@ -288,8 +294,12 @@ const Town = (() => {
       ctx.fillStyle = v; ctx.fillRect(0, 0, VIEW_W, VIEW_H);
     }
 
-    // ── 글자(960x540 화면 좌표) ──
+    // 1배 화면을 2배로 얹기
+    ctx = out;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(PX, 0, 0, VIEW_W, VIEW_H, 0, 0, VIEW_W * SCALE, VIEW_H * SCALE);
+    // ── 글자(960x540 화면 좌표) ──
     const sx = x => (x - cam.x) * SCALE, sy = y => (y - cam.y) * SCALE;
     drawLabels(ctx, sx, sy, mates);
     if (fade) { ctx.fillStyle = 'rgba(' + fade.col + ',' + Math.min(1, fade.t / 0.7) + ')'; ctx.fillRect(0, 0, 960, 540); }  // 광차로 도착: 빛 · 어둠이 걷힘

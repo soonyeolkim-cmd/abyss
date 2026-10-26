@@ -331,6 +331,8 @@ function startAct(p, def, kind, idx, o = {}) {
   if (def.arc) hd.arc = Math.min(170, def.arc * wk.arc);
   if (def.radius) hd.radius = def.radius + wk.reach * 0.5;
   if (def.breath) breathOf(p, hd);
+  // 검사 회전베기(차지 칸 둘레 공격): 차지 칸 속성석 크기(조각 1 ~ 태초 7)마다 반지름 +5%(태초 44 → 약 59, 2026-10-26 사용자) — 고리 그림도 hd.radius 를 따름
+  if (def.spin && def.slot === 'charge') { const st = Elements.socket(p.prof, 'charge'); if (st) hd.radius *= 1 + 0.05 * (st.size + 1); }
   if (kind !== 'dashAtk' && !o.aimed) aimAt(p, def.circle ? def.circle.range : def.orb ? def.orb.range * 0.7 : def.wave ? def.wave.range * 0.6 : def.knives ? def.knives.range * 0.8 : def.area ? def.area.ahead + def.area.r : def.radius || hd.reach[1]);  // 대시 찌르기는 대시한 방향 그대로 · 검기는 멀리까지
   p.state = 'act';
   p.act = {
@@ -386,7 +388,7 @@ function updateAct(p, dt, room) {
       const st = Elements.socket(p.prof, d.slot || 'none');
       World.fx({ type: 'ring', follow: p, r: a.hd.radius, t: 0, life: 0.3, col: Elements.color(p.prof, d.slot || 'none'), tier: Elements.tier(st), el: st ? st.el : '', ss: st ? st.size : 0 });
     }
-    if (a.kind === 'charge' && !d.circle && !d.knives) Elements.chargeBurst(p);
+    if (a.kind === 'charge' && !d.circle && !d.knives) Elements.chargeBurst(p, d.spin ? a.hd.radius : 0);  // 회전베기: 속성 범위 = 베기 범위
     if (a.kind === 'stab') Elements.chargeBurst(p);  // 백스탭도 차지 칸 속성석 폭발(대상 등 뒤 자리에서)
     if (a.fly) World.fx({ type: 'shadowpath', pts: [[a.fly.x0, a.fly.y0]], follow: p, w: 8, t: 0, life: 0.3, col: '#b9a0ff' });  // 날아온 길  // 회전베기 칸 속성석: 둘레 폭발(마법진은 터질 때 그 자리에서)
     if (d.pulse) World.fx({ type: 'pulse', x: p.x, y: p.y, r: a.hd.radius, t: 0, life: 0.3, col: Elements.color(p.prof, 'dash') });

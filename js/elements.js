@@ -60,8 +60,10 @@ const Elements = (() => {
   }
   const reset = () => { later = []; };
   // 둘레 폭발: 원 안의 몹에게 피해 + 덧붙임
-  function explode(x, y, r, dmg, el, extra) {
-    World.fx({ type: 'burst', x, y, r, col: ELEMENTS[el].color, t: 0, life: 0.3 });
+  // 그림 = 속성 폭발(art.js fx 'nova', bare) 반지름 r 그대로 — 판정(바닥 타원 r)과 같다(2026-10-26 이펙트 범위 = 판정 범위). T = 그림 단계(속성석이 있을 때)
+  const novaAt = (x, y, r, el, T = 0, ss = 0, life = 0.35) => World.fx({ type: 'nova', x, y, r, col: ELEMENTS[el].color, el, tier: T, ss, bare: true, seed: Math.random() * 1000, t: 0, life });
+  function explode(x, y, r, dmg, el, extra, T) {
+    novaAt(x, y, r, el, T || 0);
     for (const e of World.enemies()) {
       if (!live(e) || groundDist(e.x - x, e.y - y) > r + e.r) continue;
       if (dmg > 0) damage(e, dmg, el);
@@ -282,11 +284,12 @@ const Elements = (() => {
   }
 
   // 회전베기를 휘두를 때(차지 칸): 둘레에 속성 폭발
-  function chargeBurst(p) {
+  // R0 = 그 기술 범위를 그대로 쓸 때(검사 회전베기: 속성 범위 = 베기 범위, 2026-10-26 사용자 — 칼이 안 닿는 데 번개가 떨어지면 어색). 없으면 burstR
+  function chargeBurst(p, R0) {
     if (World.mirror) return;  // 파티 손님: 속성석 효과는 방장 쪽 내 몸이 낸다(그림은 방장이 보내 줌)
     const s = socket(p.prof, 'charge');
     if (!s) return;
-    const k = power(s), atk = p.stats.atk, R = burstR(s), col = ELEMENTS[s.el].color;
+    const k = power(s), atk = p.stats.atk, R = R0 || burstR(s), col = ELEMENTS[s.el].color;
     // 불 · 얼음 폭발 그림 = 판정 반지름 R 그대로(art.js fx 'nova', bare = 빛기둥 · 오로라 없이). 마법진은 world.js 가 R 까지 그린다(p.nova)
     const nova = life => { if (!p.nova) World.fx({ type: 'nova', x: p.x, y: p.y, r: R, col, el: s.el, tier: tier(s), ss: s.size, bare: true, seed: Math.random() * 1000, t: 0, life }); };
     const near = World.enemies().filter(e => live(e) && groundDist(e.x - p.x, e.y - p.y) <= R + e.r);
@@ -303,9 +306,9 @@ const Elements = (() => {
         nova(0.45);
         for (const e of near) { damage(e, atk * 0.4 * k, 'frost'); chill(e, 3, k); }
         break;
-      case 'thunder': {
-        const far = World.enemies().filter(e => live(e) && Math.hypot(e.x - p.x, e.y - p.y) <= R + 30)
-          .sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y)).slice(0, 2 + s.size);
+      case 'thunder': {  // 낙뢰: 그려진 반지름 R(바닥 타원) 안 가까운 적부터 2 + 크기 마리(예전 R + 30 동그라미 → 그림 밖 적도 맞았다)
+        nova(0.4);
+        const far = near.slice().sort((a, b) => groundDist(a.x - p.x, a.y - p.y) - groundDist(b.x - p.x, b.y - p.y)).slice(0, 2 + s.size);
         for (const e of far) {
           World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25 });
           damage(e, atk * 0.7 * k, 'thunder');
@@ -343,14 +346,15 @@ const Elements = (() => {
     p.dashStone = null;
     if (!s) return;
     const k = power(s), atk = p.stats.atk;
-    if (s.el === 'thunder') {  // 벼락 발자국: 끝난 자리 가까운 적에게 벼락
-      let best = null, bd = 64;
-      for (const e of World.enemies()) { const d = Math.hypot(e.x - p.x, e.y - p.y); if (live(e) && d < bd) { bd = d; best = e; } }
+    if (s.el === 'thunder') {  // 벼락 발자국: 끝난 자리 반지름 48(바닥 타원, 그림과 같음) 안 가장 가까운 적에게 벼락
+      let best = null, bd = Infinity;
+      for (const e of World.enemies()) { const d = groundDist(e.x - p.x, e.y - p.y); if (live(e) && d <= 48 + e.r && d < bd) { bd = d; best = e; } }
+      novaAt(p.x, p.y, 48, 'thunder', tier(s), s.size, 0.3);
       if (best) { World.fx({ type: 'strike', x: best.x, y: best.y, t: 0, life: 0.25 }); Sfx.zap(); damage(best, atk * 0.6 * k, 'thunder'); shock(best, k); }
     }
     if (!slotOpen(s)) return;
-    if (s.el === 'fire') { Sfx.fire(); explode(p.x, p.y, 26, atk * 0.6 * k, 'fire', e => burn(e, p, k)); }
-    if (s.el === 'frost') { Sfx.frost(); explode(p.x, p.y, 26, atk * 0.3 * k, 'frost', e => chill(e, 2, k)); }
+    if (s.el === 'fire') { Sfx.fire(); explode(p.x, p.y, 26, atk * 0.6 * k, 'fire', e => burn(e, p, k), tier(s)); }
+    if (s.el === 'frost') { Sfx.frost(); explode(p.x, p.y, 26, atk * 0.3 * k, 'frost', e => chill(e, 2, k), tier(s)); }
     if (s.el === 'poison') World.field({ x: p.x, y: p.y, r: 30, el: 'poison', life: 3, k, p });
   }
 
@@ -359,9 +363,10 @@ const Elements = (() => {
     const atk = p.stats.atk;
     if (s.el === 'fire') World.field({ x: p.x, y: p.y, r: R * 0.8, el: 'fire', life: 2.5, k, p });
     if (s.el === 'frost') World.field({ x: p.x, y: p.y, r: R * 0.8, el: 'frost', life: 3, k, p });
-    if (s.el === 'thunder') after(1, () => {
-      const far = World.enemies().filter(e => live(e) && Math.hypot(e.x - p.x, e.y - p.y) <= R + 30)
-        .sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y)).slice(0, 2 + s.size);
+    if (s.el === 'thunder') after(1, () => {  // 뇌운: 1초 뒤 같은 반지름 R 안에 한 번 더(그림도 다시)
+      novaAt(p.x, p.y, R, 'thunder', tier(s), s.size, 0.35);
+      const far = World.enemies().filter(e => live(e) && groundDist(e.x - p.x, e.y - p.y) <= R + e.r)
+        .sort((a, b) => groundDist(a.x - p.x, a.y - p.y) - groundDist(b.x - p.x, b.y - p.y)).slice(0, 2 + s.size);
       for (const e of far) { World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25 }); damage(e, atk * 0.5 * k, 'thunder'); shock(e, k); }
       if (far.length) Sfx.zap();
     });
@@ -373,7 +378,7 @@ const Elements = (() => {
         e.poison.n = Math.ceil(e.poison.n / 2);
         popped++;
       }
-      if (popped) World.fx({ type: 'burst', x: p.x, y: p.y, r: R, col: ELEMENTS.poison.color, t: 0, life: 0.35 });
+      if (popped) novaAt(p.x, p.y, R, 'poison', tier(s), s.size);
     }
   }
 
@@ -390,7 +395,7 @@ const Elements = (() => {
     if (World.mirror) return;  // 파티 손님: 속성석 효과는 방장 쪽 내 몸이 낸다(그림은 방장이 보내 줌)
     if (!shot.stone || shot.stone.el !== 'frost') return;
     const k = power(shot.stone), frostOrb = shot.orb && slotOpen(shot.stone), R = frostOrb ? 40 : 28;  // 마법사 서리 구슬(보통부터): 넓게 + 냉기
-    World.fx({ type: 'burst', x: shot.x, y: shot.y, r: R, col: ELEMENTS.frost.color, t: 0, life: 0.3 });
+    novaAt(shot.x, shot.y, R, 'frost', shot.tier !== undefined ? shot.tier : tier(shot.stone), shot.stone.size, 0.3);
     for (const e of World.enemies()) {
       if (!live(e) || groundDist(e.x - shot.x, e.y - shot.y) > R + e.r) continue;
       damage(e, p.stats.atk * (shot.orb ? 0.4 : 1.2) * k, 'frost');  // 검사 검기 끝 얼음 파편은 2배(2026-10-25)
