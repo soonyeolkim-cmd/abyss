@@ -107,9 +107,13 @@ const CLASSES = {
     stamina: { base: 140, regen: 12, delay: 0.6, onHit: 4 },
     dodge: { time: 0.28, speed: 230, iframes: 0.24, cd: 0, attackWindow: 0.18, cost: 8 },  // 대시 기력 15 → 10 → 8(2026-10-25 사용자)
     potion: { heal: 0.4, cd: 1.0, max: 5 },
+    // 기본 = 마력 숨결 3연타(2026-10-26 사용자: 근접 휘두르기가 약해 마력탄만 쓰게 됨 → 중거리 탄은 마력탄과 구분이 안 돼서 짧은 브레스로).
+    // 지팡이 앞으로 부채꼴(reach 길이 · arc 반각)로 뿜어 닿은 적 모두. breath = 숨결 그림 · 벽 너머는 안 맞음. 기본 칸 속성석이 클수록 길고 넓게(player.js breathOf)
+    // 배율 0.7 · 0.7 · 1.5 = 한 마리에 초당 약 3.7배(예전 근접과 같음, 검사 약 5.2배) — 대신 검 사거리의 약 2배 · 여러 마리
     combo: [
-      { name: '마력 휘두르기', slot: 'basic', startup: 0.07, active: 0.1, recovery: 0.22, mult: 0.9, knock: 120, stun: 0.3, reach: [0, 30], arc: 110, lunge: 5, swing: [-100, 70], orbTip: true },
-      { name: '마력 내려치기', slot: 'basic', fin: true, startup: 0.08, active: 0.12, recovery: 0.34, mult: 1.4, knock: 220, stun: 0.5, reach: [0, 33], arc: 130, lunge: 6, swing: [80, -110], heavy: true, orbTip: true },
+      { name: '마력 숨결', slot: 'basic', startup: 0.06, active: 0.12, recovery: 0.14, mult: 0.7, knock: 50, stun: 0.25, reach: [0, 56], arc: 25, swing: [-40, 10], orbTip: true, breath: true },
+      { name: '마력 숨결', slot: 'basic', startup: 0.06, active: 0.12, recovery: 0.14, mult: 0.7, knock: 50, stun: 0.25, reach: [0, 56], arc: 25, swing: [10, -40], orbTip: true, breath: true },
+      { name: '마력 폭풍', slot: 'basic', fin: true, startup: 0.08, active: 0.16, recovery: 0.3, mult: 1.5, knock: 170, stun: 0.45, reach: [0, 70], arc: 35, swing: [70, -100], heavy: true, orbTip: true, breath: true },
     ],
     special: { id: 'orb', name: '마력탄', short: '마력탄', slot: 'wave', cd: 0.15, cost: 3, startup: 0.06, active: 0.04, recovery: 0.16, mult: 1.6, knock: 60, stun: 0.3, thrust: true,
       orb: { speed: 240, range: 150, r: 6 } },
@@ -702,10 +706,11 @@ const EL_ABIL = {
 };
 // 마법사 칸 능력 이름 · 설명(2026-10-24 사용자: 마법진 · 마력탄에 맞게). 없는 칸(대시 · 패시브)은 검사 것 그대로
 const EL_ABIL_MAGE = {
-  fire: { basic: ['화염구', '휘두를 때마다 화염구가 날아가 처음 닿은 적 자리에서 터진다'], charge: ['화염 마법진', '마법진이 터진 자리에 불길이 2.5초 남는다'], wave: ['작열 마력탄', '마력탄이 맞은 적 자리에서 불꽃이 터진다'] },
-  frost: { basic: ['얼음 파편', '휘두를 때마다 얼음 파편 2개가 적을 꿰뚫고 날아간다'], charge: ['서리 마법진', '마법진이 터진 자리가 3초 얼어붙어 위의 적에게 냉기'], wave: ['서리 구슬', '마력탄이 터질 때 얼음 폭발이 넓어지고 둘레에 냉기 2'] },
-  thunder: { basic: ['연쇄 번개', '모든 기본 공격에서 번개가 튄다'], charge: ['뇌운 마법진', '마법진이 터지고 1초 뒤 낙뢰가 한 번 더 떨어진다'], wave: ['벼락 구슬', '마력탄에 맞은 적마다 벼락'] },
-  poison: { basic: ['독 분사', '휘두를 때마다 앞으로 독을 뿜는다'], charge: ['독 터뜨리기', '마법진이 쌓인 독을 한꺼번에 터뜨린다'], wave: ['독침 구슬', '마력탄에 맞으면 독 3중첩'] },
+  // 기본 칸 = 마력 숨결에 붙는 능력(2026-10-26 사용자: 평타를 짧은 브레스로)
+  fire: { basic: ['화염 숨결', '숨결에 맞은 적의 화상이 2배로 세진다'], charge: ['화염 마법진', '마법진이 터진 자리에 불길이 2.5초 남는다'], wave: ['작열 마력탄', '마력탄이 맞은 적 자리에서 불꽃이 터진다'] },
+  frost: { basic: ['서리 숨결', '숨결에 맞으면 냉기 1 더(빠르게 빙결)'], charge: ['서리 마법진', '마법진이 터진 자리가 3초 얼어붙어 위의 적에게 냉기'], wave: ['서리 구슬', '마력탄이 터질 때 얼음 폭발이 넓어지고 둘레에 냉기 2'] },
+  thunder: { basic: ['연쇄 번개', '모든 숨결에서 번개가 튄다'], charge: ['뇌운 마법진', '마법진이 터지고 1초 뒤 낙뢰가 한 번 더 떨어진다'], wave: ['벼락 구슬', '마력탄에 맞은 적마다 벼락'] },
+  poison: { basic: ['독 숨결', '숨결에 맞으면 독 1중첩 더'], charge: ['독 터뜨리기', '마법진이 쌓인 독을 한꺼번에 터뜨린다'], wave: ['독침 구슬', '마력탄에 맞으면 독 3중첩'] },
 };
 // 암살자 칸 능력(2026-10-25): 그림자 숨기(차지 칸 — 백스탭 자리 · 표창이 처음 맞은 자리에서) · 돌진 베기(특수 칸). 없는 칸은 검사 것 그대로
 const EL_ABIL_ASSASSIN = {

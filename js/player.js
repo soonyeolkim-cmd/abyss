@@ -294,6 +294,13 @@ function aimAt(p, reach) {
   p.fv = best || want;
 }
 
+// 마법사 마력 숨결: 기본 칸 속성석 크기(조각 1 ~ 태초 7)마다 길이 +5% · 반각 +2°(태초 = 길이 +35% · 폭 +14° 양쪽)
+function breathOf(p, hd) {
+  const st = Elements.socket(p.prof, 'basic'), n = st ? st.size + 1 : 0;
+  hd.reach = [hd.reach[0], hd.reach[1] * (1 + 0.05 * n)];
+  hd.arc += 2 * n;
+}
+
 // o = { len: 돌진 베기 거리, aimed: 이미 방향을 정함, fly: 백스탭으로 날아갈 자리 [x, y], tgt: 백스탭 대상 } — len · fly 는 파티 손님이면 방장 쪽 몸에도 같이 보낸다
 function startAct(p, def, kind, idx, o = {}) {
   const wk = WEAPON_KINDS[p.stats.kind];
@@ -303,6 +310,7 @@ function startAct(p, def, kind, idx, o = {}) {
   if (def.reach) hd.reach = [def.reach[0], def.reach[1] + wk.reach];
   if (def.arc) hd.arc = Math.min(170, def.arc * wk.arc);
   if (def.radius) hd.radius = def.radius + wk.reach * 0.5;
+  if (def.breath) breathOf(p, hd);
   if (kind !== 'dashAtk' && !o.aimed) aimAt(p, def.circle ? def.circle.range : def.orb ? def.orb.range * 0.7 : def.wave ? def.wave.range * 0.6 : def.knives ? def.knives.range * 0.8 : def.radius || hd.reach[1]);  // 대시 찌르기는 대시한 방향 그대로 · 검기는 멀리까지
   p.state = 'act';
   p.act = {
@@ -344,12 +352,18 @@ function updateAct(p, dt, room) {
     if (a.kind === 'stab') Elements.chargeBurst(p);  // 백스탭도 차지 칸 속성석 폭발(대상 등 뒤 자리에서)
     if (a.fly) World.fx({ type: 'shadowpath', pts: [[a.fly.x0, a.fly.y0]], follow: p, w: 8, t: 0, life: 0.3, col: '#b9a0ff' });  // 날아온 길  // 회전베기 칸 속성석: 둘레 폭발(마법진은 터질 때 그 자리에서)
     if (d.pulse) World.fx({ type: 'pulse', x: p.x, y: p.y, r: a.hd.radius, t: 0, life: 0.3, col: Elements.color(p.prof, 'dash') });
-    // 마력탄: 가볍게 따라가는 빛 구슬, 처음 닿은 적에서 터진다(마력탄 칸 속성석 색)
+    // 마력탄: 가볍게 따라가는 빛 구슬, 처음 닿은 적에서 터진다(마력탄 칸 속성석 색).
+    // 그림 단계 tier(2026-10-26 사용자: 속성석 레벨에 따라 멋져지게, 구간마다): 0 = 없음 · 조각 · 작은 / 1 = 보통 · 큰 / 2 = 완전한 / 3 = 전설 · 태초(art.js orb)
     if (d.orb) {
-      const st = Elements.socket(p.prof, 'wave');
+      const st = Elements.socket(p.prof, 'wave'), tier = !st ? 0 : st.size >= 5 ? 3 : st.size >= 4 ? 2 : st.size >= 2 ? 1 : 0;
       World.playerShot({ x: p.x + p.fv.x * 8, y: p.y + p.fv.y * 8, vx: p.fv.x * d.orb.speed, vy: p.fv.y * d.orb.speed, left: d.orb.range, r: d.orb.r,
         ball: true, orb: true, once: true, homing: true, def: d, hit: new Set(), stone: st, col: st ? ELEMENTS[st.el].color : '#b39cff',
-        onEnd: s => { World.sparks(s.x, s.y - 8, 8, 10, s.col); Elements.waveEnd(s, p); } });
+        tier, el: st ? st.el : '', ss: st ? st.size : 0,
+        onEnd: s => {
+          World.sparks(s.x, s.y - 8, 8, 10 + tier * 6, s.col, tier >= 2);
+          if (tier) World.fx({ type: 'pulse', x: s.x, y: s.y, r: 12 + tier * 5, t: 0, life: 0.25 + tier * 0.05, col: s.col });
+          Elements.waveEnd(s, p);
+        } });
     }
     // 표창 던지기(암살자): 단검 n 개를 부채꼴로, 단검마다 처음 닿은 적에서 사라진다. 차지 칸 속성석 폭발은 처음 맞은 자리에서 한 번
     if (d.knives) {
@@ -373,7 +387,10 @@ function updateAct(p, dt, room) {
       World.field({ magic: true, x: tgt ? tgt.x : p.x + p.fv.x * c.ahead, y: tgt ? tgt.y : p.y + p.fv.y * c.ahead, r: c.r, delay: c.delay, life: c.delay + 0.4,
         def: d, p, col: st ? ELEMENTS[st.el].color : '#b39cff' });
     }
-    if (d.slot === 'basic') Elements.basicSwing(p, d);   // 기본 칸 속성석(보통부터): 화염구 · 얼음 파편 · 독 분사
+    // 마법사 마력 숨결: 지팡이 앞으로 퍼지는 부채꼴 빛(기본 칸 속성석 색). 칸 능력은 맞을 때(Elements.breathHit)
+    if (d.breath) World.fx({ type: 'breath', follow: p, a: Math.atan2(p.fv.y, p.fv.x), R: a.hd.reach[1], arc: a.hd.arc, big: !!d.fin, seed: Math.random() * 1000, t: 0, life: a.a + 0.3,
+      col: Elements.color(p.prof, 'basic', null) || '#c9b8ff' });
+    else if (d.slot === 'basic') Elements.basicSwing(p, d);   // 기본 칸 속성석(보통부터): 화염구 · 얼음 파편 · 독 분사
     // 검기: 앞으로 날아가며 꿰뚫는다. 가까이서 칼에 맞은 몹은 검기에 또 맞지 않게 같은 목록을 쓴다
     if (d.wave) World.playerShot({ x: p.x + p.fv.x * 8, y: p.y + p.fv.y * 8, vx: p.fv.x * d.wave.speed, vy: p.fv.y * d.wave.speed,
       left: d.wave.range, r: d.wave.r, def: d, hit: a.hit, stone: Elements.socket(p.prof, 'wave'), col: Elements.color(p.prof, 'wave') });
@@ -387,7 +404,8 @@ function updateAct(p, dt, room) {
     for (const e of World.enemies()) {
       if (!a.hd.reach && !a.hd.radius) break;  // 마력탄 · 마법진 · 표창: 몸 판정 없음
       if (a.hit.has(e) || !inHitbox(p, p.fv, a.hd, e, e.r)) continue;
-      if (hitEnemy(e, d, p)) { a.hit.add(e); landed = true; }
+      if (d.breath && !Dungeon.los(World.level, p.x, p.y - 4, e.x, e.y - 4)) continue;  // 숨결은 벽 너머로 안 닿는다
+      if (hitEnemy(e, d, p)) { a.hit.add(e); landed = true; if (d.breath) Elements.breathHit(e, d, p); }
     }
     // 유니크 잔상 일격: 3타째가 맞으면 잔상이 같은 적을 더 친다
     if (landed && d.fin && p.stats.fx.echo && !p.echo) p.echo = { t: 0, n: 0, targets: [...a.hit], def: Object.assign({}, d, { mult: d.mult * UNIQUE_FX.echoMult, knock: 30, stun: 0.2, heavy: false }) };

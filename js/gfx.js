@@ -306,5 +306,5 @@ const Gfx = (() => {
     ctx.fillStyle = fg; ctx.fillRect(x, y, Math.round(w * Math.max(0, Math.min(1, k))), h);
   }
 
-  return { WEAPON_TINT, FONT, mix, ready, spr, anim, icon, stoneIcon, scrollIcon, essenceIcon, text, panel, bar };
+  return { WEAPON_TINT, FONT, mix, ready, spr, anim, icon, stoneIcon, aurora, scrollIcon, essenceIcon, text, panel, bar };
 })();

@@ -417,22 +417,89 @@ const Art = (() => {
     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
     ctx.globalCompositeOperation = 'source-over';
   }
+  // 마력탄: 보석 색 구슬(어두운 테두리 · 밝은 심) + 꼬리 + 도는 흰 별 = 내 것.
+  // 마력탄 칸 속성석 단계(s.tier, 2026-10-26 사용자: 레벨에 따라 멋져지게 · 구간마다)마다 더해진다:
+  //   1 보통 · 큰 = 조금 크게 · 긴 꼬리 · 꼬리 빛 알갱이 · 속성 무늬(불 = 너울대는 불꽃 · 얼음 = 도는 얼음 조각 · 번개 = 튀는 전기 · 독 = 떨어지는 방울)
+  //   2 완전한 = + 도는 빛 고리 · 무늬 하나 더 · 더 밝게   3 전설 · 태초 = + 오로라(속성석 테두리와 같은 색) · 고리 둘 · 큰 별
+  function orb(ctx, s, hex, light) {
+    const y = s.y - 8, T = s.tier || 0, t = s.t || 0, r = s.r + T * 0.9;
+    const sp = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / sp, dy = s.vy / sp, P = Math.PI * 2;
+    ctx.save();
+    if (T >= 3) Gfx.aurora(ctx, s.x, y, r + 12, s.ss || 6);
+    glow(ctx, s.x, y, r + 8 + T * 3, hex, 0.45 + T * 0.08);
+    comet(ctx, s, y, 22 + T * 8, r, 0.85);
+    if (T) {  // 꼬리 빛 알갱이: 지나온 길에 남아 흩어짐
+      ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = light;
+      for (let i = 0; i < 3 + T * 2; i++) {
+        const u = ((t * 5 + i * 0.37) % 1), back = 6 + u * (18 + T * 8), side = Math.sin(i * 2.3 + t * 9) * (2 + u * 4);
+        ctx.globalAlpha = 0.8 * (1 - u);
+        ctx.fillRect(Math.round(s.x - dx * back - dy * side), Math.round(y - dy * back + dx * side), 1 + (i % 2), 1 + (i % 2));
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    if (T >= 2) {  // 도는 빛 고리(전설 · 태초는 둘)
+      ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = light; ctx.lineWidth = 1;
+      for (let j = 0; j < (T >= 3 ? 2 : 1); j++) {
+        ctx.globalAlpha = 0.6 - j * 0.2;
+        ctx.beginPath(); ctx.ellipse(s.x, y, r + 5 + j * 3, (r + 5 + j * 3) * 0.42, t * (3 + j * 2) * (j ? -1 : 1), 0, P); ctx.stroke();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    // 몸통(2026-10-26 사용자: 경계가 뚜렷하지 않게): 테두리 없이 가운데 흰빛 → 밝은 색 → 속성 색 → 투명으로 번지는 빛 덩어리. 판정(s.r)은 그대로
+    const R = r + 6, g = ctx.createRadialGradient(s.x - 0.5, y - 0.5, 0, s.x, y, R);
+    g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.22, light); g.addColorStop(0.55, hex); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalAlpha = 1; ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(s.x, y, R, 0, P); ctx.fill();
+    glow(ctx, s.x, y, r + 2, '#ffffff', 0.35);  // 심을 한 번 더 밝게
+    ctx.globalCompositeOperation = 'source-over';
+    if (T) orbMotif(ctx, s, y, r, T, t, hex, light, dx, dy);
+    // 내 것 표시(몹 탄은 둥근 빛뿐): 흰 4각 별 — 크게 옅게 한 번 + 작게 진하게 한 번 겹쳐 번지게
+    const S = r + 3 + (T >= 3 ? 2 : 0);
+    ctx.globalCompositeOperation = 'lighter';
+    star4(ctx, s.x, y, S * 1.2, t * 8, '#ffffff', 0.14 + T * 0.03);
+    star4(ctx, s.x, y, S, t * 8, '#ffffff', 0.3 + T * 0.06);
+    ctx.restore();
+  }
+  // 마력탄 속성 무늬(단계 1부터, 2부터 하나 더)
+  function orbMotif(ctx, s, y, r, T, t, hex, light, dx, dy) {
+    const n = T >= 2 ? 3 : 2, P = Math.PI * 2;
+    ctx.globalCompositeOperation = 'lighter';
+    if (s.el === 'fire') {  // 뒤쪽으로 너울대는 불꽃: 번지는 불빛 덩이(테두리 없이)
+      for (let i = 0; i < n + 1; i++) {
+        const a = Math.atan2(-dy, -dx) + (i - n / 2) * 0.55, fl = 0.6 + 0.4 * Math.sin(t * 30 + i * 2), L = (r * 0.7 + 1 + T * 1.5) * fl;
+        const x = s.x + Math.cos(a) * (r + L * 0.5), yy = y + Math.sin(a) * (r + L * 0.5);
+        glow(ctx, x, yy, 2.5 + L * 0.6, i % 2 ? '#ffd36a' : hex, 0.8);
+      }
+    } else if (s.el === 'frost') {  // 둘레를 도는 얼음 조각(마름모)
+      for (let i = 0; i < n; i++) {
+        const a = t * 5 + i * P / n, x = s.x + Math.cos(a) * (r + 5), yy = y + Math.sin(a) * (r + 5) * 0.6, k = 2 + T * 0.5;
+        ctx.globalAlpha = 0.9; ctx.fillStyle = i % 2 ? '#ffffff' : light;
+        ctx.beginPath(); ctx.moveTo(x, yy - k); ctx.lineTo(x + k * 0.6, yy); ctx.lineTo(x, yy + k); ctx.lineTo(x - k * 0.6, yy); ctx.closePath(); ctx.fill();
+      }
+    } else if (s.el === 'thunder') {  // 튀는 전기(0.05초마다 모양이 바뀜)
+      const f = Math.floor(t * 20);
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1;
+      for (let i = 0; i < n; i++) {
+        const q = Math.sin(f * 7.1 + i * 3.3), a = q * Math.PI + i * 2, L = 3 + T * 1.2;
+        ctx.globalAlpha = 0.85;
+        ctx.beginPath(); ctx.moveTo(s.x + Math.cos(a) * (r + 1), y + Math.sin(a) * (r + 1));
+        ctx.lineTo(s.x + Math.cos(a + 0.4) * (r + 1 + L * 0.55), y + Math.sin(a + 0.4) * (r + 1 + L * 0.55));
+        ctx.lineTo(s.x + Math.cos(a - 0.15) * (r + 1 + L), y + Math.sin(a - 0.15) * (r + 1 + L)); ctx.stroke();
+      }
+    } else if (s.el === 'poison') {  // 뒤로 떨어지는 독 방울
+      for (let i = 0; i < n; i++) {
+        const u = (t * 2.5 + i / n) % 1, x = s.x - dx * (r + 2 + u * 10) + (i - 1) * 3, yy = y - dy * (r + 2 + u * 10) + u * u * 10;
+        ctx.globalAlpha = 1 - u * 0.7; ctx.fillStyle = i % 2 ? '#d8ffb0' : hex;
+        ctx.beginPath(); ctx.arc(x, yy, 2 + T * 0.5, 0, P); ctx.fill();
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(x - 1), Math.round(yy - 1), 1, 1);  // 방울 반짝
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
   // 섬광 검기: 날아가는 쪽으로 볼록한 초승달
   function wave(ctx, s) {
     const hex = s.col && s.col[0] === '#' ? s.col : '#b39cff', dark = Gfx.mix(hex, 0.45, 'black'), light = Gfx.mix(hex, 0.45, 'white');
-    if (s.orb) {  // 마력탄: 보석 색 구슬(어두운 테두리 · 밝은 심) + 꼬리 + 도는 흰 별 = 내 것
-      const y = s.y - 8;
-      ctx.save();
-      glow(ctx, s.x, y, s.r + 8, hex, 0.45);
-      comet(ctx, s, y, 22, s.r, 0.85);
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = dark; ctx.beginPath(); ctx.arc(s.x, y, s.r + 3, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = hex; ctx.beginPath(); ctx.arc(s.x, y, s.r + 2, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = light; ctx.beginPath(); ctx.arc(s.x - 0.6, y - 0.6, s.r * 0.75, 0, Math.PI * 2); ctx.fill();
-      star4(ctx, s.x, y, s.r + 4, (s.t || 0) * 8, '#ffffff', 0.55);
-      ctx.restore();
-      return;
-    }
+    if (s.orb) { orb(ctx, s, hex, light); return; }
     if (s.knife) {  // 암살자 표창: 날아가는 쪽을 겨눈 은빛 단검(어두운 테두리 · 보랏빛 손잡이) + 뒤로 흐린 빛 줄
       ctx.save();
       ctx.translate(s.x, s.y - 8);
@@ -553,6 +620,43 @@ const Art = (() => {
             const h = spin + j * Math.PI;
             crescent(ctx, f.follow.x, f.follow.y - 6, R, h - 2.6, h, 10 * e + 2, c, 0.5 * e, 0.6);
             crescent(ctx, f.follow.x, f.follow.y - 6, R + 1, h - 1.5, h, 3 * e + 1, '#ffffff', 0.75 * e, 0.6);
+          }
+          ctx.restore();
+          break;
+        }
+        case 'breath': {  // 마법사 마력 숨결(2026-10-26 사용자: 각진 부채꼴이 어색 → 흩뿌려지는 느낌): 지팡이 끝에서 부드러운 빛 뭉치들이
+          // 조금씩 늦게 나와 바깥으로 흘러가며 커지고 옅어진다(가운데로 몰림 · 좌우 흔들림). 뭉치 자리 · 크기는 f.seed 로 정해 둔다. 가운데 몸통 빛 · 반짝이 덧붙임
+          const o = f.follow || f, ox = o.x + Math.cos(f.a) * 6, oy = o.y - 8 + Math.sin(f.a) * 6, h = f.arc * Math.PI / 180;
+          const rnd = (i, j) => { const v = Math.sin((f.seed || 0) + i * 12.9898 + j * 78.233) * 43758.5453; return v - Math.floor(v); };
+          const n = f.big ? 30 : 20, white = f.col === '#c9b8ff';
+          const puff = (x, y, s, al) => {
+            const g = ctx.createRadialGradient(x, y, 0, x, y, s);
+            g.addColorStop(0, white ? 'rgba(255,255,255,0.9)' : f.col); g.addColorStop(0.45, f.col); g.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.globalAlpha = al; ctx.fillStyle = g;
+            ctx.beginPath(); ctx.arc(x, y, s, 0, Math.PI * 2); ctx.fill();
+          };
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          // 몸통: 가운데 줄을 따라 겹친 큰 뭉치 넷 — 테두리 없는 부드러운 부채꼴 빛
+          const grow = Math.min(1, k * 3 + 0.2), wide = Math.tan(Math.min(h, 1.2));
+          for (let j = 0; j < 4; j++) {
+            const d = f.R * (0.2 + 0.24 * j) * grow;
+            puff(ox + Math.cos(f.a) * d, oy + Math.sin(f.a) * d * 0.85, Math.max(4, d * wide * 0.95 + 4), 0.32 * (1 - k) * (1 - j * 0.15));
+          }
+          for (let i = 0; i < n; i++) {
+            const delay = rnd(i, 1) * 0.28, q = Math.max(0, Math.min(1, (k - delay) / 0.7));
+            if (q <= 0 || q >= 1) continue;
+            const spread = (rnd(i, 2) + rnd(i, 3) - 1) * h * 1.15, wob = Math.sin(q * 6 + i) * 0.12 * h;
+            const ang = f.a + spread + wob, d = f.R * (0.08 + 0.92 * (1 - (1 - q) * (1 - q))) * (0.75 + 0.3 * rnd(i, 4));
+            const x = ox + Math.cos(ang) * d, y = oy + Math.sin(ang) * d * 0.85, s = (4 + 9 * q) * (0.7 + 0.6 * rnd(i, 5)) * (f.big ? 1.25 : 1);
+            puff(x, y, s, Math.pow(Math.sin(Math.PI * q), 0.6) * 0.7);
+          }
+          ctx.fillStyle = '#ffffff';
+          for (let i = 0; i < (f.big ? 10 : 6); i++) {  // 반짝이: 뭉치보다 빨리 멀리
+            const q = Math.max(0, Math.min(1, (k - rnd(i, 6) * 0.3) / 0.5));
+            if (q <= 0 || q >= 1) continue;
+            const ang = f.a + (rnd(i, 7) * 2 - 1) * h, d = f.R * 1.05 * q;
+            ctx.globalAlpha = 0.9 * (1 - q); ctx.fillRect(Math.round(ox + Math.cos(ang) * d), Math.round(oy + Math.sin(ang) * d * 0.85), 1, 1);
           }
           ctx.restore();
           break;

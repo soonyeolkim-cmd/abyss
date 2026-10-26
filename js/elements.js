@@ -255,6 +255,17 @@ const Elements = (() => {
       }
     }
   }
+  // 마법사 마력 숨결에 맞음(기본 칸 능력, 보통부터 — onHit 의 기본 효과에 더): 불 = 화상 2배 세기 · 얼음 = 냉기 1 더 · 독 = 독 1중첩 더.
+  // 번개 = 연쇄 번개(onHit)는 따로 한다
+  function breathHit(e, d, p) {
+    if (World.mirror || e.dying) return;
+    const s = socket(p.prof, 'basic');
+    if (!s || !slotOpen(s)) return;
+    const k = power(s);
+    if (s.el === 'fire') burn(e, p, k * 2);
+    else if (s.el === 'frost') chill(e, 1, k);
+    else if (s.el === 'poison') poison(e, 1, p, k);
+  }
   // 몹이 쓰러질 때(World.onKill): 연쇄 폭발
   function onDeath(e) {
     const p = P();
@@ -461,7 +472,7 @@ const Elements = (() => {
       T.thunder.charge = ['백스탭 · 표창 뒤 가까운 적 ' + (2 + s.size) + '마리에 낙뢰', '공격력의 ' + pc(0.7 * k) + ' + 감전'];
       T.poison.charge = ['백스탭 · 표창 자리에 독안개(3초)', '안에 있으면 독이 계속 쌓임'];
     }
-    const word = t => (mage ? t.split('대시 찌르기').join('마력 파동').split('회전베기').join('마법진').split('찌르기').join('내려치기').split('검기').join('마력탄')
+    const word = t => (mage ? t.split('대시 찌르기').join('마력 파동').split('회전베기').join('마법진').split('찌르기').join('마력 폭풍').split('검기').join('마력탄')
       : assassin ? t.split('대시 찌르기').join('선풍 베기').split('마무리(찌르기)').join('마무리(교차 베기)') : t);
     const [an] = elAbil(s.el, slot, prof);
     return [...T[s.el][slot].map(word), slotOpen(s) ? '✦ ' + an + ' (열림)' : '· ' + an + ' — 보통 크기부터 열려요'];
@@ -492,5 +503,5 @@ const Elements = (() => {
     return true;
   }
 
-  return { setBonus, socket, power, color, onHit, basicSwing, dashStart, dashMove, dashEnd, onDeath, step, reset, has, passives, best, chargeBurst, waveTrail, waveEnd, fieldTick, tick, vuln, describe, stacks, add, take, key };
+  return { setBonus, socket, power, color, onHit, basicSwing, breathHit, dashStart, dashMove, dashEnd, onDeath, step, reset, has, passives, best, chargeBurst, waveTrail, waveEnd, fieldTick, tick, vuln, describe, stacks, add, take, key };
 })();
