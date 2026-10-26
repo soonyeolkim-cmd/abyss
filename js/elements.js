@@ -176,13 +176,16 @@ const Elements = (() => {
 
   // 속성 피해(상태이상 · 폭발 · 번개): 숫자를 띄우고, 쓰러지면 처치
   function damage(e, amount, el) {
-    if (e.dying || e.state === 'dead' || World.mirror) return;  // 파티 손님: 피해는 방장 쪽에서
-    const d = Math.max(1, Math.round(amount * vuln(e)));
+    if (e.dying || e.state === 'dead' || World.mirror || untouchable(e) || e.def.part === 'orb') return;  // 파티 손님: 피해는 방장 쪽에서 · 땅속 촉수 · 사라진 순간이동자는 안 맞음
+    const rc = e.def.raid ? Raid.cut(e)[0] : 1;  // 레이드 보스: 껍질 · 보호막은 속성 피해도 막는다
+    if (!rc) return;
+    const d = Math.max(1, Math.round(amount * vuln(e) * rc * (e.wardT > 0 ? WARD.cut : 1)));  // 보호막 사제 둘레(방패병 방패는 속성 피해를 못 막음)
     e.hp -= d;
+    if (e.def.raid) Raid.clamp(e);
     World.number(e.x + (Math.random() - 0.5) * 6, e.y, e.h + 2, d, ELEMENTS[el].color);
     if (e.hp <= 0) {
       e.dying = true;
-      if (e.def.boss) { e.state = 'dead'; e.t = 0; }
+      if (e.def.boss || e.def.rooted) { e.state = 'dead'; e.t = 0; }
       else { e.state = 'air'; e.vz = Math.max(e.vz || 0, 100); }
       World.onKill(e);
     }

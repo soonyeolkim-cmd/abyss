@@ -31,7 +31,107 @@ const Gfx = (() => {
     rows.forEach((row, y) => [...row].forEach((ch, x) => { if (WPIX_PAL[ch]) { g.fillStyle = WPIX_PAL[ch]; g.fillRect(x, y, 1, 1); } }));
     SHEETS[name] = c; FRAMES[name] = [0, 0, c.width, c.height];
   }
-  const ok = img => img instanceof HTMLCanvasElement || (img.complete && img.naturalWidth > 0);
+  // 끝없는 심연 '살아 있는 심연' 몹 도트(2026-10-26 사용자 '대만족' 시안 그대로 — tools/mob-sketch.js). 바닥(아래 줄)이 발.
+  // 글자 = 색: o 테두리 · k/p/P 검보라 몸 · m/M/h 핏빛 살 · t/T 청록(공략 표시 — 약점 · 보호막) · w/b 뼈 · y 눈 · r 핏빛 어둠
+  const MPIX_PAL = { o: '#120a14', k: '#2a1630', p: '#4a2a5a', P: '#6e4a86', m: '#8a2050', M: '#c8306a', h: '#ff7ab0', t: '#5fe0d0', T: '#2a8a88', w: '#ece0cc', b: '#a8987e', y: '#ffe066', r: '#4a0c22' };
+  const MPIX = {
+    splitA: ['................', '.....oooooo.....', '...ooMMMMMMoo...', '..oMhhMMMMMMMo..', '.oMhMMMMtMMMMMo.', '.oMMMMMMtMMMMMo.', 'oMMoooMMtMoooMMo', 'oMMoyoMMtMoyoMMo',
+      'oMMoooMMtMoooMMo', 'omMMMMMMtMMMMMmo', 'ommMMMrrtrrMMmmo', '.ommmMMMtMMMmmo.', '.oommmmmtmmmmoo.', '..oommmmmmmmoo..', '...oooooooooo...', '................'],
+    splitB: ['................', '................', '....oooooooo....', '..ooMMMMMMMMoo..', '.oMhhMMMtMMMMMo.', 'oMhMMMMMtMMMMMMo', 'oMMoooMMtMoooMMo', 'oMMoyoMMtMoyoMMo',
+      'oMMoooMMtMoooMMo', 'omMMMMMMtMMMMMmo', 'ommMMMrrtrrMMMmo', 'ommmMMMMtMMMMmmo', '.oommmmmtmmmmoo.', '..oooommmmoooo..', '.....oooooo.....', '................'],
+    splitling: ['..........', '...oooo...', '..oMhMMo..', '.oMoyMMMo.', '.oMoMMyMo.', '.omMMMMmo.', '.ommrrmmo.', '..oommoo..', '...oooo...', '..........'],
+    blinker: ['......oooo......', '.....okkkko.....', '....okkppkko....', '...okkpPPpkko...', '...okoooooooko..', '..okoMoooMooko..', '..okoooooooko...', '..okkoooooko....',
+      '.okpkkoookkpko..', 'owkppkkkkkppkwo.', 'obwkppPPPppkwbo.', '.oowkpppppkwoo..', '...okpMMMpko....', '...okpMhMpko....', '....okpMpko.....', '....okkpkko.....',
+      '.....okkko......', '......okko......', '.......oko......', '........o.......'],
+    blinkerFade: ['................', '......o..o......', '.....o.kk.o.....', '....ok.pp.ko....', '...o.kp..pk.o...', '..ok.M...M.ko...', '..o.o.....o.o...', '...k.......k....',
+      '.o.p.k...k.p.o..', 'o.k.p.k.k.p.k.o.', '.b.k.P.P.P.k.b..', '..o.k.p.p.k.o...', '....k.M.M.k.....', '.....p.h.p......', '......p.p.......', '.......k........',
+      '................', '................', '................', '................'],
+    shieldbearer: ['.....oooo...........', '....okkkko.....ooo..', '...okpppko....obwbo.', '...okoyoyko..obwwwbo', '...okpppppo..owwwwwo', '..oommmmmoo..owowowo', '.otMMMMMMMMooowwwwwo',
+      'otTMMhMMMMMMoowwowwo', 'otTMMMMMMMMMoobwwwbo', 'otMMMMMMMMMMoowbwbwo', '.oMMMMMMMMMMoowwwwwo', '.omMMMMMMMMmoobwbwbo', '..ommmmmmmmmoowwwwwo', '..okkpo.okkpoobwbwbo',
+      '..okkpo.okkpoowwwwwo', '..okkpo.okkp..obwbo.', '..okkko.okkko..obo..', '.okkkko.okkko...o...', '.oooooo.ooooo.......', '....................'],
+    tentacleHole: ['............', '............', '............', '............', '............', '............', '............', '............', '............', '............',
+      '............', '............', '............', '............', '............', '............', '............', '............', '............',
+      '..oooooooo..', '.orrrrrrrro.', 'orrkkkkkkrro', '.orrrrrrrro.', '..oooooooo..'],
+    tentacleUp: ['............', '.....oo.....', '....oMho....', '....oMMo....', '...oMhMo....', '...oMMMo....', '...oMmMo....', '....oMMMo...', '....oMhMo...', '....omMMo...',
+      '...oMMMmo...', '...oMhMo....', '..oMMmMo....', '..oMMMo.....', '..omMMo.....', '...oMMMo....', '...omMMo....', '....oMMo....', '....omMo....',
+      '..oooMMooo..', '.orrmmmmrro.', 'orrkkkkkkrro', '.orrrrrrrro.', '..oooooooo..'],
+    warder: ['......oooo......', '.....otttto.....', '....ot....to....', '.....otttto.....', '......oooo......', '.....okkkko..oo.', '....okppppko.oyo', '....okoyyoko.owo',
+      '....okpppkko.oTo', '...okpPPPPpko.o.', '..okpPMMMPpkooo.', '..okpPMhMPpkokbo', '..okppMMMppkobo.', '..okpppMpppkobo.', '..okppppppppobo.', '..okpPpppPppobo.',
+      '..okppppppppobo.', '.okpppppppppkbo.', '.okkpppppppkkbo.', '.okkkkkkkkkkkoo.', '.oooooooooooooo.', '................'],
+  };
+  const mpix = rows => {
+    const c = document.createElement('canvas');
+    c.width = rows[0].length; c.height = rows.length;
+    const g = c.getContext('2d');
+    rows.forEach((row, y) => [...row].forEach((ch, x) => { if (MPIX_PAL[ch]) { g.fillStyle = MPIX_PAL[ch]; g.fillRect(x, y, 1, 1); } }));
+    return c;
+  };
+  // 몹 이름_anim_f0~3(art.js 가 8 프레임/초로 돌림 — 두 장이면 0 0 1 1 로 느리게 맥동) + 상태 그림 몇 장
+  const MOB_FRAMES = { splitter: ['splitA', 'splitA', 'splitB', 'splitB'], splitling: ['splitling'], shieldbearer: ['shieldbearer'], blinker: ['blinker'], tentacle: ['tentacleUp'], warder: ['warder'] };
+  const mpixC = {};
+  for (const k in MPIX) mpixC[k] = mpix(MPIX[k]);
+  const putFrame = (name, k) => { SHEETS[name] = mpixC[k]; FRAMES[name] = [0, 0, mpixC[k].width, mpixC[k].height]; };
+  for (const m in MOB_FRAMES) for (let i = 0; i < 4; i++) putFrame(m + '_anim_f' + i, MOB_FRAMES[m][i % MOB_FRAMES[m].length]);
+  putFrame('blinker_fade', 'blinkerFade'); putFrame('tentacle_hole', 'tentacleHole');
+  // 끝없는 심연 중간 보스(1 · 2 · 3층, 2026-10-26 사용자 시안 그대로 — tools/boss-sketch.js MIDS). 0x72 보스처럼 정면 거인 몸, 32칸 폭.
+  // 줄 = 띄어 쓴 조각들('11. o 4M' = 점 11 · o 1 · M 4), 왼쪽 반 16칸을 좌우로 뒤집어 붙임.
+  // 두 번째 장(숨) = breath 줄을 빼고 위에 빈 줄 — 윗몸이 1칸 내려앉는다. 이름_anim_f0~3 = 0 0 1 1
+  const rleRow = row => row.split(' ').map(t => { const m = t.match(/^(\d*)(.)$/); return m[2].repeat(m[1] ? +m[1] : 1); }).join('');
+  const MIDPIX = {
+    mid_flesh: { breath: 13, rows: [
+      '16.', '12. 4o', '11. o 4M', '10. o M h 3M', '10. o M o y 2M', '10. o 2M r w r', '11. o m 3r',
+      '4. 3o 3. 2o 2m 2M', '3. o M h o 2o 2m 5M', '3. o y M o m M h 6M',
+      '1. o 2M o M h 8M t', '1. o M m o M 9M t', '1. o M m o 10M t', '1. o M m o 10M t', '1. o M m o 4M o y o 3M t', '1. o M m o 4M 3o 3M t',
+      '1. o M m o 10M t', '1. o M m o m 9M t', '1. o M m o m 9M t', '1. o M m o 2m 8M t', 'o 2M m o 2m 8M t', 'o M h M o 3m 7M m', 'o 3M o 4m 6M m',
+      'o m M m o 11m', '1. 3o 2. o 9m', '5. 2o k 2p k 5o', '6. o k 3p k o 3.', '6. o k 3p k o 3.', '5. o 2k 2p 2k o 3.', '5. o w b w b w b o 3.', '5. 8o 3.', '16.'] },
+    mid_maw: { breath: 25, rows: [
+      '2. 2o 12.', '1. o M h o 6. 5o', '1. o 2M o 5. o 5p', '2. o M o 4. o p P 4p', '2. o 2M o 3. o p o t 3p', '3. o M m o 2. o 6p',
+      '3. o M m o 2. o w 5r', '4. o M m o 1. o w r w r w r', '4. o M m o 1. o 6k', '3. o 2M m o o 7p', '2. o M h M o 9p', '1. o 4p o 9p',
+      'o 2p P p o p P 8p', 'o p P p o 11p', 'o p P p o 3p T 6p t', 'o p P p o 2p T 7p t', 'o p P p o p T 8p t', 'o p P p o 10p t', 'o p P p o 11p',
+      'o 3p o k 10p', 'o M h M o 2k 9p', 'o h 2M o 11k', 'o 3M o k w b w 7k', '1. 3o 2. o k 4p k o 2.', '6. o k 4p k o 2.', '6. o k 4p k o 2.',
+      '6. o k 2p P p k o 2.', '6. o k 4p k o 2.', '5. o 2k 4p k o 2.', '5. o w b w b w b w o 2.', '5. 9o 2.', '16.'] },
+    mid_warden: { breath: 17, rows: [
+      '1. 2o 13.', 'o w b o 12.', 'o w b o 12.', '1. o w b o 5. 6o', '2. o w b o 2. o k 6p', '3. o w b o o k P 6p', '4. o w b o k P 6p',
+      '5. o k 2p o 2t o 3p', '5. o k 9p', '5. o k p o w r w r w r w', '5. o k p o 7r', '5. o k p o w r w r w r w', '2. 4o k 4p 5o',
+      '1. o 2w b o k 9p', 'o w b 2w b o 9p', 'o b 2w 2b o p M 7p', '1. 5o p 2M 7p', '1. o 2p o p M h M 7p', '1. o 2p o 2p M 8p',
+      '1. o 2p o 3p 2w 5p t', '1. o P p o 2p w b w 5p t', '1. o 2p o 3p 2w 6p', 'o M h M o 11p', 'o h 2M o 11k', 'o 3M o k w b w b 6k',
+      '1. 3o 2. o k 3p k o 3.', '6. o k 3p k o 3.', '5. o w b w b w b o 3.', '6. o k 3p k o 3.', '5. o k 4p k o 3.', '4. o 2k 4p 2k o 2.',
+      '4. o w b 2w b w b w o 2.', '4. 10o 2.', '16.'] },
+  };
+  // 최종 보스 레이드 '심연의 파수꾼'(2026-10-26 사용자 시안 — tools/boss-sketch.js RAID): 48칸 폭, 왼쪽 반 24칸 뒤집기.
+  // raid_warden_anim = 갈비가 심장을 덮은 껍질(두 번째 장 = 다리 한 줄을 빼 숨), raid_warden_open = 갈비가 벌어져 청록 심장이 드러남(약점)
+  const RAID_HALF = [
+    '........................', '..oo....................', '.owbo...................', '.owbo...................', '.owwbo..................', '..owbo..................',
+    '..owwbo.................', '...owbo.........oooooooo', '...owwbo.....oookkkkkkkk', '....owwbo..ookkpppppppPP', '.....owwboookppPPPPPPPPP', '......owwbokppPPpppppppp',
+    '.......owbokpPpppppppppp', '........oookpppppppppppp', '.........okppppooooooooo', '.........okpppottttttttt', '.........okpppoTtttttttt', '.........okppppooooooooo',
+    '.........okkpppppppppppp', '..........okkppppppppppp', '...........okkkkkkmmmmmm', '.....ooooooooookmmMMMMMM', '...oowwwwwwwwwbommMMMMMM', '..owwbbwwwwwwwwbomMMhMMM',
+    '.owwwwwbbwwwwwwwbomMMMMM', '.owbwwwwwwbbwwwwwbomMMMM', '.obbwwwwwwwwwwwbbbomMMMM', '..oobbbbbbbbbbbbooomMMMM', '....oMMMo....omMwwwwwwww', '....oMhMo....omMMbbbbbbb',
+    '....oMMMo....omMMMMMottt', '....oMMMo....omMwwwwwwww', '....oMMMo....omMMbbbbbbb', '....omMMo....omMMMMMottt', '....oMMMo....omMwwwwwwww', '...oMMMMMo...omMMbbbbbbb',
+    '..oMwMwMwMo..omMMMMMMMMM', '..owMwMwMwo..ommMMMMMMMM', '...owowowo...ommmmmmmmmm', '....o.o.o....okkkkkkkkkk', '.............okpPppkkkkk', '.............okppppppkoo',
+    '.............okpppppko..', '.............okpPpppko..', '.............okppppko...', '............obwwwwbbo...', '............owbwwbwbo...', '............obbbbbbbo...',
+    '.............okpppko....', '.............okpppko....', '............okppppko....', '...........okkppppkko...', '..........okkkpppkkkko..', '..........obwwwwwwwbbo..',
+    '..........oooooooooooo..', '........................'];
+  const RAID_OPEN = { 28: '....oMMMo....omMwwwwoooo', 29: '....oMhMo....omMMbbboTTT', 30: '....oMMMo....omMMMMoTttt', 31: '....oMMMo....omMwwwoTttt',
+    32: '....oMMMo....omMMbboTttt', 33: '....omMMo....omMMMMoTTtt', 34: '....oMMMo....omMwwwwoTTT', 35: '...oMMMMMo...omMMbbbbooo' };
+  const mir = rows => rows.map(r => r + [...r].reverse().join(''));
+  const raidRows = mir(RAID_HALF);
+  mpixC.raidA = mpix(raidRows); mpixC.raidB = mpix(['.'.repeat(48), ...raidRows.slice(0, 42), ...raidRows.slice(43)]);
+  mpixC.raidOpen = mpix(mir(RAID_HALF.map((r, i) => RAID_OPEN[i] || r)));
+  for (let i = 0; i < 4; i++) putFrame('raid_warden_anim_f' + i, i < 2 ? 'raidA' : 'raidB');
+  putFrame('raid_warden_open', 'raidOpen');
+  // 공허 수정(2단계 보호막 — 공략 표시라 청록), 12×17
+  mpixC.crystal = mpix(['.....oo.....', '....otwo....', '....ottTo...', '...owttTo...', '...ottttTo..', '..owtttTTo..', '..ottttTTo..', '..otwttTTo..', '..ottttTTo..',
+    '..otttTTTo..', '..ottttTTo..', '...otttTo...', '...ottTTo...', '..ooottTooo.', '.okkpoooppko', 'okppppkpppko', '.oooooooooo.']);
+  for (let i = 0; i < 4; i++) putFrame('void_crystal_anim_f' + i, 'crystal');
+  mpixC.orb = mpix(['....oooo....']);  // 공허 구슬은 art.js 가 직접 그림(이 칸은 키 계산용)
+  for (let i = 0; i < 4; i++) putFrame('void_orb_anim_f' + i, 'orb');
+  for (const id in MIDPIX) {
+    const M = MIDPIX[id], half = M.rows.map(rleRow), rows = half.map(r => r + [...r].reverse().join(''));
+    const breath = ['.'.repeat(rows[0].length), ...rows.slice(0, M.breath), ...rows.slice(M.breath + 1)];
+    mpixC[id + 'A'] = mpix(rows); mpixC[id + 'B'] = mpix(breath);
+    for (let i = 0; i < 4; i++) putFrame(id + '_anim_f' + i, id + (i < 2 ? 'A' : 'B'));
+  }
+  const ok =img => img instanceof HTMLCanvasElement || (img.complete && img.naturalWidth > 0);
   const ready = () => ok(atlas);
 
   // 색 입힌 그림 · 번쩍임(한 색 실루엣)은 한 번 만들어 두고 다시 쓴다(2026-10-25 사용자: 폰에서 버벅임 — 예전엔 매 프레임 임시 캔버스에 다시 칠했다)

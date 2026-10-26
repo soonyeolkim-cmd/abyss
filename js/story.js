@@ -348,10 +348,10 @@ const Story = (() => {
     else if (who === 'kael') ctx.drawImage(kaelFace(), Math.round(cx - 51), Math.round(cy - 48 + Math.sin(time * 2) * 1.5), 102, 102);  // 숨 쉬듯 살짝
     else if (sp.sprite) Gfx.spr(ctx, Gfx.anim(sp.sprite + '_idle_anim', time, 6), cx - 6, cy + r * 1.2 + (sp.dy || 0), { scale: 5 });  // 마을 NPC: 그 몸 가슴 위로
     else if (who === 'boss' && o.boss) {
-      const f = FRAMES[o.boss.sprite + '_idle_anim_f0'], small = f[2] <= 16;  // 작은 몸을 키운 거인 보스는 더 크게, 머리끝을 원 위쪽에 맞춤
+      const f = FRAMES[idleAnim(o.boss) + '_f0'], small = f[2] <= 16;  // 작은 몸을 키운 거인 보스는 더 크게, 머리끝을 원 위쪽에 맞춤
       const sc = small ? 6.4 : 3.8, pad = { knight_f: 10, lizard_m: 10 }[o.boss.sprite] || 0;  // 기사 · 도마뱀 그림은 위쪽이 비어 있다
       const by = small ? cy - r * 0.95 + (f[3] - pad) * sc : cy + r * 1.15;
-      Gfx.spr(ctx, Gfx.anim(o.boss.sprite + '_idle_anim', time, 6), cx, by, { scale: sc, tint: o.boss.tint, tintAlpha: o.boss.tintAlpha });
+      Gfx.spr(ctx, Gfx.anim(idleAnim(o.boss), time, 6), cx, by, { scale: sc, tint: o.boss.tint, tintAlpha: o.boss.tintAlpha });
       if (o.boss.acc) Art.bossAcc(ctx, o.boss.acc, cx, by, sc, false, time);  // 왕관 · 뿔 · 눈빛
     }
     ctx.restore();

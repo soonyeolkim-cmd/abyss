@@ -163,7 +163,7 @@ const Game = (() => {
     if (scene === 'run' && World.level) {
       const def = World.level.def;
       if (World.bossFight) return def.id === 'abyss' || def.endless ? 'lord' : 'boss';
-      return def.endless ? ENDLESS.scenes[(def.floor - 1) % ENDLESS.scenes.length] : def.id;
+      return def.music || def.id;  // 끝없는 심연은 층마다 빌린 곡(ENDLESS.floors music)
     }
     return Town.where === 'silvane' ? 'silvane' : 'belloc';
   }

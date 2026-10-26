@@ -200,7 +200,7 @@ const Coop = (() => {
       }
       if (s === 'select') {  // 방장 던전 고르기: 커서 · 난이도 · 깬 던전(손님 화면에 같은 고르기 창)
         const pr = Game.prof;
-        Object.assign(m, { sel: UI.select.sel, diff: UI.select.diff, floor: UI.select.floor, cl: Object.keys(pr.cleared || {}), cd: pr.clearedDiff || {} });
+        Object.assign(m, { sel: UI.select.sel, diff: UI.select.diff, card: UI.select.card, w: Town.where, cl: Object.keys(pr.cleared || {}), cd: pr.clearedDiff || {} });  // w = 방장이 있는 마을(벨록 던전 줄 · 실베인 심연 카드)
       }
       const key = JSON.stringify(m);
       if (key !== lastSent || keepT <= 0) { Net.send(m); lastSent = key; keepT = 1; }
@@ -370,20 +370,21 @@ const Coop = (() => {
     const tg = reviveTarget();
     return runBodies().filter(m => m.dead).map(m => ({ m, k: m === tg && reviving === tg ? Math.min(1, reviveK / REVIVE_HOLD) : 0, near: m === tg }));
   }
-  function leaveTogether() { Net.send({ t: 'leave' }); }
+  function leaveTogether(k) { Net.send({ t: 'leave', k }); }  // k = 'time': 레이드 시간이 다 됨(손님도 실패로)
   // 끝없는 심연: 방장이 계단을 내려가면 같은 런의 손님도 같이 다음 층으로(쓰러져 있던 손님도 일어나서)
   function descendTogether(f) { Net.send({ t: 'descend', f, r: World.partySeed }); }
   Net.on('descend', m => {
     if (!World.mirror || Game.scene !== 'run' || m.r !== World.partySeed) return;
     snapQ = [];
-    Game.toast('방장과 같이 ' + m.f + '층으로 내려가요');
+    Game.toast(m.f > ENDLESS.max ? '방장과 같이 최종 보스에게 가요' : '방장과 같이 ' + m.f + '층으로 내려가요');
     World.descend(m.f);
   });
-  Net.on('leave', () => {
+  Net.on('leave', m => {
     if (!World.mirror || Game.scene !== 'run') return;
-    Game.toast('방장과 같이 마을로 돌아가요');
+    Game.toast(m.k === 'time' ? '시간이 다 됐어요 — 방장과 같이 마을로' : '방장과 같이 마을로 돌아가요');
     Sfx.stairs();
-    World.finishParty('clear');
+    if (m.k === 'time') World.run.raidFail = 'time';
+    World.finishParty(m.k === 'time' ? 'dead' : 'clear');
   });
 
   // ── 머리 위 말풍선(파티): 강화 결과 · 속성석/보석 합치기 · 유니크 획득 ──
@@ -717,13 +718,13 @@ const Coop = (() => {
   function viewDraw(ctx, prof, t) {
     const hn = hostNow();
     if (!hn || hn.sel === undefined) return;
-    const S = UI.select, keep = [S.sel, S.diff, S.top, S.floor];
-    S.sel = hn.sel; S.diff = hn.diff; S.floor = hn.floor || 1;
+    const S = UI.select, keep = [S.sel, S.diff, S.top, S.card];
+    S.sel = hn.sel; S.diff = hn.diff; S.card = hn.card || 0; S.modeOverride = hn.w || 'belloc';
     const cl = {};
     for (const id of hn.cl || []) cl[id] = true;
-    const story = hn.sel >= DUNGEONS.length ? Object.assign({}, prof.story, { trueEnding: 1 }) : prof.story;  // 방장이 끝없는 심연 줄이면 내 화면에도 그 줄
+    const story = hn.w === 'silvane' ? Object.assign({}, prof.story, { trueEnding: 1 }) : prof.story;  // 방장이 실베인(끝없는 심연 카드)이면 잠김 없이
     S.draw(ctx, Object.assign({}, prof, { cleared: cl, clearedDiff: hn.cd || {}, story }), t);
-    [S.sel, S.diff, S.top, S.floor] = keep;
+    [S.sel, S.diff, S.top, S.card] = keep; S.modeOverride = null;
     UI.zone(0, 0, 960, 540, { key: null });  // 보기만: 눌러도 아무 일 없게
     const m = Net.members().find(x => x.host);
     Gfx.panel(ctx, 250, 6, 460, 30, { border: '#b48cff' });

@@ -285,6 +285,69 @@ Object.assign(ENEMIES, {
     atk: { windup: 0.5, active: 0.1, recovery: 0.6, knock: 155, reach: [0, 20], arc: 80, lunge: 155 } },
 });
 
+// ── 끝없는 심연 1단계 '살아 있는 심연' 몹(2026-10-26 사용자: 직접 도트 — gfx.js MPIX, 시안 tools/mob-sketch.js) ──
+// 공략 표시는 늘 청록(#5fe0d0). 층마다 하나씩 배우게: 1층 분열체 · 방패병 → 2층 + 순간이동자 · 땅속 촉수 → 3층 + 보호막 사제
+// split = 죽으면 그 몹 둘로 갈라짐 · shield = 앞에서 치면 튕김(SHIELD), 천천히 돎(turn rad/초), 공격 뒤 recovery 동안 방패가 내려감(틈)
+// blink = 사라졌다가 노리는 사람 등 뒤에 나타나 찌름(사라진 동안 안 맞음) · burrow = 땅속으로 다가와 솟음(솟아 있을 때만 맞음, 밀리지 않음)
+// ward = 둘레(r, 바닥 타원) 몹이 받는 피해를 WARD.cut 로(사제 자신 · 다른 사제 · 보스는 안 됨)
+// odds = 무리에 뽑힐 때 그 확률로만 들어감(보호막 사제가 무리마다 끼면 방 전체가 보호막 — 2026-10-26 시험)
+// solo = 한 무리에 그 수까지만 · 정예 · 고유 무리(같은 몹 무리)로는 안 나옴 — 방패병만 잔뜩 둘러싸면 등 뒤로 갈 곳이 없어서
+// pix = 코드 도트 몹(0x72 그림이 아님 — art.js 가 걷기 흔들림 · 상태별 그림을 대신 그림)
+Object.assign(ENEMIES, {
+  splitter: { name: '분열체', sprite: 'splitter', pix: true, idle: false, speed: 40, range: 16, poise: 4, split: 'splitling', r: 7,
+    atk: { windup: 0.55, active: 0.1, recovery: 0.6, knock: 120, reach: [0, 17], arc: 75, lunge: 130 } },
+  splitling: { name: '분열체 새끼', sprite: 'splitling', pix: true, idle: false, speed: 72, range: 14, poise: 2, r: 4, hp: 9, exp: 3, gold: [1, 2],
+    atk: { windup: 0.35, active: 0.08, recovery: 0.45, dmg: 5, knock: 70, reach: [0, 14], arc: 70, lunge: 160 } },
+  shieldbearer: { name: '방패병', sprite: 'shieldbearer', pix: true, idle: false, speed: 30, range: 19, poise: 6, superArmor: true, shield: true, turn: 2.2, solo: 2, r: 8,
+    atk: { windup: 0.8, active: 0.12, recovery: 1.3, knock: 190, reach: [0, 22], arc: 80, lunge: 170 } },
+  blinker: { name: '순간이동자', sprite: 'blinker', pix: true, idle: false, speed: 46, range: 17, poise: 3, blink: { cd: [3, 5], out: 0.45, inn: 0.35 },
+    atk: { windup: 0.45, active: 0.1, recovery: 0.6, knock: 130, reach: [0, 19], arc: 70, lunge: 120 } },
+  tentacle: { name: '땅속 촉수', sprite: 'tentacle', pix: true, idle: false, speed: 58, range: 26, poise: 9, rooted: true, solo: 1, r: 5,
+    burrow: { rise: 0.6, up: 2.6, sink: 0.3, r: 16, chase: 3.5 },
+    atk: { windup: 0.55, active: 0.12, recovery: 0.7, knock: 150, reach: [0, 30], arc: 55, lunge: 0 } },
+  warder: { name: '보호막 사제', sprite: 'warder', pix: true, idle: false, speed: 34, range: 92, poise: 3, ranged: true, solo: 1, odds: 0.35, ward: { r: 70 },
+    atk: { windup: 0.7, active: 0.05, recovery: 1.0, knock: 90, shot: 120, color: '#ff7ab0' } },
+  // 층 끝 중간 보스(2026-10-26 사용자: 1~3층 보스 = 중간 보스, 최종 보스는 레이드). 그림 = 직접 찍은 도트(gfx.js MIDPIX, 0x72 보스처럼 정면 거인 몸) — 세기 바탕은 모든 보스 같음
+  // 이름: '분열의 어미' · '촉수 군주'는 다음 단계 최종 보스 시안 이름으로 남겨 둠(tools/boss-sketch.js)
+  split_mother: { name: '살덩이 거인', sprite: 'mid_flesh', pix: true, idle: false, boss: true, scale: 1.25, speed: 32, range: 22, superArmor: true, launchMul: 0.2, r: 12,
+    atk: { windup: 0.6, active: 0.12, recovery: 0.75, knock: 170, reach: [0, 27], arc: 80, lunge: 145 },
+    slam: { windup: 0.85, radius: 46 }, charge: { windup: 0.6, speed: 230, time: 0.6 }, fan: { windup: 0.7, count: 7, speed: 115, color: '#ff7ab0' }, summon: 'splitter' },
+  maw_lord: { name: '촉수 거한', sprite: 'mid_maw', pix: true, idle: false, boss: true, scale: 1.25, speed: 36, range: 22, superArmor: true, launchMul: 0.2, r: 12,
+    atk: { windup: 0.55, active: 0.12, recovery: 0.7, knock: 175, reach: [0, 27], arc: 85, lunge: 155 },
+    slam: { windup: 0.8, radius: 48 }, charge: { windup: 0.55, speed: 245, time: 0.6 }, fan: { windup: 0.65, count: 9, speed: 120, color: '#ff7ab0' }, summon: 'blinker' },
+  // '심연의 파수꾼'은 최종 보스 레이드 이름(2026-10-26 사용자) — 3층 중간 보스는 문지기
+  abyss_warden: { name: '심연의 문지기', sprite: 'mid_warden', pix: true, idle: false, boss: true, scale: 1.25, speed: 40, range: 22, superArmor: true, launchMul: 0.15, r: 12,
+    atk: { windup: 0.5, active: 0.12, recovery: 0.6, knock: 185, reach: [0, 28], arc: 90, lunge: 165 },
+    slam: { windup: 0.75, radius: 50 }, charge: { windup: 0.5, speed: 260, time: 0.6 }, fan: { windup: 0.6, count: 11, speed: 125, color: '#ff7ab0' }, summon: 'shieldbearer' },
+});
+// ── 끝없는 심연 최종 보스 레이드 '심연의 파수꾼'(2026-10-26 사용자, js/raid.js) ──
+// 3층 중간 보스를 깨고 계단에서 '최종 보스 도전'. 큰 방 하나 · 제한 시간 time 초 · 쓰러지거나 시간이 다 되면 실패(골드는 안 잃음, 1~3층 전리품은 그대로).
+// 체력 = 3층 중간 보스 × hpMul(파티면 인원 배율도). 3단계(체력 66 · 33%) — 약점(청록 심장)이 드러난 동안만 제대로 맞는다(exposedMul, 어느 쪽 · 어떤 공격이든):
+//   ① 껍질: 평소 ×shellCut('팅'). 내려찍기 slams 번 뒤 지쳐 slamExpose 초 노출 / 돌진하다 방 기둥에 부딪히면 기둥이 깨지며 pillarExpose 초
+//   ② 수정 보호막: 방 네 귀퉁이 공허 수정 4개가 있는 동안 피해 없음 → 다 부수면 crystalExpose 초 노출, crystalBack 초 뒤 수정이 다시 · 공허 장판 · 탄
+//   ③ 되받아치기: 공허 구슬을 던짐 → 어떤 공격으로든 치면 보스 쪽으로 되돌아감(orbBack 배 빨라짐) → 맞으면 orbExpose 초 노출.
+//      보스가 rallyChance 로 다시 쳐 냄(랠리, rallyMax 번까지 — 그다음엔 꼭 맞음) · 사방 탄
+// 보상: 심연의 핵 1(+ fastTime 초 안 = fastCore, 아니면 extraCore 확률로 하나 더, 처음 깨면 하나 더) · 심연 정수 essence · 보통 보스 전리품(Lv.100 유니크는 제작으로만)
+// 수치는 실제로 재 보지 못함(hpMul · time 은 손맛 보고 다시)
+// 2026-10-26 시험(무적 · 공격 ×40 시험 캐릭터): hpMul 5 · 내려찍기 3번 · 노출 ×1.5 로는 1단계만 2분, hpMul 3 이어도 2단계에서 4분이 넘음
+//   → 체력 = 중간 보스 × 1.2(드러날 때만 제대로 맞으니 실제로는 중간 보스 몇 배 걸림) · 내려찍기 2번 · ×2 · 노출 시간 늘리고 제한 5분
+const RAID_RULE = { hpMul: 1.2, time: 300, shellCut: 0.1, exposedMul: 2, slams: 2, slamExpose: 4, pillarExpose: 6, crystalExpose: 7, crystalBack: 8,
+  orbExpose: 5, orbSpeed: 120, orbBack: 1.15, rallyMax: 3, rallyChance: 0.5, orbDmg: 1.5, essence: 10, fastTime: 120, fastCore: 0.5, extraCore: 0.15 };
+Object.assign(ENEMIES, {
+  abyss_raid: { name: '심연의 파수꾼', sprite: 'raid_warden', pix: true, idle: false, boss: true, raid: true, speed: 34, range: 30, superArmor: true, launchMul: 0, r: 16,
+    atk: { windup: 0.6, active: 0.14, recovery: 0.7, knock: 200, reach: [0, 36], arc: 100, lunge: 120 },
+    slam: { windup: 0.9, radius: 58 }, charge: { windup: 0.75, speed: 260, time: 0.9 }, fan: { windup: 0.6, count: 9, speed: 115, color: '#c06aff' }, summon: 'splitter' },
+  // 레이드 부품(part): 몹처럼 파티 소식 · 맞히기를 그대로 쓰지만 경험치 · 전리품 · 처치 수는 없음
+  void_crystal: { name: '공허 수정', sprite: 'void_crystal', pix: true, idle: false, part: 'crystal', rooted: true, hp: 12, exp: 0, gold: [0, 0], speed: 0, range: 0, poise: 99, r: 6,
+    atk: { windup: 9, active: 0, recovery: 0, dmg: 0, knock: 0, reach: [0, 0], arc: 0, lunge: 0 } },
+  void_orb: { name: '공허 구슬', sprite: 'void_orb', pix: true, idle: false, part: 'orb', hp: 1, exp: 0, gold: [0, 0], speed: 0, range: 0, poise: 99, r: 7,
+    atk: { windup: 9, active: 0, recovery: 0, dmg: 0, knock: 0, reach: [0, 0], arc: 0, lunge: 0 } },
+});
+// 몹 서 있는 그림 이름(0x72 몸은 _idle_anim, 코드 도트 몸은 _anim) — 고르기 줄 · 이야기 창처럼 몹 그림만 따로 그릴 때
+const idleAnim = d => d.sprite + (d.idle ? '_idle_anim' : '_anim');
+const SHIELD = { cut: 0.1, front: 0.3 };  // 방패병 앞(바라보는 쪽 ±약 72°)에서 친 피해 ×0.1, 경직 없음. 마법진(위에서 떨어짐) · 속성 피해는 넘는다
+const WARD = { cut: 0.25 };                // 보호막 사제 둘레 몹이 받는 피해 ×0.25
+
 // ── 몬스터 역할(2026-10-24 사용자: 능력치는 권장 레벨에 맞게) ──
 // 체력 · 공격력 · 경험치 · 골드는 몬스터 종류가 아니라 역할로 정하고, 던전 권장 레벨 배율(ENEMY_SCALE)을 곱한다.
 // → 어떤 몬스터를 어느 던전에 옮겨 놓아도 그 던전 레벨에 맞는 세기. 생김새 · 속도 · 사거리 · 공격 모양은 몬스터마다 그대로.
@@ -303,6 +366,7 @@ const ENEMY_ROLE = {
   skel_archer: 'ranged', wraith: 'fast', frost_skel: 'grunt', yeti: 'tank', ice_imp: 'ranged', lava_blob: 'grunt', fire_skel: 'fast',
   temple_guard: 'tank', abyss_chort: 'fast', void_imp: 'ranged',
   ghoul: 'tank', ogre_grunt: 'tank', chain_ogre: 'tank', fiend: 'tank', void_fiend: 'tank',
+  splitter: 'grunt', shieldbearer: 'tank', blinker: 'grunt', tentacle: 'grunt', warder: 'caster',  // 분열체 새끼는 따로(splitling)
 };
 for (const k in ENEMY_ROLE) {
   const d = ENEMIES[k], r = ROLES[ENEMY_ROLE[k]];
@@ -405,19 +469,41 @@ const DUNGEONS = [
 // Lv.100 콘텐츠(2026-10-26 사용자): 몹 레벨 lv 100 · 장비 Lv.100(혈석, 유니크는 안 떨어짐 — 제작으로만) · 입장 entry Lv.95 · 늘 1층부터(층 고르기 없음).
 // step: 예전 1.15(몹 Lv.90 기준, 2026-10-25 사용자: 1층 더 어렵게 두 번)를 몹 Lv.100 으로 옮기며 × POWER(95) / POWER(100) ≈ 0.86 —
 //   Lv.95 로 막 들어온 사람에게는 예전과 비슷한 손맛, Lv.100 장비를 갖추면 그만큼 쉬워진다(실제 손맛은 다시 잴 것)
-const ENDLESS = { max: 3, diff: 2, lv: 100, entry: 95, ilvl: [100, 104], step: 0.86, hp: 1.06, dmg: 1.04, reward: 0.05, rooms: 9, packs: 3, scenes: ['hell', 'ice', 'order'] };
+// floors(2026-10-26 사용자: 기존 던전을 빌리던 것 → '살아 있는 심연' 전용 몹 · 풍경): 층마다 몹 무리(pool — 같은 이름 여러 번 = 더 자주) · 수호자 · 음악(빌린 곡)
+const ENDLESS = { max: 3, diff: 2, lv: 100, entry: 95, ilvl: [100, 104], step: 0.86, hp: 1.06, dmg: 1.04, reward: 0.05, rooms: 9, packs: 3,
+  floors: [
+    { pool: ['splitter', 'splitter', 'shieldbearer'], boss: 'split_mother', music: 'hell' },
+    { pool: ['splitter', 'shieldbearer', 'blinker', 'blinker', 'tentacle'], boss: 'maw_lord', music: 'ice' },
+    { pool: ['splitter', 'shieldbearer', 'blinker', 'tentacle', 'warder'], boss: 'abyss_warden', music: 'order' },
+  ] };
+// 풍경 '살아 있는 심연': 0x72 벽돌에 검보라를 곱하고(tint) 바닥에 핏빛 혈관(veins — dungeon.js paint, 맥박은 world.js drawVeins)
+const LIVING = { tint: '#7a4a86', vein: '#5a1430', veinLit: '#c8306a' };
+// 끝없는 심연 단계(2026-10-26 사용자): 광산 도시 실베인 던전 고르기에 줄로 하나씩(벨록 던전 줄 모양). 만렙을 10씩 풀 때마다 한 단계씩 늘린다(1단계 = Lv.100 '살아 있는 심연')
+// boss = 줄 왼쪽에 서 있는 그 단계 최종 보스(레이드)
+const ABYSS_STAGES = [
+  { stage: 1, name: '살아 있는 심연', lv: ENDLESS.lv, entry: ENDLESS.entry, mat: '혈석', tint: '#c8306a', boss: 'abyss_raid' },  // 줄 아이콘 = 그 단계 최종 보스(사용자)
+];
 const endlessBest = prof => (prof.endless && prof.endless.best) || 0;
 const endlessOpen = prof => !!(prof.story && prof.story.trueEnding);
 const mixColor = (a, b, k) => '#' + [1, 3, 5].map(i => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - k) + parseInt(b.slice(i, i + 2), 16) * k).toString(16).padStart(2, '0')).join('');
 function endlessDef(floor) {
-  const base = DUNGEONS.find(d => d.id === ENDLESS.scenes[(floor - 1) % ENDLESS.scenes.length]), A = DUNGEONS.find(d => d.id === 'abyss').ease;
+  if (floor > ENDLESS.max) return raidDef();  // 3층 다음 = 최종 보스 레이드(계단 '최종 보스 도전')
+  const F = ENDLESS.floors[(floor - 1) % ENDLESS.floors.length], A = DUNGEONS.find(d => d.id === 'abyss').ease;
   const fh = ENDLESS.step * Math.pow(ENDLESS.hp, floor - 1), fd = ENDLESS.step * Math.pow(ENDLESS.dmg, floor - 1);  // 영웅 배율은 난이도(ENDLESS.diff)가 곱한다
-  return Object.assign({}, base, {
+  return {
     id: 'endless', endless: true, floor, timeId: 'endless' + floor, name: '끝없는 심연 ' + floor + '층',
-    lv: ENDLESS.lv, entry: ENDLESS.entry, ilvl: ENDLESS.ilvl, rooms: ENDLESS.rooms, packs: ENDLESS.packs, roomMaps: true, needs: null, tint: mixColor(base.tint || '#c8b8a0', '#8a60e0', 0.45),
+    lv: ENDLESS.lv, entry: ENDLESS.entry, ilvl: ENDLESS.ilvl, rooms: ENDLESS.rooms, packs: ENDLESS.packs, roomMaps: true, needs: null,
+    pool: F.pool, boss: F.boss, music: F.music, hazard: 'void', tint: LIVING.tint, veins: true,
+    banner: 'wall_banner_red', wall: ['wall_goo', 'wall_hole_2'], cols: 0.3, skulls: 0,
     ease: { hp: A.hp * fh, dmg: A.dmg * fd, bhp: A.bhp * fh, bdmg: A.bdmg * fd }, gainMul: 1 + ENDLESS.reward * (floor - 1),
-    desc: base.name + '의 모습을 한 심연의 틈.',
-  });
+    desc: '살아 숨 쉬는 심연의 틈.',
+  };
+}
+// 최종 보스 레이드 던전: 3층 세기 그대로 + 보스 체력 × hpMul. 방 하나(js/raid.js level), 몹 무리 · 함정 없음
+function raidDef() {
+  const d3 = endlessDef(ENDLESS.max);
+  return Object.assign({}, d3, { raid: true, floor: ENDLESS.max + 1, timeId: 'endlessRaid', name: '최종 보스 — 심연의 파수꾼', boss: 'abyss_raid', pool: [], hazard: null, music: 'order',
+    ease: Object.assign({}, d3.ease, { bhp: d3.ease.bhp * RAID_RULE.hpMul }), desc: '심연의 밑바닥을 지키는 파수꾼.' });
 }
 
 // ── 아이템 ──
@@ -792,6 +878,7 @@ const INHERIT_PRICE = 3000;  // 계승 주문서도 판다(복구 주문서 자�
 // 분해(대장장이): 태초(착용 Lv.minReq 이상) 흰 · 파랑 · 노랑 장비 → 정수 가루 dust[등급]. 가루 dustPer 개 = 정수 1(저절로 바뀜). 유니크는 컬렉션용이라 분해 안 됨
 const ESSENCE = { boss: f => 2 + f, unique: 0.5, elite: 0.06, floorMul: f => 1 + 0.1 * (f - 1), dust: [1, 2, 5], dustPer: 10, minReq: 90 };
 const ESSENCE_COLOR = '#c58aff';
+const CORE_COLOR = '#5fe0d0';  // 심연의 핵(레이드 보상, Lv.100 유니크 제작 재료 — 제작은 나중)
 const scrapDust = it => (it && !it.uniq && it.rarity <= 2 && Items.req(it) >= ESSENCE.minReq ? ESSENCE.dust[it.rarity] : 0);
 function addEssence(prof, n, dust = 0) {
   prof.essence = (prof.essence || 0) + n;

@@ -37,6 +37,8 @@ function createEnemy(type, x, y, lv, mods = {}) {
     walkT: Math.random() * 5, spawnT: mods.spawn ? (d.boss ? 1.2 : 0.7) : 0,
     r: (d.r || 6) * uScale, h: (f ? f[3] : 16) * scale,  // 몸 반지름은 정해 둔 값(r) 그대로, 키는 그림 배율만큼
     patCd: 2, summoned: 0, chargeV: null,
+    // 끝없는 심연 몹: under = 땅속 촉수가 땅속에 있음(자는 동안에도), blinkCd = 순간이동 기다림, wardT = 보호막 사제의 보호막이 남은 시간
+    under: !!d.burrow, upT: 0, underT: 0, blinkCd: d.blink ? 1 + Math.random() * 2 : 0, wardT: 0,
   };
 }
 
@@ -44,7 +46,11 @@ function updateEnemy(e, dt, room, p) {
   const d = e.def;
   e.flash = Math.max(0, e.flash - dt);
   e.armorT = Math.max(0, e.armorT - dt);
+  e.wardT = Math.max(0, (e.wardT || 0) - dt);
+  if (d.part && e.state !== 'dead') { Raid.part(e, dt, room, p); return; }  // 레이드 부품(공허 수정 · 구슬) — js/raid.js
   Elements.tick(e, dt);  // 화상 · 독 · 감전 · 냉기
+  if (d.rooted) { e.kx = 0; e.ky = 0; }  // 땅속 촉수는 안 밀림(속성 폭발 밀어내기도)
+  if (d.burrow && !e.under && e.awake) e.upT += dt;  // 솟아 있는 시간(내리치는 동안도 센다)
   if (e.kx || e.ky) {
     Dungeon.move(room, e, e.kx * dt, e.ky * dt, e.r);
     const f = Math.exp(-(e.state === 'air' ? 1.5 : 7) * dt);
@@ -98,7 +104,10 @@ function updateEnemy(e, dt, room, p) {
       }
       if (e.state === 'attack') {  // 맞는 동안 다른 상태(빙결 등)로 바뀌었으면 건너뛴다
         e.t -= dt;
-        if (e.t <= 0) { e.state = 'recover'; e.t = atk.recovery; }
+        if (e.t <= 0) {
+          e.state = 'recover'; e.t = atk.recovery;
+          if (d.shield) World.text(e.x, e.y, e.h + 4, '틈!', '#5fe0d0');  // 방패병: 휘두른 뒤 방패가 내려감 — 앞에서도 맞는다
+        }
       }
       break;
     case 'recover':
@@ -114,6 +123,7 @@ function updateEnemy(e, dt, room, p) {
         World.fx({ type: 'shock', x: e.x, y: e.y, r: d.slam.radius, t: 0, life: 0.3 });
         if (groundDist(p.x - e.x, p.y - e.y) <= d.slam.radius + BODY_R) hurtPlayer(p, e, d.slam.dmg * e.dmgMul, 200);
         e.state = 'recover'; e.t = 0.8;
+        if (d.raid) Raid.slammed(e);  // 레이드 1단계: 내려찍기 3번이면 지쳐 심장이 드러남
       }
       break;
     case 'chargeWind':
@@ -128,7 +138,9 @@ function updateEnemy(e, dt, room, p) {
         e.hitDone = true;
         hurtPlayer(p, e, d.charge.dmg * e.dmgMul, 220);
       }
-      if (e.hitWall) {
+      if (e.hitWall && d.raid && Raid.pillar(e, room)) {
+        // 레이드 1단계: 기둥에 박으면 기둥이 부서지며 심장이 드러남(Raid.pillar 가 상태를 바꿈)
+      } else if (e.hitWall) {
         e.state = 'tired'; e.t = 1.1;  // 벽에 박으면 멍해진다 — 때릴 기회
         World.shake(4); World.dust(e.x, e.y, 10);
         World.text(e.x, e.y, e.h + 6, '쿵!', '#ffd36a');
@@ -142,13 +154,36 @@ function updateEnemy(e, dt, room, p) {
         e.state = 'recover'; e.t = 0.7;
       }
       break;
+    // ── 끝없는 심연 몹 ──
+    case 'blinkOut':  // 순간이동자: 흩어지며 사라짐 → 노리는 사람 등 뒤로
+      e.t -= dt;
+      if (e.t <= 0) { blinkTo(e, room, p); e.state = 'blinkIn'; e.t = d.blink.inn; }
+      break;
+    case 'blinkIn':   // 나타나는 중(아직 안 맞음) → 바로 찌르기 준비
+      e.t -= dt;
+      if (e.t <= 0) { faceTo(e, p); e.state = 'windup'; e.windupT = e.t = atk.windup * e.windupMul; }
+      break;
+    case 'rise':      // 땅속 촉수: 바닥 예고(burrow.r 타원) 뒤 솟으며 그 자리를 친다
+      e.t -= dt;
+      if (e.t <= 0) {
+        World.shake(2); World.dust(e.x, e.y, 8);
+        if (!p.dead && groundDist(p.x - e.x, p.y - e.y) <= d.burrow.r + BODY_R) hurtPlayer(p, e, atk.dmg * e.dmgMul * 0.8, 160);
+        e.state = 'move'; e.upT = 0; e.atkCd = 0.45;
+      }
+      break;
+    case 'sink':      // 다시 땅속으로
+      e.t -= dt;
+      if (e.t <= 0) { e.under = true; e.underT = 0; e.state = 'move'; World.dust(e.x, e.y, 4); }
+      break;
     case 'move':
       if (!e.awake) { e.moving = false; wakeCheck(e, room, p); break; }
-      if (d.boss) bossThink(e, dt, room, p); else aiMove(e, dt, room, p);
+      if (d.raid) Raid.think(e, dt, room, p); else if (d.boss) bossThink(e, dt, room, p); else if (d.burrow) tentacleThink(e, dt, room, p); else aiMove(e, dt, room, p);
       break;
     case 'dead':
       e.t += dt;
       break;
+    default:
+      if (d.raid) Raid.state(e, dt, room, p);  // 레이드 보스만의 상태(심장 노출 · 단계 바뀜 · 구슬 · 사방 탄)
   }
 }
 
@@ -162,6 +197,57 @@ function shootAt(e, p, atk, n, k) {
 }
 
 function faceTo(e, p) { e.fv = unit(p.x - e.x, p.y - e.y, e.fv); }
+// 천천히 돌기(방패병: 등 뒤로 돌아 들어갈 틈) — 한 번에 max 라디안까지
+function turnTo(e, p, max) {
+  const cur = Math.atan2(e.fv.y, e.fv.x);
+  let da = Math.atan2(p.y - e.y, p.x - e.x) - cur;
+  while (da > Math.PI) da -= Math.PI * 2;
+  while (da < -Math.PI) da += Math.PI * 2;
+  const a = cur + Math.max(-max, Math.min(max, da));
+  e.fv = { x: Math.cos(a), y: Math.sin(a) };
+}
+
+// ── 끝없는 심연 몹 도우미 ──
+// 지금 안 맞는 때: 땅속 · 솟는 중 · 들어가는 중(촉수), 사라지는 뒷부분 · 나타나는 중(순간이동자)
+function untouchable(e) {
+  return !!e.under || e.state === 'rise' || e.state === 'sink' || e.state === 'blinkIn' || (e.state === 'blinkOut' && e.t < e.def.blink.out * 0.5);
+}
+// 방패병: 방패가 올라가 있고(움직임 · 준비 · 휘두름) 친 사람이 앞(SHIELD.front)에 있으면 막는다. 마법진은 위에서 떨어져 넘는다
+const SHIELD_UP = ['move', 'windup', 'attack'];
+function shieldBlocks(e, p, def) {
+  if (!e.def.shield || def.circle || !SHIELD_UP.includes(e.state)) return false;
+  const tp = unit(p.x - e.x, p.y - e.y, e.fv);
+  return e.fv.x * tp.x + e.fv.y * tp.y > SHIELD.front;
+}
+// 순간이동자: 노리는 사람 등 뒤(안 되면 옆 · 앞) 빈 자리로
+function blinkTo(e, lv, p) {
+  const f = p.fv || { x: 1, y: 0 };
+  for (const [vx, vy] of [[-f.x, -f.y], [f.y, -f.x], [-f.y, f.x], [f.x, f.y]]) {
+    const x = p.x + vx * 20, y = p.y + vy * 14;
+    if (Dungeon.walkable(lv, x, y, e.r) && (!lv.roomMaps || Dungeon.roomIdx(lv, x, y) === e.ri)) { e.x = x; e.y = y; break; }
+  }
+  e.kx = 0; e.ky = 0;
+  World.dust(e.x, e.y, 6);
+}
+// 땅속 촉수: 땅속에서 노리는 사람 쪽으로 파고들다 가까우면(또는 chase 초 지나면) 솟음 → up 초 동안 서서 내리치기 → 다시 땅속
+function tentacleThink(e, dt, lv, p) {
+  const d = e.def, B = d.burrow;
+  e.moving = false;
+  if (e.spawnT > 0) { e.spawnT -= dt; return; }
+  if (p.dead) return;
+  e.atkCd -= dt;
+  const pd = Math.hypot(p.x - e.x, p.y - e.y);
+  if (e.under) {
+    e.underT += dt;
+    if ((pd < 14 && e.underT > 0.8) || e.underT > B.chase) { e.under = false; e.state = 'rise'; e.t = e.windupT = B.rise; return; }  // 들어가자마자 다시 솟지는 않게
+    const dir = Dungeon.los(lv, e.x, e.y - 4, p.x, p.y - 4) ? unit(p.x - e.x, p.y - e.y, e.fv) : World.flowDir(e);
+    if (dir) { Dungeon.move(lv, e, dir.x * d.speed * dt, dir.y * d.speed * dt, e.r); e.moving = true; e.walkT += dt; }
+    return;
+  }
+  faceTo(e, p);
+  if (e.upT > B.up) { e.state = 'sink'; e.t = B.sink; return; }
+  if (e.atkCd <= 0 && pd <= d.atk.reach[1] + 6) { e.state = 'windup'; e.windupT = e.t = d.atk.windup * e.windupMul; e.atkCd = 1.2; }
+}
 
 // 자는 몹: 플레이어가 가까이 오고 시야가 트이면 무리째 깨어난다(보스는 보스방에 들어와야)
 function wakeCheck(e, lv, p) {
@@ -191,6 +277,11 @@ function aiMove(e, dt, room, p) {
   if (p.dead) return;
   const pd = Math.hypot(p.x - e.x, p.y - e.y);
   const see = pd < 150 && Dungeon.los(room, e.x, e.y - 4, p.x, p.y - 4);
+  // 순간이동자: 보이고 조금 떨어져 있으면 사라졌다가 등 뒤로 — 한꺼번에 덤비는 수(maxAttackers) 안에서만(둘러싸고 기다리는 몹까지 다 날아오지 않게)
+  if (d.blink && (e.blinkCd -= dt) <= 0 && see && pd > 36 && e.role === 'front' && World.attackers() < maxAttackers(e.lv || 1)) {
+    e.state = 'blinkOut'; e.t = d.blink.out; e.blinkCd = d.blink.cd[0] + Math.random() * (d.blink.cd[1] - d.blink.cd[0]);
+    return;
+  }
   if (!see || pd > 110) { if (chase(e, dt, room, p)) return; }
   let wx, wy;
   if (d.ranged) {
@@ -208,8 +299,9 @@ function aiMove(e, dt, room, p) {
     e.moving = true;
     e.walkT += dt;
   }
-  faceTo(e, p);
-  const can = e.atkCd <= 0 && World.attackers() < maxAttackers(e.lv || 1) + (d.ranged ? 1 : 0);
+  if (d.turn) turnTo(e, p, d.turn * dt); else faceTo(e, p);
+  const facing = !d.turn || e.fv.x * (p.x - e.x) + e.fv.y * (p.y - e.y) > 0.8 * pd;  // 천천히 도는 몹은 마주 봐야 휘두른다
+  const can = e.atkCd <= 0 && facing && World.attackers() < maxAttackers(e.lv || 1) + (d.ranged ? 1 : 0);
   if (can && see && (d.ranged ? pd < d.range + 40 : e.role === 'front' && pd <= d.atk.reach[1] + 6)) {
     e.state = 'windup'; e.windupT = e.t = d.atk.windup * e.windupMul;
   }
@@ -254,7 +346,7 @@ function bossThink(e, dt, room, p) {
 
 // 매 프레임 역할 나누기: 가까운 순 두 마리가 front, 두 번째가 같은 쪽이면 반대편으로 돈다
 function assignRoles(list, p) {
-  const live = list.filter(e => e.awake && !e.dying && e.state !== 'dead' && !e.def.ranged && !e.def.boss && Math.hypot(e.x - p.x, e.y - p.y) < 140);
+  const live = list.filter(e => e.awake && !e.dying && e.state !== 'dead' && !e.def.ranged && !e.def.boss && !e.def.burrow && Math.hypot(e.x - p.x, e.y - p.y) < 140);  // 땅속 촉수는 제자리라 자리를 안 차지
   live.sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y));
   let fronts = 0, slot = 0, firstAng = null;
   for (const e of live) {
@@ -271,7 +363,7 @@ function assignRoles(list, p) {
 function separateEnemies(list, room, ps) {
   // 화면 근처에서 깨어 있는 몹끼리만(멀리서 자는 몹은 계산하지 않는다). ps = 사람들(파티면 나 + 손님 몸들, 그 둘레 모두)
   const by = (e, q) => q && Math.abs(e.x - q.x) < 320 && Math.abs(e.y - q.y) < 220;
-  const live = list.filter(e => e.awake && e.state !== 'dead' && e.state !== 'air' && e.state !== 'down' && !e.dying && ps.some(q => by(e, q)));
+  const live = list.filter(e => e.awake && e.state !== 'dead' && e.state !== 'air' && e.state !== 'down' && !e.dying && !e.def.part && ps.some(q => by(e, q)));  // 레이드 부품은 안 밀림
   for (let i = 0; i < live.length; i++) for (let j = i + 1; j < live.length; j++) {
     const a = live[i], b = live[j];
     const dx = b.x - a.x, dy = b.y - a.y, dist = Math.hypot(dx, dy), min = a.r + b.r + 2;

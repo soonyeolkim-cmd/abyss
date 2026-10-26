@@ -207,10 +207,18 @@ const Art = (() => {
     const d = e.def;
     const moving = e.moving || e.state === 'charge';
     const base = d.idle ? d.sprite + (moving ? '_run_anim' : '_idle_anim') : d.sprite + '_anim';
-    const name = e.state === 'frozen' ? (d.idle ? d.sprite + '_idle_anim_f0' : d.sprite + '_anim_f0') : Gfx.anim(base, time + e.walkT, e.state === 'charge' ? 16 : 8);
+    let name = e.state === 'frozen' ? (d.idle ? d.sprite + '_idle_anim_f0' : d.sprite + '_anim_f0') : Gfx.anim(base, time + e.walkT, e.state === 'charge' ? 16 : 8);
     const flip = e.fv.x < 0;
     let x = e.x, y = e.y - e.z;
     const o = { flip, flash: e.flash > 0 ? '#ffffff' : false, scale: e.scale || 1, tint: d.tint, tintAlpha: d.tintAlpha };
+    if (d.part) { Raid.drawPart(ctx, e, time); return; }  // 레이드 공허 수정 · 구슬
+    if (d.raid && e.state === 'exposed') name = 'raid_warden_open';  // 갈비가 벌어져 심장이 드러남
+    if (d.raid && e.state === 'phaseShift' && Math.floor(time * 16) % 2) o.flash = '#ffffff';
+    if (d.pix && pixMob(ctx, e, time, o)) return;  // 끝없는 심연 도트 몹: 땅속 · 사라짐처럼 따로 그리는 때
+    if (d.pix && e.state !== 'dead' && e.state !== 'air' && e.state !== 'down') {  // 한두 장 그림이라 걷기 · 떠 있기를 흔들림으로
+      if (d.blink) y -= 2 + Math.round(Math.sin(time * 3 + e.walkT) * 1.5);  // 다리 없는 망령: 늘 떠서 일렁임
+      else if (e.moving) y -= Math.floor((time + e.walkT) * (d.r <= 4 ? 10 : 7)) % 2;
+    }
     // 보스 예고
     if (e.state === 'slam') {
       const k = 1 - e.t / e.windupT;
@@ -228,8 +236,16 @@ const Art = (() => {
       ctx.beginPath(); ctx.moveTo(e.x, e.y - 4); ctx.lineTo(e.x + e.chargeV.x * 160, e.y - 4 + e.chargeV.y * 160); ctx.stroke();
       ctx.restore();
     }
-    const tele = e.state === 'windup' && (committed(e) || d.superArmor) || ['slam', 'chargeWind', 'fan'].includes(e.state);
+    const tele = e.state === 'windup' && (committed(e) || d.superArmor) || ['slam', 'chargeWind', 'fan', 'orbWind', 'ringWind'].includes(e.state);
     if (tele && !o.flash && Math.floor(time * 14) % 2 === 0) o.flash = '#ff4030';
+    if (d.shield && e.state === 'recover' && !o.flash && Math.floor(time * 6) % 3 === 0) o.flash = '#5fe0d0';  // 방패병 틈: 청록으로 깜빡
+    if (d.shield && SHIELD_UP.includes(e.state) && e.state !== 'dead') {  // 방패가 막는 쪽(앞 ±약 72°)을 발밑 뼈빛 호로
+      const a = Math.atan2(e.fv.y / GROUND_Y, e.fv.x), w = Math.acos(SHIELD.front), R = e.r + 6;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(236,224,204,0.55)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(e.x, e.y, R, R * GROUND_Y, 0, a - w, a + w); ctx.stroke();
+      ctx.restore();
+    }
     // 상태이상 색: 빙결 = 얼음빛(움직임 멈춤), 냉기 · 균열 = 가끔 푸른빛, 감전 = 가끔 노란빛
     if (!o.flash) {
       const tick = Math.floor(time * 10 + e.walkT * 3) % 4;
@@ -250,11 +266,21 @@ const Art = (() => {
       case 'getup': o.rot = (flip ? 1 : -1) * Math.PI / 4; break;
       case 'dead':
         if (d.boss) { o.alpha = Math.max(0, 1 - e.t / 1.5); o.flash = Math.floor(time * 20) % 2 ? '#ffffff' : false; }
+        else if (d.rooted) o.alpha = Math.max(0, 1 - e.t / 0.9);  // 촉수: 그 자리에서 스러짐
         else { o.rot = (flip ? 1 : -1) * Math.PI / 2; y += 3; o.alpha = Math.max(0, 1 - Math.max(0, e.t - 0.5) / 0.6); }
         break;
     }
     Gfx.spr(ctx, name, x, y, o);
     if (d.acc && e.state !== 'dead') bossAcc(ctx, d.acc, x, y, o.scale, flip, time);
+    if (d.raid) Raid.drawBoss(ctx, e, x, y, time);
+    if (e.wardT > 0 && e.state !== 'dead' && !e.dying) {  // 보호막 사제의 보호막: 몸을 감싼 청록 막(일렁임)
+      const k = 0.5 + 0.5 * Math.sin(time * 6 + e.walkT);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(95,224,208,' + (0.45 + 0.3 * k) + ')'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(Math.round(x), Math.round(y - e.h / 2), e.r + 4, e.h / 2 + 3, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = 'rgba(95,224,208,' + (0.08 + 0.06 * k) + ')'; ctx.fill();
+      ctx.restore();
+    }
     if (e.cutT > 0 && e.state !== 'dead') {  // 베인 상처: 머리 위 붉은 사선 두 줄(깜빡)
       if (e.cutT > 1 || Math.floor(time * 8) % 2) { ctx.fillStyle = '#ff5a4a'; const hx = Math.round(e.x), hy = Math.round(y - e.h - 4); for (let i = 0; i < 4; i++) { ctx.fillRect(hx - 3 + i, hy + 2 - i, 1, 1); ctx.fillRect(hx + i, hy + 2 - i, 1, 1); } }
     }
@@ -274,6 +300,48 @@ const Art = (() => {
       ctx.fillStyle = '#ffe066';
       for (let k = 0; k < 3; k++) { const a = time * 6 + k * 2.1; ctx.fillRect(Math.round(e.x + Math.cos(a) * 8), Math.round(y - e.h - 3 + Math.sin(a) * 2), 2, 2); }
     }
+  }
+
+  // 끝없는 심연 도트 몹의 특별한 때(그렸으면 true): 땅속 촉수(땅속 · 솟기 예고 · 들어감) · 순간이동자(사라짐 · 나타남)
+  function pixMob(ctx, e, time, o) {
+    const d = e.def, x = Math.round(e.x), y = Math.round(e.y);
+    if (d.burrow && (e.under || e.state === 'rise' || e.state === 'sink')) {
+      if (e.state === 'rise') {  // 솟기 예고 = 그 자리 판정(burrow.r) 바닥 타원이 차오름 + 구멍이 떨림
+        const k = 1 - e.t / d.burrow.rise, R = d.burrow.r;
+        ctx.save();
+        ctx.fillStyle = 'rgba(255,40,30,' + (0.1 + 0.2 * k) + ')'; ctx.strokeStyle = 'rgba(255,80,60,' + (0.5 + 0.5 * k) + ')'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.ellipse(e.x, e.y, R, R * GROUND_Y, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(e.x, e.y, R * k, R * GROUND_Y * k, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+        Gfx.spr(ctx, 'tentacle_hole', x + (Math.floor(time * 30) % 2 ? 1 : -1), y);
+      } else if (e.state === 'sink') {  // 들어감: 구멍 안으로 미끄러짐(구멍 윗줄 아래는 안 보이게)
+        const k = 1 - e.t / d.burrow.sink;
+        Gfx.spr(ctx, 'tentacle_hole', x, y);
+        ctx.save();
+        ctx.beginPath(); ctx.rect(x - 8, y - 30, 16, 27); ctx.clip();
+        Gfx.spr(ctx, 'tentacle_anim_f0', x, y + Math.round(k * 22), { flip: o.flip });
+        ctx.restore();
+      } else {  // 땅속: 구멍이 따라 기어옴(움직이면 흙 알갱이)
+        Gfx.spr(ctx, 'tentacle_hole', x, y, { alpha: e.awake ? 0.85 : 0.7 });
+        if (e.moving) {
+          ctx.fillStyle = '#4a2a3a';
+          for (let i = 0; i < 3; i++) { const a = time * 9 + i * 2.1; ctx.fillRect(Math.round(x + Math.cos(a) * 6), Math.round(y - 2 - Math.abs(Math.sin(a * 1.3)) * 4), 1, 1); }
+        }
+      }
+      return true;
+    }
+    if (d.blink && (e.state === 'blinkOut' || e.state === 'blinkIn')) {
+      const out = e.state === 'blinkOut', k = 1 - e.t / (out ? d.blink.out : d.blink.inn), fy = y - 2;
+      // 발밑 검보라 소용돌이(사라질 땐 커지고 나타날 땐 줄어듦)
+      const R = 4 + 6 * (out ? k : 1 - k);
+      ctx.save();
+      ctx.fillStyle = 'rgba(42,22,48,0.6)'; ctx.beginPath(); ctx.ellipse(e.x, e.y, R, R * GROUND_Y, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      if (out) Gfx.spr(ctx, k < 0.5 && Math.floor(time * 20) % 2 ? 'blinker_anim_f0' : 'blinker_fade', x, fy, { flip: o.flip, alpha: 1 - k * 0.8 });
+      else Gfx.spr(ctx, k > 0.7 ? 'blinker_anim_f0' : 'blinker_fade', x, fy, { flip: o.flip, alpha: 0.3 + 0.7 * k });
+      return true;
+    }
+    return false;
   }
 
   // 보스 장식(data.js acc): 왕관 · 뿔 · 빛나는 눈 · 몸 빛 · 고름. 좌표는 그림 한 칸 단위(발밑 가운데 기준), s = 그림 배율
@@ -296,7 +364,7 @@ const Art = (() => {
   }
 
   function enemyBar(ctx, e) {
-    if (e.def.boss || e.hp >= e.maxHp || e.dying || e.state === 'dead') return;
+    if (e.def.boss || e.hp >= e.maxHp || e.dying || e.state === 'dead' || untouchable(e)) return;  // 땅속 · 사라진 몹은 막대도 숨김
     const w = 16, x = Math.round(e.x - w / 2), y = Math.round(e.y - e.z - e.h - 5);
     ctx.fillStyle = '#000'; ctx.fillRect(x - 1, y - 1, w + 2, 4);
     ctx.fillStyle = '#5a1010'; ctx.fillRect(x, y, w, 2);
@@ -318,6 +386,18 @@ const Art = (() => {
       return;
     }
     if (d.kind === 'scroll') { Gfx.scrollIcon(ctx, d.scroll, d.x, y - 4, 10); return; }
+    if (d.kind === 'core') {  // 심연의 핵(레이드 보상): 청록 심장 보석 + 맥동하는 빛
+      const cy = Math.round(y - 6 + Math.sin(time * 3 + d.x) * 1), cx = Math.round(d.x), k = 0.5 + 0.5 * Math.sin(time * 6);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 10);
+      g.addColorStop(0, 'rgba(95,224,208,' + (0.5 + 0.3 * k) + ')'); g.addColorStop(1, 'rgba(95,224,208,0)');
+      ctx.fillStyle = g; ctx.fillRect(cx - 10, cy - 10, 20, 20); ctx.restore();
+      ['.oo.oo.', 'otTotTo', 'ottwttT', '.otttT.', '..otT..', '...o...'].forEach((row, j) => [...row].forEach((c, i) => {
+        if (c === '.') return;
+        ctx.fillStyle = c === 'o' ? '#120a14' : c === 't' ? CORE_COLOR : c === 'T' ? '#2a8a88' : '#ffffff'; ctx.fillRect(cx - 3 + i, cy - 3 + j, 1, 1);
+      }));
+      return;
+    }
     if (d.kind === 'essence') {  // 심연 정수: 보랏빛 수정 + 일렁이는 빛
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
@@ -374,7 +454,7 @@ const Art = (() => {
 
   // 정예 · 고유 이름(머리 위)
   function nameTag(ctx, e) {
-    if ((e.rank !== 'elite' && e.rank !== 'unique') || e.dying || e.state === 'dead') return;
+    if ((e.rank !== 'elite' && e.rank !== 'unique') || e.dying || e.state === 'dead' || untouchable(e)) return;
     ctx.font = 'bold 6px ' + FONT; ctx.textAlign = 'center';
     const y = Math.round(e.y - e.z - e.h - 9);
     ctx.fillStyle = '#000'; ctx.fillText(e.name, e.x + 0.5, y + 0.5);
@@ -1047,9 +1127,10 @@ const Art = (() => {
       if (f.done) return;
       const k = Math.min(1, f.t / f.delay);
       ctx.save();
-      ctx.strokeStyle = 'rgba(255,90,40,' + (0.5 + 0.5 * Math.sin(time * 30)) + ')'; ctx.lineWidth = 1.5;
+      const c = f.voidBlast ? '192,106,255' : '255,90,40';  // 레이드 공허 장판 = 보랏빛
+      ctx.strokeStyle = 'rgba(' + c + ',' + (0.5 + 0.5 * Math.sin(time * 30)) + ')'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r, f.r * 0.6, 0, 0, Math.PI * 2); ctx.stroke();
-      ctx.fillStyle = 'rgba(255,90,40,0.25)';
+      ctx.fillStyle = 'rgba(' + c + ',0.25)';
       ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r * k, f.r * 0.6 * k, 0, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
       return;
@@ -1084,8 +1165,8 @@ const Art = (() => {
   }
 
   // 플레이어 빛 반경만 밝고 그 밖은 거의 깜깜한 어둠(디아블로)
-  function darkness(ctx, x, y, cam) {
-    const g = ctx.createRadialGradient(x, y, LIGHT_R * 0.45, x, y, LIGHT_R * 1.25);
+  function darkness(ctx, x, y, cam, R = LIGHT_R) {  // R = 빛 반경(레이드 방은 넓게)
+    const g = ctx.createRadialGradient(x, y, R * 0.45, x, y, R * 1.25);
     g.addColorStop(0, 'rgba(0,0,0,0)');
     g.addColorStop(0.6, 'rgba(0,0,0,0.55)');
     g.addColorStop(1, 'rgba(0,0,0,0.9)');

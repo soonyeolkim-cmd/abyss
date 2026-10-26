@@ -206,24 +206,18 @@ const UI = (() => {
   };
 
   // ── 던전 고르기 ──
+  // 마을마다 다르게(2026-10-26 사용자): 지하 도시 벨록 = 던전 10개(줄 목록), 광산 도시 실베인 = 끝없는 심연 단계 줄(벨록 던전 줄과 같은 모양)
+  //   (1단계 = Lv.100 '살아 있는 심연' — 만렙을 풀어 단계가 늘면 줄이 아래로 늘어난다, data.js ABYSS_STAGES). 끝없는 심연은 늘 1층부터, 난이도 없음
   // 난이도(2026-10-24): 고른 던전 줄에서 ←→ 로 보통 · 모험 · 영웅. 아래 난이도 보스를 잡아야 열린다
-  // 던전 고르기 줄: 던전 10개 + (진엔딩 뒤) 끝없는 심연 한 줄
-  const ENDLESS_ROW = { endless: true, id: 'endless', name: '끝없는 심연', lv: ENDLESS.entry, boss: 'abyss_lord' };  // lv = 입장 레벨(몹은 Lv.100)
-  const selectRows = prof => (endlessOpen(prof) ? [...DUNGEONS, ENDLESS_ROW] : DUNGEONS);
+  const selectRows = () => DUNGEONS;
+  const selectMode = () => select.modeOverride || (typeof Town !== 'undefined' ? Town.where : 'belloc');  // 파티 손님 '방장 고르기 보기'는 방장 마을로(modeOverride)
   const select = {
-    sel: 0, diff: 0, floor: 1, fb: -1,
+    sel: 0, diff: 0, card: 0,
     update(prof) {
+      if (selectMode() === 'silvane') { this.abyssUpdate(prof); return; }
       const rows = selectRows(prof);
-      this.sel = menuNav(Math.min(this.sel, rows.length - 1), rows.length);  // 끝없는 심연이 없는 캐릭터로 바꿔도 범위 안
+      this.sel = menuNav(Math.min(this.sel, rows.length - 1), rows.length);
       const d = rows[this.sel];
-      if (d.endless) {  // 끝없는 심연: 늘 1층부터(2026-10-26 사용자: 층 고르기 없앰), 난이도 없음, 입장 Lv.95
-        if (Input.wasPressed('back')) { Game.open('town'); return; }
-        if (Input.wasPressed('ok')) {
-          if (prof.lv < ENDLESS.entry) Game.toast('Lv.' + ENDLESS.entry + '부터 들어갈 수 있어요 (지금 Lv.' + prof.lv + ')');
-          else { const d = endlessDef(1); if (!Coop.hostEnter(d, ENDLESS.diff)) Game.startRun(d, ENDLESS.diff); }  // 파티 방장이면 친구에게 먼저 묻는다
-        }
-        return;
-      }
       if (Input.nav('left')) this.diff = Math.max(0, this.diff - 1);
       if (Input.nav('right')) this.diff = Math.min(DIFFS.length - 1, this.diff + 1);
       if (Input.wasPressed('back')) { Game.open('town'); return; }
@@ -235,6 +229,7 @@ const UI = (() => {
       }
     },
     draw(ctx, prof, time) {
+      if (selectMode() === 'silvane') { this.abyssDraw(ctx, prof, time); return; }
       backdrop(ctx, time);
       T_(ctx, '던전 고르기', 60, 58, 30, '#f0e0b8');
       // 고른 던전이 내 레벨보다 한참 낮으면: 경험치 · 유니크 배율
@@ -261,7 +256,6 @@ const UI = (() => {
         if (i < top || i >= top + VISD) return;
         const y = 76 + (i - top) * 72, on = i === this.sel;
         zone(60, y, 840, 64, { on: () => this.sel === i, pick: () => { this.sel = i; } });
-        if (d.endless) { this.endlessRow(ctx, prof, time, y, on); return; }
         const lowLv = prof.lv < d.lv, lockd = (d.needs && !prof.cleared[d.needs]) || lowLv;
         Gfx.panel(ctx, 60, y, 840, 64, { border: on ? '#ffd36a' : '#5a4650', bg: d.tint && !lockd ? '#1a1418' : undefined });
         // 던전 분위기 색 띠
@@ -290,13 +284,6 @@ const UI = (() => {
         const low = !lockd && Net.linked && Net.role === 'host' ? Net.members().filter(m => m.lv < d.lv) : [];
         if (low.length) T_(ctx, low.length === 1 ? clsOf(low[0]).name + ' Lv.' + low[0].lv + ' — 같이 못 가요' : '파티원 ' + low.length + '명 레벨 부족', 880, y + 52, 12, '#d88aff', 'right');
       });
-      if (sd.endless) {  // 끝없는 심연: 1층부터 3층까지 이어서
-        const bt = prof.bestTimes && prof.bestTimes[timeKey('endless' + ENDLESS.max, ENDLESS.diff)];
-        if (bt) T_(ctx, '3층 최고 기록 ' + fmtTime(bt), 930, 535, 11, '#ffd36a', 'right');
-        T_(ctx, '1층부터 ' + ENDLESS.max + '층까지 이어서 · 몹 Lv.' + ENDLESS.lv + ' · 나오는 장비 Lv.' + reqLevel(ENDLESS.ilvl[0]) + '(혈석, 유니크는 제작으로만) · 보상은 영웅', 480, 516, 13, '#d8b0ff', 'center');
-        if (!Input.touchMode()) T_(ctx, '던전 ↑↓ · 들어가기 ' + L('ok') + ' · 돌아가기 ' + L('back'), 480, 535, 11, '#6a6068', 'center');
-        return;
-      }
       // 고른 난이도 설명
       const df = DIFFS[this.diff];
       const bt = prof.bestTimes && prof.bestTimes[timeKey(DUNGEONS[this.sel].id, this.diff)];
@@ -304,20 +291,50 @@ const UI = (() => {
       T_(ctx, df.name + (this.diff ? ' — 몹 체력 ×' + df.hp + ' · 공격 ×' + df.dmg + ' · 노랑 이상 ×' + df.rare + ' · 유니크 ×' + df.uniq + (df.stoneFavor ? ' · 큰 속성석 · 보석이 더 잘' : '') + ' · 골드 · 경험치 ×' + df.gold : ' — 기본 난이도'), 480, 516, 13, df.color, 'center');
       if (!Input.touchMode()) T_(ctx, '던전 ↑↓ · 난이도 ←→ · 들어가기 ' + L('ok') + ' · 돌아가기 ' + L('back'), 480, 535, 11, '#6a6068', 'center');
     },
-    // 끝없는 심연 줄: 보랏빛 띠 · 일렁이는 심연의 군주 · 최고 층 · 입장 레벨(층 고르기는 없음 — 늘 1층부터)
-    endlessRow(ctx, prof, time, y, on) {
-      const best = endlessBest(prof), low = prof.lv < ENDLESS.entry;
-      Gfx.panel(ctx, 60, y, 840, 64, { border: on ? '#ffd36a' : '#7a5ab0', bg: '#1a1222' });
-      const g = ctx.createLinearGradient(62, 0, 300, 0);
-      g.addColorStop(0, 'rgba(138,96,224,' + (0.25 + 0.1 * Math.sin(time * 2)) + ')'); g.addColorStop(1, 'rgba(138,96,224,0)');
-      ctx.fillStyle = g; ctx.fillRect(62, y + 2, 238, 60);
-      ctx.fillStyle = '#8a60e0'; ctx.fillRect(62, y + 2, 6, 60);
-      ctx.imageSmoothingEnabled = false;
-      const boss = ENEMIES.abyss_lord;
-      Gfx.spr(ctx, Gfx.anim(boss.sprite + '_idle_anim', time, 6), 112, y + 60, { scale: 1.5 * Math.min(1.4, boss.scale || 1), tint: boss.tint, tintAlpha: boss.tintAlpha });
-      T_(ctx, '∞ 끝없는 심연', 160, y + 28, 20, on ? '#ffd36a' : '#d8b0ff');
-      T_(ctx, '입장 Lv.' + ENDLESS.entry + ' · ' + (best ? '최고 ' + best + '층' : '아직 안 깸'), 880, y + 28, 13, low ? '#8a6060' : best ? '#ffd36a' : '#9a8e96', 'right');
-      T_(ctx, low ? '잠김 — Lv.' + ENDLESS.entry + '부터 들어갈 수 있어요 (지금 Lv.' + prof.lv + ')' : '1층부터 3층까지 이어서 · 방 하나 = 맵 하나 · 적을 다 잡으면 문이 열림', 162, y + 52, 13, low ? '#8a6060' : '#9a8e96');
+    // 실베인: 끝없는 심연 단계 — 벨록 던전 줄처럼 가로로 긴 줄(2026-10-26 사용자), ↑↓ 로 고르기. 들어가면 1층부터 3층까지 이어서(그 뒤 최종 보스 레이드는 나중)
+    abyssUpdate(prof) {
+      const n = ABYSS_STAGES.length;
+      this.card = menuNav(Math.max(0, Math.min(n - 1, this.card)), n);
+      if (Input.wasPressed('back')) { Game.open('town'); return; }
+      if (Input.wasPressed('ok')) {
+        const st = ABYSS_STAGES[this.card];
+        if (!endlessOpen(prof)) Game.toast('심연의 문을 영웅으로 깨면 열려요');
+        else if (prof.lv < st.entry) Game.toast('Lv.' + st.entry + '부터 들어갈 수 있어요 (지금 Lv.' + prof.lv + ')');
+        else { const d = endlessDef(1); if (!Coop.hostEnter(d, ENDLESS.diff)) Game.startRun(d, ENDLESS.diff); }  // 파티 방장이면 친구에게 먼저 묻는다
+      }
+    },
+    abyssDraw(ctx, prof, time) {
+      backdrop(ctx, time);
+      T_(ctx, '끝없는 심연', 60, 58, 30, '#f0d0ff');
+      T_(ctx, '광산 도시 실베인 — 왕의 갱도 아래로', 900, 58, 13, '#a890b8', 'right');
+      const best = endlessBest(prof);
+      ABYSS_STAGES.forEach((st, i) => {
+        const y = 76 + i * 72, on = i === this.card;
+        const lockWhy = !endlessOpen(prof) ? '심연의 문을 영웅으로 깨면 열려요' : prof.lv < st.entry ? 'Lv.' + st.entry + '부터 들어갈 수 있어요 (지금 Lv.' + prof.lv + ')' : '';
+        zone(60, y, 840, 64, { on: () => this.card === i, pick: () => { this.card = i; } });
+        Gfx.panel(ctx, 60, y, 840, 64, { border: on ? '#ffd36a' : '#7a3a5a', bg: lockWhy ? undefined : '#1a0f1a' });
+        // 단계 색 띠 + 맥동하는 핏빛 기운(왼쪽에서 번짐)
+        if (!lockWhy) {
+          const g = ctx.createLinearGradient(62, 0, 320, 0);
+          g.addColorStop(0, 'rgba(200,48,106,' + (0.22 + 0.1 * Math.sin(time * 2.5)).toFixed(2) + ')'); g.addColorStop(1, 'rgba(200,48,106,0)');
+          ctx.fillStyle = g; ctx.fillRect(62, y + 2, 258, 60);
+        }
+        ctx.fillStyle = lockWhy ? '#2a2228' : st.tint; ctx.fillRect(62, y + 2, 6, 60);
+        // 그 단계 마지막 층 수호자
+        ctx.imageSmoothingEnabled = false;
+        const boss = ENEMIES[st.boss];
+        const bf = FRAMES[idleAnim(boss) + '_f0'], bs = Math.min(1.5 * Math.min(1.4, boss.scale || 1), 56 / (bf ? bf[3] : 32));  // 줄(64) 안에 들어가게
+        Gfx.spr(ctx, Gfx.anim(idleAnim(boss), time, 6), 112, y + 60, { scale: bs, alpha: lockWhy ? 0.3 : 1, tint: boss.tint, tintAlpha: boss.tintAlpha });
+        T_(ctx, st.stage + '단계 · ' + st.name, 160, y + 28, 20, lockWhy ? '#5a5058' : on ? '#ffd36a' : '#f0d0ff');
+        T_(ctx, '입장 Lv.' + st.entry + ' · 몹 Lv.' + st.lv + ' · 나오는 장비 ' + st.mat + ' Lv.' + st.lv + '(유니크는 제작으로만)', 880, y + 28, 13, lockWhy ? '#5a5058' : '#c8b8a0', 'right');
+        T_(ctx, lockWhy ? '잠김 — ' + lockWhy : '1층 → 2층 → 3층 → 최종 보스 ' + boss.name, 162, y + 52, 13, lockWhy ? '#8a6060' : '#9a8e96');
+        const raids = (prof.endless && prof.endless.raid) || 0;  // 최종 보스를 깬 횟수
+        T_(ctx, (best ? '최고 ' + best + '층' : '아직 안 깸') + (raids ? ' · 파수꾼 처치 ' + raids + '번' : ''), 880, y + 52, 13, raids ? '#5fe0d0' : best ? '#ffd36a' : '#9a8e96', 'right');
+      });
+      const bt = prof.bestTimes && prof.bestTimes[timeKey('endless' + ENDLESS.max, ENDLESS.diff)];
+      if (bt) T_(ctx, '3층 최고 기록 ' + fmtTime(bt), 930, 535, 11, '#ffd36a', 'right');
+      T_(ctx, '끝없는 심연은 늘 1층부터 · 층을 깨면 바로 다음 층 · 보상은 영웅 난이도', 480, 516, 13, '#d8b0ff', 'center');
+      if (!Input.touchMode()) T_(ctx, (ABYSS_STAGES.length > 1 ? '단계 ↑↓ · ' : '') + '들어가기 ' + L('ok') + ' · 돌아가기 ' + L('back'), 480, 535, 11, '#6a6068', 'center');
     },
   };
 
@@ -1656,7 +1673,7 @@ const UI = (() => {
       ['chapel', '1. ' + dn('chapel'), 'Whispers From Beyond'], ['swamp', '2. ' + dn('swamp'), "Witch's Lair"], ['crypt', '3. ' + dn('crypt'), 'Catacombs'],
       ['ice', '4. ' + dn('ice') + ' · 끝없는 심연 2층', "Tha'el Mines"], ['fort', '5. ' + dn('fort'), 'Military Base'], ['hell', '6. ' + dn('hell') + ' · 끝없는 심연 1층', 'Apocalypse'],
       ['plague', '7. ' + dn('plague'), 'Sneaking Around'], ['order', '8. ' + dn('order') + ' · 끝없는 심연 3층', 'Army Approaching'], ['temple', '9. ' + dn('temple'), 'Encounter With The Witches'],
-      ['abyss', '10. ' + dn('abyss'), 'Ancient Evil Awakens'], ['boss', '보스와 싸우는 동안', 'Preparing For Battle'], ['lord', '심연의 군주 · 끝없는 심연 수호자', 'Epic Boss Battle'],
+      ['abyss', '10. ' + dn('abyss'), 'Ancient Evil Awakens'], ['boss', '보스와 싸우는 동안', 'Preparing For Battle'], ['lord', '심연의 군주 · 끝없는 심연 중간 보스', 'Epic Boss Battle'],
       ['ending', '엔딩', 'A Place I Call Home'], ['trueEnding', '진엔딩', 'Innocence']],
     sfx: [['때리기', () => Sfx.hit(false)], ['치명타', () => Sfx.hit(true)], ['휘두르기', () => Sfx.swing()], ['무거운 휘두르기', () => Sfx.heavySwing()], ['대시', () => Sfx.dash()],
       ['마력탄 (마법사)', () => Sfx.cast()], ['마법진 터짐 (마법사)', () => { Sfx.blast(); Sfx.spell(); }], ['처치', () => Sfx.kill()], ['정예 · 고유 몹 쓰러짐', () => { Sfx.kill(); Sfx.grunt(); }],
@@ -1720,16 +1737,18 @@ const UI = (() => {
       backdrop(ctx, time);
       zone(0, 0, 960, 540, { now: true });  // 아무 데나 누르면 마을로
       const { run, kind } = res;
-      const title = kind === 'clear' ? '던전 클리어!' : kind === 'dead' ? '쓰러졌다…' : '던전을 나왔다';
-      T_(ctx, title, 480, 90, 40, kind === 'clear' ? '#ffd36a' : kind === 'dead' ? '#d84a4a' : '#c8b8a0', 'center');
+      // 최종 보스 레이드: 처치 · 실패(쓰러짐 · 시간 초과 — 골드는 안 잃음)
+      const title = run.raidCleared && kind === 'clear' ? '심연의 파수꾼 처치!' : run.raidFail ? (run.raidFail === 'time' ? '시간이 다 됐다…' : '파수꾼에게 쓰러졌다…') : kind === 'clear' ? '던전 클리어!' : kind === 'dead' ? '쓰러졌다…' : '던전을 나왔다';
+      T_(ctx, title, 480, 90, 40, run.raidCleared && kind === 'clear' ? '#5fe0d0' : kind === 'clear' ? '#ffd36a' : kind === 'dead' ? '#d84a4a' : '#c8b8a0', 'center');
       if (run.dungeon.endless) {  // 끝없는 심연: 이번 런에서 깬 가장 깊은 층 · 새 최고 층(층이 이어지므로 쓰러져도 깬 층은 남는다)
         const top = run.endlessCleared || 0, nb = top > (run.endlessPrev || 0);
         const from = run.startFloor && run.startFloor < run.dungeon.floor ? '  (' + run.startFloor + '층부터)' : '';
-        T_(ctx, (top ? '끝없는 심연 ' + top + '층까지 돌파!' : run.dungeon.name) + from + (nb ? '  ★ 새 최고 층' : ''), 480, 122, 16, nb ? '#ffd36a' : '#d8b0ff', 'center');
+        const rs = run.raidCleared ? '  · 최종 보스 처치' : run.raidFail ? '  · 최종 보스 실패(골드는 그대로)' : '';
+        T_(ctx, (top ? '끝없는 심연 ' + top + '층까지 돌파!' : run.dungeon.name) + from + (nb ? '  ★ 새 최고 층' : '') + rs, 480, 122, 16, nb ? '#ffd36a' : '#d8b0ff', 'center');
       } else T_(ctx, run.dungeon.name + (run.diff ? ' · ' + DIFFS[run.diff].name : ''), 480, 122, 16, run.diff ? DIFFS[run.diff].color : '#9a8e96', 'center');
       Gfx.panel(ctx, 180, 150, 600, 320);
       const rows = [['처치', run.kills + '마리'], ['경험치', '+' + run.exp + (run.levelUps ? '  (레벨 업 ' + run.levelUps + '번!)' : '')],
-        ['골드', '+' + run.gold + 'G' + (run.lostGold ? '  (쓰러져서 -' + run.lostGold + 'G)' : '') + (run.essence ? '  · 심연 정수 +' + run.essence : '')],
+        ['골드', '+' + run.gold + 'G' + (run.lostGold ? '  (쓰러져서 -' + run.lostGold + 'G)' : '') + (run.essence ? '  · 심연 정수 +' + run.essence : '') + (run.cores ? '  · 심연의 핵 +' + run.cores : '')],
         ['시간', run.clearTime !== undefined ? fmtTime(run.clearTime) + (run.newRecord ? '  ★ 새 기록!' + (run.bestPrev ? ' (예전 ' + fmtTime(run.bestPrev) + ')' : '') : '  (최고 ' + fmtTime(run.bestPrev) + ')') : '보스를 못 쓰러뜨림 — 기록 없음'],
         ['주운 장비', run.items.length + '개' + (run.stones ? '  · 속성석 · 보석 ' + run.stones + '개' : '') + (run.scrolls ? '  · 주문서 ' + run.scrolls + '개' : '') + (run.autoSold ? '  · 자동 판매 ' + run.autoSold + '개' : '')]];
       rows.forEach(([k, v], i) => { T_(ctx, k, 220, 190 + i * 30, 17, '#9a8e96'); T_(ctx, v, 360, 190 + i * 30, 17, k === '시간' && run.newRecord ? '#ffd36a' : '#f0e8dc'); });

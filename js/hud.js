@@ -388,6 +388,7 @@ const Hud = (() => {
       T_(ctx, tgt.name, 480, 26, 17, NAME_COLOR[tgt.rank], 'center');
       if (tgt.affixes && tgt.affixes.length && tgt.rank === 'unique') T_(ctx, tgt.affixes.map(a => AFFIXES[a].name).join(' · '), 480, 44, 11, '#c8b8a0', 'center');
       Gfx.bar(ctx, 330, 50, 300, 8, tgt.hp / tgt.maxHp, '#c02a2a');
+      if (tgt.def.raid) Raid.hud(ctx, tgt);  // 레이드: 단계 금 · 단계 이름 · 지금 할 일 · 남은 시간
     }
     // ── 오른쪽 위: 자동 지도(가 본 곳) ──
     drawMap(ctx, lv, p);

@@ -24,6 +24,7 @@ const Dungeon = (() => {
   }
 
   function generate(def) {
+    if (def.raid) return Raid.level(def);  // 최종 보스 레이드: 넓은 방 하나(js/raid.js)
     if (def.roomMaps) return generateRooms(def);
     const W = GC * CW + 2, H = GR * CH + 4;
     const tiles = new Uint8Array(W * H);
@@ -257,7 +258,33 @@ const Dungeon = (() => {
       g.fillRect(0, 0, c.width, c.height);
       g.globalCompositeOperation = 'source-over';
     }
+    if (lv.def.veins) paintVeins(lv, g);
     return c;
+  }
+  // 살아 있는 심연(끝없는 심연): 방마다 바닥을 기어가는 핏빛 혈관 — 1px 도트 줄(아래 그늘 한 줄) + 시작점 살덩이 마디.
+  // 점 목록(lv.veins)은 world.js drawVeins 가 맥박 빛을 흘리는 데 쓴다
+  function paintVeins(lv, g) {
+    lv.veins = [];
+    lv.rooms.forEach((r, ri) => {
+      for (let k = Math.round(r.w * r.h / 60); k > 0; k--) {
+        let x = (r.x + rnd(1, r.w - 2)) * T + rnd(0, 15), y = (r.y + rnd(1, r.h - 2)) * T + rnd(0, 15), a = Math.random() * Math.PI * 2;
+        const pts = [], len = rnd(40, 120);
+        for (let i = 0; i < len; i++) {
+          a += (Math.random() - 0.5) * 0.45;
+          x += Math.cos(a); y += Math.sin(a) * 0.8;
+          const px = Math.round(x), py = Math.round(y), n = pts.length;
+          if (lv.at(Math.floor(px / T), Math.floor((py + 1) / T)) !== 1) break;
+          if (!n || pts[n - 2] !== px || pts[n - 1] !== py) pts.push(px, py);
+        }
+        if (pts.length >= 24) lv.veins.push({ ri, pts, ph: Math.random() * 0.35 });
+      }
+    });
+    for (const v of lv.veins) {
+      const P = v.pts;
+      g.fillStyle = '#1a0610'; for (let i = 0; i < P.length; i += 2) g.fillRect(P[i], P[i + 1] + 1, 1, 1);
+      g.fillStyle = LIVING.vein; for (let i = 0; i < P.length; i += 2) g.fillRect(P[i], P[i + 1], 1, 1);
+      g.fillStyle = '#8a2050'; g.fillRect(P[0] - 1, P[1] - 1, 3, 2); g.fillStyle = LIVING.vein; g.fillRect(P[0] - 1, P[1] + 1, 3, 1);
+    }
   }
 
   // ── 충돌 ──

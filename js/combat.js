@@ -35,8 +35,9 @@ function committed(e) {
 // 플레이어 공격이 몹에 맞음. 맞았으면 true
 function hitEnemy(e, def, p, w) {
   if (World.mirror) return false;  // 파티 손님: 맞히기는 방장 쪽 내 몸이 한다(world.js)
-  if (e.dying || e.state === 'dead' || e.state === 'getup' || e.spawnT > 0) return false;
+  if (e.dying || e.state === 'dead' || e.state === 'getup' || e.spawnT > 0 || untouchable(e)) return false;  // untouchable = 땅속 촉수 · 사라진 순간이동자
   if (e.ri !== undefined && World.roomOf(p) !== e.ri) return false;  // 방 하나 = 맵 하나: 다른 방 몹은 안 맞는다
+  if (e.def.part === 'orb') return Raid.reflect(e);  // 레이드 공허 구슬: 어떤 공격이든 보스 쪽으로 되받아친다(피해 없음)
   if (e.state === 'down') {
     if (e.otgUsed) return false;  // 쓰러진 몹은 추가타 한 번만
     e.otgUsed = true;
@@ -57,15 +58,32 @@ function hitEnemy(e, def, p, w) {
   // 암살자 등 뒤 공격(2026-10-25): 몹이 보는 쪽 반대편에서 치면 +backstab
   if (p.cls && p.cls.backstab) { const tp = unit(p.x - e.x, p.y - e.y, e.fv); if (def.back || e.fv.x * tp.x + e.fv.y * tp.y < -0.3) dmg *= 1 + p.cls.backstab; }  // 백스탭(back)은 적이 돌아봐도 등 뒤로 친다
   dmg *= 1 - (e.armorCut || 0);  // 몹 방어(던전 레벨이 높을수록 많이 깎는다)
-  dmg = Math.max(1, Math.round(dmg));
+  // 끝없는 심연: 방패병 앞에서 친 공격은 튕김(경직 없음) · 보호막 사제 둘레 몹은 덜 다침 — 둘 다 청록 불꽃 · 글로 알림(자주 뜨지 않게)
+  const blocked = shieldBlocks(e, p, def), warded = e.wardT > 0;
+  if (blocked) dmg *= SHIELD.cut;
+  if (warded) dmg *= WARD.cut;
+  if ((blocked || warded) && !(e.tingT > World.time)) {
+    e.tingT = World.time + 0.5;
+    World.text(e.x, e.y, e.h + 8, blocked ? '팅!' : '보호막', blocked ? '#ece0cc' : '#5fe0d0');
+  }
+  // 레이드 보스: 껍질 '팅'(×0.1) · 보호막 · 단계 바뀌는 중(0) · 심장이 드러나면 더 크게(js/raid.js cut)
+  const rc = ed.raid ? Raid.cut(e) : null;
+  if (rc) {
+    dmg *= rc[0];
+    if (rc[1] && !(e.tingT > World.time)) { e.tingT = World.time + 0.5; World.text(e.x, e.y, e.h + 8, rc[1], '#ece0cc'); }
+  }
+  dmg = rc && !rc[0] ? 0 : Math.max(1, Math.round(dmg));
   e.hp -= dmg;
+  if (ed.raid) Raid.clamp(e);  // 한 번에 다음 단계를 건너뛰지 않게
   e.flash = 0.1;
-  const knock = def.knock * wk.knock * (ed.boss ? 0.25 : 1);
-  const heavy = def.heavy || crit || wk.crush;  // 망치(분쇄): 모든 공격이 준비 중인 적도 끊는다
-  const armored = e.state === 'frozen' ||  // 얼어 있으면 맞아도 그대로(띄우기만 깬다)
+  const knock = def.knock * wk.knock * (ed.boss ? 0.25 : ed.rooted ? 0 : blocked ? 0.3 : 1);  // 촉수는 밀리지 않음
+  const heavy = !blocked && (def.heavy || crit || wk.crush);  // 망치(분쇄): 모든 공격이 준비 중인 적도 끊는다(방패에 막히면 못 끊음)
+  const armored = blocked || e.state === 'frozen' ||  // 얼어 있으면 맞아도 그대로(띄우기만 깬다)
     (!heavy && ((ed.superArmor && (e.state === 'windup' || e.state === 'attack' || e.state === 'charge')) || e.armorT > 0 || committed(e)));
 
-  if (e.state === 'air' || e.state === 'down') {
+  if (ed.rooted) {
+    // 땅에 박힌 몹(촉수): 띄우기 · 경직 · 밀림 없이 피해만
+  } else if (e.state === 'air' || e.state === 'down') {
     e.juggle++;
     const pop = def.launch ? def.launch * (ed.launchMul || 1) : 140;
     e.vz = Math.max(e.vz, pop * Math.max(0.15, 1 - 0.2 * e.juggle));
@@ -94,13 +112,13 @@ function hitEnemy(e, def, p, w) {
   }
   if (e.hp <= 0) {
     e.dying = true;
-    if (ed.boss) { e.state = 'dead'; e.t = 0; }
+    if (ed.boss || ed.rooted) { e.state = 'dead'; e.t = 0; }
     else { e.state = 'air'; e.vz = Math.max(e.vz, 130); e.kx = dir.x * Math.max(90, knock); e.ky = dir.y * Math.max(90, knock); }
     World.onKill(e);
   }
   // 검사 검기: 베인 상처(2026-10-25) — 4초 동안 받는 피해 +25%
   if (def.id === 'wave') { if (!(e.cutT > 0) && !e.dying) World.text(e.x, e.y, e.h + 10, '베인 상처', '#ff8a7a'); e.cutT = WAVE_CUT.t; }
-  Elements.onHit(e, def, p);  // 그 기술 칸에 끼운 속성석 효과
+  if (!blocked) Elements.onHit(e, def, p);  // 그 기술 칸에 끼운 속성석 효과(방패에 막히면 안 터짐)
   if (def.slot === 'basic') p.sp = Math.min(p.maxSp, p.sp + (wk.onHitSp || p.cls.stamina.onHit));  // 기본 공격이 맞으면 기력이 찬다(검 연계: 더)
   // 싸이(제압): 교차 베기 · 돌진 베기에 맞은 적은 잠시 무장해제 — 주는 피해가 준다(hurtPlayer)
   if (wk.disarm && !e.dying && (def.rush || (def.fin && def.slot === 'basic'))) {
@@ -112,12 +130,12 @@ function hitEnemy(e, def, p, w) {
   // 타격감(2026-10-25 사용자: 봉인의 숲보다 약하다): 맞을 때마다 작은 화면 흔들림 · 큰 불꽃 · 흰 번쩍임 · 패드 진동, 치명타는 조금 더 멈춤
   const hx = e.x - toE.x * 4, hy = e.y - toE.y * 4, hz = (e.z || 0) + e.h * 0.5;
   World.sparks(hx, hy, hz, crit ? 8 : heavy ? 6 : 4, '#ffffff', true);
-  World.sparks(hx, hy, hz, crit ? 8 : heavy ? 5 : 3, crit ? '#ffd34d' : '#ffe9a8', true);
+  World.sparks(hx, hy, hz, crit ? 8 : heavy ? 5 : 3, blocked ? '#ece0cc' : warded ? '#5fe0d0' : crit ? '#ffd34d' : '#ffe9a8', true);
   World.impact(hx, hy, hz, crit ? 14 : heavy ? 11 : 8);
   World.shake(crit ? 3 : heavy ? 2.5 : 1.5);
   if (crit) World.hitstop(0.07);
   if (!p.remote) Input.rumble(crit || heavy ? 0.5 : 0.25, crit || heavy ? 90 : 50);
-  World.number(e.x, e.y, (e.z || 0) + e.h + 4, dmg, crit ? '#ffd34d' : stag > 1 ? '#7fe3ff' : '#ffffff', crit);
+  if (dmg) World.number(e.x, e.y, (e.z || 0) + e.h + 4, dmg, crit ? '#ffd34d' : rc && rc[0] > 1 ? '#5fe0d0' : stag > 1 ? '#7fe3ff' : '#ffffff', crit || (rc && rc[0] > 1));
   return true;
 }
 
