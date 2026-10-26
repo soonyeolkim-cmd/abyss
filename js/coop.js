@@ -234,7 +234,7 @@ const Coop = (() => {
     body.hidden = now.hid !== undefined ? { t: now.hid } : null;
     if (body.state === 'walk') body.walkT += dt;
     // 휘두르는 중: 받은 동작 · 시간에서 이어서(다음 소식까지 시간만 흐름)
-    const a = now.a, def = a && actDef(body.cls, a[0], a[1]);
+    const a = now.a, def = a && actDef(body.cls, a[0], a[1], body);
     if (body.state === 'act' && def) {
       if (!body.act || body.act.key !== a.join()) body.act = { key: a.join(), def, kind: a[0], idx: a[1], time: a[2], s: a[3], a: a[4], r: a[5] };
       else body.act.time += dt;
@@ -293,7 +293,7 @@ const Coop = (() => {
     q.x = m.x; q.y = m.y;
     World.as(q, () => {
       if (m.k === 'dodge') { startDodge(q, { x: m.fx, y: m.fy }); return; }
-      const def = actDef(q.cls, m.k, m.i);
+      const def = actDef(q.cls, m.k, m.i, q);
       if (!def) return;
       if (q.state === 'dodge') Elements.dashEnd(q);
       startAct(q, def, m.k, m.i, { len: m.len, fly: m.fly });  // len = 돌진 베기 거리, fly = 백스탭으로 날아갈 자리(암살자)

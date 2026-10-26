@@ -333,7 +333,7 @@ const Hud = (() => {
     // 가운데: 기술 = 속성석 칸 4개(2026-10-24 사용자: 기술 아이콘 칸은 없애고 속성석 칸이 기술 칸을 겸한다)
     // 위 = 누르는 키 + 기술 이름, 칸 = 낀 속성석(없으면 기술 모양을 흐리게), 아래 = 드는 기력(모자라면 빨강)
     const SKILL_KEYS = { basic: 'attack', charge: 'charge', wave: 'special', dash: 'dodge' };
-    const costs = { basic: 0, charge: C.charge.cost, wave: C.special.cost, dash: dashCost(p) };
+    const costs = { basic: 0, charge: costOf(p.prof, 'charge'), wave: costOf(p.prof, 'special'), dash: dashCost(p) };  // 무기 특성으로 바뀔 수 있음
     STONE_SLOTS.forEach((slot, i) => {
       const x = 374 + i * 56, y = PY + 16, s = Elements.socket(prof, slot), col = s ? ELEMENTS[s.el].color : null;
       box(ctx, x, y, 44, col);
@@ -343,7 +343,7 @@ const Hud = (() => {
         ctx.fillStyle = 'rgba(10,6,8,0.75)'; ctx.beginPath(); ctx.arc(x + 34, y + 33, 9, 0, Math.PI * 2); ctx.fill();
         Gfx.stoneIcon(ctx, s, x + 34, y + 33, 16);
       }
-      if (slot === 'wave' && C.special.cd) cool(ctx, x, y, 44, p.specialCd / C.special.cd, p.specialCd);  // 특수기 쿨타임
+      if (slot === 'wave' && C.special.cd) cool(ctx, x, y, 44, p.specialCd / specialCdOf(p), p.specialCd);  // 특수기 쿨타임
       T_(ctx, (Input.touchMode() ? '' : L(SKILL_KEYS[slot]) + ' ') + C.slotShort[slot], x + 22, PY + 12, 11, col || '#c8b8a0', 'center');
       const n = costs[slot];
       T_(ctx, '기력 ' + n, x + 22, PY + 73, 10, !n ? '#6a7a90' : p.sp >= n ? '#8ab8ff' : '#ff7a6a', 'center');

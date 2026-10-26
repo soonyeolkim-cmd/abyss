@@ -58,9 +58,25 @@ function bufferPlayerInput(p) {
   }
   if (Input.wasPressed('potion')) p.potionReq = 0.2;  // 물약은 동작과 따로: 공격 · 대시 · 경직 중에도 바로 마신다
 }
-// 동작 이름 → 기술(파티: 손님이 보낸 동작을 방장 쪽 손님 몸이 할 때)
-function actDef(C, kind, idx) {
-  if (kind === 'combo') return C.combo[idx] || C.combo[0];
+// 무기 특성(2026-10-26 사용자: 직업마다 무기 2종 차별화) — data.js WEAPON_KINDS 의 trait · 고친 값. 없으면 직업 기본값
+const weaponKindOf = prof => (prof && prof.equip && prof.equip.weapon ? Items.base(prof.equip.weapon).kind : 'none');
+const wkOf = p => WEAPON_KINDS[(p.stats && p.stats.kind) || weaponKindOf(p.prof)] || WEAPON_KINDS.none;
+// 기력: which = 'charge' | 'special'(HUD · 설정 조작표도 이것으로)
+function costOf(prof, which) {
+  const C = clsOf(prof), wk = WEAPON_KINDS[weaponKindOf(prof)] || WEAPON_KINDS.none;
+  if (which === 'charge') return C.charge.hide && wk.hideCost !== undefined ? wk.hideCost : C.charge.cost;
+  return wk.specialCost !== undefined ? wk.specialCost : C.special.cost;
+}
+const specialCdOf = p => { const wk = wkOf(p); return wk.specialCd !== undefined ? wk.specialCd : p.cls.special.cd; };
+// 콤보 idx 번 기술: 마지막 타는 무기 특성 finisher 로 바뀔 수 있다(망치 = 내려찍기)
+function comboDef(C, idx, wk) {
+  if (idx === C.combo.length - 1 && wk && wk.finisher && C[wk.finisher]) return C[wk.finisher];
+  return C.combo[idx] || C.combo[0];
+}
+
+// 동작 이름 → 기술(파티: 손님이 보낸 동작을 방장 쪽 손님 몸이 할 때). body = 그 몸(무기 특성)
+function actDef(C, kind, idx, body) {
+  if (kind === 'combo') return comboDef(C, idx, body ? wkOf(body) : null);
   if (kind === 'dashAtk') return C.dashAttack;
   if (kind === 'charge') return C.charge.def;
   if (kind === 'special') return C.special;
@@ -116,7 +132,7 @@ function hiddenStrike(p) {
 // 돌진 베기(암살자 특수): max px 안(벽 너머 제외) 가장 가까운 적 — 방향키를 누르고 있으면 그쪽 ±75° 안에서 — 을 향해 직선으로 베고 지나간다.
 // 적이 없으면 보는(누른) 쪽으로 dash px. 싸이는 피해 +20%. 지나가는 동안 + 도착 뒤 safe 초 무적
 function startRush(p) {
-  const R = p.cls.special, wk = WEAPON_KINDS[p.stats.kind] || {}, m = moveInput(p), want = m ? unit(m.x, m.y, p.fv) : null, lv = World.level;
+  const R = p.cls.special, wk = wkOf(p), m = moveInput(p), want = m ? unit(m.x, m.y, p.fv) : null, lv = World.level;
   let tgt = null, bd = R.max;
   for (const e of World.enemies()) {
     if (e.dying || e.state === 'dead' || e.spawnT > 0) continue;
@@ -214,21 +230,21 @@ function tryStart(p, b) {
   }
   if (b === 'charge' && C.charge.hide) {  // 암살자: 숨기 → 다시 누르면 바로 옆 적에게 백스탭, 없으면 표창(기력은 숨을 때만)
     if (p.hidden) return hiddenStrike(p);
-    if (!spend(p, C.charge.cost)) return false;
+    if (!spend(p, costOf(p.prof, 'charge'))) return false;
     startHide(p);
     return true;
   }
   if (b === 'charge') {  // 회전베기 · 마법진: 누르면 바로(기력 cost)
     // 마법진은 한 번에 하나만(2026-10-24 사용자) — 깔린 것이 터지기 전에는 못 깐다(기력도 안 씀)
     if (C.charge.def.circle && World.magicActive()) { if (p.spWarnT <= 0) { World.text(p.x, p.y, 40, '마법진이 이미 있어요', '#c9b8ff'); p.spWarnT = 0.6; } return false; }
-    if (!spend(p, C.charge.cost)) return false;
+    if (!spend(p, costOf(p.prof, 'charge'))) return false;
     startAct(p, C.charge.def, 'charge', 0);
     if (!p.remote) Input.rumble(0.35, 60);
     return true;
   }
   if (b === 'special') {
-    if (p.specialCd > 0 || !spend(p, C.special.cost)) return false;
-    p.specialCd = C.special.cd;
+    if (p.specialCd > 0 || !spend(p, costOf(p.prof, 'special'))) return false;
+    p.specialCd = specialCdOf(p);
     endHide(p);
     if (C.special.rush) startRush(p);  // 암살자 돌진 베기
     else startAct(p, C.special, 'special', 0);
@@ -297,13 +313,17 @@ function aimAt(p, reach) {
 // 마법사 마력 숨결: 기본 칸 속성석 크기(조각 1 ~ 태초 7)마다 길이 +5% · 반각 +2°(태초 = 길이 +35% · 폭 +14° 양쪽)
 function breathOf(p, hd) {
   const st = Elements.socket(p.prof, 'basic'), n = st ? st.size + 1 : 0;
-  hd.reach = [hd.reach[0], hd.reach[1] * (1 + 0.05 * n)];
+  hd.reach = [hd.reach[0], hd.reach[1] * (1 + 0.05 * n) * (wkOf(p).breath || 1)];  // 스태프(광역): 숨결 길이 +15%
   hd.arc += 2 * n;
 }
 
 // o = { len: 돌진 베기 거리, aimed: 이미 방향을 정함, fly: 백스탭으로 날아갈 자리 [x, y], tgt: 백스탭 대상 } — len · fly 는 파티 손님이면 방장 쪽 몸에도 같이 보낸다
 function startAct(p, def, kind, idx, o = {}) {
-  const wk = WEAPON_KINDS[p.stats.kind];
+  const wk = wkOf(p);
+  // 카타르(암습): 숨은 뒤 첫 공격(백스탭 · 표창)은 언제나 치명타
+  if (wk.ambush && (kind === 'stab' || (kind === 'charge' && def.knives))) def = Object.assign({}, def, { crit: true });
+  // 롯드 · 스태프: 마력탄 빠르기 · 사거리
+  if (def.orb && wk.orb) def = Object.assign({}, def, { orb: Object.assign({}, def.orb, wk.orb) });
   const sp = wk.speed * (1 + p.stats.aspd / 100);
   // 무기에 맞춘 판정
   const hd = Object.assign({}, def);
@@ -311,7 +331,7 @@ function startAct(p, def, kind, idx, o = {}) {
   if (def.arc) hd.arc = Math.min(170, def.arc * wk.arc);
   if (def.radius) hd.radius = def.radius + wk.reach * 0.5;
   if (def.breath) breathOf(p, hd);
-  if (kind !== 'dashAtk' && !o.aimed) aimAt(p, def.circle ? def.circle.range : def.orb ? def.orb.range * 0.7 : def.wave ? def.wave.range * 0.6 : def.knives ? def.knives.range * 0.8 : def.radius || hd.reach[1]);  // 대시 찌르기는 대시한 방향 그대로 · 검기는 멀리까지
+  if (kind !== 'dashAtk' && !o.aimed) aimAt(p, def.circle ? def.circle.range : def.orb ? def.orb.range * 0.7 : def.wave ? def.wave.range * 0.6 : def.knives ? def.knives.range * 0.8 : def.area ? def.area.ahead + def.area.r : def.radius || hd.reach[1]);  // 대시 찌르기는 대시한 방향 그대로 · 검기는 멀리까지
   p.state = 'act';
   p.act = {
     def, hd, kind, idx, time: 0, hit: new Set(), wave: -1, fxDone: false, x0: p.x, y0: p.y,
@@ -347,6 +367,13 @@ function updateAct(p, dt, room) {
   if (!a.fxDone && a.time >= tA) {
     a.fxDone = true;
     if (d.dash) World.fx({ type: 'streak', x0: a.x0, y0: a.y0, follow: p, t: 0, life: 0.25 });
+    if (d.area) {  // 망치 내려찍기: 판정 타원 그대로 충격파(art.js nova) + 흙먼지
+      const st = Elements.socket(p.prof, d.slot), x = p.x + p.fv.x * d.area.ahead, y = p.y + p.fv.y * d.area.ahead;
+      World.fx({ type: 'nova', x, y, r: d.area.r, col: st ? ELEMENTS[st.el].color : '#e8dcc0', el: st ? st.el : '', tier: Elements.tier(st), ss: st ? st.size : 0, bare: true, seed: Math.random() * 1000, t: 0, life: 0.4 });
+      World.fx({ type: 'shock', x, y, r: d.area.r, t: 0, life: 0.3 });
+      for (let i = 0; i < 8; i++) { const an = i / 8 * Math.PI * 2; World.fx({ type: 'dust', x: x + Math.cos(an) * d.area.r * 0.6, y: y + Math.sin(an) * d.area.r * 0.6 * GROUND_Y, vx: Math.cos(an) * 20, vy: Math.sin(an) * 10, vz: 12, t: 0, life: 0.4 }); }
+      World.shake(3);
+    }
     // 찌르기 · 띠 판정(noBody: 대시 찌르기 · 돌진 베기)은 판정 모양 그대로 찌르는 빛(art.js fx 'thrust'), 백스탭은 판정 부채꼴 그대로 큰 베기(fx 'sweep').
     // 그 칸 속성석 색 · 단계(2026-10-26 이펙트 범위 = 판정 범위)
     if (((d.thrust || d.noBody) && a.hd.reach) || a.kind === 'stab') {
@@ -372,6 +399,12 @@ function updateAct(p, dt, room) {
         tier, el: st ? st.el : '', ss: st ? st.size : 0,
         onEnd: s => {
           World.sparks(s.x, s.y - 8, 8, 10 + tier * 6, s.col, tier >= 2);
+          const ob = wkOf(p).orbBurst;  // 스태프(광역): 맞은 자리에서 작게 터진다(바닥 타원 r — 그림 = 판정)
+          if (ob && s.hit.size) {
+            World.fx({ type: 'nova', x: s.x, y: s.y, r: ob.r, col: s.col, el: s.el || '', tier, ss: s.ss || 0, bare: true, seed: Math.random() * 1000, t: 0, life: 0.35 });
+            const bd = { name: '마력 폭발', mult: d.mult * ob.mult, knock: 50, stun: 0.2 };
+            for (const e of World.enemies()) if (!s.hit.has(e) && groundDist(e.x - s.x, e.y - s.y) <= ob.r + e.r) hitEnemy(e, bd, p);
+          }
           if (tier) World.fx({ type: 'pulse', x: s.x, y: s.y, r: 12 + tier * 5, t: 0, life: 0.25 + tier * 0.05, col: s.col });
           Elements.waveEnd(s, p);
         } });
@@ -395,7 +428,7 @@ function updateAct(p, dt, room) {
         .sort((u, v) => Math.hypot(u.x - p.x, u.y - p.y) - Math.hypot(v.x - p.x, v.y - p.y))
         .find(e => ((e.x - p.x) * p.fv.x + (e.y - p.y) * p.fv.y) >= 0);
       const st = Elements.socket(p.prof, 'charge');  // 그림 단계 · 속성(art.js magicCircle · fx 'nova')
-      World.field({ magic: true, x: tgt ? tgt.x : p.x + p.fv.x * c.ahead, y: tgt ? tgt.y : p.y + p.fv.y * c.ahead, r: c.r, delay: c.delay, life: c.delay + 0.4,
+      World.field({ magic: true, x: tgt ? tgt.x : p.x + p.fv.x * c.ahead, y: tgt ? tgt.y : p.y + p.fv.y * c.ahead, r: wkOf(p).circleR || c.r, delay: c.delay, life: c.delay + 0.4,  // 스태프(광역): 반지름 52
         def: d, p, col: st ? ELEMENTS[st.el].color : '#b39cff', tier: Elements.tier(st), el: st ? st.el : '', ss: st ? st.size : 0 });
     }
     // 마법사 마력 숨결: 지팡이 앞으로 퍼지는 부채꼴 빛(기본 칸 속성석 색). 칸 능력은 맞을 때(Elements.breathHit)
@@ -416,7 +449,7 @@ function updateAct(p, dt, room) {
     }
     let landed = false;
     for (const e of World.enemies()) {
-      if (!a.hd.reach && !a.hd.radius) break;  // 마력탄 · 마법진 · 표창: 몸 판정 없음
+      if (!a.hd.reach && !a.hd.radius && !a.hd.area) break;  // 마력탄 · 마법진 · 표창: 몸 판정 없음
       if (a.hit.has(e) || !inHitbox(p, p.fv, a.hd, e, e.r)) continue;
       if (d.breath && !Dungeon.los(World.level, p.x, p.y - 4, e.x, e.y - 4)) continue;  // 숨결은 벽 너머로 안 닿는다
       if (hitEnemy(e, d, p)) { a.hit.add(e); landed = true; if (d.breath) Elements.breathHit(e, d, p); }
@@ -433,7 +466,7 @@ function updateAct(p, dt, room) {
     const b = p.buffer;
     if (b === 'attack' && a.kind === 'combo' && a.idx < C.combo.length - 1) {
       p.buffer = null;
-      startAct(p, C.combo[a.idx + 1], 'combo', a.idx + 1);
+      startAct(p, comboDef(C, a.idx + 1, wkOf(p)), 'combo', a.idx + 1);
       return;
     }
     if (b && b !== 'attack' && tryStart(p, b)) return;

@@ -59,7 +59,7 @@ const Art = (() => {
       } else {
         const s0 = d.swing[0] * RAD, s1 = d.swing[1] * RAD;
         th = aim + (ph === 0 ? s0 : ph === 1 ? lerp(s0, s1, k) : s1);
-        if (d.noBody) return { th, hx: hx + p.fv.x * push, hy: hy + p.fv.y * push, flip, trail: null, off: p.cls.dual ? offPose(p, time, { th, hx, hy, trail: null }, aim, flip) : undefined };  // 돌진 베기: 띠 판정이라 칼 궤적 대신 fx 'thrust'
+        if (d.noBody || d.area) return { th, hx: hx + p.fv.x * push, hy: hy + p.fv.y * push, flip, trail: null, off: p.cls.dual ? offPose(p, time, { th, hx, hy, trail: null }, aim, flip) : undefined };  // 돌진 베기(띠) · 망치 내려찍기(바닥 타원): 칼 궤적 대신 판정 모양 그림
         // 칼 궤적은 판정 부채꼴(정면 ± arc) 안만 그린다 — 칼은 시작각부터 휘둘러도 궤적은 판정 각도에서 시작 · 끝(2026-10-26 이펙트 범위 = 판정 범위)
         const arc = Math.min(Math.PI, ((a.hd && a.hd.arc) || d.arc || 180) * RAD), clip = v => Math.max(-arc, Math.min(arc, v));
         if (ph >= 1 && (ph === 1 || t - a.s - a.a < 0.1)) trail = { a0: aim + clip(s0), a1: aim + clip(th - aim), fade: ph === 1 ? 1 : 1 - (t - a.s - a.a) / 0.1 };
@@ -257,6 +257,14 @@ const Art = (() => {
     if (d.acc && e.state !== 'dead') bossAcc(ctx, d.acc, x, y, o.scale, flip, time);
     if (e.cutT > 0 && e.state !== 'dead') {  // 베인 상처: 머리 위 붉은 사선 두 줄(깜빡)
       if (e.cutT > 1 || Math.floor(time * 8) % 2) { ctx.fillStyle = '#ff5a4a'; const hx = Math.round(e.x), hy = Math.round(y - e.h - 4); for (let i = 0; i < 4; i++) { ctx.fillRect(hx - 3 + i, hy + 2 - i, 1, 1); ctx.fillRect(hx + i, hy + 2 - i, 1, 1); } }
+    }
+    if (e.disarmT > 0 && e.state !== 'dead') {  // 싸이 무장해제: 머리 위 부러진 칼(잿빛, 끝날 무렵 깜빡)
+      if (e.disarmT > 0.8 || Math.floor(time * 8) % 2) {
+        const hx = Math.round(e.x) + 6, hy = Math.round(y - e.h - 6);
+        ctx.fillStyle = '#1c1a26'; ctx.fillRect(hx - 1, hy - 1, 3, 8);
+        ctx.fillStyle = '#c8c8d8'; ctx.fillRect(hx, hy, 1, 3); ctx.fillRect(hx, hy + 4, 1, 2);
+        ctx.fillStyle = '#8a6a4a'; ctx.fillRect(hx - 1, hy + 6, 3, 1);
+      }
     }
     if ((e.state === 'windup' && committed(e) && !d.boss) && Math.floor(time * 12) % 2 === 0) {
       ctx.font = 'bold 10px ' + FONT; ctx.textAlign = 'center'; ctx.fillStyle = '#ff4a3a';

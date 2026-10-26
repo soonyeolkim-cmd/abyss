@@ -17,6 +17,7 @@ function inHitbox(o, face, def, t, tr) {
   const dx = t.x - o.x, dy = t.y - o.y;
   const dist = Math.hypot(dx, dy);
   if (def.radius) return groundDist(dx, dy) <= def.radius + tr;
+  if (def.area) return groundDist(t.x - (o.x + face.x * def.area.ahead), t.y - (o.y + face.y * def.area.ahead)) <= def.area.r + tr;  // 망치 내려찍기: 앞 바닥 타원
   const along = dx * face.x + dy * face.y;
   if (along < def.reach[0] - tr || along > def.reach[1] + tr) return false;
   // noBody(대시 찌르기): 칼날 줄 — 앞으로 reach 만큼, 칼날 줄에서 몸 반지름 + 5px 안쪽만
@@ -60,7 +61,7 @@ function hitEnemy(e, def, p, w) {
   e.hp -= dmg;
   e.flash = 0.1;
   const knock = def.knock * wk.knock * (ed.boss ? 0.25 : 1);
-  const heavy = def.heavy || crit;
+  const heavy = def.heavy || crit || wk.crush;  // 망치(분쇄): 모든 공격이 준비 중인 적도 끊는다
   const armored = e.state === 'frozen' ||  // 얼어 있으면 맞아도 그대로(띄우기만 깬다)
     (!heavy && ((ed.superArmor && (e.state === 'windup' || e.state === 'attack' || e.state === 'charge')) || e.armorT > 0 || committed(e)));
 
@@ -100,7 +101,12 @@ function hitEnemy(e, def, p, w) {
   // 검사 검기: 베인 상처(2026-10-25) — 4초 동안 받는 피해 +25%
   if (def.id === 'wave') { if (!(e.cutT > 0) && !e.dying) World.text(e.x, e.y, e.h + 10, '베인 상처', '#ff8a7a'); e.cutT = WAVE_CUT.t; }
   Elements.onHit(e, def, p);  // 그 기술 칸에 끼운 속성석 효과
-  if (def.slot === 'basic') p.sp = Math.min(p.maxSp, p.sp + p.cls.stamina.onHit);  // 기본 공격이 맞으면 기력이 찬다
+  if (def.slot === 'basic') p.sp = Math.min(p.maxSp, p.sp + (wk.onHitSp || p.cls.stamina.onHit));  // 기본 공격이 맞으면 기력이 찬다(검 연계: 더)
+  // 싸이(제압): 교차 베기 · 돌진 베기에 맞은 적은 잠시 무장해제 — 주는 피해가 준다(hurtPlayer)
+  if (wk.disarm && !e.dying && (def.rush || (def.fin && def.slot === 'basic'))) {
+    if (!(e.disarmT > 0)) World.text(e.x, e.y, e.h + 16, '무장해제', '#c8c8d8');
+    e.disarmT = wk.disarm.t; e.disarmCut = wk.disarm.cut;
+  }
   World.combo();
   Sfx.hit(crit);
   // 타격감(2026-10-25 사용자: 봉인의 숲보다 약하다): 맞을 때마다 작은 화면 흔들림 · 큰 불꽃 · 흰 번쩍임 · 패드 진동, 치명타는 조금 더 멈춤
@@ -118,6 +124,7 @@ function hitEnemy(e, def, p, w) {
 // 몹 공격이 플레이어에 닿음. 결과: 'hit' · 'miss'(대시 무적 등). src = 공격한 몹(탄이면 탄)
 // p.safe = 보스를 쓰러뜨린 뒤 무적(2026-10-25 사용자: 보스 잡고 남은 탄 · 폭발에 죽는 일 없게)
 function hurtPlayer(p, src, dmgRaw, knock) {
+  if (src && src.disarmT > 0) dmgRaw *= 1 - (src.disarmCut || 0);  // 싸이 무장해제된 몹(탄은 쏠 때 몹 상태를 물려받음)
   if (p.remote) return Coop.remoteHurt(p, src, dmgRaw, knock);  // 파티 방장: 손님 몸이 맞음 → 손님 기기에서 무적 · 피해 계산
   if (p.dead || p.safe || p.iframes > 0) return 'miss';
   const fx = p.stats.fx || {};

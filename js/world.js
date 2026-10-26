@@ -497,7 +497,7 @@ const World = (() => {
     for (const fd of fields) fd.t += dt;
   }
   // 손님: 방장 소식(snap) 적용 — 몹 [id, x, y, z, hp, maxHp, 상태, t, windupT, fx, fy, flash, 깃발, 냉기, 독, 종류, spawnT, 돌진 x, 돌진 y]
-  const F_AWAKE = 1, F_DYING = 2, F_MOVING = 4, F_BURN = 8, F_SHOCK = 16, F_CRACK = 32, F_CUT = 64;
+  const F_AWAKE = 1, F_DYING = 2, F_MOVING = 4, F_BURN = 8, F_SHOCK = 16, F_CRACK = 32, F_CUT = 64, F_DISARM = 128;
   function applySnap(m) {
     if ((m.fl || 0) !== floorNo()) return;  // 다른 층 소식(층을 내려가는 사이)
     if (m.cl) for (const i of m.cl) markCleared(i);
@@ -517,7 +517,7 @@ const World = (() => {
       const fl = a[12];
       e.awake = !!(fl & F_AWAKE); e.dying = !!(fl & F_DYING); e.moving = !!(fl & F_MOVING);
       e.burn = fl & F_BURN ? { t: 9, tick: 9, dps: 0 } : null;
-      e.shockT = fl & F_SHOCK ? 1 : 0; e.crackT = fl & F_CRACK ? 1 : 0; e.cutT = fl & F_CUT ? 1 : 0;
+      e.shockT = fl & F_SHOCK ? 1 : 0; e.crackT = fl & F_CRACK ? 1 : 0; e.cutT = fl & F_CUT ? 1 : 0; e.disarmT = fl & F_DISARM ? 1 : 0;
       e.chill = a[13]; e.poison = a[14] ? { n: a[14], t: 9, tick: 9, per: 0 } : null;
       e.spawnT = a[16]; e.chargeV = a[17] !== undefined ? { x: a[17], y: a[18] } : null;
     }
@@ -556,7 +556,7 @@ const World = (() => {
     const e = [];
     for (const m of enemies) {
       if (!near(m) && m.rank !== 'boss') continue;
-      const fl = (m.awake ? F_AWAKE : 0) | (m.dying ? F_DYING : 0) | (m.moving ? F_MOVING : 0) | (m.burn ? F_BURN : 0) | (m.shockT > 0 ? F_SHOCK : 0) | (m.crackT > 0 ? F_CRACK : 0) | (m.cutT > 0 ? F_CUT : 0);
+      const fl = (m.awake ? F_AWAKE : 0) | (m.dying ? F_DYING : 0) | (m.moving ? F_MOVING : 0) | (m.burn ? F_BURN : 0) | (m.shockT > 0 ? F_SHOCK : 0) | (m.crackT > 0 ? F_CRACK : 0) | (m.cutT > 0 ? F_CUT : 0) | (m.disarmT > 0 ? F_DISARM : 0);
       const a = [m.id, r1(m.x), r1(m.y), r1(m.z || 0), Math.round(m.hp), m.maxHp, m.state, r2(m.t), r2(m.windupT || 0), r2(m.fv.x), r2(m.fv.y), r2(m.flash), fl, m.chill || 0, m.poison ? m.poison.n : 0, m.type, r2(m.spawnT || 0)];
       if (m.chargeV) a.push(r2(m.chargeV.x), r2(m.chargeV.y));
       e.push(a);

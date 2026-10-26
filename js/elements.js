@@ -414,6 +414,7 @@ const Elements = (() => {
   // 상태이상 시간 흐름(몹 업데이트 앞에서)
   function tick(e, dt) {
     if (e.cutT > 0) e.cutT -= dt;
+    if (e.disarmT > 0) e.disarmT -= dt;  // 싸이 무장해제
     if (e.burn) {
       e.burn.t -= dt; e.burn.tick -= dt;
       if (e.burn.tick <= 0) { e.burn.tick += 0.5; damage(e, e.burn.dps * 0.5, 'fire'); }

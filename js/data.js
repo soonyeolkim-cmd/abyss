@@ -45,6 +45,8 @@ const CLASSES = {
     dashAttack: { name: '대시 찌르기', slot: 'dash', startup: 0.03, active: 0.16, recovery: 0.26, mult: 1.9, knock: 110, stun: 0.55, reach: [0, 30], arc: 28, noBody: true, dash: 24, iframes: true, thrust: true, heavy: true },
     // 회전베기(속성석 '차지' 칸): 따로 있는 버튼(키보드 V · 패드 B)을 누르면 바로 나간다(2026-10-24 사용자: 길게 눌러 모으기 없앰).
     // 콤보 · 특수기 후딜에서도 끊고 나갈 수 있다. move 는 예전 모으기용(안 씀)
+    // 망치 3타 '내려찍기'(무기 특성 분쇄, 2026-10-26): 앞 ahead px 바닥에 반지름 r 충격파(바닥 타원 판정 = 그림)
+    slam: { name: '내려찍기', slot: 'basic', fin: true, startup: 0.14, active: 0.08, recovery: 0.4, mult: 1.8, knock: 150, stun: 0.6, area: { ahead: 24, r: 26 }, swing: [-150, 10], heavy: true },
     charge: { holdDelay: 0.22, time: 0.55, move: 0.45, cost: 20,
       def: { name: '회전베기', slot: 'charge', fin: true, startup: 0.05, active: 0.22, recovery: 0.32, mult: 2.4, knock: 160, stun: 0.6, radius: 44, spin: true, heavy: true, outward: true } },  // 범위 34 → 44(+30%, 2026-10-24 사용자)
   },
@@ -129,15 +131,25 @@ const statName = (k, prof) => (k === 'atk' && clsOf(prof).atkName) || STATS[k].n
 
 // 무기 종류(2026-10-24 사용자: 경량 · 중량 둘로만, 공격 속도 2원화): 속도(동작 빠르기 배수) · 사거리 더하기 · 피해 배수 · 밀어내기 배수 · 각도 배수
 // 중량 무기는 기본 공격력이 경량의 약 1.3배라 초당 피해는 비슷하고, 한 방 · 밀어내기가 세다
+// 무기 특성 trait [이름, 설명](2026-10-26 사용자: 직업마다 무기 2종이 노는 방식부터 다르게 — 경량 = 빠른 손 · 기술 순환, 중량 = 한 방 · 범위 · 묶기).
+// 특성은 무기 종류마다 고정(무작위 없음). 고친 값: onHitSp(기본 공격 맞힐 때 기력) · specialCd · specialCost · hideCost(그림자 숨기 기력) · crush(모든 공격이 준비 중인 적도 끊음) ·
+// finisher(마지막 콤보를 그 직업의 다른 기술로) · orb(마력탄 speed · range 덮어쓰기) · orbBurst(마력탄 맞은 자리 폭발 r · mult) · circleR(마법진 반지름) · breath(숨결 길이 배수) ·
+// ambush(숨은 뒤 첫 공격 치명타) · rush(돌진 베기 피해 +) · disarm(교차 베기 · 돌진 베기 맞은 적 t 초 동안 주는 피해 -cut)
 const WEAPON_KINDS = {
   none: { name: '맨손', speed: 1.1, reach: -8, dmg: 0.8, knock: 0.6, arc: 0.8 },
-  light: { name: '경량', speed: 1.15, reach: 0, dmg: 1, knock: 0.9, arc: 1 },
-  heavy: { name: '중량', speed: 0.88, reach: 0, dmg: 1, knock: 1.4, arc: 1.1 },
-  wand: { name: '경량', speed: 1.15, reach: 0, dmg: 1, knock: 0.9, arc: 1 },   // 마법사 롯드
-  staff: { name: '중량', speed: 0.88, reach: 0, dmg: 1, knock: 1.4, arc: 1.1 },  // 마법사 스태프
+  light: { name: '경량', speed: 1.15, reach: 0, dmg: 1, knock: 0.9, arc: 1,
+    trait: ['연계', '기본 공격이 맞으면 기력 +7(보통 +4) · 검기 쿨타임 0.4초'], onHitSp: 7, specialCd: 0.4 },
+  heavy: { name: '중량', speed: 0.88, reach: 0, dmg: 1, knock: 1.4, arc: 1.1,
+    trait: ['분쇄', '3타가 내려찍기(앞 바닥 충격파) · 모든 공격이 공격 준비 중인 적도 끊음'], crush: true, finisher: 'slam' },
+  wand: { name: '경량', speed: 1.15, reach: 0, dmg: 1, knock: 0.9, arc: 1,   // 마법사 롯드
+    trait: ['연사', '마력탄이 빠르고(300) 멀리(190) 날아감 · 마력탄 기력 2'], orb: { speed: 300, range: 190 }, specialCost: 2 },
+  staff: { name: '중량', speed: 0.88, reach: 0, dmg: 1, knock: 1.4, arc: 1.1,  // 마법사 스태프
+    trait: ['광역', '마법진 반지름 52 · 숨결 길이 +15% · 마력탄은 느리지만(200) 맞은 자리에서 작게 터짐'], circleR: 52, breath: 1.15, orb: { speed: 200 }, orbBurst: { r: 20, mult: 0.6 } },
   // 암살자(2026-10-25): 카타르 = 빠름(검과 같은 속도), 싸이 = 묵직(조금 느리고 공격력 ×1.2 · 돌진 베기 피해 +20%)
-  katar: { name: '경량', speed: 1.15, reach: 0, dmg: 1, knock: 0.9, arc: 1 },
-  sai: { name: '묵직', speed: 0.95, reach: 0, dmg: 1, knock: 1.1, arc: 1, rush: 0.2 },
+  katar: { name: '경량', speed: 1.15, reach: 0, dmg: 1, knock: 0.9, arc: 1,
+    trait: ['암습', '그림자 숨기 기력 10 · 숨은 뒤 첫 공격(백스탭 · 표창)은 반드시 치명타'], hideCost: 10, ambush: true },
+  sai: { name: '묵직', speed: 0.95, reach: 0, dmg: 1, knock: 1.1, arc: 1, rush: 0.2,
+    trait: ['제압', '돌진 베기 피해 +20% · 교차 베기 · 돌진 베기에 맞은 적은 3초 무장해제(주는 피해 -30%)'], disarm: { t: 3, cut: 0.3 } },
 };
 
 // ── 몹 ── atk.lunge = 공격하며 튀어나가는 속도, ranged = 멀리서 쏨(shot: 탄 속도 · 피해)

@@ -157,7 +157,8 @@ function shootAt(e, p, atk, n, k) {
   const base = Math.atan2(p.y - e.y, p.x - e.x);
   const a = n > 1 ? base + (k / (n - 1) - 0.5) * (Math.PI / 3) : base;
   World.shoot({ x: e.x, y: e.y - e.h * 0.5, vx: Math.cos(a) * atk.shot, vy: Math.sin(a) * atk.shot,
-    dmg: atk.dmg * e.dmgMul, knock: atk.knock, color: atk.color, life: 3, r: 3, chill: !!(e.def.chillHit || e.affixes.includes('frost')) });
+    dmg: atk.dmg * e.dmgMul, knock: atk.knock, color: atk.color, life: 3, r: 3, chill: !!(e.def.chillHit || e.affixes.includes('frost')),
+    disarmT: e.disarmT || 0, disarmCut: e.disarmCut || 0 });  // 무장해제된 몹이 쏜 탄도 약하게
 }
 
 function faceTo(e, p) { e.fv = unit(p.x - e.x, p.y - e.y, e.fv); }

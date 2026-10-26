@@ -130,7 +130,7 @@ const Touch = (() => {
   let cdOn = false;
   function cdTick() {
     const p = typeof Game !== 'undefined' && Game.scene === 'run' ? World.player : null, C = p && p.cls;
-    const k = p && C.special.cd && p.specialCd > 0 ? p.specialCd / C.special.cd : 0;
+    const k = p && C.special.cd && p.specialCd > 0 ? Math.min(1, p.specialCd / specialCdOf(p)) : 0;
     if (k > 0) {
       cdEl.style.background = 'conic-gradient(transparent 0 ' + Math.round((1 - k) * 360) + 'deg, rgba(0, 0, 0, 0.55) 0 360deg)';
       if (!cdOn) { cdOn = true; cdEl.style.display = 'block'; }

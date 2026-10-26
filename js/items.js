@@ -156,6 +156,7 @@ const Items = (() => {
     if (parts.length) lines.push({ t: parts.join(' · '), c: '#f0e8dc' });
     const fparts = Object.keys(item.stats).filter(k => k in fixed).map(k => STATS[k].fmt(item.stats[k]));
     if (fparts.length) lines.push({ t: fparts.join(' · '), c: '#c8dcff' });
+    if (b.slot === 'weapon' && WEAPON_KINDS[b.kind].trait) { const tr = WEAPON_KINDS[b.kind].trait; lines.push({ t: '무기 특성 ' + tr[0] + ' — ' + tr[1], c: '#ffd36a' }); }  // 2026-10-26 무기 2종 차별화
     if (item.uniq) { const u = UNIQUES[item.uniq]; lines.push({ t: '★ ' + u.fx + ' — ' + u.desc, c: RARITY[3].color }); }
     for (const a of item.affixes || []) lines.push({ t: STATS[a.k].fmt(a.v), c: '#8ab8ff' });
     if (item.gems && item.gems.length) lines.push({ t: '보석  ' + item.gems.map(gemShort).join('  '), c: '#c8b8a0' });

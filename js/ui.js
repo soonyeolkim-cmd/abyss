@@ -1581,10 +1581,10 @@ const UI = (() => {
       if (Input.touchMode()) {
         const CC = clsOf(Game.prof), S = CC.slotShort, y0 = 290;
         const rows = [['이동', '왼쪽 화면을 누르고 끌기 (누른 자리가 가운데)'], ['공격 (연타 ' + CC.combo.length + '타)', '[' + S.basic + '] 버튼 — 오른쪽 아래 큰 버튼'],
-          CC.charge.hide ? ['그림자 숨기 (기력 ' + CC.charge.cost + ')', '[' + S.charge + '] → 숨은 중 [' + S.basic + '] · [' + S.charge + '] = ' + CC.stab.name + ' · 표창']
-            : [CC.charge.def.name + ' (기력 ' + CC.charge.cost + ')', '[' + S.charge + '] 버튼'],
+          CC.charge.hide ? ['그림자 숨기 (기력 ' + costOf(Game.prof, 'charge') + ')', '[' + S.charge + '] → 숨은 중 [' + S.basic + '] · [' + S.charge + '] = ' + CC.stab.name + ' · 표창']
+            : [CC.charge.def.name + ' (기력 ' + costOf(Game.prof, 'charge') + ')', '[' + S.charge + '] 버튼'],
           ['대시 (무적, 기력 ' + CC.dodge.cost + ')', '[' + S.dash + '] 버튼'], [CC.dashAttack.name, '[' + S.dash + '] → [' + S.basic + ']'],
-          ['특수기 · ' + CC.special.name + ' (기력 ' + CC.special.cost + ')', '[' + S.wave + '] 버튼'], ['물약', '체력 구슬 위 물약 병'],
+          ['특수기 · ' + CC.special.name + ' (기력 ' + costOf(Game.prof, 'special') + ')', '[' + S.wave + '] 버튼'], ['물약', '체력 구슬 위 물약 병'],
           ['메뉴 · 가방', '[≡ 메뉴] → 장비 스테이터스'], ['마을에서 말 걸기', '[대화] 버튼 (던전 입구 앞이면 [던전])'],
           ['창 · 목록', '바로 누르기 · 긴 목록은 위아래로 끌기'], ['이야기', '화면 누르기 · [넘기기] = 한 줄 · [건너뛰기] = 통째로']];
         T_(ctx, '터치', 470, y0 - 22, 14, '#9a8e96');
@@ -1597,10 +1597,10 @@ const UI = (() => {
       // 조작표: 지금 키보드 방식 + 패드
       const K = a => Input.labelFor('kb', a), P = a => Input.labelFor('pad', a), CC = clsOf(Game.prof);  // 직업마다 기술 이름
       const rows = [['이동', K('move'), P('move') + ' · 십자키'], ['공격 (연타 ' + CC.combo.length + '타)', K('attack'), P('attack')],
-        [CC.charge.hide ? '그림자 숨기 (기력 ' + CC.charge.cost + ') → ' + K('attack') + ' · ' + K('charge') + ' = ' + CC.stab.name + ' · 표창'
-          : CC.charge.def.name + ' (누르면 바로, 기력 ' + CC.charge.cost + ')', K('charge'), P('charge')],
+        [CC.charge.hide ? '그림자 숨기 (기력 ' + costOf(Game.prof, 'charge') + ') → ' + K('attack') + ' · ' + K('charge') + ' = ' + CC.stab.name + ' · 표창'
+          : CC.charge.def.name + ' (누르면 바로, 기력 ' + costOf(Game.prof, 'charge') + ')', K('charge'), P('charge')],
         ['대시 (무적, 기력 ' + CC.dodge.cost + ')', K('dodge'), P('dodge')], [CC.dashAttack.name, K('dodge') + ' → ' + K('attack'), P('dodge') + ' → ' + P('attack')],
-        ['특수기 · ' + CC.special.name + ' (기력 ' + CC.special.cost + ')', K('special'), P('special')],
+        ['특수기 · ' + CC.special.name + ' (기력 ' + costOf(Game.prof, 'special') + ')', K('special'), P('special')],
         ['물약', K('potion'), P('potion')], ['가방', K('inv'), P('inv')], ['메뉴', K('pause'), P('pause')],
         ['메뉴 선택 · 취소', K('ok') + ' · ' + K('back'), P('ok') + ' · ' + P('back')]];
       const y0 = 290;
