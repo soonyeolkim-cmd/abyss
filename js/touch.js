@@ -4,7 +4,9 @@
 //   물약 = 왼쪽 체력 구슬 위, 메뉴 = 오른쪽 빈 띠 위(띠가 좁으면 왼쪽 위 — 오른쪽 위 자동 지도를 가리지 않게). 버튼은 반쯤 비치게(2026-10-25 사용자).
 //   가방 버튼은 없음(2026-10-25 사용자: 메뉴 → 장비 스테이터스로 열면 됨)
 // 이야기 장면: 넘기기(한 줄) · 건너뛰기(장면 통째) 버튼 따로, 광차는 건너뛰기만. 터치로 하는 중엔 키 이름 안내 글을 숨긴다(Input.touchMode)
-// 메뉴 화면(캐릭터 선택 · 던전 고르기 · 가방 등 창): 스틱 · 기술 버튼을 숨기고 화면을 손가락으로 바로 누른다(ui.js 누를 곳). 오른쪽 = 확인 · 뒤로 (+ 그 창의 Z 일).
+// 메뉴 화면(캐릭터 선택 · 던전 고르기 · 가방 등 창): 스틱 · 기술 버튼을 숨기고 화면을 손가락으로 바로 누른다(ui.js 누를 곳 — 한 번 = 고르기, 한 번 더 = 선택).
+//   확인 버튼은 없고 왼쪽 위 '‹ 뒤로'만(2026-10-26 사용자: 봉인의 숲처럼). 이야기 · 광차는 같은 자리에 '‹ 건너뛰기', 화면 아무 데나 누르면 넘기기. 그 창의 Z 일은 오른쪽 아래 알약 버튼.
+// 기술 버튼(2026-10-26 다듬기): 큰 기본 공격을 가운데 두고 대시 · 차지 · 특수가 부채꼴로 둘러쌈, 기력이 모자라면 흐리게(HUD 기력 글자 빨강과 같은 때)
 //   넘치는 목록(던전 · 주머니 · 대장간 · 상점 · 소리 목록)은 손가락으로 위아래로 끌어 넘긴다(ui.js scrollArea, 2026-10-25 사용자: 화면 옆 화살표 버튼 말고 폰답게 스와이프로)
 // 버튼은 키보드 키를 누른 것처럼 Input 에 넣는다. 패드 · 키보드를 쓰면 가상패드를 숨기고, 화면을 만지면 다시 보인다.
 const Touch = (() => {
@@ -15,14 +17,19 @@ const Touch = (() => {
   css.textContent = `
     body { touch-action: none; -webkit-user-select: none; user-select: none; }
     #tc { position: fixed; inset: 0; pointer-events: none; z-index: 5; font-family: sans-serif; }
-    #tc .b { position: absolute; pointer-events: auto; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center;
-      background: rgba(40, 30, 36, 0.16); border: 2px solid rgba(255, 220, 150, 0.22); color: rgba(240, 224, 184, 0.75); font-weight: bold; line-height: 1; }
-    #tc .b.on { background: rgba(255, 211, 106, 0.3); border-color: rgba(255, 220, 150, 0.6); }
-    #tc .b canvas { image-rendering: pixelated; opacity: 0.8; }
-    #tc .b small { font-size: 10px; font-weight: normal; margin-top: 1px; color: rgba(216, 200, 176, 0.75); text-shadow: 0 0 2px #000; }
-    #tc .sq { border-radius: 10px; }
-    #tc .pill { border-radius: 20px; flex-direction: row; font-size: 15px; }
-    #tc .side { border-radius: 10px; background: rgba(40, 30, 36, 0.45); }
+    #tc .b { position: absolute; pointer-events: auto; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; box-sizing: border-box;
+      background: radial-gradient(circle at 50% 38%, rgba(74, 54, 66, 0.42), rgba(18, 12, 18, 0.34) 70%);
+      border: 2px solid rgba(255, 214, 140, 0.34); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35);
+      color: rgba(244, 228, 190, 0.85); font-weight: bold; line-height: 1; transition: transform 0.06s, opacity 0.15s; }
+    #tc .b.on { transform: scale(0.92); background: radial-gradient(circle at 50% 38%, rgba(255, 214, 120, 0.5), rgba(120, 80, 40, 0.35) 70%); border-color: rgba(255, 226, 160, 0.85); }
+    #tc .b.big { border-width: 3px; border-color: rgba(255, 214, 140, 0.45); }
+    #tc .b.low { opacity: 0.4; border-color: rgba(255, 110, 90, 0.5); }
+    #tc .b canvas { image-rendering: pixelated; opacity: 0.9; }
+    #tc .b small { font-size: 10px; font-weight: bold; margin-top: 2px; color: rgba(236, 222, 196, 0.85); text-shadow: 0 1px 2px #000, 0 0 2px #000; }
+    #tc .sq { border-radius: 12px; }
+    #tc .pill { border-radius: 20px; flex-direction: row; font-size: 15px; background: rgba(30, 22, 30, 0.78); }
+    #tc .back { border-radius: 10px; flex-direction: row; gap: 4px; font-size: 15px; background: rgba(30, 22, 30, 0.8); border-color: rgba(255, 214, 140, 0.45); }
+    #tc .back b { font-size: 20px; margin-top: -2px; }
     #tc.menu .play, #tc:not(.menu) .menu, #tc.town .fight { display: none; }
     #tc .b.far { opacity: 0.45; }
     #tc .b .cd { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; display: none; }
@@ -42,12 +49,12 @@ const Touch = (() => {
   rot.innerHTML = '폰을 가로로 돌려 주세요<br><small style="font-size:13px;font-weight:normal">심연속으로</small>';
   document.body.appendChild(rot);
 
-  // 기술 버튼: [키, 속성석 칸(아이콘 · 이름), 오른쪽에서 · 아래에서(px), 크기]
-  const BTNS = [
-    ['KeyX', 'basic', 30, 34, 76],
-    ['KeyC', 'dash', 120, 22, 58],
-    ['KeyZ', 'wave', 40, 124, 58],
-    ['KeyV', 'charge', 112, 96, 52],
+  // 기술 버튼: [키, 속성석 칸(아이콘 · 이름), 기본 버튼 가운데에서 각도(도, 0 = 왼쪽 · 90 = 위) · 거리, 크기]. 기본 버튼 가운데 = 오른쪽 · 아래에서 BC px
+  const BC = 74, BTNS = [
+    ['KeyX', 'basic', 0, 0, 84],
+    ['KeyC', 'dash', 4, 92, 60],
+    ['KeyV', 'charge', 47, 94, 60],
+    ['KeyZ', 'wave', 88, 92, 60],
   ];
   const els = {};
   function makeBtn(code, html, style, w, h, cls) {
@@ -64,29 +71,28 @@ const Touch = (() => {
     return b;
   }
   const ICON = 18;  // hud.js pixIcon 크기(16 + 테두리)
-  for (const [code, slot, r, bt, size] of BTNS) {
+  for (const [code, slot, deg, dist, size] of BTNS) {
     const px = Math.max(2, Math.round(size * 0.5 / ICON)) * ICON;  // 도트가 고르게 커지게 18 의 배수
+    const a = deg * Math.PI / 180, cx = BC + Math.cos(a) * dist, cy = BC + Math.sin(a) * dist;  // 오른쪽 · 아래에서 잰 가운데
     const b = makeBtn(code, '<canvas width="' + ICON + '" height="' + ICON + '" style="width:' + px + 'px;height:' + px + 'px"></canvas><small></small>' + (slot === 'wave' ? '<i class="cd"></i>' : ''),
-      { right: r + 'px', bottom: bt + 'px' }, size, size, slot === 'basic' ? 'play' : 'play fight');  // fight = 던전에서만
+      { right: Math.round(cx - size / 2) + 'px', bottom: Math.round(cy - size / 2) + 'px' }, size, size, slot === 'basic' ? 'play big' : 'play fight');  // fight = 던전에서만
     els[slot] = b;
   }
   // 물약: 체력 구슬 바로 위(캔버스 자리에 맞춰 setInterval 에서 옮긴다)
   const potion = makeBtn('Digit1', '<canvas width="16" height="22" style="width:24px;height:33px"></canvas><small></small>', {}, 54, 54, 'play fight');
   const menuBtn = makeBtn('Escape', '≡<small>메뉴</small>', {}, 50, 50, 'sq play');
-  // 메뉴 화면 버튼: 오른쪽 빈 띠 아래에 확인 · 뒤로(띠가 좁으면 화면 가장자리 위에). 확인은 X, 뒤로는 Backspace(취소만)를 누른 것과 같다.
+  // 메뉴 화면 버튼: 왼쪽 위 '‹ 뒤로'(Backspace = 취소만, 2026-10-26 사용자: 봉인의 숲처럼 확인 버튼 없이 · 뒤로는 왼쪽 위).
   //   방향 버튼은 없다(2026-10-25 사용자: 화면 옆 화살표는 폰 조작이 아님) — 고르기는 화면을 바로 누르고, 넘치는 목록은 끌어서 넘긴다
-  const side = (code, html) => makeBtn(code, html, {}, 50, 50, 'sq menu side');
-  const okBtn = side('KeyX', '확인'), back = side('Backspace', '뒤로');
-  // 그 창의 Z 일(모두 넣기 · 수량 정하기 등): 오른쪽 띠 왼쪽 아래
+  const back = makeBtn('Backspace', '<b>‹</b><span>뒤로</span>', {}, 84, 36, 'back menu');
+  const backLabel = back.querySelector('span');
+  // 그 창의 Z 일(모두 넣기 · 수량 정하기 등): 오른쪽 아래
   const spec = makeBtn('KeyZ', '', {}, 120, 40, 'pill menu');
   function placeSide() {
-    const r = canvas.getBoundingClientRect(), H = window.innerHeight, W = window.innerWidth;
-    const cw = Math.max(46, Math.min(64, Math.round(W - r.right) - 8)), gap = 6;
-    const rx = Math.min(W - cw - 4, Math.round(r.right + (W - r.right - cw) / 2));
-    const put = (b, x, y, h) => Object.assign(b.style, { left: x + 'px', top: y + 'px', width: cw + 'px', height: h + 'px', fontSize: (cw < 54 ? 13 : 15) + 'px' });
-    const h4 = Math.round((H - gap * 5) / 4);
-    [okBtn, back].forEach((b, i) => put(b, rx, H - (2 - i) * (h4 + gap), h4));
-    Object.assign(spec.style, { left: '', right: (W - rx + 6) + 'px', bottom: gap + 'px' });
+    const r = canvas.getBoundingClientRect(), W = window.innerWidth, gap = 8;
+    // 뒤로: 캔버스 왼쪽 빈 띠가 넉넉하면 거기(화면을 안 가림), 아니면 화면 왼쪽 위 모서리
+    const band = Math.round(r.left), wide = band >= 58, bw = wide ? Math.min(96, band - 8) : 84;
+    Object.assign(back.style, { left: (wide ? Math.round((band - bw) / 2) : gap) + 'px', top: gap + 'px', width: bw + 'px', height: '36px', fontSize: (bw < 80 ? 13 : 15) + 'px' });
+    Object.assign(spec.style, { left: '', right: Math.max(gap, Math.round((W - r.right - 120) / 2)) + 'px', bottom: gap + 'px' });
     // 메뉴: 캔버스 오른쪽 빈 띠에 들어가면 거기 위, 아니면 왼쪽 위(오른쪽 위는 던전 자동 지도 자리)
     const fit = W - r.right >= 46;  // 버튼 겉 크기 54(50 + 테두리) — 캔버스 가장자리(지도 오른쪽 끝 바깥)에 조금 걸치는 것까지는 괜찮다
     Object.assign(menuBtn.style, fit ? { left: Math.min(W - 58, Math.round(r.right + (W - r.right - 54) / 2)) + 'px', top: '8px' } : { left: '12px', top: '12px' });
@@ -203,13 +209,16 @@ const Touch = (() => {
     if (town !== inTown) { inTown = town; root.classList.toggle('town', town); if (!town) { els.basic.classList.remove('far'); refresh(); } }
     if (town) townButton();
     back.style.display = m && (Game.scene === 'title' || Game.scene === 'splash') && !Game.overlays.length ? 'none' : '';  // 캐릭터 선택은 뒤로 갈 곳이 없다
-    // 이야기: 확인 = 넘기기(한 줄) · 뒤로 = 건너뛰기(장면 통째), 광차: 뒤로 = 건너뛰기만
+    // 이야기 · 광차: 같은 자리 '건너뛰기'(장면 통째) — 한 줄 넘기기는 화면 아무 데나 누르기
     const top = Game.overlays[Game.overlays.length - 1], talk = top && top.type === 'talk', ride = top && top.type === 'ride';
-    const bl = talk || ride ? '건너뛰기' : '뒤로', ol = talk ? '넘기기' : '확인';
-    if (back.textContent !== bl) back.textContent = bl;
-    if (okBtn.textContent !== ol) okBtn.textContent = ol;
-    // 확인은 시작 화면(아무 데나 누르면 넘어감) · 광차에선 숨김
-    okBtn.style.display = Game.scene === 'splash' || ride ? 'none' : '';
+    const bl = talk || ride ? '건너뛰기' : '뒤로';
+    if (backLabel.textContent !== bl) backLabel.textContent = bl;
+    // 기력이 모자란 기술 버튼은 흐리게(던전에서만)
+    const p = !m && Game.scene === 'run' ? World.player : null;
+    if (p) {
+      const need = { charge: costOf(p.prof, 'charge'), wave: costOf(p.prof, 'special'), dash: dashCost(p) };
+      for (const slot in need) els[slot].classList.toggle('low', p.sp < need[slot]);
+    } else for (const slot of ['charge', 'wave', 'dash']) els[slot].classList.remove('low');
     const sl = m ? UI.touchSpecial() : null;
     spec.style.display = sl ? '' : 'none';
     if (sl && spec.textContent !== sl) spec.textContent = sl;
