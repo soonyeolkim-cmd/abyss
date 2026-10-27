@@ -495,7 +495,7 @@ const Art = (() => {
     ctx.restore();
     Gfx.spr(ctx, 'floor_stairs', s.x - 8, s.y - 8, { topLeft: true });
     ctx.font = 'bold 7px ' + FONT; ctx.textAlign = 'center';
-    const label = s.label || '마을로 가는 계단';  // 끝없는 심연: 아래층이 있으면 '아래층으로 가는 계단'
+    const label = s.label || '마을로 가는 계단';  // 끝없는 심연: 다음 층이 있으면 'N층으로 가는 계단'
     ctx.fillStyle = '#000'; ctx.fillText(label, s.x + 0.5, s.y - 11.5);
     ctx.fillStyle = '#bfefff'; ctx.fillText(label, s.x, s.y - 12);
   }

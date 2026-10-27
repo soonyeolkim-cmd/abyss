@@ -373,12 +373,12 @@ const Coop = (() => {
     return runBodies().filter(m => m.dead).map(m => ({ m, k: m === tg && reviving === tg ? Math.min(1, reviveK / REVIVE_HOLD) : 0, near: m === tg }));
   }
   function leaveTogether(k) { Net.send({ t: 'leave', k }); }  // k = 'time': 레이드 시간이 다 됨(손님도 실패로)
-  // 끝없는 심연: 방장이 계단을 내려가면 같은 런의 손님도 같이 다음 층으로(쓰러져 있던 손님도 일어나서)
+  // 끝없는 심연: 방장이 계단을 오르면 같은 런의 손님도 같이 다음 층으로(쓰러져 있던 손님도 일어나서)
   function descendTogether(f) { Net.send({ t: 'descend', f, r: World.partySeed }); }
   Net.on('descend', m => {
     if (!World.mirror || Game.scene !== 'run' || m.r !== World.partySeed) return;
     snapQ = [];
-    Game.toast(m.f > ENDLESS.max ? '방장과 같이 최종 보스에게 가요' : '방장과 같이 ' + m.f + '층으로 내려가요');
+    Game.toast(m.f > ENDLESS.max ? '방장과 같이 최종 보스에게 가요' : '방장과 같이 ' + m.f + '층으로 올라가요');
     World.descend(m.f);
   });
   Net.on('leave', m => {

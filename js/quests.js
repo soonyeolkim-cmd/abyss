@@ -103,6 +103,17 @@ const Quests = (() => {
     else claim(prof, kind, x);
   }
   const leftTxt = ms => { const m = Math.max(0, Math.floor(ms / 60000)), d = Math.floor(m / 1440), h = Math.floor(m % 1440 / 60); return d ? d + '일 ' + h + '시간' : h + '시간 ' + (m % 60) + '분'; };
+  // 보상 받은 의뢰(2026-10-27 사용자: 흐리게): 칸 안을 어둡게 덮고 진행 막대 위에 비스듬한 붉은 '완료' 도장(덮개 위라 또렷)
+  function claimedMark(ctx, y) {
+    ctx.fillStyle = 'rgba(12,8,6,0.62)'; ctx.fillRect(142, y + 2, 676, 92);
+    ctx.save();
+    ctx.translate(660, y + 46); ctx.rotate(-0.21);
+    ctx.globalAlpha = 0.9; ctx.strokeStyle = '#e0503c';
+    ctx.lineWidth = 3; ctx.strokeRect(-50, -20, 100, 40);
+    ctx.lineWidth = 1; ctx.strokeRect(-45, -15, 90, 30);
+    T_(ctx, '완료', 0, 8, 20, '#e0503c', 'center');
+    ctx.restore();
+  }
   function draw(ctx, o, prof) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = 'rgba(0,0,0,0.92)'; ctx.fillRect(0, 0, 960, 540);
@@ -132,10 +143,11 @@ const Quests = (() => {
       // 진행 막대
       const bx = 520, bw = 280, k = x.have / x.n;
       ctx.fillStyle = '#2a2018'; ctx.fillRect(bx, y + 20, bw, 12);
-      ctx.fillStyle = x.done ? '#7dff8a' : '#c8a050'; ctx.fillRect(bx, y + 20, Math.round(bw * k), 12);
-      T_(ctx, x.have + ' / ' + x.n, bx + bw, y + 50, 13, x.done ? '#7dff8a' : '#e8e0d0', 'right');
+      ctx.fillStyle = x.claimed ? '#7a8478' : x.done ? '#7dff8a' : '#c8a050'; ctx.fillRect(bx, y + 20, Math.round(bw * k), 12);
+      T_(ctx, x.have + ' / ' + x.n, bx + bw, y + 50, 13, x.claimed ? '#a8a0a0' : x.done ? '#7dff8a' : '#e8e0d0', 'right');
       T_(ctx, x.claimed ? '✔ 받음' : x.done ? '보상 받기 ' + L('ok') : '진행 중', bx, y + 50, 13, x.claimed ? '#8a7e88' : x.done ? '#7dff8a' : '#c8b8a0');
       T_(ctx, '보상 ' + rewardText(r), 206, y + 80, 12, '#ffd34d');
+      if (x.claimed) claimedMark(ctx, y);
       y += 104;
     });
     if (Input.touchMode()) return;

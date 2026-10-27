@@ -492,17 +492,17 @@ const World = (() => {
         lv.stairs.asked = true;
         // 파티(4단계): 방장이 오르면 파티원도 같이 마을로, 손님은 혼자 먼저 갈 수 있다
         const party = Coop.inParty(), host = rps.length > 0;
-        // 끝없는 심연: 아래 층이 있으면 내려가기 · 마을로 중 고르기(파티 손님은 방장이 정함)
+        // 끝없는 심연: 다음 층이 있으면 올라가기 · 마을로 중 고르기(파티 손님은 방장이 정함, 2026-10-27 사용자: 1층 → 2층은 '올라간다')
         const next = lv.def.endless && lv.def.floor < ENDLESS.max ? lv.def.floor + 1 : 0;
         const raidNext = lv.def.endless && lv.def.floor === ENDLESS.max ? ENDLESS.max + 1 : 0;  // 3층 다음 = 최종 보스 레이드(2026-10-26 사용자)
         if ((next || raidNext) && !(party && !host)) Game.overlay({ type: 'choice', title: lv.def.name + ' 돌파!', items: [
           raidNext ? { label: '최종 보스 도전 — 심연의 파수꾼' + (host ? ' (파티 같이)' : ''), go: () => { if (host) Coop.descendTogether(raidNext); descend(raidNext); } }
-            : { label: next + '층으로 내려가기' + (host ? ' (파티 같이)' : ''), go: () => { if (host) Coop.descendTogether(next); descend(next); } },
+            : { label: next + '층으로 올라가기' + (host ? ' (파티 같이)' : ''), go: () => { if (host) Coop.descendTogether(next); descend(next); } },
           { label: host ? '파티원과 같이 마을로' : '마을로 돌아가기', go: () => { Sfx.stairs(); if (host) Coop.leaveTogether(); finish('clear'); } },
         ] });
         else Game.overlay({ type: 'confirm', defaultYes: true,
           text: party ? (host ? '파티원과 같이 마을로 돌아갈까요?' : '혼자 먼저 마을로 돌아갈까요?') : '계단을 올라 마을로 돌아갈까요?',
-          sub: party ? (host ? '파티원도 같이 계단을 올라 결과 화면으로 가요' : next ? '방장이 계단을 내려가면 같이 ' + next + '층으로 가요' : raidNext ? '방장이 최종 보스에 도전하면 같이 가요' : '방장이 계단을 오르면 같이 나가요') : undefined,
+          sub: party ? (host ? '파티원도 같이 계단을 올라 결과 화면으로 가요' : next ? '방장이 계단을 오르면 같이 ' + next + '층으로 가요' : raidNext ? '방장이 최종 보스에 도전하면 같이 가요' : '방장이 계단을 오르면 같이 나가요') : undefined,
           yes: () => { Sfx.stairs(); if (party && host) Coop.leaveTogether(); finish('clear'); } });
       }
       if (d > 22) lv.stairs.asked = false;
@@ -530,7 +530,7 @@ const World = (() => {
     for (const fd of fields) fd.t += dt;
   }
   // 손님: 방장 소식(snap) 적용 — 몹 [id, x, y, z, hp, maxHp, 상태, t, windupT, fx, fy, flash, 깃발, 냉기, 독, 종류, spawnT, 돌진 x, 돌진 y]
-  const F_AWAKE = 1, F_DYING = 2, F_MOVING = 4, F_BURN = 8, F_SHOCK = 16, F_CRACK = 32, F_CUT = 64, F_DISARM = 128, F_WARD = 256, F_UNDER = 512;  // 보호막 · 땅속(끝없는 심연 몹)
+  const F_AWAKE = 1, F_DYING = 2, F_MOVING = 4, F_BURN = 8, F_SHOCK = 16, F_CRACK = 32, F_CUT = 64, F_DISARM = 128, F_WARD = 256, F_UNDER = 512, F_MINION = 1024;  // 보호막 · 땅속(끝없는 심연 몹) · 소환 졸개(전리품 없음)
   function applySnap(m) {
     if ((m.fl || 0) !== floorNo()) return;  // 다른 층 소식(층을 내려가는 사이)
     if (m.cl) for (const i of m.cl) markCleared(i);
@@ -552,7 +552,7 @@ const World = (() => {
       e.awake = !!(fl & F_AWAKE); e.dying = !!(fl & F_DYING); e.moving = !!(fl & F_MOVING);
       e.burn = fl & F_BURN ? { t: 9, tick: 9, dps: 0 } : null;
       e.shockT = fl & F_SHOCK ? 1 : 0; e.crackT = fl & F_CRACK ? 1 : 0; e.cutT = fl & F_CUT ? 1 : 0; e.disarmT = fl & F_DISARM ? 1 : 0;
-      e.wardT = fl & F_WARD ? 1 : 0; e.under = !!(fl & F_UNDER);
+      e.wardT = fl & F_WARD ? 1 : 0; e.under = !!(fl & F_UNDER); e.minion = !!(fl & F_MINION);
       e.chill = a[13]; e.poison = a[14] ? { n: a[14], t: 9, tick: 9, per: 0 } : null;
       e.spawnT = a[16]; e.chargeV = a[17] !== undefined ? { x: a[17], y: a[18] } : null;
     }
@@ -592,7 +592,7 @@ const World = (() => {
     const e = [];
     for (const m of enemies) {
       if (!near(m) && m.rank !== 'boss') continue;
-      const fl = (m.awake ? F_AWAKE : 0) | (m.dying ? F_DYING : 0) | (m.moving ? F_MOVING : 0) | (m.burn ? F_BURN : 0) | (m.shockT > 0 ? F_SHOCK : 0) | (m.crackT > 0 ? F_CRACK : 0) | (m.cutT > 0 ? F_CUT : 0) | (m.disarmT > 0 ? F_DISARM : 0) | (m.wardT > 0 ? F_WARD : 0) | (m.under ? F_UNDER : 0);
+      const fl = (m.awake ? F_AWAKE : 0) | (m.dying ? F_DYING : 0) | (m.moving ? F_MOVING : 0) | (m.burn ? F_BURN : 0) | (m.shockT > 0 ? F_SHOCK : 0) | (m.crackT > 0 ? F_CRACK : 0) | (m.cutT > 0 ? F_CUT : 0) | (m.disarmT > 0 ? F_DISARM : 0) | (m.wardT > 0 ? F_WARD : 0) | (m.under ? F_UNDER : 0) | (m.minion ? F_MINION : 0);
       const a = [m.id, r1(m.x), r1(m.y), r1(m.z || 0), Math.round(m.hp), m.maxHp, m.state, r2(m.t), r2(m.windupT || 0), r2(m.fv.x), r2(m.fv.y), r2(m.flash), fl, m.chill || 0, m.poison ? m.poison.n : 0, m.type, r2(m.spawnT || 0)];
       if (m.chargeV) a.push(r2(m.chargeV.x), r2(m.chargeV.y));
       e.push(a);
@@ -912,6 +912,7 @@ const World = (() => {
     const side = { x: -e.fv.y, y: e.fv.x };  // 바라보는 쪽의 옆
     for (const s of [1, -1]) {
       const c = createEnemy(e.def.split, e.x + side.x * s * 5, e.y + side.y * s * 4, dlv(), { awake: true });
+      c.minion = e.minion;  // 소환 졸개가 나뉜 새끼도 전리품 없음
       c.spawnT = 0.3; c.kx = side.x * s * 140; c.ky = side.y * s * 100; c.atkCd = 0.6 + Math.random() * 0.4;
       addEnemy(c);
       if (e.ri !== undefined) c.ri = e.ri;
@@ -955,6 +956,7 @@ const World = (() => {
     gainExp(Math.round(d.exp * rankExp * POWER(dlv()) * DIFFS[RUN.diff].exp * (lv.def.gainMul || 1) * lowExp(prof.lv, dlv())));  // 낮은 던전은 경험치 줄어듦  // 역할 경험치 × 던전 레벨 곡선
     if (p.stats.life) p.hp = Math.min(p.maxHp, p.hp + p.stats.life);
     if (p.stats.fx.vamp) p.hp = Math.min(p.maxHp, p.hp + Math.max(2, Math.round(p.maxHp * UNIQUE_FX.vamp)));  // 유니크 흡혈 칼날
+    if (e.minion) return;  // 소환 졸개: 장비 · 골드 · 속성석 · 주문서 · 정수 드롭 없음
     if (d.boss) {
       const bossItems = [mk(lv.ilvlR[1], { boost: 0.8 })];
       if (lv.ilvlR[1] < UNIQUE_CRAFT_LV && Math.random() < UNIQUE_DROP.boss * DIFFS[RUN.diff].uniq * lowUniq(prof.lv, dlv())) bossItems.push(Items.makeUnique(lv.ilvlR[1]));  // Lv.100 유니크는 제작으로만
@@ -1245,6 +1247,7 @@ const World = (() => {
       for (let k = 0; k < n; k++) {
         const a = k / n * Math.PI * 2;
         const e = createEnemy(type, boss.x + Math.cos(a) * 30, boss.y + Math.sin(a) * 20, dlv(), { awake: true, spawn: true });
+        e.minion = true;  // 보스가 부른 졸개: 경험치만, 전리품 없음(2026-10-27 사용자)
         e.spawnT += k * 0.1;
         addEnemy(e);
         if (boss.ri !== undefined) e.ri = boss.ri;
