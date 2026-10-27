@@ -494,10 +494,47 @@ const Art = (() => {
     ctx.beginPath(); ctx.ellipse(s.x, s.y, 16, 8, 0, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
     Gfx.spr(ctx, 'floor_stairs', s.x - 8, s.y - 8, { topLeft: true });
+  }
+  // 계단 표시(2026-10-27 사용자: 보스를 잡고 나온 계단이 잘 보이게 → "너무 화려, 도트 느낌으로") — 모든 던전 계단.
+  //   어둠 바로 위 1배 화면(world.js)에 칸 단위로만 그린다(매끈한 그라데이션 · 선 없이):
+  //   far(0~1) = 빛 밖인 만큼 계단 그림을 다시 얹음 · 점으로 퍼지는 고리 · 3칸 계단식 옅은 빛기둥 · 올라가는 빛 점 · 2장 깜빡 ▼
+  const STAIR_COL = '#7dd3ff', STAIR_HI = '#bfefff';
+  function stairsMark(ctx, s, time, far) {
+    const x = Math.round(s.x), y = Math.round(s.y), blink = Math.floor(time * 3) % 2;
+    ctx.save();
+    if (far > 0) {
+      ctx.globalAlpha = far * (0.3 + 0.15 * blink); ctx.fillStyle = STAIR_COL;
+      ctx.fillRect(x - 12, y - 3, 24, 6); ctx.fillRect(x - 9, y - 5, 18, 10);
+      ctx.globalAlpha = far;
+      Gfx.spr(ctx, 'floor_stairs', x - 8, y - 8, { topLeft: true });
+    }
+    ctx.fillStyle = STAIR_COL;
+    const ph = (time % 1.6) / 1.6, r = 9 + Math.floor(ph * 5) * 2;  // 고리: 2칸씩 뚝뚝 커지는 점선 타원
+    ctx.globalAlpha = 0.55 * (1 - ph);
+    for (let i = 0; i < 20; i++) { const a = i / 20 * Math.PI * 2; ctx.fillRect(Math.round(x + Math.cos(a) * r), Math.round(y + Math.sin(a) * r * 0.5), 1, 1); }
+    const band = [[5, 0.22], [3, 0.14], [2, 0.07]];  // 빛기둥: 아래부터 [반폭, 진하기] 10칸씩
+    band.forEach(([w, al], i) => { ctx.globalAlpha = al + 0.04 * blink; ctx.fillRect(x - w, y - 4 - (i + 1) * 10, w * 2, 10); });
+    ctx.fillStyle = STAIR_HI;
+    for (let j = 0; j < 3; j++) {  // 빛 점: 기둥 안에서 천천히 떠오름
+      const t = (time * 0.6 + j / 3) % 1;
+      ctx.globalAlpha = 0.8 * (1 - t);
+      ctx.fillRect(x - 3 + j * 3, Math.round(y - 4 - t * 28), 1, 1);
+    }
+    const ay = y - 24 - blink;  // ▼(7 · 5 · 3 · 1칸), 2장으로 한 칸 오르내림
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#000'; ctx.fillRect(x - 4, ay - 1, 9, 6);
+    ctx.fillStyle = STAIR_HI;
+    for (let i = 0; i < 4; i++) ctx.fillRect(x - 3 + i, ay + i, 7 - i * 2, 1);
+    ctx.restore();
+  }
+  // 계단 이름(2배 화면 · 어둠 위): ▼ 바로 위, 움직이지 않음
+  function stairsLabel(ctx, s) {
     ctx.font = 'bold 7px ' + FONT; ctx.textAlign = 'center';
     const label = s.label || '마을로 가는 계단';  // 끝없는 심연: 다음 층이 있으면 'N층으로 가는 계단'
-    ctx.fillStyle = '#000'; ctx.fillText(label, s.x + 0.5, s.y - 11.5);
-    ctx.fillStyle = '#bfefff'; ctx.fillText(label, s.x, s.y - 12);
+    const x = Math.round(s.x), y = Math.round(s.y) - 28;
+    ctx.fillStyle = '#000'; ctx.fillText(label, x + 0.5, y + 0.5);
+    ctx.fillStyle = STAIR_HI; ctx.fillText(label, x, y);
+    ctx.textAlign = 'left';
   }
 
   function shot(ctx, s, time) {
@@ -1267,5 +1304,5 @@ const Art = (() => {
     ctx.restore();
   }
 
-  return { avatar, shadow, player, enemy, bossAcc, enemyBar, drop, dropLabel, aura, nameTag, chest, stairs, shot, wave, field, fx, darkness, floatText };
+  return { avatar, shadow, player, enemy, bossAcc, enemyBar, drop, dropLabel, aura, nameTag, chest, stairs, stairsMark, stairsLabel, shot, wave, field, fx, darkness, floatText };
 })();

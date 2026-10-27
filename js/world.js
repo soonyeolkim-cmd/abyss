@@ -492,17 +492,17 @@ const World = (() => {
         lv.stairs.asked = true;
         // 파티(4단계): 방장이 오르면 파티원도 같이 마을로, 손님은 혼자 먼저 갈 수 있다
         const party = Coop.inParty(), host = rps.length > 0;
-        // 끝없는 심연: 다음 층이 있으면 올라가기 · 마을로 중 고르기(파티 손님은 방장이 정함, 2026-10-27 사용자: 1층 → 2층은 '올라간다')
+        // 끝없는 심연: 다음 층이 있으면 내려가기 · 마을로 중 고르기(파티 손님은 방장이 정함, 2026-10-27 사용자: 계단 그림이 내려가는 모양이라 '내려간다')
         const next = lv.def.endless && lv.def.floor < ENDLESS.max ? lv.def.floor + 1 : 0;
         const raidNext = lv.def.endless && lv.def.floor === ENDLESS.max ? ENDLESS.max + 1 : 0;  // 3층 다음 = 최종 보스 레이드(2026-10-26 사용자)
         if ((next || raidNext) && !(party && !host)) Game.overlay({ type: 'choice', title: lv.def.name + ' 돌파!', items: [
           raidNext ? { label: '최종 보스 도전 — 심연의 파수꾼' + (host ? ' (파티 같이)' : ''), go: () => { if (host) Coop.descendTogether(raidNext); descend(raidNext); } }
-            : { label: next + '층으로 올라가기' + (host ? ' (파티 같이)' : ''), go: () => { if (host) Coop.descendTogether(next); descend(next); } },
+            : { label: next + '층으로 내려가기' + (host ? ' (파티 같이)' : ''), go: () => { if (host) Coop.descendTogether(next); descend(next); } },
           { label: host ? '파티원과 같이 마을로' : '마을로 돌아가기', go: () => { Sfx.stairs(); if (host) Coop.leaveTogether(); finish('clear'); } },
         ] });
         else Game.overlay({ type: 'confirm', defaultYes: true,
           text: party ? (host ? '파티원과 같이 마을로 돌아갈까요?' : '혼자 먼저 마을로 돌아갈까요?') : '계단을 올라 마을로 돌아갈까요?',
-          sub: party ? (host ? '파티원도 같이 계단을 올라 결과 화면으로 가요' : next ? '방장이 계단을 오르면 같이 ' + next + '층으로 가요' : raidNext ? '방장이 최종 보스에 도전하면 같이 가요' : '방장이 계단을 오르면 같이 나가요') : undefined,
+          sub: party ? (host ? '파티원도 같이 계단을 올라 결과 화면으로 가요' : next ? '방장이 계단을 내려가면 같이 ' + next + '층으로 가요' : raidNext ? '방장이 최종 보스에 도전하면 같이 가요' : '방장이 계단을 오르면 같이 나가요') : undefined,
           yes: () => { Sfx.stairs(); if (party && host) Coop.leaveTogether(); finish('clear'); } });
       }
       if (d > 22) lv.stairs.asked = false;
@@ -1105,7 +1105,13 @@ const World = (() => {
     for (const s of shots) Art.shot(ctx, s, time);
     for (const s of pshots) Art.wave(ctx, s);
     Art.fx(ctx, fx);
-    Art.darkness(ctx, p.x, p.y - 10, cam, lv.def.raid || lv.def.practice ? LIGHT_R * 2.2 : LIGHT_R);  // 레이드 방은 밝게(귀퉁이 수정이 보이게) · 연습장도
+    const lightR = lv.def.raid || lv.def.practice ? LIGHT_R * 2.2 : LIGHT_R;
+    Art.darkness(ctx, p.x, p.y - 10, cam, lightR);  // 레이드 방은 밝게(귀퉁이 수정이 보이게) · 연습장도
+    const stairsOn = lv.stairs && inView(lv.stairs.x, lv.stairs.y, 60);
+    if (stairsOn) {  // 계단(모든 던전): 어둠 위 1배 화면에 도트 빛기둥 · ▼(빛 밖이면 계단 그림도)
+      const sd = Math.hypot(lv.stairs.x - p.x, lv.stairs.y - p.y + 10);
+      Art.stairsMark(ctx, lv.stairs, time, Math.min(1, Math.max(0, (sd - lightR * 0.6) / (lightR * 0.4))));
+    }
     ctx.restore();
     // 1배 화면을 2배로(이웃 화소 그대로) 얹고, 그 위 글자 · 막대는 2배 화면에 같은 자리(흔들림 포함)로
     ctx = out;
@@ -1118,6 +1124,7 @@ const World = (() => {
     // 어둠 위에: 빛 안의 체력 막대 · 이름표 · 바닥 아이템 이름
     for (const e of vis) if (Math.hypot(e.x - p.x, e.y - p.y) < LIGHT_R + 30) { Art.enemyBar(ctx, e); Art.nameTag(ctx, e); }
     for (const d of lv.drops) if (d.kind === 'item' && Math.hypot(d.x - p.x, d.y - p.y) < LIGHT_R + 60) Art.dropLabel(ctx, d);
+    if (stairsOn) Art.stairsLabel(ctx, lv.stairs);  // 계단 이름
     for (const t of texts) Art.floatText(ctx, t);
     if (lv.def.raid) Raid.labels(ctx);  // 레이드 공허 수정: 터지기까지 남은 초
     const tag = (s, x, y, col) => { ctx.font = 'bold 6px ' + Gfx.FONT; ctx.textAlign = 'center'; ctx.fillStyle = '#000'; ctx.fillText(s, x + 0.5, y + 0.5); ctx.fillStyle = col; ctx.fillText(s, x, y); ctx.textAlign = 'left'; };
@@ -1143,6 +1150,8 @@ const World = (() => {
     ctx.restore();
     if (fadeT > 0) { ctx.fillStyle = 'rgba(0,0,0,' + Math.min(1, fadeT / FADE * 1.2) + ')'; ctx.fillRect(0, 0, VIEW_W, VIEW_H); }  // 방을 옮길 때 어둠이 걷힘
     for (const m of mates) if (!lv.roomMaps || roomOf(m) === roomOf(p)) mateArrow(ctx, m);  // 다른 방 친구는 방 지도에만
+    if (lv.stairs && !p.dead && (!lv.roomMaps || roomOf(lv.stairs) === roomOf(p)))  // 화면 밖 계단: 가장자리 화살표 + 거리
+      edgeArrow(ctx, lv.stairs.x, lv.stairs.y - 6, '#7dd3ff', (ax, ay) => Gfx.spr(ctx, 'floor_stairs', ax, ay + 12, { scale: 1.5 }), '계단 ' + Math.round(Math.hypot(lv.stairs.x - p.x, lv.stairs.y - p.y) / T) + 'm');
     if (lv.def.raid) Raid.arrows(ctx, edgeArrow);  // 화면 밖 공허 수정 쪽 화살표 + 터지기까지 남은 초
     Coop.drawBubbles(ctx, p, x => (x - cam.x) * SCALE, y => (y - cam.y) * SCALE, 88);  // 파티 말풍선(유니크 획득 등)
     Hud.draw(ctx);
