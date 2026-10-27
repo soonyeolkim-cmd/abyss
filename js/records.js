@@ -62,6 +62,7 @@ const Records = (() => {
   // ── 기록 · 칭호 창 ──
   function open(prof) {
     sel = 0; top = 0;
+    if (check(prof).length) Game.changed();  // 예전에 깬 횟수로 이미 얻은 칭호(기록 전 처치 · 10번 등)
     // 내 캐릭터끼리: 지금 캐릭터는 지금 기록, 다른 칸은 저장된 것
     others = [];
     for (let n = 0; n < Save.SLOTS_N; n++) others.push(n === Save.slot ? null : Save.load(n));

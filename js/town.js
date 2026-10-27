@@ -251,6 +251,8 @@ const Town = (() => {
     if (!fromGate || !lv) place(silvaneOpen(prof) && prof.where === 'silvane' ? 'silvane' : 'belloc');  // 켤 때 = 마지막에 있던 마을, 던전에서 오면 있던 마을 그대로
     p = createPlayer(prof);
     spawn();
+    const nt = Records.check(prof);  // 기록 · 칭호를 만들기 전에 깬 레이드 횟수로 얻는 칭호(2026-10-27)
+    if (nt.length) { Save.write(prof); Game.toast('칭호 획득! ★ ' + nt.join(' · ') + ' — 메뉴 → 기록 · 칭호'); }
     if (backTo) { if (fromGate) spawnBeside(backTo); backTo = null; }
     if (prof.story && prof.story.openingAgain) { delete prof.story.openingAgain; Save.write(prof); Story.replay(); }  // 예전 캐릭터: 오프닝 한 번
     else Story.townArrive();  // 보스를 쓰러뜨리고 돌아왔으면 카엘이 한마디 · 엔딩 · 진엔딩(켤 때도 — 못 본 엔딩이 있으면)
@@ -421,7 +423,13 @@ const Town = (() => {
       // 말 걸 곳의 '말 걸기' · 설명이 옆 이름표를 덮지 않게, 가까운 이웃 이름표는 그동안 숨김(벨록 광차 ↔ 오르반)
       if (near && !on && Math.abs(sx(s.x) - sx(near.x)) < 130 && Math.abs(hy - labelY(near)) < 60) continue;
       const ready = s.id === 'board' && Quests.pending(prof);  // 받을 의뢰 보상이 있으면 게시판 이름표에 표시
-      Gfx.text(ctx, ready ? s.name + ' ★ 보상 ' + ready : s.name, sx(s.x), hy, on ? 15 : 12, on ? '#ffd36a' : ready ? '#7dff8a' : '#e8dcc0', 'center');
+      const nm = ready ? s.name + ' ★ 보상 ' + ready : s.name, fs = on ? 15 : 12;
+      if (where === 'silvane') {  // 땅 위 밝은 바닥(풀 · 모래 · 지붕)에서는 글자가 묻혀서 반투명 어두운 띠를 깐다(2026-10-27)
+        ctx.font = 'bold ' + fs + 'px ' + Gfx.FONT;
+        const tw = ctx.measureText(nm).width + 10;
+        ctx.fillStyle = 'rgba(20,14,10,0.5)'; ctx.fillRect(Math.round(sx(s.x) - tw / 2), hy - fs + 1, Math.round(tw), fs + 5);
+      }
+      Gfx.text(ctx, nm, sx(s.x), hy, fs, on ? '#ffd36a' : ready ? '#7dff8a' : '#e8dcc0', 'center');
       if (on) {
         Gfx.text(ctx, s.role, sx(s.x), hy + 18, 11, '#c8b8a0', 'center');
         const k = Input.touchMode() ? '말 걸기' : L('ok') + ' 말 걸기';  // 폰: 오른쪽 아래 '대화' 버튼
@@ -468,17 +476,18 @@ const Town = (() => {
     Coop.drawBubbles(ctx, p, sx, sy);  // 파티 말풍선: 강화 · 합치기 · 유니크(내 머리 위 · 파티원 머리 위)
     // 아래 왼쪽: 마을 이름 · 캐릭터
     const by = 438;
-    Gfx.panel(ctx, 12, by, 250, 66);
+    const PW = 284;  // 패널 너비(2026-10-27: '광산 도시 실베인' · 큰 골드가 옆 글과 붙어서 250 → 284)
+    Gfx.panel(ctx, 12, by, PW, 66);
     Gfx.text(ctx, where === 'belloc' ? '지하 도시 벨록' : '광산 도시 실베인', 26, by + 26, 18, '#f0e0b8');
-    Gfx.text(ctx, clsOf(prof).name + ' Lv.' + prof.lv, 250, by + 26, 15, '#e8dcc0', 'right');  // 마을 이름이 길어져(지하 도시 벨록) 오른쪽 끝에 맞춤
+    Gfx.text(ctx, clsOf(prof).name + ' Lv.' + prof.lv, PW, by + 26, 15, '#e8dcc0', 'right');  // 마을 이름이 길어져(지하 도시 벨록) 오른쪽 끝에 맞춤
     Gfx.spr(ctx, 'coin_anim_f0', 34, by + 56, { scale: 2 });
     Gfx.text(ctx, prof.gold + 'G', 48, by + 54, 14, '#ffd34d');
-    Gfx.text(ctx, '물약 ' + prof.potions, 140, by + 54, 14, '#ff9a9a');
+    Gfx.text(ctx, '물약 ' + prof.potions, PW, by + 54, 14, '#ff9a9a', 'right');
     // 파티 방이 열려 있으면 그 위에 파티원 한 줄씩(창을 닫아도 방은 그대로)
     const lines = Coop.panelLines();
     if (lines.length) {
       const ph = 14 + lines.length * 20, py = by - 6 - ph;
-      Gfx.panel(ctx, 12, py, 250, ph, { border: '#b48cff' });
+      Gfx.panel(ctx, 12, py, PW, ph, { border: '#b48cff' });
       lines.forEach((l, i) => Gfx.text(ctx, l.s, 26, py + 22 + i * 20, 13, l.col));
     }
     if (Input.touchMode()) return;  // 폰: 키 이름 안내 글 없음
