@@ -437,7 +437,7 @@ const Silvane = (() => {
   function labels(ctx, sx, sy) {
     Gfx.text(ctx, '왕의 갱도', sx(20 * T), sy(24), 12, '#3a2414', 'center', 'bold');
     Gfx.text(ctx, '심연 공방', sx(46.5 * T), sy(25), 12, '#4a1a5a', 'center', 'bold');
-    Gfx.text(ctx, '연습장', sx(43.5 * T), sy(10 * T + 1), 11, '#3a2414', 'center', 'bold');
+    Gfx.text(ctx, '연습장', sx(43.5 * T), sy(10 * T - 3.5), 11, '#3a2414', 'center', 'bold');  // 팻말 판(11T−28 ~ 11T−15) 가운데
   }
 
   // ── 작은 그림 ──
