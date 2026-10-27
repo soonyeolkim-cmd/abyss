@@ -933,10 +933,11 @@ const World = (() => {
     run.kills++;
     Sfx.kill();
     if (e.rank === 'elite' || e.rank === 'unique') Sfx.grunt();  // 정예 · 고유 몹은 신음 소리도
-    if (!d.part && !d.dummy) {  // 의뢰 게시판 진행(js/quests.js) — 던전 레벨로 낮은 던전은 안 셈
-      Quests.on('kill', dlv());
-      if (e.rank === 'elite' || e.rank === 'unique') Quests.on('elite', dlv());
-      if (d.boss) Quests.on('boss', dlv());
+    if (!d.part && !d.dummy) {  // 의뢰 게시판 진행(js/quests.js) — 입장 레벨로 낮은 던전은 안 셈(끝없는 심연은 입장 Lv.95)
+      const entry = lv.def.entry || dlv();
+      Quests.on('kill', entry);
+      if (e.rank === 'elite' || e.rank === 'unique') Quests.on('elite', entry);
+      if (d.boss) Quests.on('boss', entry);
     }
     const rankExp = e.rank === 'unique' ? 5 : e.rank === 'elite' ? 2 : 1;
     gainExp(Math.round(d.exp * rankExp * POWER(dlv()) * DIFFS[RUN.diff].exp * (lv.def.gainMul || 1) * lowExp(prof.lv, dlv())));  // 낮은 던전은 경험치 줄어듦  // 역할 경험치 × 던전 레벨 곡선

@@ -586,7 +586,8 @@ const vaultCat = it => (it.slot === 'weapon' ? 'weapon_' + (Items.base(it).kind 
 const vaultKey = it => vaultCat(it) + ':' + tierOf(it.ilvl);
 // 의뢰 게시판(2026-10-27 사용자: 일일 1 · 주간 2, 일일은 자정 · 주간은 월요일에 바뀜 — 폰 시계, js/quests.js)
 // ev = 세는 일: kill 몹 · elite 정예 · 고유 몹 · boss 보스(중간 보스 · 레이드 포함) · enchant 강화 시도 · merge 속성석 · 보석 합치기 · raid 최종 보스 레이드 깸 · abyss3 끝없는 심연 3층 수호자.
-// gate: kill · elite · boss 는 던전 레벨이 (의뢰 받을 때 내 레벨 − gate, 단 들어갈 수 있는 가장 높은 던전 레벨까지) 이상일 때만 셈(낮은 던전 돌기 막기). abyss = 끝없는 심연이 열리고 입장 레벨인 캐릭터만.
+// gate: kill · elite · boss 는 던전 입장 레벨이 (의뢰 받을 때 내 레벨의 10단위 − gate, 단 들어갈 수 있는 가장 높은 던전 입장 레벨까지) 이상일 때만 셈(낮은 던전 돌기 막기).
+//   2026-10-27 사용자: Lv.92 → 입장 Lv.80 이상 던전(비늘 신전 · 심연의 문 · 끝없는 심연). abyss = 끝없는 심연이 열리고 입장 레벨인 캐릭터만.
 // 못 하는 의뢰는 안 나온다(2026-10-27 사용자: 강화 한도 등) — 받은 뒤 못 하게 되면 할 수 있는 다른 의뢰로 바뀜(quests.js possible · refit).
 // 보상: 골드 = 던전 runs 판쯤(runGold × 판 × 레벨 골드 곡선 × GOLD_MUL) + 축복받은 강화 주문서 scrolls 장 + (일일) 보통 속성석 1(무작위 속성) · (주간) 심연이 열렸으면 정수 essence
 const QUEST = {

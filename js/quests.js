@@ -12,13 +12,15 @@ const Quests = (() => {
   let sel = 0;
 
   // 못 하는 의뢰는 안 나온다(2026-10-27 사용자): 강화 한도(+ENCHANT_MAX)라 강화할 장비가 없으면 강화 시도 X, 심연(입장 레벨까지)이 안 열렸으면 레이드 · 3층 X,
-  // 몹 · 정예 · 보스의 던전 레벨 조건은 지금 들어갈 수 있는 가장 높은 던전 레벨을 넘지 않게
+  // 몹 · 정예 · 보스의 조건은 던전 입장 레벨(2026-10-27 사용자): 내 레벨의 10단위에서 한 단계 아래 이상(Lv.92 → 입장 Lv.80 이상 던전),
+  // 단 지금 들어갈 수 있는 가장 높은 던전의 입장 레벨을 넘지 않게
   const abyssOk = prof => endlessOpen(prof) && prof.lv >= ENDLESS.entry;
   function topLv(prof) {
     let best = 0;
     for (const d of DUNGEONS) if (prof.lv >= d.lv && !(d.needs && !prof.cleared[d.needs])) best = Math.max(best, d.lv);
-    return abyssOk(prof) ? Math.max(best, ENDLESS.lv) : best;
+    return abyssOk(prof) ? Math.max(best, ENDLESS.entry) : best;
   }
+  const gateLv = prof => Math.max(1, Math.min(Math.floor(prof.lv / 10) * 10 - QUEST.gate, topLv(prof)));
   const canEnchantAny = prof => [...SLOTS.map(s => prof.equip[s]), ...prof.bag].some(it => it && (it.ups || 0) < ENCHANT_MAX);
   function possible(x, prof) {  // x = 목록의 의뢰 정의 또는 받은 의뢰
     if (x.abyss && !abyssOk(prof)) return false;
@@ -27,8 +29,8 @@ const Quests = (() => {
     return true;
   }
   function make(def, prof) {
-    const minLv = GATED.includes(def.ev) ? Math.max(1, Math.min(prof.lv - QUEST.gate, topLv(prof))) : 0;
-    return { ev: def.ev, name: def.name, n: def.n, abyss: !!def.abyss, have: 0, minLv, done: false, claimed: false };
+    const minLv = GATED.includes(def.ev) ? gateLv(prof) : 0;
+    return { ev: def.ev, name: def.name, n: def.n, abyss: !!def.abyss, have: 0, minLv, entry: true, done: false, claimed: false };
   }
   // 받아 둔 의뢰가 그 뒤 못 하게 되면(예: 강화를 다 끝내 +10) 같은 칸에 할 수 있는 다른 의뢰로 바꿔 둔다
   function refit(list, pool, prof) {
@@ -51,10 +53,11 @@ const Quests = (() => {
     const day = dayKey(new Date()), week = dayKey(monday());
     if (q.day !== day || !q.daily) { q.day = day; q.daily = pickN(pool(QUEST.daily), 1).map(d => make(d, prof)); }
     if (q.week !== week || !q.weekly) { q.week = week; q.weekly = pickN(pool(QUEST.weekly), 2).map(d => make(d, prof)); }
+    for (const x of [...q.daily, ...q.weekly]) if (!x.entry) { if (x.minLv) x.minLv = gateLv(prof); x.entry = true; }  // 예전 의뢰(내 레벨 − 10 · 던전 레벨)는 입장 레벨 조건으로 한 번 고침
     refit(q.daily, QUEST.daily, prof); refit(q.weekly, QUEST.weekly, prof);
     return q;
   }
-  // 진행 세기: ev = 할 일, lv = 그 던전 레벨(kill · elite · boss 만 봄)
+  // 진행 세기: ev = 할 일, lv = 그 던전 입장 레벨(kill · elite · boss 만 봄)
   function on(ev, lv = 999, n = 1) {
     const q = ensure(Game.prof);
     if (!q) return;
@@ -125,7 +128,7 @@ const Quests = (() => {
       ctx.fillStyle = '#f0e6d2'; ctx.fillRect(156, y + 14, 34, 42); ctx.fillStyle = '#c83838'; ctx.fillRect(171, y + 10, 4, 4);
       ctx.fillStyle = '#2a1630'; for (let k = 0; k < 4; k++) ctx.fillRect(161, y + 24 + k * 7, k === 3 ? 14 : 24, 2);
       T_(ctx, x.name + ' ' + x.n + (x.ev === 'kill' || x.ev === 'elite' ? '마리' : '번'), 206, y + 30, 17, on ? '#ffd36a' : '#f0e0b8');
-      if (x.minLv) T_(ctx, 'Lv.' + x.minLv + ' 이상 던전에서', 206, y + 50, 11, '#8a7e88');
+      if (x.minLv) T_(ctx, '입장 Lv.' + x.minLv + ' 이상 던전에서', 206, y + 50, 11, '#8a7e88');
       // 진행 막대
       const bx = 520, bw = 280, k = x.have / x.n;
       ctx.fillStyle = '#2a2018'; ctx.fillRect(bx, y + 20, bw, 12);

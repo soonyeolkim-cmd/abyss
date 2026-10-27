@@ -384,7 +384,7 @@ const UI = (() => {
     equip: [{ label: '좋은 것 일괄 착용', go: prof => bulkEquip(prof) }],
     shop: [{ label: '좋은 것 일괄 착용', go: prof => bulkEquip(prof) }],  // 상점 '사기'(2026-10-24 사용자: 사기 · 팔기 나눔) — 파는 건 '팔기'(sell)에서
     // 대장장이 '장비 팔기'(2026-10-24 사용자): 왼쪽은 낀 장비, 가방 장비를 고르면 판다
-    sell: [{ label: '좋은 것 일괄 착용', go: prof => bulkEquip(prof) }, { label: '약한 장비 일괄 판매', sell: true, go: prof => bulkSell(prof) }],
+    sell: [{ label: '좋은 것 일괄 착용', go: prof => bulkEquip(prof) }, { label: '장비 일괄 판매', sell: true, go: prof => bulkSell(prof) }],
     // 대장장이 '장비 분해'(2026-10-25 사용자: 심연 정수) — 태초 흰 · 파랑 · 노랑 장비 → 정수 가루
     scrap: [{ label: '좋은 것 일괄 착용', go: prof => bulkEquip(prof) }, { label: '장비 일괄 분해', scrap: true, go: prof => bulkScrap(prof) }],
   };
@@ -415,7 +415,7 @@ const UI = (() => {
     Game.toast('정수 가루 +' + dust + ((prof.essence || 0) > before ? ' → 심연 정수 +' + ((prof.essence || 0) - before) : '') + (gems ? ' · 보석 ' + gems + '개는 주머니로' : ''));
     Game.changed();
   }
-  // 일괄 분해 = 일괄 판매와 같은 '약한 장비'(흰 · 파랑 · 낀 것보다 약함 · 강화 안 됨) 가운데 태초(착용 Lv.90 이상)
+  // 일괄 분해 = 가방이 가득 찰 때 자동 판매와 같은 '약한 장비'(흰 · 파랑 · 낀 것보다 약함 · 강화 안 됨) 가운데 태초(착용 Lv.90 이상)
   //   + Lv.100 장비는 등급 · 낀 것과 비교 상관없이 모두(2026-10-26 사용자 — 심연 드롭은 분해용). 유니크 · 강화된 것은 빼고
   function bulkScrap(prof) {
     const junk = new Set(Items.junk(prof));
@@ -426,11 +426,11 @@ const UI = (() => {
       yes: () => scrapAll(prof, idx) });
   }
   function bulkSell(prof) {
-    const idx = Items.junk(prof);
-    if (!idx.length) { Game.toast('팔 장비가 없어요 (낀 것보다 약한 장비만 팔아요)'); return; }
+    const idx = Items.sellable(prof);
+    if (!idx.length) { Game.toast('팔 장비가 없어요 (유니크 · 강화된 것 · 보석 낀 것은 안 팔아요)'); return; }
     const gold = idx.reduce((a, i) => a + prof.bag[i].value, 0);
-    Game.overlay({ type: 'confirm', text: '낀 것보다 약한 장비 ' + idx.length + '개를 팔까요? (+' + gold + 'G)', sub: '노랑 · 주황 · 강화된 것 · 못 끼는 것 · 더 좋은 것은 절대 안 팔아요 · 보석은 주머니로',
-      yes: () => { const r = Items.sellAll(prof, idx); Game.toast(idx.length + '개 판매 +' + r.gold + 'G' + (r.gems ? ' · 보석 ' + r.gems + '개는 주머니로' : '')); Game.changed(); } });
+    Game.overlay({ type: 'confirm', text: '가방 장비 ' + idx.length + '개를 팔까요? (+' + gold + 'G)', sub: '유니크 · 강화된 것 · 보석 낀 것은 등급 상관없이 남겨요 · 낀 장비도 그대로',
+      yes: () => { const r = Items.sellAll(prof, idx); Game.toast(idx.length + '개 판매 +' + r.gold + 'G'); Game.changed(); } });
   }
   // 상점 물건: 물약 + 가장 작은(조각) 속성석 · 보석
   // 상점 물건 n개 사기(아이템 사고팔기 창 · 수량 창 공용)
@@ -784,8 +784,8 @@ const UI = (() => {
           T_(ctx, 'Lv.100 장비는 등급 상관없이 모두 분해해요', 400, 370, 14, '#c8b8a0');
           T_(ctx, '태초는 낀 것보다 약한 흰 · 파랑만 · 유니크 · 강화된 것은 남겨요', 400, 394, 13, '#9a8e96');
           T_(ctx, '가루: 흰 ' + ESSENCE.dust[0] + ' · 파랑 ' + ESSENCE.dust[1] + ' · 노랑 ' + ESSENCE.dust[2] + ' — 가루 ' + ESSENCE.dustPer + '개 = 심연 정수 1개', 400, 418, 13, ESSENCE_COLOR);
-        } else T_(ctx, sell ? '같은 칸에 낀 것보다 못한 장비를 한꺼번에 팔아요' : '칸마다 가방과 낀 것 중 가장 좋은 장비를 껴요', 400, 370, 14, '#c8b8a0');
-        if (!scrap) T_(ctx, sell ? '흰 · 파랑만 팔아요 — 노랑 · 주황 · 강화된 것 · 못 끼는 것 · 더 좋은 것은 남겨요' : '지금 낄 수 있는 것 중 능력치 점수가 가장 높은 것 (색 · 보석 칸 · 유니크 효과 포함)', 400, 394, 13, '#9a8e96');
+        } else T_(ctx, sell ? '가방 장비를 유니크만 빼고 한꺼번에 팔아요' : '칸마다 가방과 낀 것 중 가장 좋은 장비를 껴요', 400, 370, 14, '#c8b8a0');
+        if (!scrap) T_(ctx, sell ? '강화된 것 · 보석 낀 것은 등급 상관없이 남겨요 (낀 장비는 그대로)' : '지금 낄 수 있는 것 중 능력치 점수가 가장 높은 것 (색 · 보석 칸 · 유니크 효과 포함)', 400, 394, 13, '#9a8e96');
       } else {  // 고른 칸이 비었을 때: 이 판이 무엇인지 알려 준다(2026-10-24 사용자 '빈칸은 무슨 의미?')
         T_(ctx, '아이템 설명', 400, 370, 15, '#8a7e88');
         T_(ctx, '가방이나 장비 칸에서 아이템을 고르면 능력치 · 보석 · 낀 것과 비교가 여기에 나와요', 400, 396, 13, '#6a6068');
@@ -1631,7 +1631,7 @@ const UI = (() => {
       if (this.sel === 3) Game.overlay({ type: 'settings' });
       if (items === this.practiceItems) {
         if (this.sel === 4) { Practice.reset(); Game.closeOverlay(); Game.toast('딜 측정을 처음부터 다시 재요'); }
-        if (this.sel === 5) Game.open('town');
+        if (this.sel === 5) { Town.returnTo('dummy'); Game.open('town'); }
         return;
       }
       if (this.sel === 4) Game.overlay({ type: 'confirm', text: '던전을 나갈까요? 지금까지 얻은 것은 가져가요.', yes: () => Game.quitRun() });

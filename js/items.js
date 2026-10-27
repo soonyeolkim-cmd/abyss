@@ -275,6 +275,9 @@ const Items = (() => {
   // 노랑(레어) 이상 · 강화된 장비는 절대 안 판다(2026-10-24 사용자) — 흰 · 파랑 중 낀 것보다 못한 것만
   const isJunk = (prof, it) => it.rarity < 2 && !it.ups && canWear(prof, it) && !better(it, prof.equip[it.slot]);
   const junk = prof => prof.bag.map((it, i) => i).filter(i => prof.bag[i] && isJunk(prof, prof.bag[i]));
+  // 대장장이 '장비 일괄 판매'(2026-10-27 사용자): 유니크만 빼고 다 판다 — 단 등급 상관없이 강화된 것 · 보석 낀 것은 남긴다
+  const bulkSellable = it => !it.uniq && !it.ups && !(it.gems || []).some(Boolean);
+  const sellable = prof => prof.bag.map((it, i) => i).filter(i => prof.bag[i] && bulkSellable(prof.bag[i]));
   function sellAll(prof, idxs) {
     let gold = 0, gems = 0;
     for (const i of idxs) {
@@ -289,5 +292,5 @@ const Items = (() => {
 
   function setNextUid(n) { nextUid = Math.max(nextUid, n); }
 
-  return { classOk, normalize, migrate, rescale, refix, make, makeUnique, total, playerStats, describe, compare, base, setNextUid, score, better, req, canWear, equipBest, isJunk, junk, sellAll, nameOf, canEnchant, enchant, canTransfer, transfer, removeHidden, addScroll, takeScroll, scrollStacks };
+  return { classOk, normalize, migrate, rescale, refix, make, makeUnique, total, playerStats, describe, compare, base, setNextUid, score, better, req, canWear, equipBest, isJunk, junk, sellable, sellAll, nameOf, canEnchant, enchant, canTransfer, transfer, removeHidden, addScroll, takeScroll, scrollStacks };
 })();

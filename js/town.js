@@ -206,6 +206,18 @@ const Town = (() => {
     const s = where === 'belloc' ? { x: B(15) * T, y: px(B(14), 12).y } : Silvane.SPAWN;  // 벨록: 아래 입구 바로 위(분수 아래) — 광장 위쪽은 카엘 자리
     p.x = s.x; p.y = s.y; p.fv = { x: 0, y: where === 'belloc' ? -1 : 1 };
   }
+  // 돌아올 때 그 NPC 옆에 서기(2026-10-27 사용자: 연습장에서 나오면 허수아비 옆 — 던전 입구로 오면 헷갈림)
+  let backTo = null;
+  function returnTo(id) { backTo = id; }
+  function spawnBeside(id) {
+    const s = here().find(st => st.id === id);
+    if (!s) return;
+    for (const [dx, dy] of [[0, 18], [-18, 0], [18, 0], [0, -18]]) {  // 아래(허수아비를 올려다봄) → 왼쪽 → 오른쪽 → 위
+      if (!Dungeon.walkable(lv, s.x + dx, s.y + dy, BODY_R)) continue;
+      p.x = s.x + dx; p.y = s.y + dy; p.fv = unit(-dx, -dy, p.fv);
+      return;
+    }
+  }
 
   function build() {
     const tiles = new Uint8Array(W * H);
@@ -239,6 +251,7 @@ const Town = (() => {
     if (!fromGate || !lv) place(silvaneOpen(prof) && prof.where === 'silvane' ? 'silvane' : 'belloc');  // 켤 때 = 마지막에 있던 마을, 던전에서 오면 있던 마을 그대로
     p = createPlayer(prof);
     spawn();
+    if (backTo) { if (fromGate) spawnBeside(backTo); backTo = null; }
     if (prof.story && prof.story.openingAgain) { delete prof.story.openingAgain; Save.write(prof); Story.replay(); }  // 예전 캐릭터: 오프닝 한 번
     else Story.townArrive();  // 보스를 쓰러뜨리고 돌아왔으면 카엘이 한마디 · 엔딩 · 진엔딩(켤 때도 — 못 본 엔딩이 있으면)
   }
@@ -665,5 +678,5 @@ const Town = (() => {
   // 장비가 바뀌면 걷는 속도 등 다시
   function refresh() { if (p) p.stats = Items.playerStats(prof); }
 
-  return { enter, update, draw, refresh, travel, rideUpdate, rideDraw, get where() { return where; }, get player() { return p; }, get near() { return near; }, STATIONS };
+  return { enter, returnTo, update, draw, refresh, travel, rideUpdate, rideDraw, get where() { return where; }, get player() { return p; }, get near() { return near; }, STATIONS };
 })();
