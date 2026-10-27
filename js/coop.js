@@ -244,6 +244,7 @@ const Coop = (() => {
   const bodies = () => [...mates.values()].map(m => m.body).filter(Boolean);
   const townMates = () => (Game.scene === 'town' ? bodies() : []);
   const runMates = () => (Game.scene === 'run' ? bodies() : []);
+  const titleOf = pid => (Net.members().find(m => m.pid === pid) || {}).title || '';  // 파티원이 단 칭호(이름표 위)
   // 마을 왼쪽 아래 패널: 파티원 한 줄씩(직업 Lv · 어디 · 연결 속도)
   function panelLines() {
     if (Net.state === 'hosting') return [{ s: '방 ' + Net.code + ' · 친구 기다리는 중', col: '#e0d0ff' }];
@@ -750,7 +751,7 @@ const Coop = (() => {
     T_(ctx, s, 480, 522, 13, '#8a7e88', 'center');
   }
 
-  return { open, update, draw, tick, townMates, runMates, panelLines, colorOf, hostEnter, guestBlocked, waitUpdate, waitDraw, goUpdate, goDraw, viewUpdate, viewDraw,
+  return { open, update, draw, tick, townMates, runMates, titleOf, panelLines, colorOf, hostEnter, guestBlocked, waitUpdate, waitDraw, goUpdate, goDraw, viewUpdate, viewDraw,
     remotePlayers, remoteHurt, sendAct, hostKill, queue, applySnaps, kitChanged,
     inParty, mateUp, canRevive, reviveTick, reviveInfo, leaveTogether, descendTogether, forgeShow, brag, drawBubbles };
 })();

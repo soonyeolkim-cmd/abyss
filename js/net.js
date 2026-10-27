@@ -30,9 +30,9 @@ const Net = (() => {
   // 내 캐릭터 소개(파티원 화면에 아바타 · 이름 · 칼 궤적 색)
   function me() {
     const prof = Game.prof;
-    return { t: 'hello', ver: VER, cls: prof.cls || 'swordsman', lv: prof.lv, weapon: prof.equip.weapon || null, sockets: prof.sockets || {} };
+    return { t: 'hello', ver: VER, cls: prof.cls || 'swordsman', lv: prof.lv, weapon: prof.equip.weapon || null, sockets: prof.sockets || {}, title: Records.titleOf(prof) };  // title = 단 칭호 이름(파티원 이름표 위)
   }
-  const infoOf = h => ({ cls: h.cls, lv: h.lv, weapon: h.weapon, sockets: h.sockets });
+  const infoOf = h => ({ cls: h.cls, lv: h.lv, weapon: h.weapon, sockets: h.sockets, title: h.title || '' });
 
   function reset() {
     if (joinTimer) { clearTimeout(joinTimer); joinTimer = null; }

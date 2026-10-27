@@ -166,6 +166,7 @@ function hurtPlayer(p, src, dmgRaw, knock) {
   if (p.hidden) endHide(p, '들켰다!');  // 숨은 중에 맞으면 드러남
   const dmg = Math.max(1, Math.round(dmgBase));
   p.hp -= dmg;
+  World.noteHit();  // 레이드 기록: 맞은 횟수
   p.state = 'hurt'; p.t = 0.3; p.act = null; p.charge = 0;  // 맞으면 모으던 기가 흩어진다
   p.kx = push.x * knock; p.ky = push.y * knock;
   p.iframes = 0.5;
@@ -190,6 +191,7 @@ function pctHurt(p, src) {
   const dmg = Math.max(1, Math.round(p.maxHp * src.pct * (p.markT > 0 ? RAID_RULE.markMul : 1)));
   if (p.hidden) endHide(p, '들켰다!');
   p.hp -= dmg;
+  World.noteHit();
   p.state = 'hurt'; p.t = 0.3; p.act = null; p.charge = 0;
   p.iframes = 0.5; p.flash = 0.12;
   World.shake(5);
@@ -215,6 +217,7 @@ function hazardDamage(p, dmg, col) {
   if (p.dead || p.safe || p.iframes > 0) return;
   dmg = Math.max(1, Math.round(dmg));
   p.hp -= dmg; p.flash = 0.06;
+  World.noteHit();
   World.number(p.x, p.y, 30, dmg, col);
   if (p.hp <= 0) downOrRevive(p);
 }

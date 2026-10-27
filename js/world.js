@@ -78,6 +78,7 @@ const World = (() => {
     // 방장: 같이 들어온 손님마다 몸(손님이 보낸 장비로). 처음 자리는 내 옆, 손님 위치가 오면 그리로
     rps = seed && Net.role === 'host' ? Coop.remotePlayers() : [];
     rps.forEach((q, i) => { q.x = p.x + 14 * (i + 1); q.y = p.y; });
+    raidBegin(def);
     msg = def.name + (diff && !def.endless ? ' · ' + DIFFS[diff].name : ''); msgT = 2.4;  // 끝없는 심연은 늘 영웅이라 안 붙임
   }
   // 방장: 그 손님이 던전을 나감 · 끊김 → 그 몸을 뺀다(몹은 남은 사람을 노린다)
@@ -180,6 +181,14 @@ const World = (() => {
   // ── 끝없는 심연: 다음 층(2026-10-25 사용자: 수호자를 잡고 계단을 내려가면 마을로 안 가고 바로 다음 층) ──
   // 런(골드 · 경험치 · 주운 것 · 체력)은 이어지고 층만 새로. 층 씨앗 = 파티 씨앗 + 층 → 파티원 모두 같은 층(방장이 내려가면 손님도 descend 소식으로)
   const floorSeed = f => (partySeed ? (partySeed + f * 7919) >>> 0 : 0);
+  // 레이드 기록(js/records.js): 들어오면 도전 +1, 이 판 맞은 횟수 · 파티였는지 새로
+  function raidBegin(def) {
+    if (!def.raid) return;
+    run.raidHits = 0; run.raidParty = false; delete run.raidRec;
+    Records.tried(prof, def.stage || 1);
+  }
+  // 내가 맞음(combat.js): 파수꾼이 깨어난 뒤 맞은 횟수
+  function noteHit() { if (lv && lv.def.raid && bossAwake && !ended && run) run.raidHits++; }
   function descend(floor) {
     const def = endlessDef(floor), seed = floorSeed(floor);
     RUN.ease = def.ease;
@@ -192,6 +201,7 @@ const World = (() => {
     p.state = 'idle'; p.act = null; p.charge = 0; p.safe = false; p.iframes = 1.5;
     run.dungeon = def; delete run.clearTime; delete run.newRecord; delete run.bestPrev;
     ended = null; bossAwake = false; raidT = 0;
+    raidBegin(def);
     enemies = []; shots = []; pshots = []; fx = []; texts = []; fields = [];
     Elements.reset();
     hitstopT = 0; shakeT = 0; time = 0; storyT = 0; comboN = 0; flow = null; flowT = 0; lastTile = -1;
@@ -394,6 +404,7 @@ const World = (() => {
     // 최종 보스 레이드: 제한 시간(파수꾼이 깨어난 뒤부터 · 멈칫(히트스톱) 동안도 흐름, 파티 손님도 화면 표시용으로 센다). 방장 · 혼자가 시간이 다 되면 실패(파티원도 같이)
     if (lv.def.raid && bossAwake && !ended && enemies.some(e => e.def.raid && alive(e))) {
       raidT += dt;
+      if (rps.length || mirror) run.raidParty = true;  // 한 번이라도 파티원과 싸웠으면 파티 기록(혼자 칭호는 처음부터 끝까지 혼자일 때만)
       if (raidT > RAID_RULE.time && !mirror) { run.raidFail = 'time'; msg = '시간이 다 됐다…'; msgT = 3; if (rps.length) Coop.leaveTogether('time'); finish('dead'); }
     }
     if (lv.def.practice) Practice.update(dt, enemies);  // 연습장: 허수아비 체력 채우기 · 측정 시간
@@ -618,6 +629,7 @@ const World = (() => {
     if (lv.def.raid) {  // 최종 보스 레이드: 깬 횟수(처음 깸 보상 · 고르기 줄 표시)
       Quests.on('raid');
       run.raidCleared = true;
+      run.raidRec = Records.cleared(prof, lv.def.stage || 1, raidT, run.raidHits || 0, !run.raidParty && !rps.length && !mirror);  // 기록 · 칭호
       prof.endless = Object.assign(prof.endless || {}, { raid: ((prof.endless && prof.endless.raid) || 0) + 1 });
     } else if (lv.def.endless) {  // 끝없는 심연: 깬 던전 수(10개)에는 안 들어가고 최고 층만
       run.endlessCleared = Math.max(run.endlessCleared || 0, lv.def.floor);
@@ -1106,11 +1118,14 @@ const World = (() => {
     for (const d of lv.drops) if (d.kind === 'item' && Math.hypot(d.x - p.x, d.y - p.y) < LIGHT_R + 60) Art.dropLabel(ctx, d);
     for (const t of texts) Art.floatText(ctx, t);
     if (lv.def.raid) Raid.labels(ctx);  // 레이드 공허 수정: 터지기까지 남은 초
-    for (const m of mates) if (inView(m.x, m.y)) {  // 파티원 이름표(직업, 파티 순서 색)는 어둠 위에(어디 있는지 보이게)
-      const nm = (m.cls && m.cls.name) || '친구';
-      ctx.font = 'bold 6px ' + Gfx.FONT; ctx.textAlign = 'center'; ctx.fillStyle = '#000';
-      ctx.fillText(nm, m.x + 0.5, m.y - 25.5); ctx.fillStyle = Coop.colorOf(m.pid); ctx.fillText(nm, m.x, m.y - 26); ctx.textAlign = 'left';
+    const tag = (s, x, y, col) => { ctx.font = 'bold 6px ' + Gfx.FONT; ctx.textAlign = 'center'; ctx.fillStyle = '#000'; ctx.fillText(s, x + 0.5, y + 0.5); ctx.fillStyle = col; ctx.fillText(s, x, y); ctx.textAlign = 'left'; };
+    for (const m of mates) if (inView(m.x, m.y)) {  // 파티원 이름표(직업, 파티 순서 색)는 어둠 위에(어디 있는지 보이게) · 단 칭호는 그 위
+      tag((m.cls && m.cls.name) || '친구', m.x, m.y - 26, Coop.colorOf(m.pid));
+      const mt = Coop.titleOf(m.pid);
+      if (mt && !m.hidden) tag('《' + mt + '》', m.x, m.y - 33, '#ffd36a');
     }
+    const myT = Records.titleOf(prof);  // 내가 단 칭호(2026-10-27, js/records.js)
+    if (myT && !p.hidden) tag('《' + myT + '》', p.x, p.y - 26, '#ffd36a');
     // 쓰러진 파티원: 머리 위 살리기 고리(누르고 있는 만큼 차오름) · 옆에 가면 안내
     for (const rv of Coop.reviveInfo()) if (inView(rv.m.x, rv.m.y)) {
       const x = rv.m.x, y = rv.m.y - 16;
@@ -1239,7 +1254,7 @@ const World = (() => {
     fx: addFx,
     text, number, sparks, impact, dust, onKill, shake, hitstop,
     // 파티(3단계)
-    applySnap, remoteKill, snapshot, dropRemote, takeover,
+    applySnap, remoteKill, snapshot, dropRemote, takeover, noteHit,
     as: (a, fn) => { const k = actor; actor = a; try { fn(); } finally { actor = k; } },  // a 가 하는 일로 계산(파티 방장: 손님 몸 동작)
     inputLock: false,  // 파티 던전에서 창을 연 동안: 던전은 흐르고 내 몸은 입력 없음(player.js moveInput)
     get remotes() { return rps; }, get mirror() { return mirror; }, get actor() { return actor; },

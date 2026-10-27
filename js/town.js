@@ -279,6 +279,7 @@ const Town = (() => {
     { label: '파티 (온라인 협동)', go: () => Game.overlay({ type: 'coop' }) },  // 2026-10-25 사용자: 방 코드로 2명
     { label: '장비 스테이터스', go: () => Game.overlay({ type: 'inv', mode: 'equip' }) },
     { label: '속성석 · 보석 관리', go: () => Game.overlay({ type: 'manage' }) },
+    { label: '기록 · 칭호', go: () => Game.overlay({ type: 'records' }) },  // 레이드 기록 · 칭호 달기(2026-10-27, js/records.js)
     { label: '설정 · 조작', go: () => Game.overlay({ type: 'settings' }) },
     { label: '이야기 다시 보기', go: () => Story.replay() },  // 오프닝 · 카엘의 인사(2026-10-25)
     ...(prof.story && prof.story.trueEnding ? [{ label: '진엔딩 다시 보기', go: () => Story.replayTrue() }] : []),
@@ -456,8 +457,14 @@ const Town = (() => {
       Gfx.text(ctx, line, gx, gy, 12, wh.col, 'center');
       ctx.restore();
     }
-    // 파티원 머리 위 이름표(파티 순서 색)
-    for (const m of mates) Gfx.text(ctx, clsOf(m.prof).name + ' Lv.' + (m.lv || '?'), sx(m.x), sy(m.y) - 62, 12, Coop.colorOf(m.pid), 'center');
+    // 파티원 머리 위 이름표(파티 순서 색) · 단 칭호(2026-10-27, js/records.js — 내 머리 위에도)
+    for (const m of mates) {
+      Gfx.text(ctx, clsOf(m.prof).name + ' Lv.' + (m.lv || '?'), sx(m.x), sy(m.y) - 62, 12, Coop.colorOf(m.pid), 'center');
+      const mt = Coop.titleOf(m.pid);
+      if (mt) Gfx.text(ctx, '《' + mt + '》', sx(m.x), sy(m.y) - 78, 11, '#ffd36a', 'center');
+    }
+    const myT = Records.titleOf(prof);
+    if (myT) Gfx.text(ctx, '《' + myT + '》', sx(p.x), sy(p.y) - 62, 12, '#ffd36a', 'center');
     Coop.drawBubbles(ctx, p, sx, sy);  // 파티 말풍선: 강화 · 합치기 · 유니크(내 머리 위 · 파티원 머리 위)
     // 아래 왼쪽: 마을 이름 · 캐릭터
     const by = 438;

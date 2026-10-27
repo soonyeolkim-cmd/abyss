@@ -44,6 +44,7 @@ const Game = (() => {
     if (o.type === 'jar') Jar.open(prof);
     if (o.type === 'craft') Craft.open(prof);
     if (o.type === 'quests') Quests.open(prof);
+    if (o.type === 'records') Records.open(prof);
     if (o.type === 'imprint') Imprint.open(prof);
     overlays.push(o);
     Input.clear();
@@ -85,6 +86,7 @@ const Game = (() => {
       else if (top.type === 'jar') Jar.update(top, prof);
       else if (top.type === 'craft') Craft.update(top, prof);
       else if (top.type === 'quests') Quests.update(top, prof);
+      else if (top.type === 'records') Records.update(top, prof);
       else if (top.type === 'imprint') Imprint.update(top, prof);
       else if (top.type === 'ride') Town.rideUpdate(top);  // 광차 타는 장면
       // 파티 던전은 창(가방 · 일시정지 · 계단 확인)을 열어도 멈추지 않는다 — 친구는 계속 싸우고 있음. 내 몸만 입력 없이
@@ -143,6 +145,7 @@ const Game = (() => {
       else if (o.type === 'jar') Jar.draw(ctx, o, prof);
       else if (o.type === 'craft') Craft.draw(ctx, o, prof);
       else if (o.type === 'quests') Quests.draw(ctx, o, prof);
+      else if (o.type === 'records') Records.draw(ctx, o, prof);
       else if (o.type === 'imprint') Imprint.draw(ctx, o, prof);
       else if (o.type === 'ride') Town.rideDraw(ctx, o);
     }

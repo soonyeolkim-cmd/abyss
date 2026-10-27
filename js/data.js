@@ -346,6 +346,19 @@ const RAID_RULE = { hpMul: 1.2, time: 420, shellCut: 0, exposedMul: 2, slams: 3,
   leap: { wind: 0.9, air: 0.35, h: 46 },  // 껍질 도약 내려찍기: wind 초 동안 내 발밑 예고(따라옴) → air 초 동안 그 자리로 날아와 내려찍기(높이 h)
   stun: 1.5, orbPct: 0.25, markT: 5, markMul: 1.3, wave: { delay: 0.5, speed: 240, w: 12, pct: 0.15, maxR: 560 },
   orbExpose: 5, orbSpeed: 120, orbBack: 1.15, rallyMax: 3, rallyChance: 0.5, essence: 10, cores: 1 };
+// 레이드 칭호(2026-10-27 사용자 — js/records.js): 레이드 단계(stage)마다 여덟 개. 꾸미기만(능력치 없음).
+// 처치 횟수는 파티로 깬 것도 셈, 질풍 · 섬광 · 흠집 하나 없이 · 고독한 사냥꾼은 혼자 깬 것만. 시간 = 파수꾼이 깨어난 뒤부터(초) — 210 · 120 은 손맛 보고 다시
+// ok(r) = 그 단계 기록 r(Records.rec)로 얻었는지, all = 같은 단계의 다른 칭호를 모두 얻으면. 한 번 얻으면 prof.titles 에 남는다
+const RAID_TITLES = [
+  { id: 'raid1', stage: 1, name: '파수꾼을 쓰러뜨린 자', cond: '심연의 파수꾼 처음 처치', ok: r => r.clears >= 1 },
+  { id: 'raid10', stage: 1, name: '심연의 사냥꾼', cond: '심연의 파수꾼 10번 처치 (파티 포함)', ok: r => r.clears >= 10 },
+  { id: 'raid50', stage: 1, name: '심연의 지배자', cond: '심연의 파수꾼 50번 처치 (파티 포함)', ok: r => r.clears >= 50 },
+  { id: 'swift1', stage: 1, name: '질풍', cond: '혼자 3분 30초 안에 처치', ok: r => !!r.solo && r.solo.time <= 210 },
+  { id: 'flash1', stage: 1, name: '섬광', cond: '혼자 2분 안에 처치', ok: r => !!r.solo && r.solo.time <= 120 },
+  { id: 'nohit1', stage: 1, name: '흠집 하나 없이', cond: '혼자 한 대도 안 맞고 처치', ok: r => !!r.solo && r.solo.hits === 0 },
+  { id: 'lone1', stage: 1, name: '고독한 사냥꾼', cond: '혼자 처치', ok: r => !!r.solo },
+  { id: 'abyss1', stage: 1, name: '심연을 꿰뚫은 자', cond: '위 칭호 일곱 개 모두', all: true },
+];
 Object.assign(ENEMIES, {
   abyss_raid: { name: '심연의 파수꾼', sprite: 'raid_warden', pix: true, idle: false, boss: true, raid: true, speed: 34, range: 30, superArmor: true, launchMul: 0, r: 16,
     atk: { windup: 0.6, active: 0.14, recovery: 0.7, knock: 200, reach: [0, 36], arc: 100, lunge: 120 },
@@ -526,7 +539,7 @@ function endlessDef(floor) {
 // 최종 보스 레이드 던전: 3층 세기 그대로 + 보스 체력 = 3층 중간 보스(mid.hp 배율 전) × hpMul, 공격 = mid.dmg 배율 전. 방 하나(js/raid.js level), 몹 무리 · 함정 없음
 function raidDef() {
   const d3 = endlessDef(ENDLESS.max);
-  return Object.assign({}, d3, { raid: true, floor: ENDLESS.max + 1, timeId: 'endlessRaid', name: '최종 보스 — 심연의 파수꾼', boss: 'abyss_raid', pool: [], hazard: null, music: 'order',
+  return Object.assign({}, d3, { raid: true, stage: 1, floor: ENDLESS.max + 1, timeId: 'endlessRaid', name: '최종 보스 — 심연의 파수꾼', boss: 'abyss_raid', pool: [], hazard: null, music: 'order',
     ease: Object.assign({}, d3.ease, { bhp: d3.ease.bhp / ENDLESS.mid.hp * RAID_RULE.hpMul, bdmg: d3.ease.bdmg / ENDLESS.mid.dmg }), desc: '심연의 밑바닥을 지키는 파수꾼.' });
 }
 

@@ -209,6 +209,8 @@ const UI = (() => {
           Art.avatar(ctx, p, x + w / 2 - 6, y + 210, 4, on ? time : 0);
           T_(ctx, clsOf(p).name + ' Lv.' + p.lv, x + w / 2, y + 250, 20, '#f0e0b8', 'center');
           if (p.story && p.story.trueEnding) T_(ctx, '★ 진엔딩', x + w / 2, y + 62, 14, '#ffd36a', 'center');  // 2026-10-25 심연의 문 영웅 클리어
+          const pt = Records.titleOf(p);  // 단 칭호(2026-10-27)
+          if (pt) T_(ctx, '《' + pt + '》', x + w / 2, y + 84, 13, '#5fe0d0', 'center');
           T_(ctx, '골드 ' + p.gold + 'G · 깬 던전 ' + Object.keys(p.cleared || {}).length + '/' + DUNGEONS.length, x + w / 2, y + 278, 13, '#9a8e96', 'center');
           if (p.equip.weapon) T_(ctx, Items.nameOf(p.equip.weapon), x + w / 2, y + 300, 12, RARITY[p.equip.weapon.rarity].color, 'center');
         } else {
@@ -1853,9 +1855,20 @@ const UI = (() => {
         ['골드', '+' + run.gold + 'G' + (run.lostGold ? '  (쓰러져서 -' + run.lostGold + 'G)' : '') + (run.essence ? '  · 심연 정수 +' + run.essence : '') + (run.cores ? '  · 심연의 핵 +' + run.cores : '')],
         ['시간', run.clearTime !== undefined ? fmtTime(run.clearTime) + (run.newRecord ? '  ★ 새 기록!' + (run.bestPrev ? ' (예전 ' + fmtTime(run.bestPrev) + ')' : '') : '  (최고 ' + fmtTime(run.bestPrev) + ')') : '보스를 못 쓰러뜨림 — 기록 없음'],
         ['주운 장비', run.items.length + '개' + (run.stones ? '  · 속성석 · 보석 ' + run.stones + '개' : '') + (run.scrolls ? '  · 주문서 ' + run.scrolls + '개' : '') + (run.autoSold ? '  · 자동 판매 ' + run.autoSold + '개' : '')]];
-      rows.forEach(([k, v], i) => { T_(ctx, k, 220, 190 + i * 30, 17, '#9a8e96'); T_(ctx, v, 360, 190 + i * 30, 17, k === '시간' && run.newRecord ? '#ffd36a' : '#f0e8dc'); });
-      run.items.slice(0, 8).forEach((it, i) => T_(ctx, it.name, 220 + (i % 2) * 280, 352 + Math.floor(i / 2) * 26, 15, RARITY[it.rarity].color));
-      if (run.items.length > 8) T_(ctx, '외 ' + (run.items.length - 8) + '개', 740, 452, 13, '#8a7e88', 'right');
+      // 레이드 처치(js/records.js): 시간 줄 = 파수꾼 처치 시간(혼자 · 파티 기록) · 맞은 횟수, 새 칭호 줄
+      const rr = kind === 'clear' && run.raidRec, gold = new Set();
+      if (rr) {
+        const who = rr.solo ? '혼자' : '파티';
+        rows[3] = ['처치 시간', fmtTime(rr.time) + ' (' + who + ')' + (rr.newTime ? '  ★ 새 기록!' + (rr.prevTime !== undefined ? ' (예전 ' + fmtTime(rr.prevTime) + ')' : '') : '  (최고 ' + fmtTime(rr.prevTime) + ')')];
+        rows.splice(4, 0, ['맞은 횟수', rr.hits + '번' + (rr.hits ? '' : ' — 무피격!') + (rr.newHits && rr.prevHits !== undefined ? '  ★ 새 기록 (예전 ' + rr.prevHits + '번)' : '')]);
+        if (rr.newTime) gold.add('처치 시간');
+        if (rr.newHits || !rr.hits) gold.add('맞은 횟수');
+        if (rr.titles.length) { rows.push(['칭호', '★ ' + rr.titles.join(' · ') + ' 획득!']); gold.add('칭호'); }
+      } else if (run.newRecord) gold.add('시간');
+      rows.forEach(([k, v], i) => { T_(ctx, k, 220, 190 + i * 30, 17, '#9a8e96'); T_(ctx, v, 360, 190 + i * 30, 17, gold.has(k) ? '#ffd36a' : '#f0e8dc'); });
+      const iy = 202 + rows.length * 30, cap = rows.length > 5 ? 4 : 8;  // 줄이 늘면 장비 이름은 두 줄까지
+      run.items.slice(0, cap).forEach((it, i) => T_(ctx, it.name, 220 + (i % 2) * 280, iy + Math.floor(i / 2) * 26, 15, RARITY[it.rarity].color));
+      if (run.items.length > cap) T_(ctx, '외 ' + (run.items.length - cap) + '개', 740, Math.min(462, iy + cap / 2 * 26), 13, '#8a7e88', 'right');
       T_(ctx, '마을로 ' + L('ok'), 480, 510, 15, '#c8b8a0', 'center');
     },
   };
