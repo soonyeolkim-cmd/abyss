@@ -883,19 +883,34 @@ const UI = (() => {
     Game.changed();
   }
 
-  // ── 속성석: 관리(socket, 끼우기 · 빼기) · 세공사 합치기(craft, 속성석 · 보석 탭) ──
+  // ── 속성석: 관리(socket, 끼우기 · 빼기) · 세공사 합치기 · 쪼개기(craft, 속성석 · 보석 탭) ──
   const CRAFT_TABS = [{ name: '속성석', order: EL_ORDER }, { name: '보석', order: GEM_ORDER }];
+  // 쪼개기(2026-10-27 사용자): 하나 → 한 단계 작은 것 3개, 값 SPLIT_COST(합치기의 SPLIT_MUL 배)
+  function splitStone(prof, st) {
+    const cost = SPLIT_COST(st.size);
+    if (st.size <= 0) { Sfx.deny(); Game.toast('조각은 더 쪼갤 수 없어요'); return; }
+    if (prof.gold < cost) { Sfx.deny(); Game.toast('골드가 모자라요 (' + cost + 'G)'); return; }
+    const small = { el: st.el, size: st.size - 1 };
+    Elements.take(prof, st);
+    for (let i = 0; i < 3; i++) Elements.add(prof, small);
+    prof.gold -= cost;
+    Sfx.stone();
+    Game.toast(stoneName(st) + ' → ' + stoneName(small) + ' ×3 (-' + cost + 'G)');
+    Game.changed();
+  }
   const stones = {
-    zone: 'slot', slot: 0, pick: 0, tab: 0,
-    open(mode) { this.zone = mode === 'craft' ? 'list' : 'slot'; this.slot = 0; this.pick = 0; },
+    zone: 'slot', slot: 0, pick: 0, tab: 0, split: false,
+    open(mode) { this.zone = mode === 'craft' ? 'list' : 'slot'; this.slot = 0; this.pick = 0; this.split = false; },
     list(o, prof) { return Elements.stacks(prof, o.mode === 'craft' ? CRAFT_TABS[this.tab].order : EL_ORDER); },
     update(o, prof) {
       const list = this.list(o, prof);
       if (o.mode === 'craft') {
         if (Input.wasPressed('back') || Input.wasPressed('pause')) { Game.closeOverlay(); return; }
         if (Input.nav('left') || Input.nav('right')) { this.tab = 1 - this.tab; this.pick = 0; return; }  // 탭 바꾸기
+        if (Input.wasPressed('special')) { this.split = !this.split; return; }  // 합치기 ↔ 쪼개기
         this.pick = list.length ? menuNav(Math.min(this.pick, list.length - 1), list.length) : 0;
         if (!Input.wasPressed('ok') || !list.length) return;
+        if (this.split) { splitStone(prof, list[this.pick]); return; }
         const st = list[this.pick], cost = COMBINE_COST(st.size);
         if (st.size >= STONE_SIZES.length - 1) { Sfx.deny(); Game.toast('가장 큰 크기예요'); }
         else if (st.n < 3) { Sfx.deny(); Game.toast('같은 크기 3개가 있어야 합칠 수 있어요'); }
@@ -934,9 +949,34 @@ const UI = (() => {
       Gfx.panel(ctx, 24, 24, 450, 470);
       if (o.mode === 'craft') {
         T_(ctx, '세공사', 44, 64, 24, '#f0e0b8');
+        [['합치기', false], ['쪼개기', true]].forEach(([name, sp], i) => {  // 합치기 | 쪼개기 (키: 특수기 버튼)
+          const x = 280 + i * 92, on = this.split === sp;
+          zone(x, 38, 86, 34, { pick: () => { this.split = sp; }, key: null });
+          ctx.fillStyle = on ? 'rgba(255,211,106,0.16)' : 'rgba(255,255,255,0.04)'; ctx.fillRect(x, 40, 86, 30);
+          ctx.strokeStyle = on ? '#ffd36a' : '#4a3a40'; ctx.lineWidth = 2; ctx.strokeRect(x + 1, 41, 84, 28);
+          T_(ctx, name, x + 43, 61, 15, on ? '#ffd36a' : '#8a7e88', 'center');
+        });
+        const st = list[this.pick];
+        if (this.split) {
+          T_(ctx, '하나를 쪼개 한 단계 작은 것 3개로 — 합치기의 ' + SPLIT_MUL + '배 골드', 44, 94, 14, '#c8b8a0');
+          T_(ctx, '크기: ' + STONE_SIZES.map(s => s.name).join(' → '), 44, 118, 13, '#9a8e96');
+          if (st) {
+            const gem = !!GEMS[st.el], small = { el: st.el, size: st.size - 1 };
+            Gfx.stoneIcon(ctx, st, 110, 182, 60);
+            T_(ctx, stoneName(st), 110, 244, 15, ELEMENTS[st.el].color, 'center');
+            if (st.size > 0) {
+              T_(ctx, '→', 220, 192, 30, '#c8b8a0', 'center');
+              Gfx.stoneIcon(ctx, small, 330, 182, 60);
+              T_(ctx, stoneName(small) + ' ×3', 330, 244, 15, ELEMENTS[st.el].color, 'center');
+              const cost = SPLIT_COST(st.size), poor = prof.gold < cost;
+              T_(ctx, '비용 ' + cost + 'G' + (poor ? ' (골드 부족)' : '') + ' · 가진 개수 ' + st.n, 44, 284, 14, poor ? '#ff8a6a' : '#7dff8a');
+              if (gem) { T_(ctx, '지금: ' + gemText(st), 44, 310, 13, '#c8b8a0'); T_(ctx, '쪼개면: ' + gemText(small) + ' ×3', 44, 332, 13, '#c8b8a0'); }
+              else T_(ctx, '세기 ×' + STONE_SIZES[st.size].power + ' → ×' + STONE_SIZES[small.size].power + ' (3개)', 44, 308, 14, '#c8b8a0');
+            } else T_(ctx, '조각은 더 쪼갤 수 없어요', 44, 284, 14, '#c8b8a0');
+          }
+        } else {
         T_(ctx, '같은 종류 · 같은 크기 3개를 합쳐 한 단계 크게', 44, 94, 14, '#c8b8a0');
         T_(ctx, '크기: ' + STONE_SIZES.map(s => s.name).join(' → '), 44, 118, 13, '#9a8e96');
-        const st = list[this.pick];
         if (st) {
           const can = st.size < STONE_SIZES.length - 1, gem = !!GEMS[st.el];
           Gfx.stoneIcon(ctx, st, 110, 182, 60);
@@ -955,10 +995,11 @@ const UI = (() => {
             if (gem) T_(ctx, gemText(st), 44, 310, 13, '#c8b8a0');
           }
         }
-        // 속성석: 크기별로 열리는 능력(✓ 지금 열림 · 노랑 = 합치면 열림 · 회색 = 아직)
+        }
+        // 속성석: 크기별로 열리는 능력(✓ 지금 열림 · 노랑 = 합치면 열림 · 회색 = 아직 — 쪼개기 중엔 노랑 없음)
         if (st && !GEMS[st.el]) {
           const ab = { basic: elAbil(st.el, 'basic', prof), charge: elAbil(st.el, 'charge', prof), wave: elAbil(st.el, 'wave', prof), dash: elAbil(st.el, 'dash', prof), p1: EL_ABIL[st.el].p1, p2: EL_ABIL[st.el].p2 },
-            next = Math.min(STONE_SIZES.length - 1, st.size + 1);
+            next = this.split ? st.size : Math.min(STONE_SIZES.length - 1, st.size + 1);
           const row = (y, tier, head, desc) => {
             const need = EL_UNLOCK[tier], now = st.size >= need, soon = !now && next >= need;
             T_(ctx, (now ? '✓ ' : soon ? '합치면 열림 ▶ ' : '· ') + head, 44, y, 13, now ? '#7dff8a' : soon ? '#ffd36a' : '#8a7e88');
@@ -1006,7 +1047,7 @@ const UI = (() => {
         T_(ctx, t.name, x + 55, 62, 17, on ? '#ffd36a' : '#8a7e88', 'center');
       });
       if (craft && !Input.touchMode()) T_(ctx, '←→ 탭 바꾸기', 746, 61, 12, '#8a7e88');
-      hintBar(ctx, craft ? '탭 바꾸기 ←→ · 합치기 ' + L('ok') + ' · 닫기 ' + L('back')
+      hintBar(ctx, craft ? '탭 바꾸기 ←→ · ' + (this.split ? '쪼개기 ' : '합치기 ') + L('ok') + ' · 합치기/쪼개기 ' + L('special') + ' · 닫기 ' + L('back')
         : this.zone === 'slot' ? '칸 고르기 ↑↓ · 바꾸기 ' + L('ok') + ' · 닫기 ' + L('back') : '돌 고르기 ↑↓ · 끼우기 ' + L('ok') + ' · 돌아가기 ' + L('back'));
     },
   };

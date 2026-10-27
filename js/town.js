@@ -51,9 +51,9 @@ const Town = (() => {
         EQUIP_ITEM,
         { label: '항아리 이야기 듣기', go: () => Story.talkNpc('gambler') },
       ] }) },
-    { id: 'jewel', name: '세공사 미라', role: '속성석 · 보석 합치기 · 관리', sprite: 'wizzard_f', ...px(2, 9), flip: false,
+    { id: 'jewel', name: '세공사 미라', role: '속성석 · 보석 합치기 · 쪼개기 · 관리', sprite: 'wizzard_f', ...px(2, 9), flip: false,
       go: () => Game.overlay({ type: 'choice', title: '세공사 미라', items: [
-        { label: '속성석 · 보석 합치기', go: () => Game.overlay({ type: 'stones', mode: 'craft' }) },
+        { label: '속성석 · 보석 합치기 · 쪼개기', go: () => Game.overlay({ type: 'stones', mode: 'craft' }) },
         { label: '속성석 · 보석 관리', go: () => Game.overlay({ type: 'manage' }) },
         ...(endlessOpen(prof) ? [{ label: '원소 각인 (★' + Elements.stars(prof) + ')', go: () => Game.overlay({ type: 'imprint' }) }] : []),  // 2026-10-26 끝없는 심연이 열린 뒤
         EQUIP_ITEM,

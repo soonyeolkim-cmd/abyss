@@ -784,6 +784,10 @@ const stoneName = s => (s.size === 0 ? ELEMENTS[s.el].stone + ' 조각' : STONE_
 // 조각→작은 300 · 작은→보통 900 · 보통→큰 2500 · 큰→완전한 6000 · 완전한→전설 15000 · 전설→태초 35000
 const COMBINE_COSTS = [300, 900, 2500, 6000, 15000, 35000];
 const COMBINE_COST = size => COMBINE_COSTS[size] || 0;
+// 쪼개기(2026-10-27 사용자: 하나 → 한 단계 작은 것 3개, '합치기보다 비싸게'): 그 단계를 합칠 때 값 × SPLIT_MUL — 합쳤다 쪼개면 골드만 줄어든다
+// 작은→조각 600 · 보통→작은 1800 · 큰→보통 5000 · 완전한→큰 12000 · 전설→완전한 30000 · 태초→전설 70000
+const SPLIT_MUL = 2;
+const SPLIT_COST = size => (size > 0 ? COMBINE_COST(size - 1) * SPLIT_MUL : 0);
 // 상태이상 기본 수치
 const FREEZE_AT = 4;          // 냉기가 이만큼 쌓이면 빙결(보스는 균열)
 const WAVE_CUT = { t: 4, vuln: 0.25 };  // 검사 검기에 맞은 적: 베인 상처 4초 · 받는 피해 +25%
