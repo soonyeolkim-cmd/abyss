@@ -866,11 +866,6 @@ const World = (() => {
   }
 
   // ── 몹이 쓰러짐 ──
-  // 심연의 핵 수: 1 + (빨리 깨면 fastCore, 아니면 extraCore 확률로 하나 더) + 처음 깨면 하나 더(파티는 각자 굴림)
-  function raidCores() {
-    const R = RAID_RULE;
-    return 1 + (Math.random() < (raidT <= R.fastTime ? R.fastCore : R.extraCore) ? 1 : 0) + (prof.endless && prof.endless.raid ? 0 : 1);
-  }
   function onKill(e) {
     if (e.def.part) { Raid.partDied(e); return; }  // 레이드 부품(공허 수정 · 구슬): 경험치 · 전리품 · 처치 수 없음
     Elements.onDeath(e);  // 연쇄 폭발(화염 패시브)
@@ -938,7 +933,7 @@ const World = (() => {
     if (d.boss) {
       const bossItems = [mk(lv.ilvlR[1], { boost: 0.8 })];
       if (lv.ilvlR[1] < UNIQUE_CRAFT_LV && Math.random() < UNIQUE_DROP.boss * DIFFS[RUN.diff].uniq * lowUniq(prof.lv, dlv())) bossItems.push(Items.makeUnique(lv.ilvlR[1]));  // Lv.100 유니크는 제작으로만
-      loot(e.x, e.y, { gold: goldRoll(d.gold), items: bossItems, stones: [rollStone(STONE_BOSS_BOOST), rollStone(STONE_BOSS_BOOST)], scrolls: Array.from({ length: SCROLL_DROP_RATE.boss }, rollScroll), essence: essenceRoll('boss'), cores: d.raid ? raidCores() : 0 });
+      loot(e.x, e.y, { gold: goldRoll(d.gold), items: bossItems, stones: [rollStone(STONE_BOSS_BOOST), rollStone(STONE_BOSS_BOOST)], scrolls: Array.from({ length: SCROLL_DROP_RATE.boss }, rollScroll), essence: essenceRoll('boss'), cores: d.raid ? RAID_RULE.cores : 0 });  // 심연의 핵: 레이드를 깨면 늘 cores 개(파티는 각자)
       shake(5);
       bossCleared(e);
       return;

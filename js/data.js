@@ -334,7 +334,7 @@ Object.assign(ENEMIES, {
 //   패턴이 바뀔 때 포효 파동 wave(delay 뒤 speed 로 퍼지는 두께 w 고리, 맞으면 최대 체력 pct — 대시로 넘으면 안 맞음)
 //   ③ 되받아치기: 공허 구슬을 던짐 → 어떤 공격으로든 치면 보스 쪽으로 되돌아감(orbBack 배 빨라짐) → 맞으면 orbExpose 초 노출.
 //      보스가 rallyChance 로 다시 쳐 냄(랠리, rallyMax 번까지 — 그다음엔 꼭 맞음) · 사방 탄
-// 보상: 심연의 핵 1(+ fastTime 초 안 = fastCore, 아니면 extraCore 확률로 하나 더, 처음 깨면 하나 더) · 심연 정수 essence · 보통 보스 전리품(Lv.100 유니크는 제작으로만)
+// 보상: 심연의 핵 cores 개(2026-10-27 사용자: 빨리 깸 · 확률 · 첫 깸 덤 없이 늘 1개) · 심연 정수 essence · 보통 보스 전리품(Lv.100 유니크는 제작으로만)
 // 수치는 실제로 재 보지 못함(hpMul · time 은 손맛 보고 다시)
 // 2026-10-26 시험(무적 · 공격 ×40 시험 캐릭터): hpMul 5 · 내려찍기 3번 · 노출 ×1.5 로는 1단계만 2분, hpMul 3 이어도 2단계에서 4분이 넘음
 //   → 체력 = 중간 보스 × 1.2(드러날 때만 제대로 맞으니 실제로는 중간 보스 몇 배 걸림) · 내려찍기 2번 · ×2 · 노출 시간 늘리고 제한 5분
@@ -342,7 +342,7 @@ Object.assign(ENEMIES, {
 const RAID_RULE = { hpMul: 1.2, time: 420, shellCut: 0, exposedMul: 2, slams: 3, slamExpose: 4, pillarExpose: 6, crystalExpose: 7, crystalTime: 15, crystalPct: 0.2, repeat: [2, 3], shift: 1.2,
   leap: { wind: 0.9, air: 0.35, h: 46 },  // 껍질 도약 내려찍기: wind 초 동안 내 발밑 예고(따라옴) → air 초 동안 그 자리로 날아와 내려찍기(높이 h)
   stun: 1.5, orbPct: 0.25, markT: 5, markMul: 1.3, wave: { delay: 0.5, speed: 240, w: 12, pct: 0.15, maxR: 560 },
-  orbExpose: 5, orbSpeed: 120, orbBack: 1.15, rallyMax: 3, rallyChance: 0.5, essence: 10, fastTime: 210, fastCore: 0.5, extraCore: 0.15 };
+  orbExpose: 5, orbSpeed: 120, orbBack: 1.15, rallyMax: 3, rallyChance: 0.5, essence: 10, cores: 1 };
 Object.assign(ENEMIES, {
   abyss_raid: { name: '심연의 파수꾼', sprite: 'raid_warden', pix: true, idle: false, boss: true, raid: true, speed: 34, range: 30, superArmor: true, launchMul: 0, r: 16,
     atk: { windup: 0.6, active: 0.14, recovery: 0.7, knock: 200, reach: [0, 36], arc: 100, lunge: 120 },
