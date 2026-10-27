@@ -119,6 +119,8 @@ const Items = (() => {
       const t = total(it);
       for (const k in t) s[k] = (s[k] || 0) + t[k];
     }
+    const cb = collectSteps(prof);  // 도감 보상: 창고 컬렉션 10칸마다 체력 · 공격력 +1%
+    if (cb) { s.atk = Math.round(s.atk * (1 + cb * COLLECT.atk / 100)); s.hp = Math.round(s.hp * (1 + cb * COLLECT.hp / 100)); }
     s.aspd = Math.min(STATS.aspd.cap, s.aspd);
     s.move = Math.min(STATS.move.cap, s.move);
     s.sp = C.stamina.base + s.stamina;  // 최대 기력

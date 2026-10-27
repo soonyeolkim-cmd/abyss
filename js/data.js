@@ -584,6 +584,30 @@ const VAULT_CATS = [{ id: 'weapon_light', slot: 'weapon', cls: 'swordsman', name
 VAULT_CATS.forEach(c => { c.uniq = Object.keys(UNIQUES).find(u => UNIQUES[u].slot === c.slot); });
 const vaultCat = it => (it.slot === 'weapon' ? 'weapon_' + (Items.base(it).kind || 'light') : it.slot);
 const vaultKey = it => vaultCat(it) + ':' + tierOf(it.ilvl);
+// 의뢰 게시판(2026-10-27 사용자: 일일 1 · 주간 2, 일일은 자정 · 주간은 월요일에 바뀜 — 폰 시계, js/quests.js)
+// ev = 세는 일: kill 몹 · elite 정예 · 고유 몹 · boss 보스(중간 보스 · 레이드 포함) · enchant 강화 시도 · merge 속성석 · 보석 합치기 · raid 최종 보스 레이드 깸 · abyss3 끝없는 심연 3층 수호자.
+// gate: kill · elite · boss 는 던전 레벨이 (의뢰 받을 때 내 레벨 − gate, 단 들어갈 수 있는 가장 높은 던전 레벨까지) 이상일 때만 셈(낮은 던전 돌기 막기). abyss = 끝없는 심연이 열리고 입장 레벨인 캐릭터만.
+// 못 하는 의뢰는 안 나온다(2026-10-27 사용자: 강화 한도 등) — 받은 뒤 못 하게 되면 할 수 있는 다른 의뢰로 바뀜(quests.js possible · refit).
+// 보상: 골드 = 던전 runs 판쯤(runGold × 판 × 레벨 골드 곡선 × GOLD_MUL) + 축복받은 강화 주문서 scrolls 장 + (일일) 보통 속성석 1(무작위 속성) · (주간) 심연이 열렸으면 정수 essence
+const QUEST = {
+  gate: 10, runGold: 1000,
+  daily: [{ ev: 'kill', name: '몹 처치', n: 150 }, { ev: 'elite', name: '정예 · 고유 몹 처치', n: 15 }, { ev: 'boss', name: '보스 처치', n: 2 },
+    { ev: 'enchant', name: '장비 강화 시도', n: 5 }, { ev: 'merge', name: '속성석 · 보석 합치기', n: 2 }],
+  weekly: [{ ev: 'kill', name: '몹 처치', n: 800 }, { ev: 'elite', name: '정예 · 고유 몹 처치', n: 80 }, { ev: 'boss', name: '보스 처치', n: 12 },
+    { ev: 'enchant', name: '장비 강화 시도', n: 25 }, { ev: 'raid', name: '최종 보스 레이드 깨기', n: 1, abyss: true }, { ev: 'abyss3', name: '끝없는 심연 3층 수호자 처치', n: 2, abyss: true }],
+  reward: { daily: { runs: 1, scrolls: 3, stone: 2 }, weekly: { runs: 3, scrolls: 5, essence: 20 } },
+};
+// 도감 보상(2026-10-27 사용자): 창고 컬렉션(내 직업 무기 두 줄 + 여섯 부위 × 10단계 = 80칸)에 per 칸 모일 때마다 영구 체력 · 공격력 +hp · +atk %,
+// 한 줄(한 부위 10단계)을 다 채우면 칭호 '○○ 수집가', 80칸 모두면 '전설의 수집가'. 꺼내면 다시 빠진다(넣어 둔 것만 셈)
+const COLLECT = { cols: 10, per: 10, hp: 1, atk: 1 };
+const vaultCatsOf = prof => VAULT_CATS.filter(c => !c.cls || c.cls === clsOf(prof).id);
+const vaultLine = (prof, id) => { let n = 0; for (let c = 0; c < COLLECT.cols; c++) if (prof.vault && prof.vault[id + ':' + c]) n++; return n; };
+const vaultTotal = prof => vaultCatsOf(prof).reduce((a, c) => a + vaultLine(prof, c.id), 0);
+const collectSteps = prof => (prof.vault ? Math.floor(vaultTotal(prof) / COLLECT.per) : prof.cb || 0);  // 파티 손님 몸(kitProf)은 cb 로 받는다
+function collectTitles(prof) {
+  const cats = vaultCatsOf(prof), full = cats.filter(c => vaultLine(prof, c.id) >= COLLECT.cols).map(c => c.name + ' 수집가');
+  return full.length === cats.length ? ['전설의 수집가', ...full] : full;
+}
 // 골드 줍는 양 배율(2026-10-24 사용자: 골드가 너무 모자라다 → 조금 올림)
 const GOLD_MUL = 1.3;
 // 던전 레벨에 따른 골드 곡선(2026-10-25 사용자: 다음 던전일수록 더 주되 기울기가 점점 낮아지게 — "큰 차이가 안 나는 수준").

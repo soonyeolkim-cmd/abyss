@@ -922,6 +922,7 @@ const UI = (() => {
           prof.gold -= cost;
           Sfx.combine(big.size);
           Coop.brag({ kind: 'stone', stone: big });  // 파티: 머리 위에 합친 속성석 · 보석(친구 화면에도)
+          Quests.on('merge');  // 의뢰: 합치기
           Game.toast(stoneName(big) + ' 완성! (-' + cost + 'G)');
           Game.changed();
         }
@@ -1223,6 +1224,7 @@ const UI = (() => {
       Items.takeScroll(prof, s);
       const stat = SCROLL_GROUPS[scrollGroupOf(it.slot)].stat, had = (it.ench || {})[stat] || 0;
       const before = it.ups || 0, res = Items.enchant(it, s);
+      Quests.on('enchant');  // 의뢰: 강화 시도(성공 · 실패 모두)
       // 연출용 불꽃 · 연기 조각(미리 정해 둔다)
       const parts = [];
       for (let i = 0; i < 40; i++) parts.push({ a: Math.random() * Math.PI * 2, v: 0.5 + Math.random(), r: 1 + Math.random() * 2.5, d: Math.random() });
@@ -1511,7 +1513,14 @@ const UI = (() => {
   const vaultCats = prof => VAULT_CATS.filter(c => !c.cls || c.cls === clsOf(prof).id);  // 무기 줄은 이 캐릭터 직업 것만
   const vaultCount = (prof, cat) => { let n = 0; for (let c = 0; c < VAULT_COLS; c++) if (prof.vault[cat + ':' + c]) n++; return n; };
   const lvName = c => (c ? 'Lv.' + c * 10 : '착용 레벨 없음');
+  // 넣은 뒤 도감 보상이 오르거나 칭호가 생겼으면 알림(2026-10-27)
+  function collectNote(prof, cb0, titles0) {
+    const cb = collectSteps(prof), nt = collectTitles(prof).filter(t => !titles0.includes(t));
+    if (nt.length) { Sfx.unique(); Game.toast('칭호 ★ ' + nt[0] + ' — 도감 보상 체력 · 공격력 +' + cb * COLLECT.hp + '%'); }
+    else if (cb > cb0) { Sfx.unique(); Game.toast('도감 보상! 체력 · 공격력 +' + cb * COLLECT.hp + '%'); }
+  }
   function vaultPutAll(prof) {
+    const cb0 = collectSteps(prof), t0 = collectTitles(prof);
     let n = 0;
     for (const cat of vaultCats(prof)) for (let c = 0; c < VAULT_COLS; c++) {
       const key = cat.id + ':' + c;
@@ -1520,7 +1529,7 @@ const UI = (() => {
       if (i >= 0) { prof.vault[key] = prof.bag[i]; prof.bag[i] = null; n++; }
     }
     Game.toast(n ? '유니크 ' + n + '개를 창고에 넣었어요' : '가방에 새로 넣을 유니크가 없어요');
-    if (n) Game.changed();
+    if (n) { Game.changed(); collectNote(prof, cb0, t0); }
   }
   const vault = {
     r: 0, c: 0,
@@ -1537,7 +1546,7 @@ const UI = (() => {
       const cat = vaultCats(prof)[this.r], key = cat.id + ':' + this.c, have = prof.vault[key];
       if (have) {
         if (prof.bag.indexOf(null) < 0) { Game.toast('가방이 가득 찼어요'); return; }
-        Game.overlay({ type: 'confirm', text: Items.nameOf(have) + '을(를) 가방으로 꺼낼까요?', sub: '꺼내면 컬렉션 칸이 다시 비어요',
+        Game.overlay({ type: 'confirm', text: Items.nameOf(have) + '을(를) 가방으로 꺼낼까요?', sub: '꺼내면 컬렉션 칸이 다시 비어요 (도감 보상도 그만큼 줄어요)',
           yes: () => {
             const e = prof.bag.indexOf(null);
             if (e < 0 || prof.vault[key] !== have) return;
@@ -1548,9 +1557,11 @@ const UI = (() => {
       }
       const i = vaultFind(prof, key);
       if (i < 0) { Game.toast('가방에 ' + lvName(this.c) + ' ' + cat.name + ' 유니크가 없어요'); return; }
+      const cb0 = collectSteps(prof), t0 = collectTitles(prof);
       prof.vault[key] = prof.bag[i]; prof.bag[i] = null;
       Game.toast(prof.vault[key].name + ' 창고에 넣음 · ' + cat.name + ' ' + vaultCount(prof, cat.id) + '/' + VAULT_COLS);
       Game.changed();
+      collectNote(prof, cb0, t0);
     },
     draw(ctx, o, prof) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1559,6 +1570,9 @@ const UI = (() => {
       const total = vaultCats(prof).reduce((a, cat) => a + vaultCount(prof, cat.id), 0), all = vaultCats(prof).length * VAULT_COLS;
       T_(ctx, '창고 — 유니크 컬렉션', 44, 62, 24, '#f0e0b8');
       T_(ctx, '전체 달성 ' + total + '/' + all + ' (' + Math.floor(total / all * 100) + '%)', 916, 62, 18, '#ffd34d', 'right');
+      // 도감 보상(2026-10-27): 10칸마다 체력 · 공격력 +1%, 줄을 다 채우면 칭호(줄 이름 옆 ★)
+      const cb = collectSteps(prof), left = COLLECT.per - total % COLLECT.per, legend = collectTitles(prof)[0] === '전설의 수집가';
+      T_(ctx, '도감 보상 체력 · 공격력 +' + cb * COLLECT.hp + '%' + (total < all ? ' · 다음 +1%까지 ' + left + '칸' : '') + (legend ? ' · ★ 전설의 수집가' : ''), 520, 62, 14, '#7dff8a', 'center');
       const X0 = 214, CS = 32, STEP = 40, Y0 = 104, RH = 36;
       // 칸 머리: 착용 레벨
       for (let c = 0; c < VAULT_COLS; c++) T_(ctx, c ? 'Lv' + c * 10 : '없음', X0 + c * STEP + CS / 2, 94, 11, this.c === c ? '#ffd36a' : '#9a8e96', 'center');
@@ -1567,6 +1581,7 @@ const UI = (() => {
       vaultCats(prof).forEach((cat, r) => {
         const y = Y0 + r * RH, n = vaultCount(prof, cat.id);
         T_(ctx, cat.name, 44, y + 22, 15, this.r === r ? '#ffd36a' : '#f0e0b8');  // 유니크 이름 · 효과는 아래 설명 칸에만(2026-10-24 사용자)
+        if (n >= VAULT_COLS) T_(ctx, '★ ' + cat.name + ' 수집가', 104, y + 22, 11, '#ffd34d');  // 줄 칭호
         for (let c = 0; c < VAULT_COLS; c++) {
           const x = X0 + c * STEP, it = prof.vault[cat.id + ':' + c], on = this.r === r && this.c === c;
           zone(x - 4, y - 2, STEP, RH, { on: () => this.r === r && this.c === c, pick: () => { this.r = r; this.c = c; } });

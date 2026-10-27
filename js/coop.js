@@ -259,8 +259,8 @@ const Coop = (() => {
   // 손님 → 방장: 동작(act) · 위치(pos의 x · y · 스틱 · 무적) · 장비(kit). 방장 → 그 손님: 몹 소식(snap, 1초 20번) · 맞음(hurt). 방장 → 모두: 처치(kill).
   const evQ = new Map();  // 손님마다 모아 둔 효과 알림
   let snapQ = [], runKits = new Map();
-  const myKit = () => { const pr = Game.prof; return { cls: pr.cls || 'swordsman', lv: pr.lv, equip: pr.equip, sockets: pr.sockets, imprint: pr.imprint || 0 }; };  // imprint = 원소 각인(방장이 손님 속성석 세기를 셈)
-  const kitProf = k => ({ cls: k.cls, lv: k.lv, equip: k.equip, sockets: k.sockets, imprint: k.imprint || 0, potions: 0, stones: {}, scrolls: {} });
+  const myKit = () => { const pr = Game.prof; return { cls: pr.cls || 'swordsman', lv: pr.lv, equip: pr.equip, sockets: pr.sockets, imprint: pr.imprint || 0, cb: collectSteps(pr) }; };  // imprint = 원소 각인(방장이 손님 속성석 세기를 셈) · cb = 도감 보상 단계
+  const kitProf = k => ({ cls: k.cls, lv: k.lv, equip: k.equip, sockets: k.sockets, imprint: k.imprint || 0, cb: k.cb || 0, potions: 0, stones: {}, scrolls: {} });
   // 방장: 같이 들어온 손님마다 그 장비로 만든 몸(world.js start)
   function remotePlayers() {
     const out = [];

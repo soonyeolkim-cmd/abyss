@@ -614,7 +614,9 @@ const World = (() => {
     if (lv.def.endless && lv.def.floor < ENDLESS.max) lv.stairs.label = (lv.def.floor + 1) + '층으로 가는 계단';
     if (lv.def.endless && lv.def.floor === ENDLESS.max) lv.stairs.label = '최종 보스에게 가는 계단';
     msg = lv.def.raid ? '심연의 파수꾼을 쓰러뜨렸다!' : lv.def.endless ? '중간 보스를 쓰러뜨렸다!' : '보스를 쓰러뜨렸다!'; msgT = 2.5;  // 끝없는 심연 1~3층 수호자 = 중간 보스(2026-10-26 사용자, 최종 보스는 레이드)
+    if (lv.def.endless && lv.def.floor === ENDLESS.max) Quests.on('abyss3');  // 의뢰: 3층 수호자
     if (lv.def.raid) {  // 최종 보스 레이드: 깬 횟수(처음 깸 보상 · 고르기 줄 표시)
+      Quests.on('raid');
       run.raidCleared = true;
       prof.endless = Object.assign(prof.endless || {}, { raid: ((prof.endless && prof.endless.raid) || 0) + 1 });
     } else if (lv.def.endless) {  // 끝없는 심연: 깬 던전 수(10개)에는 안 들어가고 최고 층만
@@ -931,6 +933,11 @@ const World = (() => {
     run.kills++;
     Sfx.kill();
     if (e.rank === 'elite' || e.rank === 'unique') Sfx.grunt();  // 정예 · 고유 몹은 신음 소리도
+    if (!d.part && !d.dummy) {  // 의뢰 게시판 진행(js/quests.js) — 던전 레벨로 낮은 던전은 안 셈
+      Quests.on('kill', dlv());
+      if (e.rank === 'elite' || e.rank === 'unique') Quests.on('elite', dlv());
+      if (d.boss) Quests.on('boss', dlv());
+    }
     const rankExp = e.rank === 'unique' ? 5 : e.rank === 'elite' ? 2 : 1;
     gainExp(Math.round(d.exp * rankExp * POWER(dlv()) * DIFFS[RUN.diff].exp * (lv.def.gainMul || 1) * lowExp(prof.lv, dlv())));  // 낮은 던전은 경험치 줄어듦  // 역할 경험치 × 던전 레벨 곡선
     if (p.stats.life) p.hp = Math.min(p.maxHp, p.hp + p.stats.life);

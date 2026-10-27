@@ -74,7 +74,7 @@ const Town = (() => {
     // 허수아비(2026-10-27 사용자: 딜 측정용 연습장 — js/practice.js)
     { id: 'dummy', name: '허수아비', role: '연습장 · 딜 측정', prop: 'dummy_anim_f0', ...px(43, 12), go: () => Practice.menu(prof) },  // 오른쪽 아래 방(연습장)
     // 의뢰 게시판(2026-10-27 사용자: 일일 1 · 주간 2 — 자리만 먼저, 의뢰는 아직): 광장 분수 바로 위(카엘과 자리 바꿈)
-    { id: 'board', name: '의뢰 게시판', role: '일일 · 주간 의뢰 (준비 중)', prop: 'board_anim_f0', x: BOARD.x, y: BOARD.y, go: () => Game.toast('의뢰 게시판은 곧 열려요') },
+    { id: 'board', name: '의뢰 게시판', role: '일일 1 · 주간 2 의뢰', prop: 'board_anim_f0', x: BOARD.x, y: BOARD.y, go: () => Game.overlay({ type: 'quests' }) },
     // 파수꾼 카엘(2026-10-25 사용자: 카엘이 마을에 있었으면) — 광장 분수 바로 위(사용자: 우물 위쪽으로). 몸 = 검사 몸 + 갈색 두건 · 흰 수염 · 망토(assets/dt/kael.png)
     { id: 'kael', name: '파수꾼 카엘', role: '조언 · 이야기 다시 보기', sprite: 'kael', ...px(B(11), 10), flip: false,  // 분수 왼쪽(2026-10-27 게시판과 자리 바꿈) — 분수 쪽을 봄
       go: () => Game.overlay({ type: 'choice', title: '파수꾼 카엘', items: [
@@ -406,7 +406,8 @@ const Town = (() => {
       const on = s === near, hy = labelY(s);
       // 말 걸 곳의 '말 걸기' · 설명이 옆 이름표를 덮지 않게, 가까운 이웃 이름표는 그동안 숨김(벨록 광차 ↔ 오르반)
       if (near && !on && Math.abs(sx(s.x) - sx(near.x)) < 130 && Math.abs(hy - labelY(near)) < 60) continue;
-      Gfx.text(ctx, s.name, sx(s.x), hy, on ? 15 : 12, on ? '#ffd36a' : '#e8dcc0', 'center');
+      const ready = s.id === 'board' && Quests.pending(prof);  // 받을 의뢰 보상이 있으면 게시판 이름표에 표시
+      Gfx.text(ctx, ready ? s.name + ' ★ 보상 ' + ready : s.name, sx(s.x), hy, on ? 15 : 12, on ? '#ffd36a' : ready ? '#7dff8a' : '#e8dcc0', 'center');
       if (on) {
         Gfx.text(ctx, s.role, sx(s.x), hy + 18, 11, '#c8b8a0', 'center');
         const k = Input.touchMode() ? '말 걸기' : L('ok') + ' 말 걸기';  // 폰: 오른쪽 아래 '대화' 버튼
