@@ -1603,23 +1603,32 @@ const UI = (() => {
   const pause = {
     sel: 0,
     items: ['계속하기', '장비 스테이터스', '속성석 · 보석 관리', '설정 · 조작', '마을로 돌아가기'],
+    practiceItems: ['계속하기', '장비 스테이터스', '속성석 · 보석 관리', '설정 · 조작', '딜 다시 재기', '연습장 나가기'],  // 연습장(js/practice.js)
+    list() { return Game.scene === 'run' && World.level && World.level.def.practice ? this.practiceItems : this.items; },
     update() {
       if (Input.wasPressed('back') || Input.wasPressed('pause')) { Game.closeOverlay(); return; }
-      this.sel = menuNav(this.sel, this.items.length);
+      const items = this.list();
+      this.sel = menuNav(Math.min(this.sel, items.length - 1), items.length);
       if (!Input.wasPressed('ok')) return;
       if (this.sel === 0) Game.closeOverlay();
       if (this.sel === 1) Game.overlay({ type: 'inv', mode: 'equip' });
       if (this.sel === 2) Game.overlay({ type: 'manage' });
       if (this.sel === 3) Game.overlay({ type: 'settings' });
+      if (items === this.practiceItems) {
+        if (this.sel === 4) { Practice.reset(); Game.closeOverlay(); Game.toast('딜 측정을 처음부터 다시 재요'); }
+        if (this.sel === 5) Game.open('town');
+        return;
+      }
       if (this.sel === 4) Game.overlay({ type: 'confirm', text: '던전을 나갈까요? 지금까지 얻은 것은 가져가요.', yes: () => Game.quitRun() });
     },
     draw(ctx) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, 960, 540);
+      const items = this.list();
       Gfx.panel(ctx, 330, 120, 300, 300);
       T_(ctx, '일시정지', 480, 166, 24, '#f0e0b8', 'center');
-      this.items.forEach((s, i) => zone(330, 208 + i * 34 - 24, 300, 34, { pick: () => { this.sel = i; }, now: true }));
-      this.items.forEach((s, i) => centerItem(ctx, s, 480, 208 + i * 34, 18, i === this.sel ? '#ffd36a' : '#e8e0d0', i === this.sel));
+      items.forEach((s, i) => zone(330, 208 + i * 34 - 24, 300, 34, { pick: () => { this.sel = i; }, now: true }));
+      items.forEach((s, i) => centerItem(ctx, s, 480, 208 + i * 34, 18, i === this.sel ? '#ffd36a' : '#e8e0d0', i === this.sel));
     },
   };
 

@@ -3,22 +3,32 @@
 // 싸움은 없다 — 걷기만. 가방 · 속성석 · 보석 관리 · 설정은 Esc(메뉴) · I(가방).
 const Town = (() => {
   // 2026-10-24 사용자 '마을 좀만 작게': 34x22 → 30x17 칸(화면 한 장 크기)
-  const MAP = [
-    '##############################',
-    '##############################',
-    '###......####....####......###',
-    '###......####....####......###',
-  ];
-  for (let i = 0; i < 11; i++) MAP.push('#' + '.'.repeat(28) + '#');
-  MAP.push('##############################', '##############################');
-  const W = MAP[0].length, H = MAP.length;
+  // 2026-10-27 사용자 '벨록도 키워서 각자 공간에': 가운데 광장(예전 30칸)을 OX 만큼 오른쪽으로 밀고 양옆에 방 넷(8 x 5 · 8 x 4) —
+  //   왼쪽 위 = 세공사 미라 공방, 왼쪽 아래 = 오르반의 옛 갱도(광차), 오른쪽 위 = 창고(보물방), 오른쪽 아래 = 연습장. 광장 벽에 문(2칸) 넷.
+  //   (아래 왼쪽은 화면 마을 패널이 가려서 거기엔 말 걸 곳을 두지 않는다)
+  const OX = 9, B = x => x + OX;  // 예전 광장 좌표 → 지금 좌표
+  const VAULT = [43, 6];  // 보물방 가운데 상자(창고)
+  // 의뢰 게시판: 분수 바로 위 광장 가운데(2026-10-27 사용자: 카엘과 자리 바꿈 — 카엘은 분수 왼쪽). 두 칸 폭 그림이라 두 칸을 막음
+  const BOARD = { x: B(15) * T, y: 7 * T + 12, tiles: [[B(14), 7], [B(15), 7]] };
+  const CORE = ['##############################', '##############################', '###......####....####......###', '###......####....####......###'];
+  const W = 48, H = 17;
+  const MAP = CORE.map(r => '#'.repeat(OX) + r + '#'.repeat(W - OX - r.length));
+  for (let y = 4; y < 15; y++) {
+    const row = Array(W).fill('#');
+    for (let x = B(1); x <= B(28); x++) row[x] = '.';  // 광장
+    const room = y <= 8 || y >= 11;  // 방: 위(4~8) · 아래(11~14), 9 · 10 = 방 사이 벽
+    if (room) { for (let x = 1; x <= 8; x++) row[x] = '.'; for (let x = W - 9; x <= W - 2; x++) row[x] = '.'; }
+    if (y === 6 || y === 7 || y === 12 || y === 13) { row[OX] = '.'; row[W - 1 - OX] = '.'; }  // 문
+    MAP.push(row.join(''));
+  }
+  MAP.push('#'.repeat(W), '#'.repeat(W));
 
   // 말 걸 수 있는 곳: x, y = 발밑(픽셀). sprite 없으면 사람이 아닌 곳(던전 입구)
   // NPC 고르기 창에 함께 넣는 '장비 관리'(2026-10-24 사용자: 대장장이 · 상인에게도)
   const EQUIP_ITEM = { label: '장비 관리', go: () => Game.overlay({ type: 'inv', mode: 'equip' }) };
   const px = (tx, ty) => ({ x: tx * T + 8, y: ty * T + 12 });
   const STATIONS = [
-    { id: 'smith', name: '대장장이 브론', role: '주문서 강화 · 강화 옮기기 · 장비 팔기 · 관리', sprite: 'dwarf_f', ...px(5, 3), x: 6 * T,
+    { id: 'smith', name: '대장장이 브론', role: '주문서 강화 · 강화 옮기기 · 장비 팔기 · 관리', sprite: 'dwarf_f', ...px(B(5), 3), x: B(6) * T,
       go: () => Game.overlay({ type: 'choice', title: '대장장이 브론', items: [
         { label: '주문서 강화 · 강화 옮기기', go: () => Game.overlay({ type: 'smith' }) },
         { label: '장비 팔기', go: () => Game.overlay({ type: 'inv', mode: 'sell' }) },
@@ -34,8 +44,8 @@ const Town = (() => {
         { label: '제작 이야기 듣기', go: () => Story.talkNpc('artisan') },
       ] }) },
     // 던전 입구(2026-10-25 사용자: 도박꾼과 자리 바꿈) — 아래 가운데 내려가는 계단, 양옆 깃대(GATE_POLES)
-    { id: 'gate', name: '던전 입구', role: '던전 고르기', ...px(14, 14), x: 15 * T, go: () => { if (!Coop.guestBlocked()) Game.open('select'); } },  // 파티 손님은 방장이 고른다
-    { id: 'shop', name: '상인 엘린', role: '장비 팔기 · 아이템 사고팔기 · 관리', sprite: 'elf_m', ...px(23, 3), x: 24 * T,
+    { id: 'gate', name: '던전 입구', role: '던전 고르기', ...px(B(14), 14), x: B(15) * T, go: () => { if (!Coop.guestBlocked()) Game.open('select'); } },  // 파티 손님은 방장이 고른다
+    { id: 'shop', name: '상인 엘린', role: '장비 팔기 · 아이템 사고팔기 · 관리', sprite: 'elf_m', ...px(B(23), 3), x: B(24) * T,
       go: () => Game.overlay({ type: 'choice', title: '상인 엘린', items: [
         // 2026-10-24 사용자: 장비 / 아이템으로 나눔
         { label: '장비 팔기', go: () => Game.overlay({ type: 'inv', mode: 'sell' }) },
@@ -45,13 +55,13 @@ const Town = (() => {
       ] }) },
     // 도박꾼 단지(2026-10-25 사용자: 항아리는 도박꾼 NPC 를 따로, 항아리를 뒤집어쓴 도트) — 위쪽 가운데 움푹한 자리(예전 던전 입구, 사용자: 입구와 자리 바꿈),
     // 양옆 항아리 더미(JAR_PILE) · 양옆 벽에 세로 현수막 '대박' · '기원'(VBANNERS) · 항아리에 부적 · 가끔 뽑기를 꼬드기는 속삭임(GAMBLER_LINES)
-    { id: 'gambler', name: '도박꾼 단지', role: '장비 항아리 뽑기', sprite: 'gambler', ...px(14, 3), x: 15 * T, flip: false,
+    { id: 'gambler', name: '도박꾼 단지', role: '장비 항아리 뽑기', sprite: 'gambler', ...px(B(14), 3), x: B(15) * T, flip: false,
       go: () => Game.overlay({ type: 'choice', title: '도박꾼 단지', items: [
         { label: '항아리 깨기 (장비 뽑기)', go: () => Game.overlay({ type: 'jar' }) },
         EQUIP_ITEM,
         { label: '항아리 이야기 듣기', go: () => Story.talkNpc('gambler') },
       ] }) },
-    { id: 'jewel', name: '세공사 미라', role: '속성석 · 보석 합치기 · 쪼개기 · 관리', sprite: 'wizzard_f', ...px(2, 9), flip: false,
+    { id: 'jewel', name: '세공사 미라', role: '속성석 · 보석 합치기 · 쪼개기 · 관리', sprite: 'wizzard_f', ...px(4, 7), flip: false,  // 왼쪽 위 방(세공사 공방)
       go: () => Game.overlay({ type: 'choice', title: '세공사 미라', items: [
         { label: '속성석 · 보석 합치기 · 쪼개기', go: () => Game.overlay({ type: 'stones', mode: 'craft' }) },
         { label: '속성석 · 보석 관리', go: () => Game.overlay({ type: 'manage' }) },
@@ -60,27 +70,34 @@ const Town = (() => {
         { label: '속성석 · 보석 이야기 듣기', go: () => Story.talkNpc('jewel') },
       ] }) },
     // 창고(2026-10-24 사용자): 유니크 컬렉션. 사람 대신 상자
-    { id: 'vault', name: '창고', role: '유니크 컬렉션 · 부위별 달성률', prop: 'chest_full_open_anim_f0', ...px(27, 9), go: () => Game.overlay({ type: 'vault' }) },
+    { id: 'vault', name: '창고', role: '유니크 컬렉션 · 부위별 달성률', prop: 'chest_full_open_anim_f0', ...px(VAULT[0], VAULT[1]), go: () => Game.overlay({ type: 'vault' }) },  // 오른쪽 위 방(보물방)
+    // 허수아비(2026-10-27 사용자: 딜 측정용 연습장 — js/practice.js)
+    { id: 'dummy', name: '허수아비', role: '연습장 · 딜 측정', prop: 'dummy_anim_f0', ...px(43, 12), go: () => Practice.menu(prof) },  // 오른쪽 아래 방(연습장)
+    // 의뢰 게시판(2026-10-27 사용자: 일일 1 · 주간 2 — 자리만 먼저, 의뢰는 아직): 광장 분수 바로 위(카엘과 자리 바꿈)
+    { id: 'board', name: '의뢰 게시판', role: '일일 · 주간 의뢰 (준비 중)', prop: 'board_anim_f0', x: BOARD.x, y: BOARD.y, go: () => Game.toast('의뢰 게시판은 곧 열려요') },
     // 파수꾼 카엘(2026-10-25 사용자: 카엘이 마을에 있었으면) — 광장 분수 바로 위(사용자: 우물 위쪽으로). 몸 = 검사 몸 + 갈색 두건 · 흰 수염 · 망토(assets/dt/kael.png)
-    { id: 'kael', name: '파수꾼 카엘', role: '조언 · 이야기 다시 보기', sprite: 'kael', ...px(14, 7), x: 15 * T, flip: false,
+    { id: 'kael', name: '파수꾼 카엘', role: '조언 · 이야기 다시 보기', sprite: 'kael', ...px(B(11), 10), flip: false,  // 분수 왼쪽(2026-10-27 게시판과 자리 바꿈) — 분수 쪽을 봄
       go: () => Game.overlay({ type: 'choice', title: '파수꾼 카엘', items: [
         { label: '이야기 듣기', go: () => Story.talkNpc('kael') },
         { label: '처음 이야기 다시 보기', go: () => Story.replay() },
       ] }) },
     // 늙은 광부 오르반(2026-10-25 사용자: 여기는 지하 도시이고 바깥은 위험하다는 사람) — 오른쪽 아래 무너진 옛 갱도 입구 옆(왼쪽 아래는 마을 패널이 가림)
-    { id: 'miner', name: '늙은 광부 오르반', role: '지하 도시 이야기', sprite: 'miner', ...px(23, 13), flip: false, go: () => Story.talkNpc('miner') },
+    { id: 'miner', name: '늙은 광부 오르반', role: '지하 도시 이야기', sprite: 'miner', ...px(7, 12), flip: true, go: () => Story.talkNpc('miner') },  // 왼쪽 아래 방(옛 갱도) — 광차 쪽을 봄
     // 오르반의 광차(2026-10-25 사용자: 마을 사이 이동 = 광차 타기, 엔딩 뒤에 열림) — 벨록은 오르반 옆 수레, 실베인은 광산 마당 수레(Silvane.POS.cart)
-    { id: 'cart', name: '광차', role: '왕의 갱도를 따라 실베인으로', x: 21 * T + 8, y: 14 * T - 3, go: () => rideCart() },
+    { id: 'cart', name: '광차', role: '왕의 갱도를 따라 실베인으로', x: 4 * T + 8, y: 12 * T - 3, go: () => rideCart() },
   ];
-  const SHAFT = [26, 13];  // 무너진 옛 갱도 입구(광부 옆, 상자 둘 사이)
-  const JAR_PILE = [[13, 3, 1], [16, 3, 0.85]];  // 도박꾼 양옆 항아리(칸 x, y, 크기) — 막히는 칸, 그림은 Jar.jarArt
-  const VBANNERS = [[12, '대박'], [17, '기원']];  // 도박꾼 자리 양옆 벽 앞면(칸 x, 3)의 세로 현수막 + 글자 둘
-  const GATE_POLES = [12, 17];  // 던전 입구 계단(14 · 15, 14) 양옆 깃대(칸 x, 14) — 막히는 칸
-  const FOUNTAIN = { x: 15 * T, y: 10 * T, tiles: [[14, 9], [15, 9], [14, 10], [15, 10]] };  // 광장 기둥 넷 가운데 작은 분수(가운데 x · 바닥 y)
-  const ANVIL = { x: 7 * T - 2, y: 3 * T - 2 };  // 브론 뒤 모루(가운데 x · 바닥 y)
-  // 미라 아래 세공품 진열(2026-10-25 사용자: 더 예쁘게): 떠 있는 보석 받침대 (1,11) · 쪼갠 정동석 (3,11)
-  const GEM_STAND = [1, 11], GEODE = [3, 11];
-  const CART = [21, 13];  // 오르반 왼쪽 광석 수레(광차) + 짧은 철길 · 기대 둔 곡괭이
+  // 방 넷(2026-10-27): 왼쪽 아래 옛 갱도 — 구멍 · 광차(오르반 왼쪽) · 막아 둔 상자, 오른쪽 위 보물방 — 상자 · 양탄자, 오른쪽 아래 연습장 — 베기 기둥 · 과녁 · 건초 · 무기 걸이(그림은 Silvane.props)
+  const SHAFT = [1, 11];  // 무너진 옛 갱도 입구(방 왼쪽 위 구석)
+  const JAR_PILE = [[B(13), 3, 1], [B(16), 3, 0.85]];  // 도박꾼 양옆 항아리(칸 x, y, 크기) — 막히는 칸, 그림은 Jar.jarArt
+  const VBANNERS = [[B(12), '대박'], [B(17), '기원']];  // 도박꾼 자리 양옆 벽 앞면(칸 x, 3)의 세로 현수막 + 글자 둘
+  const GATE_POLES = [B(12), B(17)];  // 던전 입구 계단 양옆 깃대(칸 x, 14) — 막히는 칸
+  const FOUNTAIN = { x: B(15) * T, y: 10 * T, tiles: [[B(14), 9], [B(15), 9], [B(14), 10], [B(15), 10]] };  // 광장 기둥 넷 가운데 작은 분수(가운데 x · 바닥 y)
+  const ANVIL = { x: B(7) * T - 2, y: 3 * T - 2 };  // 브론 뒤 모루(가운데 x · 바닥 y)
+  // 미라 공방(왼쪽 위 방): 떠 있는 보석 받침대 · 작업대(미라 뒤) · 쪼갠 정동석
+  const GEM_STAND = [1, 5], GEM_TABLE = [3, 5], GEODE = [7, 7];
+  const CART = [4, 11];  // 오르반 왼쪽 광석 수레(광차) + 짧은 철길 · 기대 둔 곡괭이
+  const DOOR_SIGNS = [[OX, 5, '세공사 공방'], [OX, 11, '옛 갱도'], [W - 1 - OX, 5, '창고'], [W - 1 - OX, 11, '연습장']];  // 문 위 벽 칸(칸 x, y, 이름)
+  const TRAIN = { pells: [[41, 11], [45, 11]], targets: [[46, 13]], hay: [[40, 14], [41, 14]], rack: [44, 14] };
   const GAMBLER_LINES = ['오늘은 왠지 유니크 각인데…', '한 번만 더? 크흐흐', '깨 보기 전엔 아무도 몰라~', '유니크 ' + Math.round(JAR.uniq * 100) + '%! 오늘은 너다', '방금 누가 유니크 떴다던데?', '꽝도 추억이지, 크흐흐'];
   // 오르반 혼잣말(2026-10-25 사용자: 오르반도 개성) — 곰방대 문 투덜이 늙은 광부
   const MINER_LINES = ['에헴… 내가 젊었을 땐 말이야…', '후우… 담배 맛이 예전 같지 않구먼', '콜록콜록! 갱도 먼지는 평생 가', '이 수레엔 은이 반이라네, 허허', '저 구멍에서 또 긁는 소리가…', '곡괭이는 배신 안 한다네'];
@@ -186,7 +203,7 @@ const Town = (() => {
     if (endA > 0) { ctx.fillStyle = 'rgba(' + (up ? '255,250,235' : '0,0,0') + ',' + endA + ')'; ctx.fillRect(0, 0, 960, 540); }
   }
   function spawn() {
-    const s = where === 'belloc' ? { x: 15 * T, y: px(14, 12).y } : Silvane.SPAWN;  // 벨록: 아래 입구 바로 위(분수 아래) — 광장 위쪽은 카엘 자리
+    const s = where === 'belloc' ? { x: B(15) * T, y: px(B(14), 12).y } : Silvane.SPAWN;  // 벨록: 아래 입구 바로 위(분수 아래) — 광장 위쪽은 카엘 자리
     p.x = s.x; p.y = s.y; p.fv = { x: 0, y: where === 'belloc' ? -1 : 1 };
   }
 
@@ -198,18 +215,19 @@ const Town = (() => {
     const def = { plain: true, banners: [], tint: '#d8c8b0' };
     const m = { def, W, H, tiles, at, rooms: [], columns: [], crates: new Set(), decor: { skulls: [] }, start: null };
     // 광장 기둥 넷 + 상점 · 대장장이 앞 상자(막히는 것)
-    for (const c of [[9, 7], [20, 7], [9, 12], [20, 12]]) m.columns.push(c);
-    for (const c of [[21, 2], [26, 2], [3, 2], [8, 2]]) { m.columns.push(c); m.crates.add(c.join()); }
-    // 꾸미기(2026-10-25 사용자: 마을을 예쁘게 · 창고 주변): 창고 양옆 상자 더미 · 무너진 옛 갱도(구멍 + 막아 둔 상자)
-    for (const c of [[28, 7], [28, 11], [25, 13], [27, 13]]) { m.columns.push(c); m.crates.add(c.join()); }
+    for (const c of [[9, 7], [20, 7], [9, 12], [20, 12]]) m.columns.push([B(c[0]), c[1]]);
+    for (const c of [[21, 2], [26, 2], [3, 2], [8, 2]]) { const k = [B(c[0]), c[1]]; m.columns.push(k); m.crates.add(k.join()); }
+    // 꾸미기: 보물방 귀퉁이 상자 더미 · 옛 갱도 막아 둔 상자(2026-10-27 방으로 옮김)
+    for (const c of [[39, 4], [46, 4], [46, 8], [2, 14], [3, 14]]) { m.columns.push(c); m.crates.add(c.join()); }
     m.columns.push(SHAFT); m.hidden = new Set([SHAFT.join()]);  // 구멍: 막히지만 기둥 그림은 안 그림(바닥에 따로)
-    // 막히고 그림은 따로 그리는 칸: 항아리 · 입구 깃대 · 분수 · 모루 · 수정
+    // 막히고 그림은 따로 그리는 칸: 항아리 · 입구 깃대 · 분수 · 모루 · 수정 · 연습장 소품
     const block = c => { m.columns.push(c); m.hidden.add(c.join()); };
     for (const [x, y] of JAR_PILE) block([x, y]);
     for (const x of GATE_POLES) block([x, 14]);
     for (const c of FOUNTAIN.tiles) block(c);
-    block([7, 2]);
-    block(GEM_STAND); block(GEODE); block(CART);
+    block([B(7), 2]);
+    block(GEM_STAND); block(GEODE); block(CART); block(GEM_TABLE); BOARD.tiles.forEach(block);
+    for (const c of [...TRAIN.pells, ...TRAIN.targets, ...TRAIN.hay, TRAIN.rack]) block(c);
     m.canvas = Dungeon.paint(m);
     m.painted = Gfx.ready();  // 그림 파일이 아직 안 읽혔으면 그릴 때 다시
     return m;
@@ -289,7 +307,7 @@ const Town = (() => {
       // 창고 둘레 따뜻한 빛(보물이 있는 곳 느낌, 살짝 일렁임)
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      const gx = 27 * T + 8, gy = 9 * T + 6, gr = 46 + Math.sin(time * 2) * 2;
+      const gx = VAULT[0] * T + 8, gy = VAULT[1] * T + 6, gr = 46 + Math.sin(time * 2) * 2;
       const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
       g.addColorStop(0, 'rgba(255,196,90,0.22)'); g.addColorStop(1, 'rgba(255,196,90,0)');
       ctx.fillStyle = g; ctx.fillRect(gx - gr, gy - gr, gr * 2, gr * 2);
@@ -317,7 +335,7 @@ const Town = (() => {
   // 지하 도시 벨록의 바닥 · 벽 장식과 앞뒤 정렬 물건(지도 그림 위, 사람과 섞어 그림)
   function bellocWorld(ctx, list) {
     // 벽 분수 둘(위 가운데 자리 양옆 벽) · 도박꾼 세로 현수막 · 던전 입구 계단(아래 가운데)
-    for (const fx of [10.5, 18.5]) {
+    for (const fx of [B(10.5), B(18.5)]) {
       Gfx.spr(ctx, 'wall_fountain_top_1', fx * T, 2 * T, { topLeft: true });
       Gfx.spr(ctx, Gfx.anim('wall_fountain_mid_blue_anim', time, 6, 3), fx * T, 3 * T, { topLeft: true });
       Gfx.spr(ctx, Gfx.anim('wall_fountain_basin_blue_anim', time, 6, 3), fx * T, 4 * T, { topLeft: true });
@@ -331,8 +349,8 @@ const Town = (() => {
       ctx.fillStyle = '#e8c040'; ctx.fillRect(x0 + sw + 1, y0 + 1, w - 2, 1); ctx.fillRect(x0 + sw + 1, y0 + h - 2, w - 2, 1);
       ctx.fillStyle = '#7a1418'; for (let i = 0; i < 3; i++) ctx.fillRect(x0 + sw + w / 2 - 3 + i, y0 + h + i - 1, 6 - i * 2, 1);  // 꼬리
     }
-    Gfx.spr(ctx, 'floor_stairs', 14 * T, 14 * T, { topLeft: true });
-    Gfx.spr(ctx, 'floor_stairs', 15 * T, 14 * T, { topLeft: true });
+    Gfx.spr(ctx, 'floor_stairs', B(14) * T, 14 * T, { topLeft: true });
+    Gfx.spr(ctx, 'floor_stairs', B(15) * T, 14 * T, { topLeft: true });
     drawFloorDecor(ctx);
     // 앞뒤(y) 정렬: 기둥 · 상자
     for (const c of lv.columns) {
@@ -341,14 +359,19 @@ const Town = (() => {
       list.push({ y: crate ? y - 4 : y, draw: () => Gfx.spr(ctx, crate ? 'crate' : 'column', x, crate ? y - 2 : y) });
     }
     // 상점 진열: 상자 위 물약(상자보다 앞에 그린다)
-    list.push({ y: 3 * T, draw: () => { Gfx.spr(ctx, 'flask_big_red', 21 * T + 8, 2 * T + 8); Gfx.spr(ctx, 'flask_big_blue', 26 * T + 8, 2 * T + 8); } });
-    // 창고 진열: 상자 위 금빛 · 초록 물약, 오른쪽 벽에 기대 놓은 이름난 무기 셋(유니크 컬렉션 느낌)
-    list.push({ y: 8 * T, draw: () => Gfx.spr(ctx, 'flask_big_yellow', 28 * T + 8, 7 * T + 8) });
-    list.push({ y: 12 * T, draw: () => Gfx.spr(ctx, 'flask_big_green', 28 * T + 8, 11 * T + 8) });
-    list.push({ y: 9 * T + 6, draw: () => {
+    list.push({ y: 3 * T, draw: () => { Gfx.spr(ctx, 'flask_big_red', B(21) * T + 8, 2 * T + 8); Gfx.spr(ctx, 'flask_big_blue', B(26) * T + 8, 2 * T + 8); } });
+    // 보물방(창고) 진열: 귀퉁이 상자 위 금빛 · 초록 물약, 오른쪽 벽에 기대 놓은 이름난 무기 셋(유니크 컬렉션 느낌)
+    list.push({ y: 5 * T, draw: () => { Gfx.spr(ctx, 'flask_big_yellow', 39 * T + 8, 4 * T + 8); Gfx.spr(ctx, 'flask_big_green', 46 * T + 8, 4 * T + 8); } });
+    list.push({ y: 7 * T + 6, draw: () => {
       [['weapon_golden_sword', -0.18], ['weapon_red_gem_sword', -0.06], ['weapon_lavish_sword', 0.06]].forEach(([w, r], i) =>
-        Gfx.spr(ctx, w, 28 * T + 4 + i * 4, 10 * T + 4, { rot: r }));
+        Gfx.spr(ctx, w, 45 * T + 6 + i * 4, 7 * T + 4, { rot: r }));
     } });
+    // 연습장 방: 베기 기둥 · 과녁 · 건초 · 무기 걸이(실베인과 같은 그림)
+    const SP = Silvane.props;
+    for (const [x, y] of TRAIN.pells) list.push({ y: (y + 1) * T - 2, draw: () => SP.pell(ctx, x * T + 8, (y + 1) * T - 2) });
+    for (const [x, y] of TRAIN.targets) list.push({ y: (y + 1) * T - 2, draw: () => SP.target(ctx, x * T + 8, (y + 1) * T - 2) });
+    for (const [x, y] of TRAIN.hay) list.push({ y: (y + 1) * T - 2, draw: () => SP.hay(ctx, x * T + 8, (y + 1) * T - 2) });
+    list.push({ y: (TRAIN.rack[1] + 1) * T - 2, draw: () => SP.rack(ctx, TRAIN.rack[0] * T + 8, (TRAIN.rack[1] + 1) * T - 2) });
     for (const [x, y, k] of JAR_PILE) list.push({ y: (y + 1) * T - 2, draw: () => {
       const s = Math.round(17 * k), jx = Math.round(x * T + 8 - s / 2), jy = (y + 1) * T - 1 - s;
       Art.shadow(ctx, x * T + 8, (y + 1) * T - 2, 6 * k, 0, 1);
@@ -370,7 +393,7 @@ const Town = (() => {
     // 광장 가운데 작은 분수 · 브론 뒤 모루 · 미라 둘레(작업대 · 수정)
     list.push({ y: FOUNTAIN.y + 14, draw: () => drawFountain(ctx) });
     list.push({ y: ANVIL.y, draw: () => drawAnvil(ctx) });
-    list.push({ y: 9 * T + 6, draw: () => drawGemTable(ctx) });
+    list.push({ y: (GEM_TABLE[1] + 1) * T - 2, draw: () => drawGemTable(ctx) });
     list.push({ y: (GEM_STAND[1] + 1) * T - 2, draw: () => drawGemStand(ctx, GEM_STAND[0] * T + 8, (GEM_STAND[1] + 1) * T - 3) });
     list.push({ y: (GEODE[1] + 1) * T - 2, draw: () => drawGeode(ctx, GEODE[0] * T + 8, (GEODE[1] + 1) * T - 3) });
     list.push({ y: (CART[1] + 1) * T - 2, draw: () => drawCart(ctx, CART[0] * T + 8, (CART[1] + 1) * T - 3) });
@@ -396,7 +419,14 @@ const Town = (() => {
     // 도박꾼 세로 현수막 글(금빛으로 일렁임) · 속삭임(말 걸 만큼 가까우면 '말 걸기'가 그 자리라 안 띄움): 7초마다 한 줄, 4초 보이고 흐려진다
     const pulse = 0.5 + 0.5 * Math.sin(time * 3), bcol = 'rgb(255,' + Math.round(208 + 30 * pulse) + ',' + Math.round(90 + 60 * pulse) + ')';
     if (where === 'silvane') Silvane.labels(ctx, sx, sy, time);
-    else for (const [bx, word] of VBANNERS) [...word].forEach((ch, i) => Gfx.text(ctx, ch, sx(bx * T + 8 + Math.round(Math.sin(time * 1.4 + bx) * 0.5)), sy(2 * T + 7) + 19 + i * 16, 13, bcol, 'center'));
+    else for (const [dx, dy, name] of DOOR_SIGNS) {  // 벨록 방 문 위 나무 팻말(2026-10-27): 광장에서 어느 문이 어느 방인지
+      ctx.font = 'bold 11px ' + Gfx.FONT;
+      const w = ctx.measureText(name).width + 12, x = sx(dx * T + 8), y = sy(dy * T + 3);
+      ctx.fillStyle = '#3a2414'; ctx.fillRect(x - w / 2 - 2, y - 13, w + 4, 20);
+      ctx.fillStyle = '#c8a070'; ctx.fillRect(x - w / 2, y - 11, w, 16);
+      Gfx.text(ctx, name, x, y + 2, 11, '#3a2414', 'center');
+    }
+    if (where === 'belloc') for (const [bx, word] of VBANNERS) [...word].forEach((ch, i) => Gfx.text(ctx, ch, sx(bx * T + 8 + Math.round(Math.sin(time * 1.4 + bx) * 0.5)), sy(2 * T + 7) + 19 + i * 16, 13, bcol, 'center'));
     // 혼잣말 말풍선(도박꾼 · 광부): period 초마다 한 줄, 4초 보이고 흐려짐. 둘이 엇갈려 뜨게 off 로 밀어 둠
     for (const wh of WHISPERS) {
       const st = STATIONS.find(s => s.id === wh.id);
@@ -439,8 +469,13 @@ const Town = (() => {
 
   // 바닥 꾸미기(사람 아래): 창고 앞 붉은 양탄자(금 테두리 · 마름모 무늬) · 흩어진 금화, 옛 갱도 구멍 + 둘레 돌 부스러기
   function drawFloorDecor(ctx) {
-    // 양탄자: 창고 칸 둘레 4 x 3 칸(25~28, 8~10)
-    const x0 = 25 * T + 3, y0 = 8 * T + 4, w = 4 * T - 6, h = 3 * T - 6;
+    // 연습장 방 모래 바닥(깔린 모래 · 자갈) · 옛 갱도 방 철길(광차에서 구멍 쪽으로)
+    ctx.fillStyle = 'rgba(200,170,110,0.32)'; ctx.fillRect(39 * T + 2, 11 * T + 2, 8 * T - 4, 4 * T - 4);
+    ctx.fillStyle = 'rgba(240,220,170,0.25)'; for (let k = 0; k < 18; k++) ctx.fillRect(39 * T + 6 + (k * 37) % (8 * T - 12), 11 * T + 6 + (k * 23) % (4 * T - 12), 2, 1);
+    ctx.fillStyle = '#4a2e1a'; for (let x = 1 * T + 4; x < 7 * T; x += 5) ctx.fillRect(x, 12 * T - 7, 2, 6);
+    ctx.fillStyle = '#7a7e88'; ctx.fillRect(1 * T + 2, 12 * T - 6, 6 * T, 1); ctx.fillRect(1 * T + 2, 12 * T - 2, 6 * T, 1);
+    // 양탄자: 창고 칸 둘레 4 x 3 칸(보물방 가운데)
+    const x0 = (VAULT[0] - 2) * T + 3, y0 = (VAULT[1] - 1) * T + 4, w = 4 * T - 6, h = 3 * T - 6;
     ctx.fillStyle = '#4a1a1e'; ctx.fillRect(x0, y0, w, h);
     ctx.fillStyle = '#c8962e'; ctx.fillRect(x0 + 2, y0 + 2, w - 4, 1); ctx.fillRect(x0 + 2, y0 + h - 3, w - 4, 1); ctx.fillRect(x0 + 2, y0 + 2, 1, h - 4); ctx.fillRect(x0 + w - 3, y0 + 2, 1, h - 4);
     ctx.fillStyle = '#6e2a2e'; ctx.fillRect(x0 + 4, y0 + 4, w - 8, h - 8);
@@ -451,17 +486,17 @@ const Town = (() => {
     }
     ctx.fillStyle = '#2e1012'; for (let x = x0 + 1; x < x0 + w; x += 3) { ctx.fillRect(x, y0 - 1, 1, 1); ctx.fillRect(x, y0 + h, 1, 1); }  // 술 장식
     // 흩어진 금화(빙글)
-    for (const [cx, cy, o] of [[25.6, 10.4, 0], [26.3, 10.7, 0.3], [27.9, 10.5, 0.6], [25.4, 8.6, 0.9]]) Gfx.spr(ctx, Gfx.anim('coin_anim', time + o, 8), cx * T, cy * T);
+    for (const [cx, cy, o] of [[-1.4, 1.4, 0], [-0.7, 1.7, 0.3], [0.9, 1.5, 0.6], [-1.6, -0.4, 0.9]]) Gfx.spr(ctx, Gfx.anim('coin_anim', time + o, 8), (VAULT[0] + cx) * T + 8, (VAULT[1] + cy) * T);
     // 미라 발밑 세공 마법진(도는 점 고리 둘 · 보랏빛) · 던전 입구 계단에서 새는 심연 빛
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    const mx = 2 * T + 8, my = 9 * T + 11;
+    const jw = STATIONS.find(s => s.id === 'jewel'), mx = jw.x, my = jw.y - 1;
     for (const [rx, ry, n, sp, a] of [[14, 6, 18, 0.5, 0.55], [8, 3.5, 10, -0.8, 0.45]]) {
       ctx.fillStyle = 'rgba(160,130,255,' + (a + 0.15 * Math.sin(time * 2)) + ')';
       for (let i = 0; i < n; i++) { const an = time * sp + i / n * Math.PI * 2; ctx.fillRect(Math.round(mx + Math.cos(an) * rx), Math.round(my + Math.sin(an) * ry), 1, 1); }
     }
-    const sg = ctx.createRadialGradient(15 * T, 14 * T + 9, 0, 15 * T, 14 * T + 9, 26);
+    const sg = ctx.createRadialGradient(B(15) * T, 14 * T + 9, 0, B(15) * T, 14 * T + 9, 26);
     sg.addColorStop(0, 'rgba(150,80,255,' + (0.28 + 0.08 * Math.sin(time * 2.2)) + ')'); sg.addColorStop(1, 'rgba(150,80,255,0)');
-    ctx.fillStyle = sg; ctx.fillRect(15 * T - 26, 14 * T - 17, 52, 52);
+    ctx.fillStyle = sg; ctx.fillRect(B(15) * T - 26, 14 * T - 17, 52, 52);
     ctx.restore();
     // 옛 갱도: 구멍 + 둘레 돌 부스러기
     Gfx.spr(ctx, 'hole', SHAFT[0] * T, SHAFT[1] * T, { topLeft: true });
@@ -530,7 +565,7 @@ const Town = (() => {
   }
   // 미라의 작업대: 나무 상판 · 다리, 위에 속성석 셋(불 · 얼음 · 번개 색, 하나씩 반짝)
   function drawGemTable(ctx) {
-    const x0 = 3 * T + 2, y0 = 8 * T + 10;
+    const x0 = GEM_TABLE[0] * T + 1, y0 = GEM_TABLE[1] * T + 2;
     Art.shadow(ctx, x0 + 7, y0 + 12, 9, 0, 1);
     ctx.fillStyle = '#2a1a10'; ctx.fillRect(x0 - 1, y0 - 1, 16, 6);
     ctx.fillStyle = '#4a2e1a'; ctx.fillRect(x0 + 1, y0 + 4, 2, 8); ctx.fillRect(x0 + 11, y0 + 4, 2, 8);

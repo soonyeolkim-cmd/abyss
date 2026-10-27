@@ -213,6 +213,10 @@ const World = (() => {
       addEnemy(b); b.ri = 0;
       return;
     }
+    if (def.practice) {  // 연습장: 허수아비만(방어는 보통 몹이면 내 레벨, 보스면 Lv.100 — Practice.setup)
+      for (const [x, y] of Practice.spots(lv)) Practice.setup(addEnemy(createEnemy('dummy', x, y, def.armor === 'boss' ? UNIQUE_CRAFT_LV : dlv(), { awake: true })), def);
+      return;
+    }
     let uniques = 0;
     const usedNames = new Set();
     // solo 몹(방패병 · 땅속 촉수 · 보호막 사제)은 한 무리에 solo 마리까지 · 정예/고유 무리(같은 몹 무리)로는 안 나온다
@@ -392,6 +396,7 @@ const World = (() => {
       raidT += dt;
       if (raidT > RAID_RULE.time && !mirror) { run.raidFail = 'time'; msg = '시간이 다 됐다…'; msgT = 3; if (rps.length) Coop.leaveTogether('time'); finish('dead'); }
     }
+    if (lv.def.practice) Practice.update(dt, enemies);  // 연습장: 허수아비 체력 채우기 · 측정 시간
     if (hitstopT > 0) { hitstopT -= dt; return; }
     if (storyT > 0 && (storyT -= dt) <= 0) Story.trigger('down', lv.def);  // 보스가 쓰러지는 모습을 보고 나서 이야기
 
@@ -1078,7 +1083,7 @@ const World = (() => {
     for (const s of shots) Art.shot(ctx, s, time);
     for (const s of pshots) Art.wave(ctx, s);
     Art.fx(ctx, fx);
-    Art.darkness(ctx, p.x, p.y - 10, cam, lv.def.raid ? LIGHT_R * 2.2 : LIGHT_R);  // 레이드 방은 밝게(귀퉁이 수정이 보이게)
+    Art.darkness(ctx, p.x, p.y - 10, cam, lv.def.raid || lv.def.practice ? LIGHT_R * 2.2 : LIGHT_R);  // 레이드 방은 밝게(귀퉁이 수정이 보이게) · 연습장도
     ctx.restore();
     // 1배 화면을 2배로(이웃 화소 그대로) 얹고, 그 위 글자 · 막대는 2배 화면에 같은 자리(흔들림 포함)로
     ctx = out;

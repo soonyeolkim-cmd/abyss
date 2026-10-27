@@ -33,7 +33,9 @@ const Gfx = (() => {
   }
   // 끝없는 심연 '살아 있는 심연' 몹 도트(2026-10-26 사용자 '대만족' 시안 그대로 — tools/mob-sketch.js). 바닥(아래 줄)이 발.
   // 글자 = 색: o 테두리 · k/p/P 검보라 몸 · m/M/h 핏빛 살 · t/T 청록(공략 표시 — 약점 · 보호막) · w/b 뼈 · y 눈 · r 핏빛 어둠
-  const MPIX_PAL = { o: '#120a14', k: '#2a1630', p: '#4a2a5a', P: '#6e4a86', m: '#8a2050', M: '#c8306a', h: '#ff7ab0', t: '#5fe0d0', T: '#2a8a88', w: '#ece0cc', b: '#a8987e', y: '#ffe066', r: '#4a0c22' };
+  // 연습장 허수아비(2026-10-27): N 나무 · s/S 삼베 · c 붉은 과녁 · g 흰 과녁
+  const MPIX_PAL = { o: '#120a14', k: '#2a1630', p: '#4a2a5a', P: '#6e4a86', m: '#8a2050', M: '#c8306a', h: '#ff7ab0', t: '#5fe0d0', T: '#2a8a88', w: '#ece0cc', b: '#a8987e', y: '#ffe066', r: '#4a0c22',
+    N: '#8a5a32', s: '#b08850', S: '#d8c088', c: '#c83838', g: '#f0e6d2' };
   const MPIX = {
     splitA: ['................', '.....oooooo.....', '...ooMMMMMMoo...', '..oMhhMMMMMMMo..', '.oMhMMMMtMMMMMo.', '.oMMMMMMtMMMMMo.', 'oMMoooMMtMoooMMo', 'oMMoyoMMtMoyoMMo',
       'oMMoooMMtMoooMMo', 'omMMMMMMtMMMMMmo', 'ommMMMrrtrrMMmmo', '.ommmMMMtMMMmmo.', '.oommmmmtmmmmoo.', '..oommmmmmmmoo..', '...oooooooooo...', '................'],
@@ -58,6 +60,14 @@ const Gfx = (() => {
     warder: ['......oooo......', '.....otttto.....', '....ot....to....', '.....otttto.....', '......oooo......', '.....okkkko..oo.', '....okppppko.oyo', '....okoyyoko.owo',
       '....okpppkko.oTo', '...okpPPPPpko.o.', '..okpPMMMPpkooo.', '..okpPMhMPpkokbo', '..okppMMMppkobo.', '..okpppMpppkobo.', '..okppppppppobo.', '..okpPpppPppobo.',
       '..okppppppppobo.', '.okpppppppppkbo.', '.okkpppppppkkbo.', '.okkkkkkkkkkkoo.', '.oooooooooooooo.', '................'],
+    dummy: ['.....ooooo.....', '....oSSSSSo....', '...oSSSSSSSo...', '...oSoSSSoSo...', '...oSSSSSSSo...', '...oSSoooSSo...', '....oSSSSSo....', '......oNo......',
+      'ooooooooooooooo', 'SNNosssssssoNNS', 'oooosscccssoooo', '...oscgggcso...', '...oscgcgcso...', '...oscgggcso...', '...osscccsso...', '...osSsSsSso...',
+      '...ooooooooo...', '......oNo......', '......oNo......', '......oNo......', '......oNo......', '......oNo......', '......oNo......', '....ooooooo....', '...ooooooooo...'],
+    // 의뢰 게시판(2026-10-27, 마을 던전 입구 옆): 작은 지붕 · 나무 판에 붙은 의뢰 종이 셋(붉은 압정) · 다리 둘
+    board: ['..oooooooooooooooo..', '.oNNNNNNNNNNNNNNNNo.', 'oNNNNNNNNNNNNNNNNNNo', 'oooooooooooooooooooo',
+      ...['ssssssssssssssss', 'sgggcggsssggcgss', 'sgkkkkgsssgkkgss', 'sggggggsssggggss', 'sgkkkggsssgkkgss', 'sggggggsssggggss',
+        'sgkkkkgsssssssss', 'sggggggssggcggss', 'sgkkgggssgkkkgss', 'sggggggssgggggss', 'sssssssssgkkggss', 'ssssssssssssssss'].map(r => 'oN' + r + 'No'),
+      'oooooooooooooooooooo', '...oNo........oNo...', '...oNo........oNo...', '...oNo........oNo...', '...oNo........oNo...', '..ooooo......ooooo..'],
   };
   const mpix = rows => {
     const c = document.createElement('canvas');
@@ -67,7 +77,7 @@ const Gfx = (() => {
     return c;
   };
   // 몹 이름_anim_f0~3(art.js 가 8 프레임/초로 돌림 — 두 장이면 0 0 1 1 로 느리게 맥동) + 상태 그림 몇 장
-  const MOB_FRAMES = { splitter: ['splitA', 'splitA', 'splitB', 'splitB'], splitling: ['splitling'], shieldbearer: ['shieldbearer'], blinker: ['blinker'], tentacle: ['tentacleUp'], warder: ['warder'] };
+  const MOB_FRAMES = { splitter: ['splitA', 'splitA', 'splitB', 'splitB'], splitling: ['splitling'], shieldbearer: ['shieldbearer'], blinker: ['blinker'], tentacle: ['tentacleUp'], warder: ['warder'], dummy: ['dummy'], board: ['board'] };
   const mpixC = {};
   for (const k in MPIX) mpixC[k] = mpix(MPIX[k]);
   const putFrame = (name, k) => { SHEETS[name] = mpixC[k]; FRAMES[name] = [0, 0, mpixC[k].width, mpixC[k].height]; };

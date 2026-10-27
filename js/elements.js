@@ -191,6 +191,7 @@ const Elements = (() => {
     const d = Math.max(1, Math.round(amount * vuln(e) * rc * (e.wardT > 0 ? WARD.cut : 1)));  // 보호막 사제 둘레(방패병 방패는 속성 피해를 못 막음)
     e.hp -= d;
     if (e.def.raid) Raid.clamp(e);
+    if (e.def.dummy) Practice.add(d, 'el:' + el);  // 연습장 딜 측정(속성 피해)
     World.number(e.x + (Math.random() - 0.5) * 6, e.y, e.h + 2, d, ELEMENTS[el].color);
     if (e.hp <= 0) {
       e.dying = true;

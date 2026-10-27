@@ -392,6 +392,7 @@ const Hud = (() => {
     }
     // ── 오른쪽 위: 자동 지도(가 본 곳) ──
     drawMap(ctx, lv, p);
+    if (lv.def.practice) Practice.hud(ctx, prof);  // 연습장: 왼쪽 위 딜 측정판
     const c = World.comboInfo;
     if (c) { ctx.globalAlpha = Math.min(1, c.t / 0.5); T_(ctx, c.n + ' 콤보', 930, 236, 26, '#ffd36a', 'right'); ctx.globalAlpha = 1; }
     const m = World.msg;
@@ -484,7 +485,7 @@ const Hud = (() => {
     const df = DIFFS[RUN.diff], run = World.run, prof = World.prof;
     T_(ctx, lv.def.name, 950, by, 12, '#9a8e96', 'right');
     if (lv.def.endless) T_(ctx, '최고 ' + endlessBest(prof) + '층', 950, by + 16, 12, '#d8b0ff', 'right');  // 끝없는 심연은 난이도 대신 최고 층
-    else T_(ctx, df.name, 950, by + 16, 12, df.color, 'right');  // 난이도(2026-10-24 사용자)
+    else if (!lv.def.practice) T_(ctx, df.name, 950, by + 16, 12, df.color, 'right');  // 난이도(2026-10-24 사용자) — 연습장은 없음
     // 타임어택: 보스를 쓰러뜨리면 그 시간에서 멈추고 새 기록이면 금색
     const done = run && run.clearTime !== undefined, t = done ? run.clearTime : World.time;
     T_(ctx, '시간 ' + fmtTime(t), 950, by + 34, 14, done ? (run.newRecord ? '#ffd36a' : '#7dff8a') : '#e8e0d0', 'right');

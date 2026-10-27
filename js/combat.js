@@ -75,6 +75,7 @@ function hitEnemy(e, def, p, w) {
   dmg = rc && !rc[0] ? 0 : Math.max(1, Math.round(dmg));
   e.hp -= dmg;
   if (ed.raid) Raid.clamp(e);  // 한 번에 다음 단계를 건너뛰지 않게
+  if (ed.dummy) Practice.add(dmg, def.slot || def.name, crit);  // 연습장 딜 측정(기술 칸, 칸이 없는 속성석 탄은 이름 — 화염구 등)
   e.flash = 0.1;
   const knock = def.knock * wk.knock * (ed.boss ? 0.25 : ed.rooted ? 0 : blocked ? 0.3 : 1);  // 촉수는 밀리지 않음
   const heavy = !blocked && (def.heavy || crit || wk.crush);  // 망치(분쇄): 모든 공격이 준비 중인 적도 끊는다(방패에 막히면 못 끊음)

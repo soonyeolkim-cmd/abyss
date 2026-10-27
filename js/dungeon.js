@@ -25,6 +25,7 @@ const Dungeon = (() => {
 
   function generate(def) {
     if (def.raid) return Raid.level(def);  // 최종 보스 레이드: 넓은 방 하나(js/raid.js)
+    if (def.practice) return Practice.level(def);  // 연습장: 허수아비 방 하나(js/practice.js)
     if (def.roomMaps) return generateRooms(def);
     const W = GC * CW + 2, H = GR * CH + 4;
     const tiles = new Uint8Array(W * H);

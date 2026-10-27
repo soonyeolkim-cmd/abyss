@@ -308,6 +308,9 @@ Object.assign(ENEMIES, {
     atk: { windup: 0.55, active: 0.12, recovery: 0.7, knock: 150, reach: [0, 30], arc: 55, lunge: 0 } },
   warder: { name: '보호막 사제', sprite: 'warder', pix: true, idle: false, speed: 34, range: 92, poise: 3, ranged: true, solo: 1, odds: 0.35, ward: { r: 70 },
     atk: { windup: 0.7, active: 0.05, recovery: 1.0, knock: 90, shot: 120, color: '#ff7ab0' } },
+  // 연습장 허수아비(2026-10-27 사용자: 딜 측정 — js/practice.js): 안 움직이고 · 안 때리고 · 안 쓰러짐(체력은 늘 가득), 밀리지도 뜨지도 않음(rooted)
+  dummy: { name: '허수아비', sprite: 'dummy', pix: true, idle: false, dummy: true, rooted: true, speed: 0, range: 0, r: 7, hp: 1, exp: 0, gold: [0, 0],
+    atk: { windup: 1, active: 0.1, recovery: 1, dmg: 0, knock: 0, reach: [0, 1], arc: 10 } },
   // 층 끝 중간 보스(2026-10-26 사용자: 1~3층 보스 = 중간 보스, 최종 보스는 레이드). 그림 = 직접 찍은 도트(gfx.js MIDPIX, 0x72 보스처럼 정면 거인 몸) — 세기 바탕은 모든 보스 같음
   // 이름: '분열의 어미' · '촉수 군주'는 다음 단계 최종 보스 시안 이름으로 남겨 둠(tools/boss-sketch.js)
   split_mother: { name: '살덩이 거인', sprite: 'mid_flesh', pix: true, idle: false, boss: true, scale: 1.25, speed: 32, range: 22, superArmor: true, launchMul: 0.2, r: 12,

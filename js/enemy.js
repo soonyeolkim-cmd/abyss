@@ -175,6 +175,7 @@ function updateEnemy(e, dt, room, p) {
       if (e.t <= 0) { e.under = true; e.underT = 0; e.state = 'move'; World.dust(e.x, e.y, 4); }
       break;
     case 'move':
+      if (d.dummy) { e.moving = false; break; }  // 연습장 허수아비: 가만히
       if (!e.awake) { e.moving = false; wakeCheck(e, room, p); break; }
       if (d.raid) Raid.think(e, dt, room, p); else if (d.boss) bossThink(e, dt, room, p); else if (d.burrow) tentacleThink(e, dt, room, p); else aiMove(e, dt, room, p);
       break;
