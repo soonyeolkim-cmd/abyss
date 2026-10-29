@@ -1585,6 +1585,33 @@ const UI = (() => {
       // 다 채운 단계(도감 보상 +1%)는 머리 글을 초록 ★ 로
       for (let c = 0; c < VAULT_COLS; c++) { const done = !vaultColLeft(prof, c); T_(ctx, (done ? '★' : '') + (c ? 'Lv' + c * 10 : '없음'), X0 + c * STEP + CS / 2, 94, 11, this.c === c ? '#ffd36a' : done ? '#7dff8a' : '#9a8e96', 'center'); }
       T_(ctx, '부위 달성률', 724, 94, 11, '#9a8e96', 'center');
+      // 다 채운 단계(세로 한 줄)에 은은한 금빛(2026-10-29 사용자): 칸 뒤 = 숨 쉬는 바깥 빛, 칸 위 = 따뜻한 빛 덮개 · 천천히 내려오는 빛 띠 · 떠오르는 빛 알갱이
+      const now = performance.now() / 1000, colH = vaultCats(prof).length * RH + 4, doneCols = [];
+      for (let c = 0; c < VAULT_COLS; c++) if (!vaultColLeft(prof, c)) doneCols.push(c);
+      const glowCols = over => {
+        for (const c of doneCols) {
+          const gx = X0 + c * STEP - 3, gy = Y0 - 5, gw = CS + 6, pulse = 0.5 + 0.5 * Math.sin(now * 1.6 + c * 0.7);
+          ctx.save();
+          if (!over) {  // 칸 뒤: 바깥으로 번지는 빛
+            ctx.shadowColor = 'rgba(255,200,90,0.9)'; ctx.shadowBlur = 10 + 8 * pulse;
+            ctx.fillStyle = 'rgba(255,190,80,' + (0.18 + 0.12 * pulse).toFixed(3) + ')'; ctx.fillRect(gx, gy, gw, colH);
+          } else {  // 칸 위: 더하기 빛(칸 그림이 따뜻하게 밝아짐)
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.fillStyle = 'rgba(255,180,70,' + (0.05 + 0.05 * pulse).toFixed(3) + ')'; ctx.fillRect(gx, gy, gw, colH);
+            const sy = gy + ((now * 0.35 + c * 0.23) % 1.4) * colH - 0.2 * colH, sh = 36;  // 위에서 아래로 지나가는 빛 띠
+            const g = ctx.createLinearGradient(0, sy, 0, sy + sh);
+            g.addColorStop(0, 'rgba(255,220,140,0)'); g.addColorStop(0.5, 'rgba(255,220,140,0.16)'); g.addColorStop(1, 'rgba(255,220,140,0)');
+            ctx.fillStyle = g; ctx.fillRect(gx, Math.max(gy, sy), gw, Math.max(0, Math.min(gy + colH, sy + sh) - Math.max(gy, sy)));
+            for (let i = 0; i < 5; i++) {  // 빛 알갱이: 아래에서 위로 천천히
+              const k = (now * 0.12 + i / 5 + c * 0.37) % 1, px = gx + 3 + ((i * 11 + c * 7) % (gw - 6)), py = gy + colH - k * colH;
+              ctx.fillStyle = 'rgba(255,235,160,' + (0.7 * Math.sin(k * Math.PI)).toFixed(3) + ')';
+              ctx.fillRect(Math.round(px), Math.round(py), 2, 2);
+            }
+          }
+          ctx.restore();
+        }
+      };
+      glowCols(false);
       ctx.imageSmoothingEnabled = false;
       vaultCats(prof).forEach((cat, r) => {
         const y = Y0 + r * RH, n = vaultCount(prof, cat.id);
@@ -1608,6 +1635,7 @@ const UI = (() => {
         T_(ctx, n + '/' + VAULT_COLS, 860, y + 21, 13, full ? '#ffd34d' : '#e8e0d0', 'right');
         T_(ctx, Math.floor(n / VAULT_COLS * 100) + '%', 916, y + 21, 13, full ? '#ffd34d' : '#c8b8a0', 'right');
       });
+      glowCols(true);  // 다 채운 단계: 칸 위 빛
       // 아래: 고른 칸 설명
       ctx.fillStyle = '#3a2e36'; ctx.fillRect(40, 404, 880, 1);
       const cat = vaultCats(prof)[this.r], U = UNIQUES[cat.uniq], key = cat.id + ':' + this.c, have = prof.vault[key];

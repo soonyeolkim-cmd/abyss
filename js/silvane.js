@@ -43,6 +43,7 @@ const Silvane = (() => {
   // 심연 공방(고른, 2026-10-27): 화덕(막힘) · 혈석 결정 · 심연의 핵 받침 · 모루, 바닥 = 검보라 판석(WORK)
   const WORK = { x0: 41, y0: 4, x1: 55, y1: 8 };
   const FORGE = { tx: 44, ty: 4, tw: 5, th: 2 };
+  const SIGN = { x: FORGE.tx * T + 26, h: 14 };  // 심연 공방 간판: 화덕 위 판석 위, 가운데 x(굴뚝 왼쪽) · 판 높이
   const BLOODSTONE = [[52, 5, 1], [53, 7, 0.6]], CORE_STAND = [42, 6], ABYSS_ANVIL = [49, 7];
   // 연습장(2026-10-27): 모래 마당(TRAIN) · 울타리(위 줄 + 왼쪽, 아랫길 쪽 틈) · 베기 기둥(DECOR_DUMMIES — 말 거는 허수아비와 다른 통나무) · 과녁 · 무기 걸이 · 건초
   const TRAIN = { x0: 41, y0: 10, x1: 55, y1: 16 };
@@ -170,17 +171,13 @@ const Silvane = (() => {
     g.fillStyle = '#9a7048'; g.fillRect(gx - 20, 31, 1, 33); g.fillRect(gx + 16, 31, 1, 33); g.fillRect(gx - 23, 28, 46, 1);
     g.fillStyle = '#3a2414'; g.fillRect(gx - 14, 14, 28, 13); g.fillStyle = '#c8a070'; g.fillRect(gx - 13, 15, 26, 11); g.fillStyle = '#a87c4e'; g.fillRect(gx - 13, 24, 26, 2);  // 간판
     g.fillStyle = '#5a3a22'; g.fillRect(gx - 10, 26, 1, 2); g.fillRect(gx + 9, 26, 1, 2);
-    // 심연 공방 바닥: 화덕 앞 그을음 · 판석 틈으로 번진 핏빛 금(화덕 둘레만, 옅게) · 절벽 위 나무 간판(글은 labels)
+    // 심연 공방 바닥: 화덕 앞 그을음 · 판석 틈으로 번진 핏빛 금(화덕 둘레만, 옅게). 간판은 화덕 위(abyssForge)
     for (let dy = -10; dy <= 10; dy += 2) { const hw = Math.round(34 * Math.sqrt(1 - (dy / 11) ** 2)); g.fillStyle = 'rgba(60,40,50,0.18)'; g.fillRect(46.5 * T - hw, 6.6 * T + dy, hw * 2, 2); }
     g.fillStyle = '#9a4a62';
     for (let k = 0; k < 4; k++) {
       let x = (FORGE.tx - 1 + hash(k, 41) * 7) * T, y = (FORGE.ty + FORGE.th + 0.3 + hash(k, 42) * 1.4) * T;
       for (let i = 0; i < 10; i++) { g.fillRect(Math.round(x), Math.round(y), 1, 1); x += 1; y += hash(k, i) < 0.5 ? 0 : hash(i, k) < 0.5 ? 1 : -1; }
     }
-    const wx = 46.5 * T;
-    g.fillStyle = '#3a3e48'; g.fillRect(wx - 16, 10, 1, 5); g.fillRect(wx + 15, 10, 1, 5);  // 쇠사슬
-    g.fillStyle = '#3a2414'; g.fillRect(wx - 22, 14, 44, 14); g.fillStyle = '#c8a070'; g.fillRect(wx - 21, 15, 42, 12); g.fillStyle = '#a87c4e'; g.fillRect(wx - 21, 25, 42, 2);
-    g.fillStyle = '#c8306a'; g.fillRect(wx - 19, 17, 2, 2); g.fillRect(wx + 17, 17, 2, 2);  // 혈석 박힘
     // 연습장 모래 마당: 자갈 몇 개 · 밟힌 자국
     for (let k = 0; k < 40; k++) {
       const x = (TRAIN.x0 + hash(k, 51) * (TRAIN.x1 - TRAIN.x0)) * T, y = (TRAIN.y0 + 0.8 + hash(k, 52) * 5) * T;
@@ -436,7 +433,7 @@ const Silvane = (() => {
   // 화면 좌표 글: 갱도 간판 · 심연 공방 간판 · 연습장 팻말
   function labels(ctx, sx, sy) {
     Gfx.text(ctx, '왕의 갱도', sx(20 * T), sy(24), 12, '#3a2414', 'center', 'bold');
-    Gfx.text(ctx, '심연 공방', sx(46.5 * T), sy(25), 12, '#4a1a5a', 'center', 'bold');
+    Gfx.text(ctx, '심연 공방', sx(SIGN.x), sy((FORGE.ty + FORGE.th) * T - 30 - 3 - 4 - SIGN.h + 11), 12, '#4a1a5a', 'center', 'bold');  // 화덕 위 간판 판(abyssForge) 가운데
     Gfx.text(ctx, '연습장', sx(43.5 * T), sy(10 * T - 3.5), 11, '#3a2414', 'center', 'bold');  // 팻말 판(11T−28 ~ 11T−15) 가운데
   }
 
@@ -509,6 +506,11 @@ const Silvane = (() => {
     ctx.fillStyle = '#6a6258';
     for (let y = top + 6; y < by; y += 6) { ctx.fillRect(x0 + 1, y, w - 2, 1); for (let x = x0 + ((y / 6) % 2 ? 4 : 10); x < x0 + w - 1; x += 12) ctx.fillRect(x, y - 5, 1, 5); }
     ctx.fillStyle = '#9a9286'; ctx.fillRect(x0 - 2, top - 3, w + 4, 4); ctx.fillStyle = '#c0b8ac'; ctx.fillRect(x0 - 2, top - 3, w + 4, 1);  // 위 판석
+    // 나무 간판: 위 판석에 짧은 다리 둘로 세움(굴뚝 왼쪽, 2026-10-29 사용자: 예전엔 절벽에 매달려 하늘에 뜬 듯했음). 글은 labels(SIGN)
+    const sx0 = SIGN.x - 22, sy0 = top - 3 - SIGN.h - 4;
+    ctx.fillStyle = '#3a2414'; ctx.fillRect(sx0 + 7, sy0 + SIGN.h, 2, 4); ctx.fillRect(sx0 + 35, sy0 + SIGN.h, 2, 4);  // 다리
+    ctx.fillStyle = '#3a2414'; ctx.fillRect(sx0, sy0, 44, SIGN.h); ctx.fillStyle = '#c8a070'; ctx.fillRect(sx0 + 1, sy0 + 1, 42, SIGN.h - 2); ctx.fillStyle = '#a87c4e'; ctx.fillRect(sx0 + 1, sy0 + SIGN.h - 3, 42, 2);
+    ctx.fillStyle = '#c8306a'; ctx.fillRect(sx0 + 3, sy0 + 3, 2, 2); ctx.fillRect(sx0 + 39, sy0 + 3, 2, 2);  // 혈석 박힘
     const pulse = 0.5 + 0.5 * Math.sin(time * 2.2);
     ctx.fillStyle = pulse > 0.5 ? '#ff7ab0' : '#c8306a';  // 혈석 박힌 돌(맥박)
     for (const [dx, dy] of [[6, 8], [70, 14], [12, 22], [66, 24]]) ctx.fillRect(x0 + dx, top + dy, 3, 2);
