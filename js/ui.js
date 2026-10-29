@@ -959,6 +959,8 @@ const UI = (() => {
           ctx.strokeStyle = on ? '#ffd36a' : '#4a3a40'; ctx.lineWidth = 2; ctx.strokeRect(x + 1, 41, 84, 28);
           T_(ctx, name, x + 43, 61, 15, on ? '#ffd36a' : '#8a7e88', 'center');
         });
+        // 2026-10-27 사용자 "패드 · 키보드로 전환 못 하는 것 같아" — 키가 맨 아래 안내 줄에만 있어서 버튼 옆에도(오른쪽 '←→ 탭 바꾸기'처럼)
+        if (!Input.touchMode()) T_(ctx, L('special') + ' 바꾸기', 270, 61, 12, '#8a7e88', 'right');
         const st = list[this.pick];
         if (this.split) {
           T_(ctx, '하나를 쪼개 한 단계 작은 것 3개로 — 합치기의 ' + SPLIT_MUL + '배 골드', 44, 94, 14, '#c8b8a0');
@@ -1356,16 +1358,16 @@ const UI = (() => {
     },
     drawMain(ctx, prof, rows, list, cur) {
       if (this.zone === 'move' && this.moveSrc) { this.drawMove(ctx, prof, rows, this.moveSrc); return; }
-      T_(ctx, '최대 +' + ENCHANT_MAX + ' · 실패하면 주문서만 사라져요', 454, 64, 12, '#9a8e96', 'right');
+      T_(ctx, '최대 +' + (cur ? enchantMax(cur.item) : ENCHANT_MAX) + ' · 실패하면 주문서만 사라져요', 454, 64, 12, '#9a8e96', 'right');
       if (!rows.length) T_(ctx, '장비가 없어요', 44, 110, 15, '#6a6068');
       listView(ctx, 24, 450, rows.length, this.sel, this.zone === 'item', (i, y, on) => {
         const it = rows[i].item;
-        itemRow(ctx, rows[i], y, on, '+' + (it.ups || 0) + ' / ' + ENCHANT_MAX);
+        itemRow(ctx, rows[i], y, on, '+' + (it.ups || 0) + ' / ' + enchantMax(it));
       }, i => ({ on: () => this.zone === 'item' && this.sel === i, pick: () => { this.zone = 'item'; this.sel = i; } }));
       if (cur) {
         const it = cur.item;
         T_(ctx, statLine(it), 44, 462, 13, '#c8b8a0');
-        T_(ctx, '강화 +' + (it.ups || 0) + ' / ' + ENCHANT_MAX + (it.ups ? ' · ' + Object.keys(it.ench || {}).map(k => STATS[k].name + ' +' + it.ench[k]).join(' · ') : ''), 44, 482, 13, '#9a8e96');
+        T_(ctx, '강화 +' + (it.ups || 0) + ' / ' + enchantMax(it) + (it.ups ? ' · ' + Object.keys(it.ench || {}).map(k => STATS[k].name + ' +' + it.ench[k]).join(' · ') : ''), 44, 482, 13, '#9a8e96');
       }
       // 오른쪽: 주문서 주머니(고른 장비에 바를 수 있는 것만 밝게)
       Gfx.panel(ctx, 488, 24, 448, 470);
@@ -1395,7 +1397,7 @@ const UI = (() => {
       T_(ctx, Items.nameOf(src), 180, 160, 18, RARITY[src.rarity].color);
       T_(ctx, '옮길 강화: +' + src.ups, 180, 188, 15, '#ffd36a');
       T_(ctx, Object.keys(src.ench || {}).map(k => STATS[k].name + ' +' + src.ench[k]).join(' · '), 180, 212, 14, '#c8b8a0');
-      const lines = ['· 같은 부위 장비로만 옮겨요', '· 계승 주문서 1장을 써요', '· 새 장비에 강화가 있으면 더해져요 (+' + ENCHANT_MAX + '까지)', '· 옛 장비는 강화가 빠져요'];
+      const lines = ['· 같은 부위 장비로만 옮겨요', '· 계승 주문서 1장을 써요', '· 새 장비에 강화가 있으면 더해져요 (그 장비 한도까지)', '· 옛 장비는 강화가 빠져요'];
       lines.forEach((t, i) => T_(ctx, t, 44, 290 + i * 26, 14, '#9a8e96'));
       T_(ctx, '계승 주문서 ' + (prof.scrolls['inherit:0'] || 0) + '장', 44, 474, 18, scrollColor({ g: 'inherit' }));
       const tg = moveTargets(rows, src);

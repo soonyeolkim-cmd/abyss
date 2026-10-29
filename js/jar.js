@@ -145,11 +145,11 @@ const Jar = (() => {
       Gfx.icon(ctx, previewOf(prof, s), 64, y + 20, 26);
       T_(ctx, SLOT_NAMES[s] + ' 항아리', 88, y + 27, 15, on ? '#ffd36a' : '#f0e0b8');
       T_(ctx, p + 'G · 착용 Lv.' + req, 436, y + 27, 12, prof.gold >= p ? '#9a8e96' : '#ff7a6a', 'right');
-      // 이 단계 유니크를 가졌나: 윗줄 '✔ 있음'(무기는 두 종류 다) 또는 '검만 있음', 아랫줄 어디 있는지(컬렉션 · 가방 · 착용 중)
+      // 이 단계 유니크를 가졌나: 윗줄 '✔ 보유 중'(무기는 두 종류 다) 또는 '검만 보유 중', 아랫줄 어디 있는지(컬렉션 · 가방 · 착용 중)
       const ow = owned(prof, s, tierOf(jl));
       if (ow.have) {
         const full = ow.have === ow.of, one = ow.per.find(x => x.vault || x.bag || x.worn);
-        T_(ctx, full ? '✔ 유니크 있음' : catName(one.cat) + '만 있음', 190, y + 18, 11, full ? '#7dff8a' : '#e0c870');
+        T_(ctx, full ? '✔ 보유 중' : catName(one.cat) + '만 보유 중', 190, y + 18, 11, full ? '#7dff8a' : '#e0c870');  // 2026-10-27 사용자: '유니크 있음' → '보유 중'
         T_(ctx, ow.where.join(' · '), 190, y + 32, 10, '#8aa890');
       }
     });

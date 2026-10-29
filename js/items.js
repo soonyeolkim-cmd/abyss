@@ -32,7 +32,7 @@ const Items = (() => {
       v: 8, uid: nextUid++, base: b.id, slot: b.slot, ilvl, rarity, name, stats, affixes: [],
       gems: new Array(RARITY[rarity].sockets).fill(null),  // 보석 칸(빈 칸 = null)
       value: Math.round(10 * POWER(ilvl) * (1 + rarity * 1.5)),
-      ups: 0, ench: {},  // 주문서: 강화 단계(+N, 최대 ENCHANT_MAX) · 올라간 능력치
+      ups: 0, ench: {},  // 주문서: 강화 단계(+N, 최대 enchantMax — 착용 레벨로) · 올라간 능력치
       uniq: o.uniq || null,        // 유니크 특수 효과(UNIQUES 키)
     };
     return it;
@@ -55,7 +55,7 @@ const Items = (() => {
     for (const k in b.curve) if (!(k in it.stats)) it.stats[k] = Math.max(1, Math.round(b.curve[k](it.ilvl) * RARITY[it.rarity].mult));
     applyFixed(it.stats, it.slot, it.rarity);
     delete it.up; delete it.fails;
-    it.ups = Math.min(ENCHANT_MAX, it.ups || 0);
+    it.ups = Math.min(enchantMax(it), it.ups || 0);
     if (it.uniq === 'second') it.uniq = 'breath';
     it.name = it.uniq ? uniqueName(it.uniq, b.kind, b.tier) : itemName(b, it.rarity);
     it.v = 6;
@@ -170,7 +170,7 @@ const Items = (() => {
   // 대장장이: 주문서 바르기 → 'ok' | 'fail' | 안 되는 까닭(글)
   function canEnchant(item, s) {
     if (s.g === 'inherit') return '계승 주문서는 강화 옮기기에 써요 (' + Input.label('special') + ')';
-    return (item.ups || 0) < ENCHANT_MAX ? null : '+' + ENCHANT_MAX + '이 끝이에요';
+    return (item.ups || 0) < enchantMax(item) ? null : '+' + enchantMax(item) + '이 끝이에요';
   }
   function enchant(item, s) {
     const why = canEnchant(item, s);
@@ -190,7 +190,7 @@ const Items = (() => {
     if (!from.ups) return '옮길 강화가 없어요';
     if (to === from) return '같은 장비예요';
     if (to.slot !== from.slot) return '같은 부위끼리만 옮길 수 있어요';
-    if ((to.ups || 0) + from.ups > ENCHANT_MAX) return '합치면 +' + ENCHANT_MAX + '을 넘어요 (지금 +' + (to.ups || 0) + ')';
+    if ((to.ups || 0) + from.ups > enchantMax(to)) return '합치면 +' + enchantMax(to) + '을 넘어요 (지금 +' + (to.ups || 0) + ')';
     return null;
   }
   function transfer(from, to) {
@@ -199,7 +199,7 @@ const Items = (() => {
     to.ench = to.ench || {};
     // 새 장비 레벨에 맞춰 늘리거나 줄인다(같은 +N 이면 같은 비율)
     for (const k in from.ench || {}) to.ench[k] = (to.ench[k] || 0) + Math.round(from.ench[k] * POWER(to.ilvl) / POWER(from.ilvl));
-    to.ups = (to.ups || 0) + from.ups;  // 새 장비에 강화가 있으면 더해진다(+10 까지)
+    to.ups = (to.ups || 0) + from.ups;  // 새 장비에 강화가 있으면 더해진다(그 장비 한도까지)
     from.ench = {}; from.ups = 0;      // 옛 장비는 강화가 빠진다
     return null;
   }

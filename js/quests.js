@@ -11,7 +11,7 @@ const Quests = (() => {
   const monday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return d; };
   let sel = 0;
 
-  // 못 하는 의뢰는 안 나온다(2026-10-27 사용자): 강화 한도(+ENCHANT_MAX)라 강화할 장비가 없으면 강화 시도 X, 심연(입장 레벨까지)이 안 열렸으면 레이드 · 3층 X,
+  // 못 하는 의뢰는 안 나온다(2026-10-27 사용자): 강화 한도(enchantMax)라 강화할 장비가 없으면 강화 시도 X, 심연(입장 레벨까지)이 안 열렸으면 레이드 · 3층 X,
   // 몹 · 정예 · 보스의 조건은 던전 입장 레벨(2026-10-27 사용자): 내 레벨의 10단위에서 한 단계 아래 이상(Lv.92 → 입장 Lv.80 이상 던전),
   // 단 지금 들어갈 수 있는 가장 높은 던전의 입장 레벨을 넘지 않게
   const abyssOk = prof => endlessOpen(prof) && prof.lv >= ENDLESS.entry;
@@ -21,7 +21,7 @@ const Quests = (() => {
     return abyssOk(prof) ? Math.max(best, ENDLESS.entry) : best;
   }
   const gateLv = prof => Math.max(1, Math.min(Math.floor(prof.lv / 10) * 10 - QUEST.gate, topLv(prof)));
-  const canEnchantAny = prof => [...SLOTS.map(s => prof.equip[s]), ...prof.bag].some(it => it && (it.ups || 0) < ENCHANT_MAX);
+  const canEnchantAny = prof => [...SLOTS.map(s => prof.equip[s]), ...prof.bag].some(it => it && (it.ups || 0) < enchantMax(it));
   function possible(x, prof) {  // x = 목록의 의뢰 정의 또는 받은 의뢰
     if (x.abyss && !abyssOk(prof)) return false;
     if (x.ev === 'enchant' && !canEnchantAny(prof)) return false;
