@@ -173,6 +173,8 @@ const Sfx = (() => {
     pickup: () => smp('leather', { vol: 0.6 }),
     stone: () => { smp('glass', { vol: 0.45, rate: 1.3 }); tone({ type: 'sine', f: 1800, dur: 0.25, vol: 0.06, delay: 0.04 }); },
     potion: () => { tone({ type: 'sine', f: 300, f2: 700, dur: 0.25, vol: 0.18 }); noise({ dur: 0.2, vol: 0.06, freq: 1500 }); },
+    // 콘텐츠 해금(2026-10-29): 오르는 짧은 나팔 + 길게 울리는 화음
+    unlock: () => { [392, 523, 659, 784].forEach((f, i) => tone({ type: 'square', f, dur: 0.14, vol: 0.08, delay: i * 0.08 })); [1046, 1318, 1568].forEach(f => tone({ type: 'triangle', f, dur: 0.8, vol: 0.07, delay: 0.34 })); },
     levelUp: () => [523, 659, 784, 1046].forEach((f, i) => tone({ type: 'square', f, dur: 0.18, vol: 0.1, delay: i * 0.09 })),
     chest: () => { smp('latch', { vol: 0.6 }); smp('creak', { vol: 0.45, delay: 0.06 }); tone({ type: 'triangle', f: 400, f2: 800, dur: 0.3, vol: 0.08, delay: 0.15 }); },
     // 몹이 깨어남(무리째): 으르렁(1초에 한 번까지)

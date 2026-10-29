@@ -63,6 +63,7 @@ const Game = (() => {
 
   function update(dt) {
     UI.resolveTap();  // 폰: 지난 그림에서 누른 메뉴 줄 · 칸
+    Unlocks.update(dt, prof, scene, overlays);  // 콘텐츠 해금 알림(2026-10-29)
     const top = overlays[overlays.length - 1];
     if (top) {
       if (top.type === 'inv') UI.inv.update(top, prof);
@@ -149,6 +150,7 @@ const Game = (() => {
       else if (o.type === 'imprint') Imprint.draw(ctx, o, prof);
       else if (o.type === 'ride') Town.rideDraw(ctx, o);
     }
+    Unlocks.draw(ctx, scene, overlays);
     if (toastT > 0 && toastMsg) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalAlpha = Math.min(1, toastT / 0.4);

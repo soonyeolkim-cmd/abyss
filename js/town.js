@@ -38,7 +38,7 @@ const Town = (() => {
     // 심연 장인 고른(2026-10-26 사용자: 브론의 형, 실베인에만 — only) — Lv.100 유니크 제작(js/craft.js) · 장비 분해(브론에게서 옮김)
     { id: 'artisan', only: 'silvane', name: '심연 장인 고른', role: 'Lv.100 유니크 제작 · 장비 분해', sprite: 'dwarf_m', ...px(1, 1),
       go: () => Game.overlay({ type: 'choice', title: '심연 장인 고른', items: [
-        { label: '유니크 제작 (Lv.100)', go: () => Game.overlay({ type: 'craft' }) },
+        { label: '유니크 제작 (Lv.100)', go: () => prof.lv >= 100 ? Game.overlay({ type: 'craft' }) : Game.toast('Lv.100부터 만들 수 있어요') },  // 콘텐츠 해금(2026-10-29): Lv.100 부터
         { label: '장비 분해 (심연 정수)', go: () => Game.overlay({ type: 'inv', mode: 'scrap' }) },  // 2026-10-25 사용자: 태초 장비 → 정수 가루
         EQUIP_ITEM,
         { label: '제작 이야기 듣기', go: () => Story.talkNpc('artisan') },
@@ -274,7 +274,7 @@ const Town = (() => {
     near = null;
     let bd = TALK_R;
     for (const s of here()) { const d = Math.hypot(s.x - p.x, s.y - p.y); if (d < bd) { bd = d; near = s; } }
-    if (near && (Input.wasPressed('ok') || Input.wasPressed('attack'))) { Sfx.pickup(); near.go(); }
+    if (near && (Input.wasPressed('ok') || Input.wasPressed('attack'))) { Sfx.pickup(); Unlocks.seen(prof, near.id, where); near.go(); }  // 처음 말 걸면 NEW 지움
   }
 
   const TOWN_MENU = () => [
@@ -430,6 +430,12 @@ const Town = (() => {
         ctx.fillStyle = 'rgba(20,14,10,0.5)'; ctx.fillRect(Math.round(sx(s.x) - tw / 2), hy - fs + 1, Math.round(tw), fs + 5);
       }
       Gfx.text(ctx, nm, sx(s.x), hy, fs, on ? '#ffd36a' : ready ? '#7dff8a' : '#e8dcc0', 'center');
+      if (Unlocks.isNew(prof, s.id, where)) {  // 새로 열린 콘텐츠(2026-10-29): 이름 오른쪽 위 통통 뛰는 NEW
+        ctx.font = 'bold ' + fs + 'px ' + Gfx.FONT;
+        const bx = Math.round(sx(s.x) + ctx.measureText(nm).width / 2 + 4), by = Math.round(hy - fs - 4 + Math.sin(time * 5) * 2);
+        ctx.fillStyle = '#c8306a'; ctx.fillRect(bx, by, 34, 15); ctx.strokeStyle = '#ffd36a'; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, by + 0.5, 33, 14);
+        Gfx.text(ctx, 'NEW', bx + 17, by + 12, 11, '#fff4d0', 'center');
+      }
       if (on) {
         Gfx.text(ctx, s.role, sx(s.x), hy + 18, 11, '#c8b8a0', 'center');
         const k = Input.touchMode() ? '말 걸기' : L('ok') + ' 말 걸기';  // 폰: 오른쪽 아래 '대화' 버튼
