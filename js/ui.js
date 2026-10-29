@@ -1574,12 +1574,16 @@ const UI = (() => {
       const total = vaultCats(prof).reduce((a, cat) => a + vaultCount(prof, cat.id), 0), all = vaultCats(prof).length * VAULT_COLS;
       T_(ctx, '창고 — 유니크 컬렉션', 44, 62, 24, '#f0e0b8');
       T_(ctx, '전체 달성 ' + total + '/' + all + ' (' + Math.floor(total / all * 100) + '%)', 916, 62, 18, '#ffd34d', 'right');
-      // 도감 보상(2026-10-27): 10칸마다 체력 · 공격력 +1%, 줄을 다 채우면 칭호(줄 이름 옆 ★)
-      const cb = collectSteps(prof), left = COLLECT.per - total % COLLECT.per, legend = collectTitles(prof)[0] === '전설의 수집가';
-      T_(ctx, '도감 보상 체력 · 공격력 +' + cb * COLLECT.hp + '%' + (total < all ? ' · 다음 +1%까지 ' + left + '칸' : '') + (legend ? ' · ★ 전설의 수집가' : ''), 520, 62, 14, '#7dff8a', 'center');
+      // 도감 보상(2026-10-29 사용자): 착용 레벨 단계(세로 한 칸) 하나를 다 채울 때마다 체력 · 공격력 +1%, 줄을 다 채우면 칭호(줄 이름 옆 ★)
+      // 다음 +1% = 빈 칸이 가장 적은 단계
+      const cb = collectSteps(prof), legend = collectTitles(prof)[0] === '전설의 수집가';
+      let near = -1; for (let c = 0; c < VAULT_COLS; c++) { const l = vaultColLeft(prof, c); if (l && (near < 0 || l < vaultColLeft(prof, near))) near = c; }
+      const nextTxt = near >= 0 ? ' · 다음 +1%: ' + (near ? 'Lv.' + near * 10 : '레벨 없음') + ' 단계 ' + vaultColLeft(prof, near) + '칸 남음' : '';
+      T_(ctx, '도감 보상 체력 · 공격력 +' + cb * COLLECT.hp + '%' + nextTxt + (legend ? ' · ★ 전설의 수집가' : ''), 505, 62, 14, '#7dff8a', 'center');  // 오른쪽 '전체 달성'과 안 겹치게 조금 왼쪽
       const X0 = 214, CS = 32, STEP = 40, Y0 = 104, RH = 36;
       // 칸 머리: 착용 레벨
-      for (let c = 0; c < VAULT_COLS; c++) T_(ctx, c ? 'Lv' + c * 10 : '없음', X0 + c * STEP + CS / 2, 94, 11, this.c === c ? '#ffd36a' : '#9a8e96', 'center');
+      // 다 채운 단계(도감 보상 +1%)는 머리 글을 초록 ★ 로
+      for (let c = 0; c < VAULT_COLS; c++) { const done = !vaultColLeft(prof, c); T_(ctx, (done ? '★' : '') + (c ? 'Lv' + c * 10 : '없음'), X0 + c * STEP + CS / 2, 94, 11, this.c === c ? '#ffd36a' : done ? '#7dff8a' : '#9a8e96', 'center'); }
       T_(ctx, '부위 달성률', 724, 94, 11, '#9a8e96', 'center');
       ctx.imageSmoothingEnabled = false;
       vaultCats(prof).forEach((cat, r) => {

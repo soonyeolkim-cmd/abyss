@@ -342,10 +342,11 @@ Object.assign(ENEMIES, {
 // 2026-10-26 시험(무적 · 공격 ×40 시험 캐릭터): hpMul 5 · 내려찍기 3번 · 노출 ×1.5 로는 1단계만 2분, hpMul 3 이어도 2단계에서 4분이 넘음
 //   → 체력 = 중간 보스 × 1.2(드러날 때만 제대로 맞으니 실제로는 중간 보스 몇 배 걸림) · 내려찍기 2번 · ×2 · 노출 시간 늘리고 제한 5분
 //   → 섞기로 바꾸며 드러나야 하는 횟수가 3 → 6~9 번이 되어 제한 5 → 7분 · 빠른 깸 2 → 3분 30초
-const RAID_RULE = { hpMul: 1.2, time: 420, shellCut: 0, exposedMul: 2, slams: 3, slamExpose: 4, pillarExpose: 6, crystalExpose: 7, crystalTime: 15, crystalPct: 0.2, repeat: [2, 3], shift: 1.2,
+// 2026-10-29 사용자: 파훼 뒤 딜 타이밍(노출)은 모두 5초(내려찍기 4 · 기둥 6 · 수정 7 → 5, 구슬 5 그대로) · 구슬 더 빠르게 orbSpeed 120 → 150
+const RAID_RULE = { hpMul: 1.2, time: 420, shellCut: 0, exposedMul: 2, slams: 3, slamExpose: 5, pillarExpose: 5, crystalExpose: 5, crystalTime: 15, crystalPct: 0.2, repeat: [2, 3], shift: 1.2,
   leap: { wind: 0.9, air: 0.35, h: 46 },  // 껍질 도약 내려찍기: wind 초 동안 내 발밑 예고(따라옴) → air 초 동안 그 자리로 날아와 내려찍기(높이 h)
   stun: 1.5, orbPct: 0.25, markT: 5, markMul: 1.3, wave: { delay: 0.5, speed: 240, w: 12, pct: 0.15, maxR: 560 },
-  orbExpose: 5, orbSpeed: 120, orbBack: 1.15, rallyMax: 3, rallyChance: 0.5, essence: 10, cores: 1,
+  orbExpose: 5, orbSpeed: 150, orbBack: 1.15, rallyMax: 3, rallyChance: 0.5, essence: 10, cores: 1,
   stoneSize: 4 };  // 2026-10-29 사용자: 레이드를 깨면 '완전한' 속성석 1개 확정(속성 무작위) — 원소 각인 · 공명에 속성석이 모자라서
 // 레이드 칭호(2026-10-27 사용자 — js/records.js): 레이드 단계(stage)마다 여덟 개. 꾸미기만(능력치 없음).
 // 처치 횟수는 파티로 깬 것도 셈, 질풍 · 섬광 · 흠집 하나 없이 · 고독한 사냥꾼은 혼자 깬 것만. 시간 = 파수꾼이 깨어난 뒤부터(초) — 210 · 120 은 손맛 보고 다시
@@ -612,13 +613,15 @@ const QUEST = {
     { ev: 'enchant', name: '장비 강화 시도', n: 25 }, { ev: 'raid', name: '최종 보스 레이드 깨기', n: 1, abyss: true }, { ev: 'abyss3', name: '끝없는 심연 3층 수호자 처치', n: 2, abyss: true }],
   reward: { daily: { runs: 1, scrolls: 3, stone: 2 }, weekly: { runs: 3, scrolls: 5, essence: 20 } },
 };
-// 도감 보상(2026-10-27 사용자): 창고 컬렉션(내 직업 무기 두 줄 + 여섯 부위 × 10단계 = 80칸)에 per 칸 모일 때마다 영구 체력 · 공격력 +hp · +atk %,
+// 도감 보상(2026-10-27 사용자): 창고 컬렉션(내 직업 무기 두 줄 + 여섯 부위 × 10단계 = 80칸). 2026-10-29 사용자: 예전 '10칸마다 +1%' →
+// 착용 레벨 단계(세로 한 칸: 없음 · Lv.10 … Lv.90) 하나를 다 채울 때마다(그 단계 8칸) 영구 체력 · 공격력 +hp · +atk % — 10단계 모두면 +10%,
 // 한 줄(한 부위 10단계)을 다 채우면 칭호 '○○ 수집가', 80칸 모두면 '전설의 수집가'. 꺼내면 다시 빠진다(넣어 둔 것만 셈)
-const COLLECT = { cols: 10, per: 10, hp: 1, atk: 1 };
+const COLLECT = { cols: 10, hp: 1, atk: 1 };
 const vaultCatsOf = prof => VAULT_CATS.filter(c => !c.cls || c.cls === clsOf(prof).id);
 const vaultLine = (prof, id) => { let n = 0; for (let c = 0; c < COLLECT.cols; c++) if (prof.vault && prof.vault[id + ':' + c]) n++; return n; };
 const vaultTotal = prof => vaultCatsOf(prof).reduce((a, c) => a + vaultLine(prof, c.id), 0);
-const collectSteps = prof => (prof.vault ? Math.floor(vaultTotal(prof) / COLLECT.per) : prof.cb || 0);  // 파티 손님 몸(kitProf)은 cb 로 받는다
+const vaultColLeft = (prof, c) => vaultCatsOf(prof).filter(cat => !(prof.vault && prof.vault[cat.id + ':' + c])).length;  // 그 레벨 단계에 빈 칸 수
+const collectSteps = prof => { if (!prof.vault) return prof.cb || 0; let n = 0; for (let c = 0; c < COLLECT.cols; c++) if (!vaultColLeft(prof, c)) n++; return n; };  // 다 채운 레벨 단계 수(파티 손님 몸 kitProf 는 cb 로 받는다)
 function collectTitles(prof) {
   const cats = vaultCatsOf(prof), full = cats.filter(c => vaultLine(prof, c.id) >= COLLECT.cols).map(c => c.name + ' 수집가');
   return full.length === cats.length ? ['전설의 수집가', ...full] : full;
@@ -835,6 +838,9 @@ const SPLIT_MUL = 2;
 const SPLIT_COST = size => (size > 0 ? COMBINE_COST(size - 1) * SPLIT_MUL : 0);
 // 상태이상 기본 수치
 const FREEZE_AT = 4;          // 냉기가 이만큼 쌓이면 빙결(보스는 균열)
+// 빙결 내성(2026-10-29 사용자: 태초 빙결석 4칸 공명이면 몹 · 중간 보스가 얼어서 꼼짝도 못함): 빙결이 풀린 뒤 이만큼(초)은 다시 얼지 않는다.
+// 보스 균열의 멈칫(0.4초)은 균열이 새로 생길 때만(균열이 이어지는 동안 계속 멈칫하지 않게)
+const FREEZE_IMMUNE = 4;
 const WAVE_CUT = { t: 4, vuln: 0.25 };  // 검사 검기에 맞은 적: 베인 상처 4초 · 받는 피해 +25%
 const SHOCK_VULN = 0.2;       // 감전된 적이 받는 피해 +20% (+ 크기마다 5%)
 const CRACK_VULN = 0.25;      // 보스 얼음 균열: 받는 피해 +25%

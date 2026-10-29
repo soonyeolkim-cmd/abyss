@@ -117,10 +117,13 @@ const Elements = (() => {
     duoReact(e);
     e.chillT = 3;
     if (e.chill < FREEZE_AT || e.dying) return;
+    // 빙결 내성: 얼어 있는 동안은 다시 얼려 시간을 늘리지 않고, 풀린(녹음 · 파쇄) 뒤 FREEZE_IMMUNE 초는 다시 안 얼음 — 냉기는 남아 반짝임
+    if (e.freezeImmT > 0 || e.state === 'frozen') { e.chill = FREEZE_AT - 1; return; }
     e.chill = 0;
     if (e.def.boss) {
-      e.crackT = 3; // 보스는 얼지 않고 균열: 받는 피해 증가 + 잠깐 멈칫
-      if (e.state === 'move') { e.state = 'stagger'; e.t = 0.4; }
+      const fresh = !(e.crackT > 0);
+      e.crackT = 3; // 보스는 얼지 않고 균열: 받는 피해 증가 + 잠깐 멈칫(새로 생길 때만)
+      if (fresh && e.state === 'move') { e.state = 'stagger'; e.t = 0.4; }
       World.text(e.x, e.y, e.h + 6, '얼음 균열!', '#bfefff');
     } else {
       e.state = 'frozen'; e.t = (1 + 0.25 * k) * (1 + 0.5 * isRes('frost')); e.kx = e.ky = 0;  // 절대영도: 빙결 시간 늘어남
@@ -453,6 +456,9 @@ const Elements = (() => {
     if (e.shockT > 0) { e.shockT -= dt; if (Math.random() < dt * 8) World.ember(e, ELEMENTS.thunder.color); }
     if (e.crackT > 0) e.crackT -= dt;
     if (e.chillT > 0) { e.chillT -= dt; if (e.chillT <= 0) e.chill = 0; }
+    if (e.freezeImmT > 0) e.freezeImmT -= dt;
+    if (e.wasFrozen && e.state !== 'frozen') e.freezeImmT = FREEZE_IMMUNE;  // 빙결이 풀린 순간(녹음 · 파쇄)부터 내성
+    e.wasFrozen = e.state === 'frozen';
   }
 
   // ── 설명(메뉴) ──
@@ -467,7 +473,7 @@ const Elements = (() => {
         dash: ['대시한 길에 불길(밟은 적 화상)', '대시 찌르기에 화상 1.5배'],
       },
       frost: {
-        basic: ['맞히면 냉기 1 (마무리 2)', '냉기 ' + FREEZE_AT + ' = 빙결 ' + (1 + 0.25 * k).toFixed(1) + '초 · 보스는 균열(피해 +25%)'],
+        basic: ['맞히면 냉기 1 (마무리 2)', '냉기 ' + FREEZE_AT + ' = 빙결 ' + (1 + 0.25 * k).toFixed(1) + '초(풀린 뒤 ' + FREEZE_IMMUNE + '초는 안 얼음) · 보스는 균열(피해 +25%)'],
         charge: ['회전베기 때 냉기 폭발: 공격력의 ' + pc(0.4 * k), '냉기 3 — 거의 바로 빙결'],
         wave: ['맞히면 냉기 3', '끝에서 얼음 파편 폭발(공격력의 ' + pc(1.2 * k) + ')'],
         dash: ['대시한 길이 얼어붙음(냉기)', '대시 찌르기에 냉기 2'],
