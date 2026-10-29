@@ -333,6 +333,8 @@ function startAct(p, def, kind, idx, o = {}) {
   // 무기에 맞춘 판정
   const hd = Object.assign({}, def);
   if (def.reach) hd.reach = [def.reach[0], def.reach[1] + wk.reach];
+  // 전기 칼날(2026-10-29): 기본 칸에 보통 이상 뇌전석이면 기본 공격 길이 × THUNDER.blade — 칼 궤적 · 찌르기 그림도 hd.reach 를 따라 같이 길어진다(이펙트 범위 = 판정 범위)
+  if (hd.reach && def.slot === 'basic' && Elements.blade(p.prof)) hd.reach = [hd.reach[0], hd.reach[1] * THUNDER.blade];
   if (def.arc) hd.arc = Math.min(170, def.arc * wk.arc);
   if (def.radius) hd.radius = def.radius + wk.reach * 0.5;
   if (def.breath) breathOf(p, hd);

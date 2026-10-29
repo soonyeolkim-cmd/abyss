@@ -68,7 +68,8 @@ const Raid = (() => {
     }
     if (e.mech === 'shell') restorePillars(e);
     if (e.mech === 'crystal') { spawnCrystals(e); World.summon(e.def.summon, e, 3); }
-    if (!e.seen[e.mech]) { e.seen[e.mech] = 1; say(e, HINT[e.mech]); }  // 처음 나온 패턴만 공략 알림
+    // 처음 나온 패턴만 공략 알림: 긴 설명은 화면 가운데(줄 나눔, hud.js), 보스 머리 위는 패턴 이름만(2026-10-29 사용자: 폰에서 설명이 길어 잘림)
+    if (!e.seen[e.mech]) { e.seen[e.mech] = 1; World.text(e.x, e.y, e.h + 14, NAME[e.mech] + '!', TEAL, true); World.say(HINT[e.mech], 4.5); }
     else World.text(e.x, e.y, e.h + 14, NAME[e.mech] + '!', TEAL, true);
   }
   // 한 번 깎을 몫을 다 깎음(clamp) → 다음 패턴

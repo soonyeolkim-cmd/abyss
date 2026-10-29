@@ -387,6 +387,13 @@ const Art = (() => {
     ctx.fillStyle = '#e04040'; ctx.fillRect(x, y, Math.round(w * Math.max(0, e.hp) / e.maxHp), 2);
   }
 
+  // 과충전(뇌전석 기본 칸, 2026-10-29): 감전된 적 머리 위 노란 점 — 다 차면 방전(THUNDER.ovc.n)
+  function ovcPips(ctx, e) {
+    if (!(e.ovc > 0) || e.dying || e.state === 'dead' || untouchable(e)) return;
+    const n = THUNDER.ovc.n, x0 = Math.round(e.x - (n * 3 - 1) / 2), y = Math.round(e.y - e.z - e.h - (e.def.boss ? 8 : 10));
+    for (let i = 0; i < n; i++) { ctx.fillStyle = '#000'; ctx.fillRect(x0 + i * 3 - 1, y - 1, 3, 3); ctx.fillStyle = i < e.ovc ? '#ffe45a' : '#4a4020'; ctx.fillRect(x0 + i * 3, y, 2, 2); }
+  }
+
   function drop(ctx, d, time) {
     const y = d.y - d.z;
     shadow(ctx, d.x, d.y, 3, d.z, 0.6);
@@ -1304,5 +1311,5 @@ const Art = (() => {
     ctx.restore();
   }
 
-  return { avatar, shadow, player, enemy, bossAcc, enemyBar, drop, dropLabel, aura, nameTag, chest, stairs, stairsMark, stairsLabel, shot, wave, field, fx, darkness, floatText };
+  return { avatar, shadow, player, enemy, bossAcc, enemyBar, ovcPips, drop, dropLabel, aura, nameTag, chest, stairs, stairsMark, stairsLabel, shot, wave, field, fx, darkness, floatText };
 })();

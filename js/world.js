@@ -1122,7 +1122,7 @@ const World = (() => {
     ctx.save();
     ctx.translate(-cam.x + shX, -cam.y + shY);
     // 어둠 위에: 빛 안의 체력 막대 · 이름표 · 바닥 아이템 이름
-    for (const e of vis) if (Math.hypot(e.x - p.x, e.y - p.y) < LIGHT_R + 30) { Art.enemyBar(ctx, e); Art.nameTag(ctx, e); }
+    for (const e of vis) if (Math.hypot(e.x - p.x, e.y - p.y) < LIGHT_R + 30) { Art.enemyBar(ctx, e); Art.ovcPips(ctx, e); Art.nameTag(ctx, e); }
     for (const d of lv.drops) if (d.kind === 'item' && Math.hypot(d.x - p.x, d.y - p.y) < LIGHT_R + 60) Art.dropLabel(ctx, d);
     if (stairsOn) Art.stairsLabel(ctx, lv.stairs);  // 계단 이름
     for (const t of texts) Art.floatText(ctx, t);

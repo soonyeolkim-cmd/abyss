@@ -47,6 +47,7 @@ const Elements = (() => {
   // 패시브 · 조합 효과 그림 단계 = 그 속성 가장 큰 돌(2026-10-26 사용자: 단계가 안 보이는 그림 점검 — 예전엔 늘 0단계로 그려짐)
   const bestTier = (prof, el) => tier({ size: Math.max(0, best(prof, el)) });
   const slotOpen = s => s.size >= EL_UNLOCK.slot;
+  const blade = prof => { const s = socket(prof, 'basic'); return !!s && s.el === 'thunder' && slotOpen(s); };  // 전기 칼날(player.js)
   // 잠깐 뒤에 하기(뇌운 · 연쇄 폭발)
   let later = [];
   const after = (t, fn) => later.push({ t, fn });
@@ -58,8 +59,10 @@ const Elements = (() => {
       thorT += dt;
       if (thorT >= 3) {
         thorT = 0;
-        const p = P(), list = World.enemies().filter(e => live(e) && e.shockT > 0).slice(0, 4);
-        for (const e of list) { World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25, tier: bestTier(p.prof, 'thunder') }); damage(e, p.stats.atk * 0.5 * th, 'thunder'); }
+        // 감전된 적이 많을수록 낙뢰가 세다(2026-10-29 사용자): 하나 늘 때마다 +thor.per, 최대 +thor.max. 떨어지는 곳은 그대로 4마리까지
+        const p = P(), all = World.enemies().filter(e => live(e) && e.shockT > 0), list = all.slice(0, 4);
+        const boost = 1 + Math.min(THUNDER.thor.max, THUNDER.thor.per * Math.max(0, all.length - 1));
+        for (const e of list) { World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25, tier: bestTier(p.prof, 'thunder') }); damage(e, p.stats.atk * 0.5 * th * boost, 'thunder'); }
         if (list.length) Sfx.zap();
       }
     }
@@ -134,6 +137,18 @@ const Elements = (() => {
       World.text(e.x, e.y, e.h + 6, '빙결!', '#bfefff');
     }
   }
+  // 과충전(기본 칸 뇌전석, 보통부터): 감전된 적을 기본 공격으로 칠 때마다 1 — THUNDER.ovc.n 이면 방전(그 적에게 큰 번개 + 둘레 연쇄). 감전이 풀리면 0
+  const thunderStrikes = s => 2 + Math.ceil(s.size * THUNDER.strikes);  // 회전베기 · 뇌운 낙뢰 마릿수(태초 8 → 5)
+  function overcharge(e, p, k, T) {
+    e.ovc = (e.ovc || 0) + 1;
+    if (e.ovc < THUNDER.ovc.n) return;
+    e.ovc = 0;
+    World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.3, tier: T });
+    World.text(e.x, e.y, e.h + 8, '방전!', ELEMENTS.thunder.color);
+    Sfx.zap();
+    damage(e, p.stats.atk * THUNDER.ovc.mult * k, 'thunder');
+    if (!e.dying) chain(e, p, THUNDER.ovc.chain, p.stats.atk * 0.3 * k, k, T, true);
+  }
   function shock(e, k) { e.shockT = isDuo('poison+thunder') ? 4 : 3; e.shockK = Math.max(e.shockK || 1, k); duoReact(e); }  // 신경독: 감전 1초 더
   function poison(e, n, p, k, noPop) {
     const venom = has(p.prof, 'poison', 'p2');  // 맹독
@@ -151,8 +166,8 @@ const Elements = (() => {
     }
   }
   // 번개가 가까운 적에게 차례로 튄다
-  function chain(from, p, count, dmg, k, T = 0) {  // T = 그림 단계(번개 줄기 굵기 · 갈래)
-    if (isRes('thunder')) count += 2;  // 뇌신: 연쇄 번개 2번 더
+  function chain(from, p, count, dmg, k, T = 0, back = false) {  // T = 그림 단계(번개 줄기 굵기 · 갈래) · back = 기본 공격 연쇄(튈 적이 없으면 처음 적에게)
+    if (isRes('thunder')) count += THUNDER.resChain;  // 뇌신: 연쇄 번개 더
     let cur = from;
     const hit = new Set([from]);
     for (let i = 0; i < count; i++) {
@@ -162,7 +177,10 @@ const Elements = (() => {
         const d = Math.hypot(e.x - cur.x, e.y - cur.y);
         if (d < bd) { bd = d; best = e; }
       }
-      if (!best) break;
+      if (!best) {  // 기본 공격 연쇄(back): 튈 적이 없으면 남은 번개가 처음 적에게(하나에 chainBack — 혼자 있는 적 · 보스 보완). 검기는 벼락이 따로 있어 안 함
+        if (back && live(from)) { if (i === 0) Sfx.zap(); World.fx({ type: 'strike', x: from.x, y: from.y, t: 0, life: 0.25, tier: T }); damage(from, dmg * THUNDER.chainBack * (count - i), 'thunder'); }
+        break;
+      }
       if (i === 0) Sfx.zap();
       World.fx({ type: 'bolt', x0: cur.x, y0: cur.y - cur.h * 0.5, x1: best.x, y1: best.y - best.h * 0.5, t: 0, life: 0.2 + T * 0.04, tier: T });
       hit.add(best);
@@ -221,13 +239,16 @@ const Elements = (() => {
         if (wave && open) explode(e.x, e.y, 24, p.stats.atk * 0.4 * swd * k, 'fire', o => burn(o, p, k), tier(s));  // 작열 검기
         break;
       case 'frost': chill(e, wave ? 1 + sw + (def.crit && open ? 1 : 0) : big ? 2 : 1, k); break;  // 암살자 얼음 돌진(보통부터): 냉기 1 더
-      case 'thunder':
+      case 'thunder': {
+        const wasShocked = e.shockT > 0;
         shock(e, k);
         // 연쇄 번개 베기(보통부터): 모든 기본 공격에서 튄다. 그 전에는 마무리 · 검기만
-        if ((big && def.slot === 'basic') || wave) chain(e, p, 1 + Math.floor(s.size / 2), p.stats.atk * (wave ? 0.5 * swd : 0.4) * k, k, tier(s));
-        else if (def.slot === 'basic' && open) chain(e, p, 1, p.stats.atk * 0.3 * k, k, tier(s));
+        if ((big && def.slot === 'basic') || wave) chain(e, p, 1 + Math.floor(s.size / 2), p.stats.atk * (wave ? 0.5 * swd * THUNDER.waveChain : 0.4) * k, k, tier(s), def.slot === 'basic');
+        else if (def.slot === 'basic' && open) chain(e, p, 1, p.stats.atk * 0.3 * k, k, tier(s), true);
         if (wave && open) { World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25, tier: tier(s) }); damage(e, p.stats.atk * 0.6 * swd * k, 'thunder'); }  // 벼락 검기
+        if (def.slot === 'basic' && open && wasShocked && !e.dying) overcharge(e, p, k, tier(s));  // 과충전 → 방전
         break;
+      }
       case 'poison': poison(e, wave ? (open ? 3 : 2) + (sw > 1 ? 2 : 0) : big ? 2 : 1, p, k); break;  // 독침 검기 = 3중첩(검사 검기는 5)
     }
   }
@@ -329,7 +350,7 @@ const Elements = (() => {
         break;
       case 'thunder': {  // 낙뢰: 그려진 반지름 R(바닥 타원) 안 가까운 적부터 2 + 크기 마리(예전 R + 30 동그라미 → 그림 밖 적도 맞았다)
         nova(0.4);
-        const far = near.slice().sort((a, b) => groundDist(a.x - p.x, a.y - p.y) - groundDist(b.x - p.x, b.y - p.y)).slice(0, 2 + s.size);
+        const far = near.slice().sort((a, b) => groundDist(a.x - p.x, a.y - p.y) - groundDist(b.x - p.x, b.y - p.y)).slice(0, thunderStrikes(s));
         for (const e of far) {
           World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25, tier: tier(s) });
           damage(e, atk * 0.7 * k, 'thunder');
@@ -387,7 +408,7 @@ const Elements = (() => {
     if (s.el === 'thunder') after(1, () => {  // 뇌운: 1초 뒤 같은 반지름 R 안에 한 번 더(그림도 다시)
       novaAt(p.x, p.y, R, 'thunder', tier(s), s.size, 0.35);
       const far = World.enemies().filter(e => live(e) && groundDist(e.x - p.x, e.y - p.y) <= R + e.r)
-        .sort((a, b) => groundDist(a.x - p.x, a.y - p.y) - groundDist(b.x - p.x, b.y - p.y)).slice(0, 2 + s.size);
+        .sort((a, b) => groundDist(a.x - p.x, a.y - p.y) - groundDist(b.x - p.x, b.y - p.y)).slice(0, thunderStrikes(s));
       for (const e of far) { World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25, tier: tier(s) }); damage(e, atk * 0.5 * k, 'thunder'); shock(e, k); }
       if (far.length) Sfx.zap();
     });
@@ -453,7 +474,7 @@ const Elements = (() => {
       if (Math.random() < dt * 6) World.ember(e, ELEMENTS.poison.color);
       if (e.poison.t <= 0) e.poison = null;
     }
-    if (e.shockT > 0) { e.shockT -= dt; if (Math.random() < dt * 8) World.ember(e, ELEMENTS.thunder.color); }
+    if (e.shockT > 0) { e.shockT -= dt; if (Math.random() < dt * 8) World.ember(e, ELEMENTS.thunder.color); if (e.shockT <= 0) e.ovc = 0; }  // 감전이 풀리면 과충전도 0
     if (e.crackT > 0) e.crackT -= dt;
     if (e.chillT > 0) { e.chillT -= dt; if (e.chillT <= 0) e.chill = 0; }
     if (e.freezeImmT > 0) e.freezeImmT -= dt;
@@ -479,8 +500,8 @@ const Elements = (() => {
         dash: ['대시한 길이 얼어붙음(냉기)', '대시 찌르기에 냉기 2'],
       },
       thunder: {
-        basic: ['맞히면 감전 3초: 받는 피해 +' + Math.round((SHOCK_VULN + 0.05 * Math.round(k - 1)) * 100) + '%', '마무리 때 번개가 ' + (1 + Math.floor(s.size / 2)) + '번 튐(공격력의 ' + pc(0.4 * k) + ')'],
-        charge: ['회전베기 때 가까운 적 ' + (2 + s.size) + '마리에 낙뢰', '공격력의 ' + pc(0.7 * k) + ' + 감전'],
+        basic: ['맞히면 감전 3초: 받는 피해 +' + Math.round((SHOCK_VULN + 0.05 * Math.round(k - 1)) * 100) + '%', '마무리 때 번개가 ' + (1 + Math.floor(s.size / 2)) + '번 튐(공격력의 ' + pc(0.4 * k) + ', 튈 적이 없으면 그 적에게 반씩)'],
+        charge: ['회전베기 때 가까운 적 ' + thunderStrikes(s) + '마리에 낙뢰', '공격력의 ' + pc(0.7 * k) + ' + 감전'],
         wave: ['맞힌 적에서 번개가 ' + (1 + Math.floor(s.size / 2)) + '번 튐', '공격력의 ' + pc((mage ? 0.5 : 1.5) * k) + ' + 감전'],
         dash: ['대시가 끝나면 가까운 적에게 벼락(공격력의 ' + pc(0.6 * k) + ')', '대시 찌르기에 감전'],
       },
@@ -506,7 +527,7 @@ const Elements = (() => {
       T.poison.wave = ['돌진 베기에 맞으면 독 2', '0.5초마다 중첩당 공격력의 ' + pc(0.05 * k)];
       T.fire.charge = ['백스탭 · 표창 자리에서 불꽃 폭발: 공격력의 ' + pc(0.8 * k), '맞은 적은 화상 (표창은 처음 맞은 자리 한 번)'];
       T.frost.charge = ['백스탭 · 표창 자리에서 냉기 폭발: 공격력의 ' + pc(0.4 * k), '냉기 3 — 거의 바로 빙결'];
-      T.thunder.charge = ['백스탭 · 표창 뒤 가까운 적 ' + (2 + s.size) + '마리에 낙뢰', '공격력의 ' + pc(0.7 * k) + ' + 감전'];
+      T.thunder.charge = ['백스탭 · 표창 뒤 가까운 적 ' + thunderStrikes(s) + '마리에 낙뢰', '공격력의 ' + pc(0.7 * k) + ' + 감전'];
       T.poison.charge = ['백스탭 · 표창 자리에 독안개(3초)', '안에 있으면 독이 계속 쌓임'];
     }
     const word = t => (mage ? t.split('대시 찌르기').join('마력 파동').split('회전베기').join('마법진').split('찌르기').join('마력 폭풍').split('검기').join('마력탄')
@@ -540,5 +561,5 @@ const Elements = (() => {
     return true;
   }
 
-  return { setBonus, socket, power, ss: ssOf, stars, color, tier, burstR, onHit, basicSwing, breathHit, dashStart, dashMove, dashEnd, onDeath, step, reset, has, passives, best, chargeBurst, waveTrail, waveEnd, fieldTick, tick, vuln, describe, stacks, add, take, key };
+  return { blade, setBonus, socket, power, ss: ssOf, stars, color, tier, burstR, onHit, basicSwing, breathHit, dashStart, dashMove, dashEnd, onDeath, step, reset, has, passives, best, chargeBurst, waveTrail, waveEnd, fieldTick, tick, vuln, describe, stacks, add, take, key };
 })();

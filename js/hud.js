@@ -2,6 +2,23 @@
 // 위 — 가운데 대상 이름표(보스 · 고유 · 정예), 오른쪽 자동 지도. 모두 960x540 좌표.
 const Hud = (() => {
   const T_ = Gfx.text;
+  // 가운데 알림 줄 나누기: 한 줄(size)에 안 들어가면 22px 로 줄이고 ' — ' 에서 먼저, 그다음 띄어쓰기에서 — 줄 길이가 고르게(한 단어만 남는 줄 없게)
+  function wrapMsg(ctx, s, size, maxW) {
+    ctx.font = 'bold ' + size + 'px ' + Gfx.FONT;
+    if (ctx.measureText(s).width <= maxW) return [s];
+    ctx.font = 'bold 22px ' + Gfx.FONT;
+    const out = [];
+    for (const part of s.split(' — ').map((t, i, a) => (i < a.length - 1 ? t + ' —' : t))) {
+      // 줄 수는 maxW 로 나눌 때와 같게 두고, 그 줄 수에 들어가는 가장 좁은 폭으로 다시 나눈다
+      const words = part.split(' ');
+      const greedy = L => { const ls = []; let line = ''; for (const w of words) { const t = line ? line + ' ' + w : w; if (line && ctx.measureText(t).width > L) { ls.push(line); line = w; } else line = t; } if (line) ls.push(line); return ls; };
+      const n = greedy(maxW).length;
+      let L = ctx.measureText(part).width / n;
+      while (L < maxW && greedy(L).length > n) L += 8;
+      out.push(...greedy(Math.min(L, maxW)));
+    }
+    return out;
+  }
   const L = a => Input.label(a);
   const PY = 540 - HUD_H * SCALE;  // 돌판 윗선
 
@@ -396,7 +413,12 @@ const Hud = (() => {
     const c = World.comboInfo;
     if (c) { ctx.globalAlpha = Math.min(1, c.t / 0.5); T_(ctx, c.n + ' 콤보', 930, 236, 26, '#ffd36a', 'right'); ctx.globalAlpha = 1; }
     const m = World.msg;
-    if (m) { ctx.globalAlpha = Math.min(1, m.t / 0.4); T_(ctx, m.s, 480, 130, 28, '#f0e0b8', 'center'); ctx.globalAlpha = 1; }
+    if (m) {  // 긴 글(레이드 공략 알림 등)은 화면 폭에 맞게 줄을 나눈다(2026-10-29 — 폰에서 잘림)
+      ctx.globalAlpha = Math.min(1, m.t / 0.4);
+      const lines = wrapMsg(ctx, m.s, 28, 720), fs = lines.length > 1 ? 22 : 28;
+      lines.forEach((l, i) => T_(ctx, l, 480, 130 + i * (fs + 8), fs, '#f0e0b8', 'center'));
+      ctx.globalAlpha = 1;
+    }
   }
 
   // 방 하나 = 맵 하나(끝없는 심연): 던파식 방 지도 — 네모 칸 = 방, 줄 = 문. 지금 방(금빛 깜빡) · 깬 방(보라) · 안 깬 방(붉게).
