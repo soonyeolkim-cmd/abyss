@@ -1022,7 +1022,7 @@ const UI = (() => {
           const ps = Elements.passives(prof), sb = Elements.setBonus(prof);
           // 패시브 · 세트를 한 줄에 같이 쓰면 패시브가 길 때 겹쳐서(2026-10-25 사용자) 두 줄로, 넘치면 글자를 줄인다
           fitText(ctx, '속성 패시브: ' + (ps.length ? ps.join(' · ') : '없음 — 완전한 크기부터 열려요'), 44, 88, 12, 410, ps.length ? '#7dff8a' : '#8a7e88');
-          fitText(ctx, sb ? '세트 ◆ ' + sb.name + ' — ' + sb.desc : '세트 없음(4칸 모두 보통 이상: 같은 속성 4 · 두 속성 2 + 2)', 44, 103, 11, 410, sb ? '#ffd36a' : '#6a6068');
+          fitText(ctx, sb ? '세트 ◆ ' + sb.name + ' — ' + sb.desc : Elements.mixed(prof) ? '세트 없음 · 섞여서 속성 피해 ×' + MIX_MUL + ' (같은 속성 4개면 공명 +' + Math.round(RES_BONUS * 100) + '%)' : '세트 없음(4칸 모두 보통 이상: 같은 속성 4 · 두 속성 2 + 2)', 44, 103, 11, 410, sb ? '#ffd36a' : Elements.mixed(prof) ? '#ff9a6a' : '#6a6068');
         }
         // 칸 4개(기본 · 회전 · 검기 · 대시): 칸 이름 · 돌 이름 한 줄, 아래 설명 3줄
         STONE_SLOTS.forEach((slot, i) => {

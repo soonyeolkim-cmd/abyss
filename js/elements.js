@@ -35,10 +35,13 @@ const Elements = (() => {
     for (const s of ss) n[s.el] = (n[s.el] || 0) + 1;
     const els = Object.keys(n).sort(), sc = STONE_SIZES[Math.min(...ss.map(s => s.size))].power / STONE_SIZES[SET_MIN].power
       * (stars(prof) >= IMPRINT.setAt ? IMPRINT.setMul : 1);  // 원소 각인 ★5 이정표: 세트 효과 수치 ×1.2
-    if (els.length === 1) return { res: els[0], name: SET_RES[els[0]].name, desc: SET_RES[els[0]].desc(sc), sc };
-    if (els.length === 2 && n[els[0]] === 2) { const key = els.join('+'), d = SET_DUO[key]; return { duo: key, name: d.name, desc: d.desc(sc), sc }; }
+    if (els.length === 1) return { res: els[0], name: SET_RES[els[0]].name, desc: '속성 피해 +' + Math.round(RES_BONUS * 100) + '% · ' + SET_RES[els[0]].desc(sc), sc };
+    if (els.length === 2 && n[els[0]] === 2) { const key = els.join('+'), d = SET_DUO[key], dsc = sc * DUO_TUNE[key]; return { duo: key, name: d.name, desc: d.desc(dsc) + ' · 섞여서 속성 피해 ×' + MIX_MUL, sc: dsc }; }  // 듀오 세기는 DUO_TUNE 배
     return null;
   }
+  // 칸 4개가 모두 세트 크기(보통) 이상인데 공명이 아님 = 섞기(듀오 · 3:1 · 2:1:1 · 1:1:1:1)
+  const mixed = prof => { if (!prof || !prof.equip.weapon) return false; const ss = STONE_SLOTS.map(k => prof.sockets[k]); return ss.every(s => s && s.size >= SET_MIN) && new Set(ss.map(s => s.el)).size > 1; };
+  const mixedFull = () => { const p = P(); return !!p && mixed(p.prof); };
   const P = () => World.actor || World.player;  // 지금 친 사람(파티: 방장 쪽 손님 몸일 수도)
   const setOf = () => { const p = P(); return p ? setBonus(p.prof) : null; };
   const isRes = el => { const b = setOf(); return b && b.res === el ? b.sc : 0; };
@@ -96,7 +99,7 @@ const Elements = (() => {
     const p = P();
     if (!p || e.dying || (e.duoCd || 0) > 0) return;
     const b = setOf();
-    if (!b || !b.duo) return;
+    if (!b || !b.duo || !b.sc) return;
     const atk = p.stats.atk, sc = b.sc;
     if (b.duo === 'fire+frost' && e.burn && (e.chill > 0 || e.state === 'frozen')) {  // 증기 폭발
       e.duoCd = 1; e.burn = null; e.chill = 0;
@@ -110,12 +113,13 @@ const Elements = (() => {
       e.duoCd = 1.5;
       World.text(e.x, e.y, e.h + 8, '독연!', ELEMENTS.poison.color);
       damage(e, e.poison.n * e.poison.per * 2 * sc, 'poison');
-      World.field({ x: e.x, y: e.y, r: 26, el: 'poison', life: 2.5, k: sc, p, tier: Math.max(bestTier(p.prof, 'fire'), bestTier(p.prof, 'poison')) });
+      World.field({ x: e.x, y: e.y, r: 26, el: 'poison', life: 1, k: sc, p, tier: Math.max(bestTier(p.prof, 'fire'), bestTier(p.prof, 'poison')) });  // 독안개 2.5 → 1초(2026-10-29: 안개가 독 중첩을 세기와 상관없이 쌓아 무리에서 혼자 튐)
     }
   }
   function chill(e, n, k) {
     if (isRes('frost')) n += 1;  // 절대영도: 냉기 1 더
-    if (isDuo('frost+poison') && e.poison) n *= 2;  // 서리독: 독 걸린 적에게 냉기 2배
+    const fpc = isDuo('frost+poison');
+    if (fpc && e.poison) n *= duoTimes(fpc);  // 서리독: 독 걸린 적에게 냉기 더(태초 약 2배)
     e.chill = (e.chill || 0) + n;
     duoReact(e);
     e.chillT = 3;
@@ -153,7 +157,8 @@ const Elements = (() => {
   function poison(e, n, p, k, noPop) {
     const venom = has(p.prof, 'poison', 'p2');  // 맹독
     const max = POISON_MAX + (venom ? 6 : 0) + (isRes('poison') ? 6 : 0);  // 역병: 최대 중첩 +6
-    if (isDuo('poison+thunder') && e.shockT > 0) n *= 2;  // 신경독: 감전된 적에게 독 2배
+    const ntx = isDuo('poison+thunder');
+    if (ntx && e.shockT > 0) n *= duoTimes(ntx);  // 신경독: 감전된 적에게 독 더(태초 약 2배)
     const per = p.stats.atk * 0.05 * k * (venom ? 1.25 : 1);
     duoReact(e);
     e.poison = { n: Math.min(max, (e.poison ? e.poison.n : 0) + n), t: 4, per: Math.max(e.poison ? e.poison.per : 0, per), tick: e.poison ? e.poison.tick : 0.5 };
@@ -209,7 +214,8 @@ const Elements = (() => {
     if (e.dying || e.state === 'dead' || World.mirror || untouchable(e) || e.def.part === 'orb') return;  // 파티 손님: 피해는 방장 쪽에서 · 땅속 촉수 · 사라진 순간이동자는 안 맞음
     const rc = e.def.raid ? (e.state === 'exposed' ? Raid.cut(e)[0] : 0) : 1;  // 레이드 보스: 심장이 드러난 동안만 속성 피해(화상 · 독 · 폭발 · 번개)가 들어간다(2026-10-26 사용자)
     if (!rc) return;
-    const d = Math.max(1, Math.round(amount * vuln(e) * rc * (e.wardT > 0 ? WARD.cut : 1)));  // 보호막 사제 둘레(방패병 방패는 속성 피해를 못 막음)
+    const rb = isRes(el) ? 1 + RES_BONUS : mixedFull() ? MIX_MUL : 1;  // 공명: 그 속성 피해 더 · 칸 4개 다 찬 섞기(듀오 · 3:1 …): 덜(2026-10-29 — 같은 속성 4개가 섞기보다 세게)
+    const d = Math.max(1, Math.round(amount * vuln(e) * rc * rb * (e.wardT > 0 ? WARD.cut : 1)));  // 보호막 사제 둘레(방패병 방패는 속성 피해를 못 막음)
     e.hp -= d;
     if (e.def.raid) Raid.clamp(e);
     if (e.def.dummy) Practice.add(d, 'el:' + el);  // 연습장 딜 측정(속성 피해)
@@ -561,5 +567,5 @@ const Elements = (() => {
     return true;
   }
 
-  return { blade, setBonus, socket, power, ss: ssOf, stars, color, tier, burstR, onHit, basicSwing, breathHit, dashStart, dashMove, dashEnd, onDeath, step, reset, has, passives, best, chargeBurst, waveTrail, waveEnd, fieldTick, tick, vuln, describe, stacks, add, take, key };
+  return { blade, mixed, setBonus, socket, power, ss: ssOf, stars, color, tier, burstR, onHit, basicSwing, breathHit, dashStart, dashMove, dashEnd, onDeath, step, reset, has, passives, best, chargeBurst, waveTrail, waveEnd, fieldTick, tick, vuln, describe, stacks, add, take, key };
 })();

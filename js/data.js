@@ -917,13 +917,23 @@ const SET_RES = {
   thunder: { name: '뇌신', desc: sc => '감전된 적에게 3초마다 낙뢰(공격력의 ' + Math.round(50 * sc) + '%, 감전된 적이 많을수록 최대 ×' + (1 + THUNDER.thor.max) + ') · 연쇄 번개 ' + THUNDER.resChain + '번 더' },
   poison: { name: '역병', desc: sc => '독 최대 중첩 +6 · 독 걸린 적이 쓰러지면 둘레로 독이 옮음(' + Math.round(4 * sc) + '중첩)' },
 };
+// 공명 · 섞기 균형(2026-10-29 사용자: 같은 속성 4개가 훨씬 모으기 어려우니 듀오가 공명보다 약하게).
+// 연습장(검사 Lv.100 · 태초 4칸)에서: 반응을 꺼도 칸마다 센 속성을 골라 섞으면(독 기본 · 회전 + 번개 검기 · 대시, 3:1 도) 공명보다 셌다 →
+//  RES_BONUS = 공명이면 그 속성 피해 + · MIX_MUL = 칸 4개가 다 찼는데 섞였으면(듀오 · 3:1 · 2:1:1 …) 속성 피해 × · DUO_TUNE = 듀오 반응 세기(세트 세기 sc 에 곱함, 0 = 꺼짐)
+//  독이 든 듀오(신경독 · 독연)는 무리에서 혼자 튀어 더 줄임. 결과 메모 game-concept.md 2026-10-29
+// 신경독 · 서리독의 '2배'도 sc 를 따라간다(1 + DUO_X × sc — 태초 sc 2.7 에 ×1 이면 예전 2배 그대로)
+const DUO_TUNE = { 'fire+frost': 0.5, 'fire+thunder': 0.5, 'fire+poison': 0.15, 'frost+thunder': 0.5, 'frost+poison': 0.5, 'poison+thunder': 0.2 };
+const DUO_X = 0.37;
+const RES_BONUS = 0.4;  // 공명(같은 속성 4개)이면 그 속성 피해 +40%
+const MIX_MUL = 0.6;    // 칸 4개가 다 찼는데 섞였으면(듀오 · 3:1 …) 속성 피해 ×0.6
+const duoTimes = sc => 1 + DUO_X * sc;  // 신경독 독 · 서리독 냉기 배수
 const SET_DUO = {
   'fire+frost': { name: '증기 폭발', desc: sc => '화상 · 냉기가 함께 걸리면 증기 폭발(둘레에 공격력의 ' + Math.round(120 * sc) + '%, 두 상태 풀림)' },
   'fire+thunder': { name: '과부하', desc: sc => '감전된 적이 화상을 입으면(또는 반대) 폭발(공격력의 ' + Math.round(80 * sc) + '%) + 크게 밀려남' },
   'fire+poison': { name: '독연', desc: sc => '독 걸린 적이 화상을 입으면 독안개가 터짐(쌓인 독 피해 ' + (2 * sc).toFixed(1) + '배 + 둘레 독)' },
   'frost+thunder': { name: '초전도', desc: sc => '냉기 · 빙결된 적이 감전되면 받는 피해 +' + Math.round(25 * sc) + '% 더' },
-  'frost+poison': { name: '서리독', desc: sc => '독 걸린 적에게 냉기 2배 · 빙결되면 쌓인 독이 한 번에 터짐(' + (3 * sc).toFixed(1) + '배)' },
-  'poison+thunder': { name: '신경독', desc: sc => '감전된 적에게 독 2배 · 감전 1초 더' },
+  'frost+poison': { name: '서리독', desc: sc => '독 걸린 적에게 냉기 ' + duoTimes(sc).toFixed(1) + '배 · 빙결되면 쌓인 독이 한 번에 터짐(' + (3 * sc).toFixed(1) + '배)' },
+  'poison+thunder': { name: '신경독', desc: sc => '감전된 적에게 독 ' + duoTimes(sc).toFixed(1) + '배 · 감전 1초 더' },
 };
 // 떨어지는 크기(2026-10-25 사용자가 정함): 조각(1) · 작은(2) · 보통(3)까지만 떨어지고, 큰(4) 이상은 세공사 합치기로만(STONE_DROP_CAP).
 // 던전 레벨이 오를수록 보통(3)이 늘고 조각(1)이 줄어 Lv.80 부터는 조각이 안 나온다. 던전마다 보통 난이도의 [조각, 작은, 보통] 확률.
