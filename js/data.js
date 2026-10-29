@@ -956,7 +956,7 @@ const CRAFT = { lv: UNIQUE_CRAFT_LV, cores: 1, essence: 60, scrolls: 20, gems: 1
 // 전설(size) 화염석 · 빙결석 · 뇌전석 · 맹독석 하나씩 + 골드 gold(다음 ★) → ★ +1(캐릭터마다, 최대 max). ★마다 낀 속성석 세기(power) +step —
 // 칸 능력 · 폭발 · 상태이상 · 패시브 피해가 모두 커지고, 범위는 돌 크기로 따로 정해져서 그대로(이펙트 범위 = 판정 범위). 보석은 안 받음.
 // 이정표: ★setAt = 세트 효과 수치 ×setMul · ★max + 칸 4개 모두 전설 이상 = 전설 돌도 태초 오로라 그림(Elements.ss)
-const IMPRINT = { max: 10, step: 0.04, size: 5, gold: n => 100000 * n, setAt: 5, setMul: 1.2 };
+const IMPRINT = { max: 10, step: 0.01, size: 5, gold: n => 100000 * n, setAt: 5, setMul: 1.1 };  // 2026-10-29 사용자 너프: ★마다 속성석 세기 +4% → +1%(★10 = +10%). ★5 세트 ×1.2 → ×1.1(같은 날 사용자) · ★10 전설 태초 빛은 그대로
 const entryLv = def => def.entry || def.lv;  // 던전 입장 레벨(끝없는 심연은 몹 레벨과 따로)
 // 다음 레벨까지 필요한 경험치 배율(2026-10-25 사용자: 레벨업 조금 더 빠르게 1 → 0.75, 약 1.33배 / 2026-10-26 사용자 "전체적으로 좀만 더" → 0.62, 거기서 약 1.2배)
 const EXP_NEED = 0.62;
