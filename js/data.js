@@ -345,7 +345,8 @@ Object.assign(ENEMIES, {
 const RAID_RULE = { hpMul: 1.2, time: 420, shellCut: 0, exposedMul: 2, slams: 3, slamExpose: 4, pillarExpose: 6, crystalExpose: 7, crystalTime: 15, crystalPct: 0.2, repeat: [2, 3], shift: 1.2,
   leap: { wind: 0.9, air: 0.35, h: 46 },  // 껍질 도약 내려찍기: wind 초 동안 내 발밑 예고(따라옴) → air 초 동안 그 자리로 날아와 내려찍기(높이 h)
   stun: 1.5, orbPct: 0.25, markT: 5, markMul: 1.3, wave: { delay: 0.5, speed: 240, w: 12, pct: 0.15, maxR: 560 },
-  orbExpose: 5, orbSpeed: 120, orbBack: 1.15, rallyMax: 3, rallyChance: 0.5, essence: 10, cores: 1 };
+  orbExpose: 5, orbSpeed: 120, orbBack: 1.15, rallyMax: 3, rallyChance: 0.5, essence: 10, cores: 1,
+  stoneSize: 4 };  // 2026-10-29 사용자: 레이드를 깨면 '완전한' 속성석 1개 확정(속성 무작위) — 원소 각인 · 공명에 속성석이 모자라서
 // 레이드 칭호(2026-10-27 사용자 — js/records.js): 레이드 단계(stage)마다 여덟 개. 꾸미기만(능력치 없음).
 // 처치 횟수는 파티로 깬 것도 셈, 질풍 · 섬광 · 흠집 하나 없이 · 고독한 사냥꾼은 혼자 깬 것만. 시간 = 파수꾼이 깨어난 뒤부터(초) — 210 · 120 은 손맛 보고 다시
 // ok(r) = 그 단계 기록 r(Records.rec)로 얻었는지, all = 같은 단계의 다른 칭호를 모두 얻으면. 한 번 얻으면 prof.titles 에 남는다
@@ -921,7 +922,11 @@ const STONE_DROP = {
   chapel: [0.90, 0.10, 0], swamp: [0.78, 0.20, 0.02], crypt: [0.64, 0.30, 0.06], ice: [0.50, 0.39, 0.11], fort: [0.37, 0.46, 0.17],
   hell: [0.25, 0.51, 0.24], plague: [0.14, 0.54, 0.32], order: [0.05, 0.55, 0.40], temple: [0, 0.52, 0.48], abyss: [0, 0.42, 0.58],
 };
-STONE_DROP.endless = STONE_DROP.abyss;  // 끝없는 심연은 심연의 문과 같은 크기 분포
+// 끝없는 심연(레이드 포함)은 속성석만 '큰'(3)까지 떨어진다(2026-10-29 사용자 — 원소 각인 · 공명에 모자라서, 보석은 그대로 보통까지).
+// 예전 = 심연의 문과 같은 [0, .42, .58]. 영웅(stoneFavor .6)에서 일반 몹 작은 15% · 보통 47% · 큰 38% → 한 판 속성석 양(보통으로 쳐서) 약 2.1배
+STONE_DROP.endless = [0, 0.25, 0.5, 0.25];
+const STONE_DROP_CAP_OF = { endless: 3 };  // 속성석만, 던전마다 다른 한도
+const STONE_GEM_DROP = { endless: STONE_DROP.abyss };  // 보석은 예전 분포 그대로
 const STONE_BOSS_BOOST = 0.8;  // 보스 · 큰 상자: 큰 쪽이 더 잘 나온다(크기 한도는 같음)
 
 // 레벨업에 필요한 경험치

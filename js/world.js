@@ -760,8 +760,8 @@ const World = (() => {
   function rollStone(boost = 0) {
     const gem = Math.random() < GEM_CHANCE;  // 가끔은 속성석 대신 보석
     const el = gem ? (Math.random() < GEM_WEIGHT.might ? 'might' : 'guard') : EL_ORDER[rnd(0, EL_ORDER.length - 1)];  // 보석은 공격 40 · 방어 60
-    const base = STONE_DROP[lv.def.id] || STONE_DROP.chapel, D = DIFFS[RUN.diff];
-    const top = base.reduce((m, p, i) => (p > 0 ? i : m), 0), cap = Math.min(STONE_DROP_CAP, top + (D.stoneSpill ? 1 : 0));
+    const base = (gem && STONE_GEM_DROP[lv.def.id]) || STONE_DROP[lv.def.id] || STONE_DROP.chapel, D = DIFFS[RUN.diff];
+    const top = base.reduce((m, p, i) => (p > 0 ? i : m), 0), cap = Math.min(!gem && STONE_DROP_CAP_OF[lv.def.id] || STONE_DROP_CAP, top + (D.stoneSpill ? 1 : 0));
     const f = 1 + D.stoneFavor + boost, w = [];
     for (let i = 0; i <= cap; i++) w[i] = (base[i] || 0) * Math.pow(f, i);
     if (cap > top) w[cap] = base[top] * D.stoneSpill * (1 + boost);
@@ -960,7 +960,7 @@ const World = (() => {
     if (d.boss) {
       const bossItems = [mk(lv.ilvlR[1], { boost: 0.8 })];
       if (lv.ilvlR[1] < UNIQUE_CRAFT_LV && Math.random() < UNIQUE_DROP.boss * DIFFS[RUN.diff].uniq * lowUniq(prof.lv, dlv())) bossItems.push(Items.makeUnique(lv.ilvlR[1]));  // Lv.100 유니크는 제작으로만
-      loot(e.x, e.y, { gold: goldRoll(d.gold), items: bossItems, stones: [rollStone(STONE_BOSS_BOOST), rollStone(STONE_BOSS_BOOST)], scrolls: Array.from({ length: SCROLL_DROP_RATE.boss }, rollScroll), essence: essenceRoll('boss'), cores: d.raid ? RAID_RULE.cores : 0 });  // 심연의 핵: 레이드를 깨면 늘 cores 개(파티는 각자)
+      loot(e.x, e.y, { gold: goldRoll(d.gold), items: bossItems, stones: [rollStone(STONE_BOSS_BOOST), rollStone(STONE_BOSS_BOOST), ...(d.raid ? [{ el: EL_ORDER[rnd(0, EL_ORDER.length - 1)], size: RAID_RULE.stoneSize }] : [])], scrolls: Array.from({ length: SCROLL_DROP_RATE.boss }, rollScroll), essence: essenceRoll('boss'), cores: d.raid ? RAID_RULE.cores : 0 });  // 심연의 핵: 레이드를 깨면 늘 cores 개(파티는 각자)
       shake(5);
       bossCleared(e);
       return;
