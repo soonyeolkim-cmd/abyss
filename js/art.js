@@ -149,8 +149,9 @@ const Art = (() => {
     }
     if (p.state === 'dodge') {
       name = Gfx.anim(base + '_run_anim', time, 20);
-      for (let i = 3; i >= 1; i--) Gfx.spr(ctx, name, p.x - p.dodgeV.x * i * 6, p.y - p.dodgeV.y * i * 6, { flip: o.flip, flash: '#9ad8ff', alpha: 0.25 / i });
-      o.alpha = 0.85;
+      const bl = p.blinked;  // 롯드 순간이동: 보랏빛으로 옅어진 채 미끄러짐
+      for (let i = 3; i >= 1; i--) Gfx.spr(ctx, name, p.x - p.dodgeV.x * i * 6, p.y - p.dodgeV.y * i * 6, { flip: o.flip, flash: bl ? '#c9b8ff' : '#9ad8ff', alpha: 0.25 / i });
+      o.alpha = bl ? 0.6 : 0.85;
     }
     if (p.state === 'act' && p.act.def.dash && p.act.time >= p.act.s && p.act.time < p.act.s + p.act.a) {
       for (let i = 3; i >= 1; i--) Gfx.spr(ctx, name, p.x - p.fv.x * i * 8, p.y - p.fv.y * i * 8, { flip: o.flip, flash: '#ffffff', alpha: 0.22 / i });
@@ -636,12 +637,14 @@ const Art = (() => {
   // 마력탄 칸 속성석 단계(s.tier, 2026-10-26 사용자: 레벨에 따라 멋져지게 · 구간마다)마다 더해진다:
   //   1 보통 · 큰 = 조금 크게 · 긴 꼬리 · 꼬리 빛 알갱이 · 속성 무늬(불 = 너울대는 불꽃 · 얼음 = 도는 얼음 조각 · 번개 = 튀는 전기 · 독 = 떨어지는 방울)
   //   2 완전한 = + 도는 빛 고리 · 무늬 하나 더 · 더 밝게   3 전설 · 태초 = + 오로라(속성석 테두리와 같은 색) · 고리 둘 · 큰 별
+  // 크기(2026-10-30 사용자: 그림이 판정의 두 배였음 — 이펙트 범위 = 판정 범위): 몸통 · 빛 · 고리 · 별은 판정 s.r 둘레 1~3 안, 단계가 올라도 크기는 그대로.
+  // 판정 밖으로 길게 남는 건 꼬리 · 꼬리 알갱이 · 불꽃 · 독 방울뿐(날아온 쪽 = 이미 지나간 곳)
   function orb(ctx, s, hex, light) {
-    const y = s.y - 8, T = s.tier || 0, t = s.t || 0, r = s.r + T * 0.9;
+    const y = s.y - 8, T = s.tier || 0, t = s.t || 0, r = s.r;
     const sp = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / sp, dy = s.vy / sp, P = Math.PI * 2;
     ctx.save();
-    if (T >= 3) Gfx.aurora(ctx, s.x, y, r + 12, s.ss || 6);
-    glow(ctx, s.x, y, r + 8 + T * 3, hex, 0.45 + T * 0.08);
+    if (T >= 3) Gfx.aurora(ctx, s.x, y, r + 3, s.ss || 6);
+    glow(ctx, s.x, y, r + 2 + T * 0.5, hex, 0.45 + T * 0.08);
     comet(ctx, s, y, 22 + T * 8, r, 0.85);
     if (T) {  // 꼬리 빛 알갱이: 지나온 길에 남아 흩어짐
       ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = light;
@@ -656,22 +659,22 @@ const Art = (() => {
       ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = light; ctx.lineWidth = 1;
       for (let j = 0; j < (T >= 3 ? 2 : 1); j++) {
         ctx.globalAlpha = 0.6 - j * 0.2;
-        ctx.beginPath(); ctx.ellipse(s.x, y, r + 5 + j * 3, (r + 5 + j * 3) * 0.42, t * (3 + j * 2) * (j ? -1 : 1), 0, P); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(s.x, y, r + 1 + j * 2, (r + 1 + j * 2) * 0.42, t * (3 + j * 2) * (j ? -1 : 1), 0, P); ctx.stroke();
       }
       ctx.globalCompositeOperation = 'source-over';
     }
     // 몸통(2026-10-26 사용자: 경계가 뚜렷하지 않게): 테두리 없이 가운데 흰빛 → 밝은 색 → 속성 색 → 투명으로 번지는 빛 덩어리. 판정(s.r)은 그대로
-    const R = r + 6, g = ctx.createRadialGradient(s.x - 0.5, y - 0.5, 0, s.x, y, R);
-    g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.22, light); g.addColorStop(0.55, hex); g.addColorStop(1, 'rgba(0,0,0,0)');
+    const R = r + 1, g = ctx.createRadialGradient(s.x - 0.5, y - 0.5, 0, s.x, y, R);
+    g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.3, light); g.addColorStop(0.72, hex); g.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.globalAlpha = 1; ctx.fillStyle = g;
     ctx.beginPath(); ctx.arc(s.x, y, R, 0, P); ctx.fill();
-    glow(ctx, s.x, y, r + 2, '#ffffff', 0.35);  // 심을 한 번 더 밝게
+    glow(ctx, s.x, y, r * 0.7, '#ffffff', 0.35);  // 심을 한 번 더 밝게
     ctx.globalCompositeOperation = 'source-over';
     if (T) orbMotif(ctx, s, y, r, T, t, hex, light, dx, dy);
     // 내 것 표시(몹 탄은 둥근 빛뿐): 흰 4각 별 — 크게 옅게 한 번 + 작게 진하게 한 번 겹쳐 번지게
-    const S = r + 3 + (T >= 3 ? 2 : 0);
+    const S = r + 1 + (T >= 3 ? 1 : 0);
     ctx.globalCompositeOperation = 'lighter';
-    star4(ctx, s.x, y, S * 1.2, t * 8, '#ffffff', 0.14 + T * 0.03);
+    star4(ctx, s.x, y, S + 1, t * 8, '#ffffff', 0.14 + T * 0.03);
     star4(ctx, s.x, y, S, t * 8, '#ffffff', 0.3 + T * 0.06);
     ctx.restore();
   }
@@ -687,7 +690,7 @@ const Art = (() => {
       }
     } else if (s.el === 'frost') {  // 둘레를 도는 얼음 조각(마름모)
       for (let i = 0; i < n; i++) {
-        const a = t * 5 + i * P / n, x = s.x + Math.cos(a) * (r + 5), yy = y + Math.sin(a) * (r + 5) * 0.6, k = 2 + T * 0.5;
+        const a = t * 5 + i * P / n, x = s.x + Math.cos(a) * r, yy = y + Math.sin(a) * r * 0.6, k = 2 + T * 0.5;  // 판정 테두리 위를 돈다
         ctx.globalAlpha = 0.9; ctx.fillStyle = i % 2 ? '#ffffff' : light;
         ctx.beginPath(); ctx.moveTo(x, yy - k); ctx.lineTo(x + k * 0.6, yy); ctx.lineTo(x, yy + k); ctx.lineTo(x - k * 0.6, yy); ctx.closePath(); ctx.fill();
       }
@@ -695,11 +698,11 @@ const Art = (() => {
       const f = Math.floor(t * 20);
       ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1;
       for (let i = 0; i < n; i++) {
-        const q = Math.sin(f * 7.1 + i * 3.3), a = q * Math.PI + i * 2, L = 3 + T * 1.2;
+        const q = Math.sin(f * 7.1 + i * 3.3), a = q * Math.PI + i * 2, L = 2 + T * 0.6, r0 = r - 2;  // 몸통 가장자리에서 판정 바로 밖(+2.8)까지
         ctx.globalAlpha = 0.85;
-        ctx.beginPath(); ctx.moveTo(s.x + Math.cos(a) * (r + 1), y + Math.sin(a) * (r + 1));
-        ctx.lineTo(s.x + Math.cos(a + 0.4) * (r + 1 + L * 0.55), y + Math.sin(a + 0.4) * (r + 1 + L * 0.55));
-        ctx.lineTo(s.x + Math.cos(a - 0.15) * (r + 1 + L), y + Math.sin(a - 0.15) * (r + 1 + L)); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(s.x + Math.cos(a) * r0, y + Math.sin(a) * r0);
+        ctx.lineTo(s.x + Math.cos(a + 0.4) * (r0 + L * 0.55), y + Math.sin(a + 0.4) * (r0 + L * 0.55));
+        ctx.lineTo(s.x + Math.cos(a - 0.15) * (r0 + L), y + Math.sin(a - 0.15) * (r0 + L)); ctx.stroke();
       }
     } else if (s.el === 'poison') {  // 뒤로 떨어지는 독 방울
       for (let i = 0; i < n; i++) {

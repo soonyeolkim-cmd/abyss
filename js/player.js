@@ -211,14 +211,16 @@ function updatePlayer(p, dt, room, gates) {
       break;
     case 'dodge':
       // 대시 중에 공격 = 대시 찌르기
-      if (p.buffer === 'attack') { p.buffer = null; Elements.dashEnd(p); startAct(p, dashDefOf(C, wkOf(p)), 'dashAtk', 0); break; }
+      // 롯드 순간이동은 미끄러지는 동안 공격을 미뤄 두었다가 닿자마자(입력 버퍼 0.2초 > 이동 0.14초)
+      if (p.buffer === 'attack' && !p.blink) { p.buffer = null; Elements.dashEnd(p); startAct(p, dashDefOf(C, wkOf(p)), 'dashAtk', 0); break; }
       p.t -= dt;
-      if (p.blink) {  // 롯드: 대시 = 순간이동 — 첫 프레임에 한 번에(벽에서 멈춤), 떠난 자리 · 닿은 자리에 반짝임 + 지나간 길 그림
-        const x0 = p.x, y0 = p.y, n = 8, step = p.blink / n;
-        for (let i = 0; i < n; i++) Dungeon.move(room, p, p.dodgeV.x * step, p.dodgeV.y * step, BODY_R, gates);
-        World.sparks(x0, y0, 10, 10, '#c9b8ff', true); World.sparks(p.x, p.y, 10, 12, '#ffffff', true);
-        World.fx({ type: 'shadowpath', pts: [[x0, y0]], follow: p, w: 6, t: 0, life: 0.25, col: '#c9b8ff' });
-        Elements.dashMove(p, p.blink); p.blink = 0;
+      if (p.blink) {  // 롯드: 대시 = 순간이동 — 한 번에 옮기면 멀미 나서(2026-10-30 사용자) T 초 동안 빠르게 미끄러지다 서서히 멈춤(벽에서 멈춤) · 떠난 자리 · 닿은 자리에 반짝임 + 지나간 길 그림
+        const b = p.blink;
+        if (!b.done) { World.sparks(p.x, p.y, 10, 10, '#c9b8ff', true); World.fx({ type: 'shadowpath', pts: [[p.x, p.y]], follow: p, w: 6, t: 0, life: 0.3, col: '#c9b8ff' }); }
+        const k = Math.min(1, 1 - p.t / b.T), want = b.d * (1 - (1 - k) * (1 - k)) - b.done;  // 처음 빠르고 끝에 느려짐
+        Dungeon.move(room, p, p.dodgeV.x * want, p.dodgeV.y * want, BODY_R, gates);
+        Elements.dashMove(p, want); b.done += want;
+        if (k >= 1) { World.sparks(p.x, p.y, 10, 12, '#ffffff', true); p.blink = 0; }
       } else if (!p.blinked) {
       Dungeon.move(room, p, p.dodgeV.x * C.dodge.speed * dt, p.dodgeV.y * C.dodge.speed * dt, BODY_R, gates);
       Elements.dashMove(p, C.dodge.speed * dt);  // 대시 칸 속성석: 지나간 길
@@ -297,7 +299,8 @@ function startDodge(p, dir) {
   p.state = 'dodge'; p.act = null;
   p.t = C.dodge.time;
   const bd = wkOf(p).blinkDodge;  // 롯드: 대시 = 순간이동(짧게 머문 뒤 바로 대시 공격 가능)
-  if (bd) { p.blink = bd; p.blinked = true; p.t = 0.1; }
+  p.blink = 0;
+  if (bd) { p.blink = { d: bd, done: 0, T: 0.14 }; p.blinked = true; p.t = 0.14; }  // T = 미끄러지는 시간
   p.iframes = C.dodge.iframes;
   p.dodgeCd = C.dodge.time;  // 지금 대시가 끝날 때까지만 막는다
   p.guardT = C.dodge.time + UNIQUE_FX.dashguardT;
@@ -453,7 +456,7 @@ function updateAct(p, dt, room) {
     // 그림 단계 tier(2026-10-26 사용자: 속성석 레벨에 따라 멋져지게, 구간마다): 0 = 없음 · 조각 · 작은 / 1 = 보통 · 큰 / 2 = 완전한 / 3 = 전설 · 태초(art.js orb)
     if (d.orb) {
       const st = Elements.socket(p.prof, 'wave'), tier = Elements.tier(st), wk = wkOf(p), vol = wk.orbVolley;
-      // 롯드: 세 발을 조금씩 벌려 한꺼번에(한 발 배율은 줄임) · 스태프: 느리고 큰 운석(meteor — 맞은 자리에서 크게 터짐, orbBurst)
+      // 롯드: 세 발을 조금씩 벌려 한꺼번에(한 발 배율은 줄임) · 스태프: 느린 운석(meteor — 구슬 크기는 마력탄 그대로, 맞은 자리에서 크게 터짐, orbBurst)
       const n = vol ? vol.n : 1, a0 = Math.atan2(p.fv.y, p.fv.x);
       for (let i = 0; i < n; i++) {
       const mid = i === (n - 1) >> 1, od = vol ? Object.assign({}, d, { mult: d.mult * vol.mult, noEl: !mid }) : d;  // 속성석 효과는 가운데 한 발만
