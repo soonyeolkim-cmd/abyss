@@ -98,7 +98,9 @@ function endHide(p, why) {
 }
 function updateHide(p, dt) {
   const h = p.hidden, H = p.cls.charge.hide;
+  const was = h.t;
   h.t += dt;
+  if (was < H.ready && h.t >= H.ready && !p.remote) World.sparks(p.x, p.y, 14, 6, '#b9a0ff');  // 백스탭 준비됨
   if (H.drain) { p.sp = Math.max(0, p.sp - H.drain * dt); p.spDelay = p.cls.stamina.delay; }  // 지금은 0 — 숨는 동안 기력이 안 빠진다(2026-10-25 사용자)
   if (h.t >= H.max || (H.drain && p.sp <= 0)) endHide(p, '모습이 드러났다');
 }
@@ -122,6 +124,7 @@ function behindSpot(p, range) {
 // 숨은 중 X 나 V(2026-10-25 사용자: 아무거나 눌러도): 바로 옆(stab.blink) 적이 있으면 백스탭, 없으면 표창 던지기 — 기력은 숨을 때 이미 씀
 function hiddenStrike(p) {
   const C = p.cls;
+  if (p.hidden.t < C.charge.hide.ready) return false;  // 숨은 지 ready 초 전에는 안 나감(연타 막기)
   endHide(p);
   const at = behindSpot(p, C.stab.blink);
   if (at) { p.fv = unit(at.tgt.x - p.x, at.tgt.y - p.y, p.fv); startAct(p, C.stab, 'stab', 0, { aimed: true, fly: [at.x, at.y], tgt: at.tgt }); }

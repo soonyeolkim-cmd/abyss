@@ -237,8 +237,9 @@ const Elements = (() => {
     const s = socket(p.prof, def.slot);
     if (!s) return;
     const k = power(s), big = !!def.fin || def.slot === 'dash', wave = def.slot === 'wave', open = slotOpen(s);
-    const sw = wave && def.id === 'wave' ? 2 : 1;  // 검사 검기는 속성 효과 약 2배(2026-10-25, 마법사 마력탄은 그대로)
-    const swd = sw > 1 ? 3 : 1;  // 검사 검기 속성 피해는 3배(2배에서 50% 더, 2026-10-25 사용자)
+    // 검사 검기는 속성 효과 약 2배 · 속성 피해 3배(2026-10-25 사용자). 마법사 마력탄도 검사처럼 배율(2026-10-30 사용자: 마법사가 약해서) — ORB_EL
+    const sw = !wave ? 1 : def.id === 'wave' ? 2 : def.id === 'orb' ? ORB_EL.sw : 1;
+    const swd = !wave ? 1 : def.id === 'wave' ? 3 : def.id === 'orb' ? ORB_EL.swd : 1;
     switch (s.el) {
       case 'fire':
         burn(e, p, k * (big ? 1.5 : 1));
@@ -508,7 +509,7 @@ const Elements = (() => {
       thunder: {
         basic: ['맞히면 감전 3초: 받는 피해 +' + Math.round((SHOCK_VULN + 0.05 * Math.round(k - 1)) * 100) + '%', '마무리 때 번개가 ' + (1 + Math.floor(s.size / 2)) + '번 튐(공격력의 ' + pc(0.4 * k) + ', 튈 적이 없으면 그 적에게 반씩)'],
         charge: ['회전베기 때 가까운 적 ' + thunderStrikes(s) + '마리에 낙뢰', '공격력의 ' + pc(0.7 * k) + ' + 감전'],
-        wave: ['맞힌 적에서 번개가 ' + (1 + Math.floor(s.size / 2)) + '번 튐', '공격력의 ' + pc((mage ? 0.5 : 1.5) * k) + ' + 감전'],
+        wave: ['맞힌 적에서 번개가 ' + (1 + Math.floor(s.size / 2)) + '번 튐', '공격력의 ' + pc(0.5 * (mage ? ORB_EL.swd : 3) * THUNDER.waveChain * k) + ' + 감전'],
         dash: ['대시가 끝나면 가까운 적에게 벼락(공격력의 ' + pc(0.6 * k) + ')', '대시 찌르기에 감전'],
       },
       poison: {
@@ -521,8 +522,8 @@ const Elements = (() => {
     // 마법사: 마력탄은 꼬리를 남기지 않는 구슬이라 설명을 따로, 나머지는 기술 이름만 바꾼다
     if (mage) {
       T.fire.wave = ['맞히면 화상 3초: 초당 공격력의 ' + pc(0.3 * k), '구슬이라 지나간 자리에 불길은 없어요'];
-      T.frost.wave = ['맞히면 냉기 2', '터질 때 얼음 파편 폭발(공격력의 ' + pc(0.4 * k) + ')'];
-      T.poison.wave = ['맞히면 독 2', '0.5초마다 중첩당 공격력의 ' + pc(0.05 * k)];
+      T.frost.wave = ['맞히면 냉기 ' + (1 + ORB_EL.sw), '터질 때 얼음 파편 폭발(공격력의 ' + pc(0.4 * k) + ')'];
+      T.poison.wave = ['맞히면 독 ' + ((slotOpen(s) ? 3 : 2) + (ORB_EL.sw > 1 ? 2 : 0)), '0.5초마다 중첩당 공격력의 ' + pc(0.05 * k)];
     }
     // 암살자: 돌진 베기는 검기처럼 날아가지 않아서 설명을 따로, 나머지는 기술 이름만 바꾼다
     const assassin = clsOf(prof).id === 'assassin';

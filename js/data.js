@@ -86,7 +86,8 @@ const CLASSES = {
     // 숨은 중 X 나 V(2026-10-25 사용자: 아무거나 눌러도): stab.blink px 안에 적이 있으면 백스탭, 없으면 표창 던지기 — 기력은 안 듦
     // 표창 던지기(2026-10-25 사용자: 달빛 베기가 Z 돌진 베기와 겹쳐서 바꿈): 보는 쪽(누른 쪽 · 가까운 적)으로 단검 n 개를 spread° 씩 벌려 던진다.
     // 단검마다 처음 닿은 적에서 사라진다(붙은 적은 여럿 맞음). 차지 칸 속성석 폭발은 처음 맞은 자리에서 한 번
-    charge: { cost: 15, hide: { max: 3, drain: 0, move: 0.85, notice: 1.5 },  // drain 6 → 0(2026-10-25 사용자: 숨는 동안 기력이 안 빠지게)
+    // ready = 숨은 뒤 이만큼(초) 지나야 백스탭 · 표창이 나간다(2026-10-30 사용자: V 연타만으로 딜이 잘 나와서 — 숨었다가 노리는 맛). 그 전에 누르면 무시, 준비되면 보랏빛 반짝
+    charge: { cost: 15, hide: { max: 3, drain: 0, move: 0.85, notice: 1.5, ready: 0.4 },  // drain 6 → 0(2026-10-25 사용자: 숨는 동안 기력이 안 빠지게)
       def: { name: '표창 던지기', slot: 'charge', startup: 0.05, active: 0.05, recovery: 0.22, mult: 1.2, knock: 60, stun: 0.3, thrust: true,
         knives: { n: 3, spread: 12, speed: 340, range: 200, r: 5 } } },
     // 백스탭(숨은 중 X · V, 2026-10-25 사용자: 라그나로크 로그 백스탭) — blink px 안(벽 너머 제외) 가장 가까운 적의 등 뒤로 준비(startup) 동안 돌아 들어가서 넓고 크게 휘두른다(무적).
@@ -924,6 +925,9 @@ const SET_RES = {
 // 신경독 · 서리독의 '2배'도 sc 를 따라간다(1 + DUO_X × sc — 태초 sc 2.7 에 ×1 이면 예전 2배 그대로)
 const DUO_TUNE = { 'fire+frost': 0.5, 'fire+thunder': 0.5, 'fire+poison': 0.15, 'frost+thunder': 0.5, 'frost+poison': 0.5, 'poison+thunder': 0.2 };
 const DUO_X = 0.37;
+// 마법사 마력탄 속성 배율(2026-10-30 사용자: 마법사를 검사와 비슷하게): sw = 효과(냉기 · 독 중첩 더) · swd = 속성 피해. 검사 검기는 2 · 3.
+// 마력탄은 연사라 피해는 2(3이면 연습장 태초 번개 보스 약 370k = 검사의 1.5배, 2면 약 275k ≈ 검사 247k)
+const ORB_EL = { sw: 2, swd: 2 };
 const RES_BONUS = 0.4;  // 공명(같은 속성 4개)이면 그 속성 피해 +40%
 const MIX_MUL = 0.6;    // 칸 4개가 다 찼는데 섞였으면(듀오 · 3:1 …) 속성 피해 ×0.6
 const duoTimes = sc => 1 + DUO_X * sc;  // 신경독 독 · 서리독 냉기 배수
