@@ -68,18 +68,32 @@ function costOf(prof, which) {
   return wk.specialCost !== undefined ? wk.specialCost : C.special.cost;
 }
 const specialCdOf = p => { const wk = wkOf(p); return wk.specialCd !== undefined ? wk.specialCd : p.cls.special.cd; };
+// 콤보 목록: 검(경량)은 4연타(combo4, 2026-10-30) · 그 밖은 직업 기본
+const comboOf = (C, wk) => (wk && wk.combo4 && C.combo4) || C.combo;
 // 콤보 idx 번 기술: 마지막 타는 무기 특성 finisher 로 바뀔 수 있다(망치 = 내려찍기)
 function comboDef(C, idx, wk) {
-  if (idx === C.combo.length - 1 && wk && wk.finisher && C[wk.finisher]) return C[wk.finisher];
-  return C.combo[idx] || C.combo[0];
+  const list = comboOf(C, wk);
+  if (idx === list.length - 1 && wk && wk.finisher && C[wk.finisher]) return C[wk.finisher];
+  return list[idx] || list[0];
+}
+// 무기별 기술(2026-10-30 사용자 A안): 망치 = 회전베기 자리 대지 강타 · 검기 자리 지진파(WEAPON_KINDS chargeDef · specialDef)
+const chargeDefOf = (C, wk) => (wk && wk.chargeDef && C[wk.chargeDef]) || C.charge.def;
+const specialDefOf = (C, wk) => (wk && wk.specialDef && C[wk.specialDef]) || C.special;
+const dashDefOf = (C, wk) => (wk && wk.dashDef && C[wk.dashDef]) || C.dashAttack;  // 대시 → 공격: 망치 도약 강타 · 싸이 물러나며 표창 · 롯드 순간 파동 · 스태프 수호 파동
+// 칸 짧은 이름(HUD · 터치 버튼 · 장비 창): 망치는 회전 → 강타 · 검기 → 지진파
+function slotShortOf(prof, slot) {
+  const C = clsOf(prof), wk = WEAPON_KINDS[weaponKindOf(prof)] || {};
+  if (slot === 'charge' && wk.chargeDef && C[wk.chargeDef]) return C[wk.chargeDef].short;
+  if (slot === 'wave' && wk.specialDef && C[wk.specialDef]) return C[wk.specialDef].short;
+  return C.slotShort[slot];
 }
 
 // 동작 이름 → 기술(파티: 손님이 보낸 동작을 방장 쪽 손님 몸이 할 때). body = 그 몸(무기 특성)
 function actDef(C, kind, idx, body) {
   if (kind === 'combo') return comboDef(C, idx, body ? wkOf(body) : null);
-  if (kind === 'dashAtk') return C.dashAttack;
-  if (kind === 'charge') return C.charge.def;
-  if (kind === 'special') return C.special;
+  if (kind === 'dashAtk') return dashDefOf(C, body ? wkOf(body) : null);
+  if (kind === 'charge') return chargeDefOf(C, body ? wkOf(body) : null);
+  if (kind === 'special') return specialDefOf(C, body ? wkOf(body) : null);
   if (kind === 'stab') return C.stab || null;         // 암살자 백스탭
   return null;
 }
@@ -157,6 +171,9 @@ function startRush(p) {
 function updatePlayer(p, dt, room, gates) {
   const C = p.cls;
   p.specialCd = Math.max(0, p.specialCd - dt);
+  p.rushChainT = Math.max(0, (p.rushChainT || 0) - dt);
+  p.wardT = Math.max(0, (p.wardT || 0) - dt);  // 스태프 수호 파동 보호막
+  if (p.state !== 'act') p.leapZ = 0;
   p.spWarnT -= dt;
   p.spDelay -= dt;
   if (p.spDelay <= 0 && !p.dead) p.sp = Math.min(p.maxSp, p.sp + C.stamina.regen * (1 + p.stats.spRegen / 100) * dt);  // 기력 회복(갑옷 '기력 회복 속도'만큼 빠르게)
@@ -195,11 +212,19 @@ function updatePlayer(p, dt, room, gates) {
       break;
     case 'dodge':
       // 대시 중에 공격 = 대시 찌르기
-      if (p.buffer === 'attack') { p.buffer = null; Elements.dashEnd(p); startAct(p, C.dashAttack, 'dashAtk', 0); break; }
+      if (p.buffer === 'attack') { p.buffer = null; Elements.dashEnd(p); startAct(p, dashDefOf(C, wkOf(p)), 'dashAtk', 0); break; }
       p.t -= dt;
+      if (p.blink) {  // 롯드: 대시 = 순간이동 — 첫 프레임에 한 번에(벽에서 멈춤), 떠난 자리 · 닿은 자리에 반짝임 + 지나간 길 그림
+        const x0 = p.x, y0 = p.y, n = 8, step = p.blink / n;
+        for (let i = 0; i < n; i++) Dungeon.move(room, p, p.dodgeV.x * step, p.dodgeV.y * step, BODY_R, gates);
+        World.sparks(x0, y0, 10, 10, '#c9b8ff', true); World.sparks(p.x, p.y, 10, 12, '#ffffff', true);
+        World.fx({ type: 'shadowpath', pts: [[x0, y0]], follow: p, w: 6, t: 0, life: 0.25, col: '#c9b8ff' });
+        Elements.dashMove(p, p.blink); p.blink = 0;
+      } else if (!p.blinked) {
       Dungeon.move(room, p, p.dodgeV.x * C.dodge.speed * dt, p.dodgeV.y * C.dodge.speed * dt, BODY_R, gates);
       Elements.dashMove(p, C.dodge.speed * dt);  // 대시 칸 속성석: 지나간 길
-      if (p.t <= 0) { p.state = 'idle'; p.dashAtkT = C.dodge.attackWindow; Elements.dashEnd(p); }
+      }
+      if (p.t <= 0) { p.state = 'idle'; p.blinked = false; p.dashAtkT = C.dodge.attackWindow; Elements.dashEnd(p); }
       break;
     case 'act':
       updateAct(p, dt, room);
@@ -212,7 +237,7 @@ function freeControl(p, dt, room, gates) {
   if (p.buffer && tryStart(p, p.buffer)) return;
   const m = moveInput(p);
   if (m) {
-    const sp = p.cls.speed * (1 + p.stats.move / 100) * (p.charge > 0 ? p.cls.charge.move : 1) * (p.slowT > 0 ? 0.6 : 1) * (p.hidden ? p.cls.charge.hide.move : 1);
+    const sp = p.cls.speed * (1 + p.stats.move / 100) * (p.charge > 0 ? p.cls.charge.move : 1) * (p.slowT > 0 ? 0.6 : 1) * (p.hidden ? wkOf(p).hideMove || p.cls.charge.hide.move : 1);  // 카타르: 숨은 동안 빠르게
     Dungeon.move(room, p, m.x * sp * dt, m.y * sp * dt, BODY_R, gates);
     p.fv = unit(m.x, m.y, p.fv);
     p.state = 'walk';
@@ -225,8 +250,8 @@ function tryStart(p, b) {
   p.buffer = null;
   if (b === 'attack') {
     if (p.hidden) return hiddenStrike(p);  // 암살자: 숨은 중 공격 = 백스탭 · 표창
-    if (p.dashAtkT > 0) { p.dashAtkT = 0; startAct(p, C.dashAttack, 'dashAtk', 0); }  // 대시 끝난 직후도 대시 찌르기
-    else startAct(p, C.combo[0], 'combo', 0);
+    if (p.dashAtkT > 0) { p.dashAtkT = 0; startAct(p, dashDefOf(C, wkOf(p)), 'dashAtk', 0); }  // 대시 끝난 직후도 대시 찌르기
+    else startAct(p, comboDef(C, 0, wkOf(p)), 'combo', 0);
     return true;
   }
   if (b === 'dodge') {
@@ -236,7 +261,7 @@ function tryStart(p, b) {
     startDodge(p, m ? unit(m.x, m.y, p.fv) : { x: p.fv.x, y: p.fv.y });
     return true;
   }
-  if (b === 'charge' && C.charge.hide) {  // 암살자: 숨기 → 다시 누르면 바로 옆 적에게 백스탭, 없으면 표창(기력은 숨을 때만)
+  if (b === 'charge' && C.charge.hide && !wkOf(p).chargeDef) {  // (싸이는 숨기 대신 칼날 폭풍 — 아래 일반 차지)  // 암살자: 숨기 → 다시 누르면 바로 옆 적에게 백스탭, 없으면 표창(기력은 숨을 때만)
     if (p.hidden) return hiddenStrike(p);
     if (!spend(p, costOf(p.prof, 'charge'))) return false;
     startHide(p);
@@ -246,16 +271,20 @@ function tryStart(p, b) {
     // 마법진은 한 번에 하나만(2026-10-24 사용자) — 깔린 것이 터지기 전에는 못 깐다(기력도 안 씀)
     if (C.charge.def.circle && World.magicActive()) { if (p.spWarnT <= 0) { World.text(p.x, p.y, 40, '마법진이 이미 있어요', '#c9b8ff'); p.spWarnT = 0.6; } return false; }
     if (!spend(p, costOf(p.prof, 'charge'))) return false;
-    startAct(p, C.charge.def, 'charge', 0);
+    startAct(p, chargeDefOf(C, wkOf(p)), 'charge', 0);
     if (!p.remote) Input.rumble(0.35, 60);
     return true;
   }
   if (b === 'special') {
-    if (p.specialCd > 0 || !spend(p, costOf(p.prof, 'special'))) return false;
-    p.specialCd = specialCdOf(p);
+    const wk = wkOf(p), chain = C.special.rush && wk.rushChain && p.rushChainT > 0;  // 싸이: 돌진 베기 뒤 잠깐 동안 한 번 더(기력 · 쿨타임 없이, 한 번만)
+    if (!chain && (p.specialCd > 0 || !spend(p, costOf(p.prof, 'special')))) return false;
+    if (!chain) p.specialCd = specialCdOf(p);
     endHide(p);
-    if (C.special.rush) startRush(p);  // 암살자 돌진 베기
-    else startAct(p, C.special, 'special', 0);
+    if (C.special.rush) {  // 암살자 돌진 베기
+      startRush(p);
+      p.rushChainT = !chain && wk.rushChain ? p.act.s + p.act.a + p.act.r + wk.rushChain : 0;
+      if (chain) World.text(p.x, p.y, 40, '연속 돌진!', '#c8c8d8');
+    } else startAct(p, specialDefOf(C, wk), 'special', 0);
     return true;
   }
   return false;
@@ -268,6 +297,8 @@ function startDodge(p, dir) {
   p.fv = p.dodgeV;
   p.state = 'dodge'; p.act = null;
   p.t = C.dodge.time;
+  const bd = wkOf(p).blinkDodge;  // 롯드: 대시 = 순간이동(짧게 머문 뒤 바로 대시 공격 가능)
+  if (bd) { p.blink = bd; p.blinked = true; p.t = 0.1; }
   p.iframes = C.dodge.iframes;
   p.dodgeCd = C.dodge.time;  // 지금 대시가 끝날 때까지만 막는다
   p.guardT = C.dodge.time + UNIQUE_FX.dashguardT;
@@ -330,6 +361,7 @@ function startAct(p, def, kind, idx, o = {}) {
   const wk = wkOf(p);
   // 카타르(암습): 숨은 뒤 첫 공격(백스탭 · 표창)은 언제나 치명타
   if (wk.ambush && (kind === 'stab' || (kind === 'charge' && def.knives))) def = Object.assign({}, def, { crit: true });
+  if (kind === 'stab' && wk.stabMul) def = Object.assign({}, def, { mult: def.mult * wk.stabMul });  // 카타르: 백스탭 더 세게
   // 롯드 · 스태프: 마력탄 빠르기 · 사거리
   if (def.orb && wk.orb) def = Object.assign({}, def, { orb: Object.assign({}, def.orb, wk.orb) });
   const sp = wk.speed * (1 + p.stats.aspd / 100);
@@ -343,7 +375,9 @@ function startAct(p, def, kind, idx, o = {}) {
   if (def.breath) breathOf(p, hd);
   // 검사 회전베기(차지 칸 둘레 공격): 차지 칸 속성석 크기(조각 1 ~ 태초 7)마다 반지름 +5%(태초 44 → 약 59, 2026-10-26 사용자) — 고리 그림도 hd.radius 를 따름
   if (def.spin && def.slot === 'charge') { const st = Elements.socket(p.prof, 'charge'); if (st) hd.radius *= 1 + 0.05 * (st.size + 1); }
-  if (kind !== 'dashAtk' && !o.aimed) aimAt(p, def.circle ? def.circle.range : def.orb ? def.orb.range * 0.7 : def.wave ? def.wave.range * 0.6 : def.knives ? def.knives.range * 0.8 : def.area ? def.area.ahead + def.area.r : def.radius || hd.reach[1]);  // 대시 찌르기는 대시한 방향 그대로 · 검기는 멀리까지
+  // 망치 대지 강타: 회전베기처럼 차지 칸 속성석 크기마다 넓게 — 충격파 그림도 hd.area 를 따름
+  if (def.area && def.slot === 'charge') { const st = Elements.socket(p.prof, 'charge'); hd.area = { ahead: def.area.ahead, r: def.area.r * (st ? 1 + 0.05 * (st.size + 1) : 1) }; }
+  if (kind !== 'dashAtk' && !o.aimed) aimAt(p, def.circle ? def.circle.range : def.orb ? def.orb.range * 0.7 : def.wave ? def.wave.range * 0.6 : def.quake ? def.quake.range * 0.6 : def.knives ? def.knives.range * 0.8 : def.area ? def.area.ahead + def.area.r : def.radius || hd.reach[1]);  // 대시 찌르기는 대시한 방향 그대로 · 검기는 멀리까지
   p.state = 'act';
   p.act = {
     def, hd, kind, idx, time: 0, hit: new Set(), wave: -1, fxDone: false, x0: p.x, y0: p.y,
@@ -369,6 +403,11 @@ function updateAct(p, dt, room) {
     p.x = f.x0 + (f.x1 - f.x0) * k; p.y = f.y0 + (f.y1 - f.y0) * k;
     if (k >= 1) { f.done = true; if (f.tgt && !f.tgt.dying) p.fv = unit(f.tgt.x - p.x, f.tgt.y - p.y, p.fv); World.sparks(p.x, p.y - 8, 12, 14, '#b9a0ff', true); }
   }
+  // 롯드: 마력탄을 쏘는 동안에도 걸을 수 있다(느리게, 보는 쪽은 그대로)
+  if (d.orb && wkOf(p).castMove) { const m = moveInput(p); if (m) { const sp = p.cls.speed * (1 + p.stats.move / 100) * wkOf(p).castMove; Dungeon.move(room, p, m.x * sp * dt, m.y * sp * dt, BODY_R, false); } }
+  // 망치 도약 강타: 준비 동안 앞으로 뛰어올랐다(leapZ — art.js 몸을 위로) 내려앉는다 · 싸이 물러나며 표창: 기술 동안 뒤로 빠진다
+  if (d.leap) { const k = Math.min(1, a.time / Math.max(0.001, a.s)); p.leapZ = k < 1 ? Math.sin(Math.PI * k) * d.leap.h : 0; if (k < 1) Dungeon.move(room, p, p.fv.x * d.leap.dist / a.s * dt, p.fv.y * d.leap.dist / a.s * dt, BODY_R, false); }
+  if (d.backstep && a.time < tB) Dungeon.move(room, p, -p.fv.x * d.backstep / tB * dt, -p.fv.y * d.backstep / tB * dt, BODY_R, false);
   if (a.time < tB) {
     let v = 0;
     if (d.dash) { if (a.time >= tA) v = (a.len || d.dash) / a.a; }  // 돌진 베기는 그 적까지 거리(a.len)
@@ -380,11 +419,20 @@ function updateAct(p, dt, room) {
     a.fxDone = true;
     if (d.dash) World.fx({ type: 'streak', x0: a.x0, y0: a.y0, follow: p, t: 0, life: 0.25 });
     if (d.area) {  // 망치 내려찍기: 판정 타원 그대로 충격파(art.js nova) + 흙먼지
-      const st = Elements.socket(p.prof, d.slot), x = p.x + p.fv.x * d.area.ahead, y = p.y + p.fv.y * d.area.ahead;
-      World.fx({ type: 'nova', x, y, r: d.area.r, col: st ? ELEMENTS[st.el].color : '#e8dcc0', el: st ? st.el : '', tier: Elements.tier(st), ss: Elements.ss(st, p.prof), bare: true, seed: Math.random() * 1000, t: 0, life: 0.4 });
-      World.fx({ type: 'shock', x, y, r: d.area.r, t: 0, life: 0.3 });
-      for (let i = 0; i < 8; i++) { const an = i / 8 * Math.PI * 2; World.fx({ type: 'dust', x: x + Math.cos(an) * d.area.r * 0.6, y: y + Math.sin(an) * d.area.r * 0.6 * GROUND_Y, vx: Math.cos(an) * 20, vy: Math.sin(an) * 10, vz: 12, t: 0, life: 0.4 }); }
+      const ar = a.hd.area, st = Elements.socket(p.prof, d.slot), x = p.x + p.fv.x * ar.ahead, y = p.y + p.fv.y * ar.ahead;
+      World.fx({ type: 'nova', x, y, r: ar.r, col: st ? ELEMENTS[st.el].color : '#e8dcc0', el: st ? st.el : '', tier: Elements.tier(st), ss: Elements.ss(st, p.prof), bare: true, seed: Math.random() * 1000, t: 0, life: 0.4 });
+      World.fx({ type: 'shock', x, y, r: ar.r, t: 0, life: 0.3 });
+      for (let i = 0; i < 8; i++) { const an = i / 8 * Math.PI * 2; World.fx({ type: 'dust', x: x + Math.cos(an) * ar.r * 0.6, y: y + Math.sin(an) * ar.r * 0.6 * GROUND_Y, vx: Math.cos(an) * 20, vy: Math.sin(an) * 10, vz: 12, t: 0, life: 0.4 }); }
       World.shake(3);
+    }
+    // 망치(분쇄): 기본 공격마다 앞 바닥 작은 충격파 — 판정 타원 = 그림(nova · shock), 칼에 맞은 적도 충격파에 한 번 더(속성석 효과는 칼만)
+    const sh = wkOf(p).shockHit;
+    if (sh && a.kind === 'combo' && !d.area) {
+      const x = p.x + p.fv.x * sh.ahead, y = p.y + p.fv.y * sh.ahead;
+      World.fx({ type: 'nova', x, y, r: sh.r, col: '#e8dcc0', el: '', tier: 0, ss: 0, bare: true, seed: Math.random() * 1000, t: 0, life: 0.3 });
+      World.fx({ type: 'shock', x, y, r: sh.r, t: 0, life: 0.25 });
+      const sd = { name: '충격파', mult: d.mult * sh.mult, knock: 60, stun: 0.2 };
+      for (const e of World.enemies()) if (groundDist(e.x - x, e.y - y) <= sh.r + e.r && (e.z || 0) <= AIR_REACH) hitEnemy(e, sd, p);
     }
     // 찌르기 · 띠 판정(noBody: 대시 찌르기 · 돌진 베기)은 판정 모양 그대로 찌르는 빛(art.js fx 'thrust'), 백스탭은 판정 부채꼴 그대로 큰 베기(fx 'sweep').
     // 그 칸 속성석 색 · 단계(2026-10-26 이펙트 범위 = 판정 범위)
@@ -398,28 +446,35 @@ function updateAct(p, dt, room) {
       const st = Elements.socket(p.prof, d.slot || 'none');
       World.fx({ type: 'ring', follow: p, r: a.hd.radius, t: 0, life: 0.3, col: Elements.color(p.prof, d.slot || 'none'), tier: Elements.tier(st), el: st ? st.el : '', ss: Elements.ss(st, p.prof) });
     }
-    if (a.kind === 'charge' && !d.circle && !d.knives) Elements.chargeBurst(p, d.spin ? a.hd.radius : 0);  // 회전베기: 속성 범위 = 베기 범위
+    if (a.kind === 'charge' && !d.circle && !d.knives) Elements.chargeBurst(p, d.spin ? a.hd.radius : a.hd.area ? a.hd.area.r : 0);  // 회전베기 · 대지 강타: 속성 범위 = 베기 · 충격파 범위
     if (a.kind === 'stab') Elements.chargeBurst(p);  // 백스탭도 차지 칸 속성석 폭발(대상 등 뒤 자리에서)
     if (a.fly) World.fx({ type: 'shadowpath', pts: [[a.fly.x0, a.fly.y0]], follow: p, w: 8, t: 0, life: 0.3, col: '#b9a0ff' });  // 날아온 길  // 회전베기 칸 속성석: 둘레 폭발(마법진은 터질 때 그 자리에서)
     if (d.pulse) World.fx({ type: 'pulse', x: p.x, y: p.y, r: a.hd.radius, t: 0, life: 0.3, col: Elements.color(p.prof, 'dash') });
+    if (d.ward) { p.wardT = d.ward.t; p.wardCut = d.ward.cut; World.text(p.x, p.y, 40, '보호막', '#9ad8ff'); }  // 스태프 수호 파동: 받는 피해 -cut(art.js 몸 둘레 빛 막)
     // 마력탄: 가볍게 따라가는 빛 구슬, 처음 닿은 적에서 터진다(마력탄 칸 속성석 색).
     // 그림 단계 tier(2026-10-26 사용자: 속성석 레벨에 따라 멋져지게, 구간마다): 0 = 없음 · 조각 · 작은 / 1 = 보통 · 큰 / 2 = 완전한 / 3 = 전설 · 태초(art.js orb)
     if (d.orb) {
-      const st = Elements.socket(p.prof, 'wave'), tier = Elements.tier(st);
-      World.playerShot({ x: p.x + p.fv.x * 8, y: p.y + p.fv.y * 8, vx: p.fv.x * d.orb.speed, vy: p.fv.y * d.orb.speed, left: d.orb.range, r: d.orb.r,
-        ball: true, orb: true, once: true, homing: true, def: d, hit: new Set(), stone: st, col: st ? ELEMENTS[st.el].color : '#b39cff',
+      const st = Elements.socket(p.prof, 'wave'), tier = Elements.tier(st), wk = wkOf(p), vol = wk.orbVolley;
+      // 롯드: 세 발을 조금씩 벌려 한꺼번에(한 발 배율은 줄임) · 스태프: 느리고 큰 운석(meteor — 맞은 자리에서 크게 터짐, orbBurst)
+      const n = vol ? vol.n : 1, a0 = Math.atan2(p.fv.y, p.fv.x);
+      for (let i = 0; i < n; i++) {
+      const mid = i === (n - 1) >> 1, od = vol ? Object.assign({}, d, { mult: d.mult * vol.mult, noEl: !mid }) : d;  // 속성석 효과는 가운데 한 발만
+      const ang = a0 + (i - (n - 1) / 2) * (vol ? vol.spread : 0) * Math.PI / 180, ux = Math.cos(ang), uy = Math.sin(ang);
+      World.playerShot({ x: p.x + ux * 8, y: p.y + uy * 8, vx: ux * d.orb.speed, vy: uy * d.orb.speed, left: d.orb.range, r: d.orb.r,
+        ball: true, orb: true, once: true, homing: true, def: od, hit: new Set(), stone: st, col: st ? ELEMENTS[st.el].color : wk.meteor ? '#ff9a5a' : '#b39cff', meteor: !!wk.meteor,
         tier, el: st ? st.el : '', ss: Elements.ss(st, p.prof),
         onEnd: s => {
           World.sparks(s.x, s.y - 8, 8, 10 + tier * 6, s.col, tier >= 2);
           const ob = wkOf(p).orbBurst;  // 스태프(광역): 맞은 자리에서 작게 터진다(바닥 타원 r — 그림 = 판정)
           if (ob && s.hit.size) {
             World.fx({ type: 'nova', x: s.x, y: s.y, r: ob.r, col: s.col, el: s.el || '', tier, ss: s.ss || 0, bare: true, seed: Math.random() * 1000, t: 0, life: 0.35 });
-            const bd = { name: '마력 폭발', mult: d.mult * ob.mult, knock: 50, stun: 0.2 };
+            const bd = { name: wk.meteor ? '운석' : '마력 폭발', mult: d.mult * ob.mult, knock: wk.meteor ? 140 : 50, stun: wk.meteor ? 0.45 : 0.2 };
             for (const e of World.enemies()) if (!s.hit.has(e) && groundDist(e.x - s.x, e.y - s.y) <= ob.r + e.r) hitEnemy(e, bd, p);
           }
           if (tier) World.fx({ type: 'pulse', x: s.x, y: s.y, r: 12 + tier * 5, t: 0, life: 0.25 + tier * 0.05, col: s.col });
-          Elements.waveEnd(s, p);
+          if (!od.noEl) Elements.waveEnd(s, p);
         } });
+      }
     }
     // 표창 던지기(암살자): 단검 n 개를 부채꼴로, 단검마다 처음 닿은 적에서 사라진다. 차지 칸 속성석 폭발은 처음 맞은 자리에서 한 번
     if (d.knives) {
@@ -430,7 +485,7 @@ function updateAct(p, dt, room) {
           ball: true, knife: true, once: true, def: d, hit: new Set(),
           onEnd: s => {
             World.sparks(s.x, s.y - 8, 4, 8, '#e8ecf4');
-            if (s.hit.size && !burst.done) { burst.done = true; Elements.chargeBurst(Object.assign(Object.create(p), { x: s.x, y: s.y })); }
+            if (s.hit.size && !burst.done && d.slot === 'charge') { burst.done = true; Elements.chargeBurst(Object.assign(Object.create(p), { x: s.x, y: s.y })); }  // 차지 칸 표창만(싸이 대시 표창은 대시 칸 효과)
           } });
       }
     }
@@ -440,8 +495,13 @@ function updateAct(p, dt, room) {
         .sort((u, v) => Math.hypot(u.x - p.x, u.y - p.y) - Math.hypot(v.x - p.x, v.y - p.y))
         .find(e => ((e.x - p.x) * p.fv.x + (e.y - p.y) * p.fv.y) >= 0);
       const st = Elements.socket(p.prof, 'charge');  // 그림 단계 · 속성(art.js magicCircle · fx 'nova')
-      World.field({ magic: true, x: tgt ? tgt.x : p.x + p.fv.x * c.ahead, y: tgt ? tgt.y : p.y + p.fv.y * c.ahead, r: wkOf(p).circleR || c.r, delay: c.delay, life: c.delay + 0.4,  // 스태프(광역): 반지름 52
-        def: d, p, col: st ? ELEMENTS[st.el].color : '#b39cff', tier: Elements.tier(st), el: st ? st.el : '', ss: Elements.ss(st, p.prof) });
+      const mf = { magic: true, x: tgt ? tgt.x : p.x + p.fv.x * c.ahead, y: tgt ? tgt.y : p.y + p.fv.y * c.ahead, r: wkOf(p).circleR || c.r, delay: c.delay, life: c.delay + 0.4,  // 스태프(광역): 반지름 59(1.4배)
+        def: d, p, col: st ? ELEMENTS[st.el].color : '#b39cff', tier: Elements.tier(st), el: st ? st.el : '', ss: Elements.ss(st, p.prof) };
+      if (d.trio) {  // 롯드 삼중 마법진: 작은 마법진 셋이 바라보는 쪽으로 step 씩 줄지어 gap 초씩 차례로 터진다
+        for (let i = 0; i < d.trio.n; i++) World.field(Object.assign({}, mf, { x: mf.x + p.fv.x * d.trio.step * i, y: mf.y + p.fv.y * d.trio.step * i, delay: c.delay + d.trio.gap * i, life: c.delay + d.trio.gap * i + 0.4 }));
+      } else World.field(mf);
+      const tw = wkOf(p).circleTwice;  // 스태프: 같은 자리에서 한 번 더 터짐(그림도 다시 — 마법진이 다시 그려진다)
+      if (tw) World.field(Object.assign({}, mf, { delay: c.delay + tw.delay, life: c.delay + tw.delay + 0.4, def: Object.assign({}, d, { mult: d.mult * tw.mult }) }));
     }
     // 마법사 마력 숨결: 지팡이 앞으로 퍼지는 부채꼴 빛(기본 칸 속성석 색). 칸 능력은 맞을 때(Elements.breathHit)
     if (d.breath) {  // 그림 단계 · 속성: 기본 칸 속성석(art.js fx 'breath')
@@ -451,8 +511,14 @@ function updateAct(p, dt, room) {
     }
     else if (d.slot === 'basic') Elements.basicSwing(p, d);   // 기본 칸 속성석(보통부터): 화염구 · 얼음 파편 · 독 분사
     // 검기: 앞으로 날아가며 꿰뚫는다. 가까이서 칼에 맞은 몹은 검기에 또 맞지 않게 같은 목록을 쓴다
-    if (d.wave) World.playerShot({ x: p.x + p.fv.x * 8, y: p.y + p.fv.y * 8, vx: p.fv.x * d.wave.speed, vy: p.fv.y * d.wave.speed,
-      left: d.wave.range, r: d.wave.r, def: d, hit: a.hit, stone: Elements.socket(p.prof, 'wave'), col: Elements.color(p.prof, 'wave') });
+    // 검(연격): 검기 두 줄(양옆으로 gap 씩, 한 줄 배율은 줄임 — 줄마다 따로 맞음)
+    const tw2 = wkOf(p).twinWave;
+    if (d.wave) for (const off of tw2 ? [-tw2.gap, tw2.gap] : [0]) World.playerShot({ x: p.x + p.fv.x * 8 - p.fv.y * off, y: p.y + p.fv.y * 8 + p.fv.x * off, vx: p.fv.x * d.wave.speed, vy: p.fv.y * d.wave.speed,
+      left: d.wave.range, r: d.wave.r, def: tw2 ? Object.assign({}, d, { mult: d.mult * tw2.mult, noEl: off > 0 }) : d,  // 두 줄 중 한 줄만 속성석 효과
+      hit: tw2 ? new Set(a.hit) : a.hit, stone: Elements.socket(p.prof, 'wave'), col: Elements.color(p.prof, 'wave') });
+    // 망치 지진파: 땅을 타고 가며 꿰뚫는다(ground = 바닥 타원 판정, art.js quake 그림과 같은 크기)
+    if (d.quake) World.playerShot({ x: p.x + p.fv.x * 10, y: p.y + p.fv.y * 10, vx: p.fv.x * d.quake.speed, vy: p.fv.y * d.quake.speed,
+      left: d.quake.range, r: d.quake.r, quake: true, ground: true, def: d, hit: a.hit, stone: Elements.socket(p.prof, 'wave'), col: Elements.color(p.prof, 'wave', '#c8a878') });
   }
   if (a.time >= tA && a.time < tB) {
     if (d.hits) {
@@ -476,7 +542,7 @@ function updateAct(p, dt, room) {
   // 후딜에서 다음 콤보 · 특수기 · 대시로 끊을 수 있다
   if (a.time >= tB) {
     const b = p.buffer;
-    if (b === 'attack' && a.kind === 'combo' && a.idx < C.combo.length - 1) {
+    if (b === 'attack' && a.kind === 'combo' && a.idx < comboOf(C, wkOf(p)).length - 1) {
       p.buffer = null;
       startAct(p, comboDef(C, a.idx + 1, wkOf(p)), 'combo', a.idx + 1);
       return;

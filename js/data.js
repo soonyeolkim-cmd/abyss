@@ -50,6 +50,16 @@ const CLASSES = {
     slam: { name: '내려찍기', slot: 'basic', fin: true, startup: 0.14, active: 0.08, recovery: 0.4, mult: 1.8, knock: 150, stun: 0.6, area: { ahead: 24, r: 26 }, swing: [-150, 10], heavy: true },
     charge: { holdDelay: 0.22, time: 0.55, move: 0.45, cost: 20,
       def: { name: '회전베기', slot: 'charge', fin: true, startup: 0.05, active: 0.22, recovery: 0.32, mult: 2.4, knock: 160, stun: 0.6, radius: 44, spin: true, heavy: true, outward: true } },  // 범위 34 → 44(+30%, 2026-10-24 사용자)
+    // ── 무기별 기술(2026-10-30 사용자 A안: 같은 직업이라도 무기마다 노는 방식이 다르게) — WEAPON_KINDS chargeDef · specialDef · combo4 ──
+    // (2026-10-30 둘째 판) 회전(V): 검 = 돌진 회전(앞으로 미끄러지며 두 바퀴) · 망치 = 대회전(제자리 크게 세 바퀴, 둘레 적을 끌어당김) / 대시 → 공격: 망치 = 도약 강타(뛰어올라 앞 바닥 내려찍기)
+    dashSpin: { name: '돌진 회전', short: '돌진', slot: 'charge', fin: true, startup: 0.05, active: 0.3, recovery: 0.3, mult: 1.45, knock: 120, stun: 0.5, radius: 38, spin: true, hits: 2, dash: 70, heavy: true, outward: true },
+    bigSpin: { name: '대회전', short: '대회전', slot: 'charge', fin: true, startup: 0.08, active: 0.48, recovery: 0.4, mult: 1.6, knock: -70, stun: 0.4, radius: 66, spin: true, hits: 3, heavy: true, outward: true },  // knock 음수 = 끌어당김
+    leapSlam: { name: '도약 강타', slot: 'dash', startup: 0.2, active: 0.08, recovery: 0.36, mult: 2.8, knock: 120, stun: 0.6, area: { ahead: 22, r: 38 }, launch: 150, leap: { h: 18, dist: 40 }, swing: [-150, 10], iframes: true, heavy: true },
+    // (첫 판, 지금은 안 씀) 망치 회전베기 자리 = 대지 강타: 제자리 둘레 바닥 충격파 + 띄우기
+    quakeSlam: { name: '대지 강타', short: '강타', slot: 'charge', fin: true, startup: 0.16, active: 0.08, recovery: 0.36, mult: 3.0, knock: 120, stun: 0.6, area: { ahead: 0, r: 46 }, launch: 170, swing: [-150, 10], heavy: true },
+    // 망치 검기 자리 = 지진파: 땅을 타고 앞으로 가며 꿰뚫는 충격(바닥 타원 판정 = 갈라진 땅 그림, art.js quake). 속성 효과 · 배율은 검기와 같게(elements.js)
+    quake: { id: 'quake', name: '지진파', short: '지진파', slot: 'wave', cd: 0.6, cost: 9, startup: 0.14, active: 0.06, recovery: 0.34, mult: 4.5, knock: 110, stun: 0.5, swing: [-150, 10], heavy: true,
+      quake: { speed: 170, range: 130, r: 16 } },
   },
   // ── 암살자(2026-10-25 사용자: 세 번째 직업, 메모/assassin-plan.md) ── 능력치는 검사 · 마법사와 같다. 양손에 같은 무기를 하나씩 든다(dual).
   // 기본(X) = 연속 찌르기 4타(검사보다 훨씬 빠르게, 양손 번갈아, 4타 교차 베기) · 특수(Z) = 돌진 베기(가까운 적을 향해 직선으로 베고 지나감) ·
@@ -95,6 +105,10 @@ const CLASSES = {
     stab: { name: '백스탭', slot: 'charge', startup: 0.12, active: 0.12, recovery: 0.3, mult: 4.0, knock: 220, stun: 0.9, reach: [0, 42], arc: 160, swing: [-120, 120], blink: 40, back: true, heavy: true, iframes: true },  // back = 언제나 등 뒤 공격(+30%)
     // 선풍 베기(대시 → 공격, 봉인의 숲 쌍검): 제자리에서 한 바퀴 돌며 둘레를 두 번 벤다
     dashAttack: { name: '선풍 베기', slot: 'dash', startup: 0.03, active: 0.24, recovery: 0.24, mult: 1.3, knock: 220, stun: 0.45, radius: 40, spin: true, hits: 2, outward: true, iframes: true },
+    // 싸이(2026-10-30): 숨기 자리 = 칼날 폭풍(몸 둘레를 도는 단검이 네 번 벤다, 출혈) · 대시 → 공격 = 물러나며 표창(뒤로 빠지며 단검 셋)
+    saiStorm: { name: '칼날 폭풍', short: '폭풍', slot: 'charge', fin: true, startup: 0.05, active: 0.6, recovery: 0.25, mult: 1.25, knock: 40, stun: 0.25, radius: 40, spin: true, hits: 4, outward: true, bleedy: true, blades: true },
+    saiDash: { name: '물러나며 표창', slot: 'dash', startup: 0.04, active: 0.1, recovery: 0.25, mult: 1.4, knock: 60, stun: 0.3, thrust: true, backstep: 52, iframes: true,
+      knives: { n: 3, spread: 14, speed: 340, range: 180, r: 5 } },
   },
   // ── 마법사(2026-10-24 사용자: 두 번째 캐릭터) ── 봉인의 숲 지팡이(정령의 마법봉) 기술을 옮김. 능력치는 검사와 같고 공격력 = 주문력.
   // 기본 = 롯드 · 스태프 2연타(끝의 빛 구슬이 휩쓴다, 사거리 넓음) · 특수(Z) = 마력탄(가볍게 따라가는 빛 구슬, 처음 닿은 적에서 터짐, 기력으로 연사)
@@ -122,11 +136,21 @@ const CLASSES = {
     special: { id: 'orb', name: '마력탄', short: '마력탄', slot: 'wave', cd: 0.15, cost: 3, startup: 0.06, active: 0.04, recovery: 0.16, mult: 1.6, knock: 60, stun: 0.3, thrust: true,
       orb: { speed: 240, range: 150, r: 6 } },
     dashAttack: { name: '마력 파동', slot: 'dash', startup: 0.04, active: 0.12, recovery: 0.3, mult: 1.1, knock: 300, stun: 0.55, radius: 40, pulse: true, iframes: true, heavy: true, thrust: true },
+    // 롯드(2026-10-30): 마법진 자리 = 삼중 마법진(작은 마법진 셋이 앞으로 줄지어 차례로 터짐) · 대시 = 순간이동(blinkDodge) 뒤 공격 = 작은 파동
+    // 스태프: 대시 → 공격 = 수호 파동(크게 밀쳐내고 1.5초 받는 피해 -50% 보호막)
+    blinkPulse: { name: '순간 파동', slot: 'dash', startup: 0.03, active: 0.1, recovery: 0.25, mult: 1.0, knock: 200, stun: 0.45, radius: 30, pulse: true, iframes: true, heavy: true, thrust: true },
+    wardPulse: { name: '수호 파동', slot: 'dash', startup: 0.05, active: 0.12, recovery: 0.32, mult: 1.2, knock: 380, stun: 0.6, radius: 56, pulse: true, ward: { t: 1.5, cut: 0.5 }, iframes: true, heavy: true, thrust: true },
     charge: { holdDelay: 0.22, time: 0.55, move: 0.45, cost: 15,
       def: { name: '마법진', slot: 'charge', fin: true, startup: 0.12, active: 0.05, recovery: 0.3, mult: 3.4, knock: 220, stun: 0.7, thrust: true, heavy: true,
         circle: { range: 120, ahead: 56, r: 42, delay: 0.5 } } },
+    trioCircle: { name: '삼중 마법진', short: '삼중', slot: 'charge', fin: true, startup: 0.1, active: 0.05, recovery: 0.28, mult: 1.6, knock: 160, stun: 0.5, thrust: true, heavy: true,
+      circle: { range: 120, ahead: 34, r: 26, delay: 0.35 }, trio: { n: 3, step: 30, gap: 0.15 } },
   },
 };
+// 검(경량) 4연타: 베기 · 되베기 · 올려베기 · 찌르기(2026-10-30) — 한 대 배율은 그대로, 한 번 더 베는 만큼 빠른 연타
+CLASSES.swordsman.combo4 = [CLASSES.swordsman.combo[0], CLASSES.swordsman.combo[1],
+  { name: '올려베기', slot: 'basic', startup: 0.05, active: 0.08, recovery: 0.18, mult: 1.05, knock: 70, stun: 0.32, reach: [0, 25], arc: 75, lunge: 6, swing: [-100, 70] },
+  CLASSES.swordsman.combo[2]];
 const clsOf = prof => CLASSES[(prof && prof.cls) || 'swordsman'];
 // 능력치 이름: 마법사는 공격력을 주문력으로 부른다
 const statName = (k, prof) => (k === 'atk' && clsOf(prof).atkName) || STATS[k].name;
@@ -139,19 +163,26 @@ const statName = (k, prof) => (k === 'atk' && clsOf(prof).atkName) || STATS[k].n
 // ambush(숨은 뒤 첫 공격 치명타) · rush(돌진 베기 피해 +) · disarm(교차 베기 · 돌진 베기 맞은 적 t 초 동안 주는 피해 -cut)
 const WEAPON_KINDS = {
   none: { name: '맨손', speed: 1.1, reach: -8, dmg: 0.8, knock: 0.6, arc: 0.8 },
+  // 2026-10-30 사용자 A안(무기마다 기술 모양까지 다르게): 검 = 빠른 단일 · 망치 = 느린 범위 / 롯드 = 단일 연사 · 스태프 = 범위 설치 / 카타르 = 숨기 특화 · 싸이 = 출혈 · 연속 돌진
   light: { name: '경량', speed: 1.15, reach: 0, dmg: 1, knock: 0.9, arc: 1,
-    trait: ['연계', '기본 공격이 맞으면 기력 +7(보통 +4) · 검기 쿨타임 0.4초'], onHitSp: 7, specialCd: 0.4 },
+    trait: ['연격', '4연타 · 돌진 회전 · 검기 두 줄 · 치명타 +10% · 기본 공격이 맞으면 기력 +7'], onHitSp: 7, specialCd: 0.4,
+    combo4: true, twinWave: { gap: 7, mult: 0.62 }, critAdd: 10, chargeDef: 'dashSpin' },
   heavy: { name: '중량', speed: 0.88, reach: 0, dmg: 1, knock: 1.4, arc: 1.1,
-    trait: ['분쇄', '3타가 내려찍기(앞 바닥 충격파) · 모든 공격이 공격 준비 중인 적도 끊음'], crush: true, finisher: 'slam' },
+    trait: ['분쇄', '모든 타격에 앞 충격파 · 공격 중 안 밀림 · 대회전 · 지진파 · 도약 강타'], crush: true, finisher: 'slam',
+    shockHit: { ahead: 22, r: 18, mult: 0.7 }, superArmor: true, chargeDef: 'bigSpin', specialDef: 'quake', dashDef: 'leapSlam' },
   wand: { name: '경량', speed: 1.15, reach: 0, dmg: 1, knock: 0.9, arc: 1,   // 마법사 롯드
-    trait: ['연사', '마력탄이 빠르고(300) 멀리(190) 날아감 · 마력탄 기력 2'], orb: { speed: 300, range: 190 }, specialCost: 2 },
+    trait: ['연사', '마력탄 세 발 · 쏘면서 걷기 · 삼중 마법진 · 대시가 순간이동 · 마력탄 기력 2'], orb: { speed: 300, range: 190 }, specialCost: 2,
+    orbVolley: { n: 3, spread: 14, mult: 0.55 }, castMove: 0.7, chargeDef: 'trioCircle', dashDef: 'blinkPulse', blinkDodge: 64 },
   staff: { name: '중량', speed: 0.88, reach: 0, dmg: 1, knock: 1.4, arc: 1.1,  // 마법사 스태프
-    trait: ['광역', '마법진 반지름 52 · 숨결 길이 +15% · 마력탄은 느리지만(200) 맞은 자리에서 작게 터짐'], circleR: 52, breath: 1.15, orb: { speed: 200 }, orbBurst: { r: 20, mult: 0.6 } },
+    trait: ['광역', '큰 마법진이 두 번 터짐 · 마력탄 → 운석 · 수호 파동(보호막) · 숨결 +15%'], circleR: 59, breath: 1.15,
+    circleTwice: { delay: 0.45, mult: 0.6 }, orb: { speed: 130, r: 9 }, orbBurst: { r: 34, mult: 1.0 }, meteor: true, dashDef: 'wardPulse' },
   // 암살자(2026-10-25): 카타르 = 빠름(검과 같은 속도), 싸이 = 묵직(조금 느리고 공격력 ×1.2 · 돌진 베기 피해 +20%)
   katar: { name: '경량', speed: 1.15, reach: 0, dmg: 1, knock: 0.9, arc: 1,
-    trait: ['암습', '그림자 숨기 기력 10 · 숨은 뒤 첫 공격(백스탭 · 표창)은 반드시 치명타'], hideCost: 10, ambush: true },
+    trait: ['암습', '숨기 기력 10 · 숨은 동안 빠름 · 숨은 뒤 첫 공격은 반드시 치명타 · 백스탭 +30% · 치명타 +10%'], hideCost: 10, ambush: true,
+    hideMove: 1.25, stabMul: 1.3, critAdd: 10 },
   sai: { name: '묵직', speed: 0.95, reach: 0, dmg: 1, knock: 1.1, arc: 1, rush: 0.2,
-    trait: ['제압', '돌진 베기 피해 +20% · 교차 베기 · 돌진 베기에 맞은 적은 3초 무장해제(주는 피해 -30%)'], disarm: { t: 3, cut: 0.3 } },
+    trait: ['제압', '찌를 때마다 출혈 · 칼날 폭풍 · 연속 돌진 · 물러나며 표창 · 무장해제'], disarm: { t: 3, cut: 0.3 },
+    bleed: { per: 0.12, max: 8, t: 4 }, rushChain: 1.2, chargeDef: 'saiStorm', dashDef: 'saiDash' },
 };
 
 // ── 몹 ── atk.lunge = 공격하며 튀어나가는 속도, ranged = 멀리서 쏨(shot: 탄 속도 · 피해)

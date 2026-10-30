@@ -47,7 +47,7 @@ function hitEnemy(e, def, p, w) {
   const toE = unit(e.x - p.x, e.y - p.y, p.fv);
   const dir = def.outward ? toE : unit(toE.x + p.fv.x, toE.y + p.fv.y, p.fv);
   const stag = e.state === 'stagger' ? 1.5 : 1;
-  const crit = def.crit || Math.random() * 100 < st.crit;  // 암살자 돌진 베기 = 언제나 치명타
+  const crit = def.crit || Math.random() * 100 < st.crit + (wk.critAdd || 0);  // 암살자 돌진 베기 = 언제나 치명타 · 검 · 카타르 치명타 +(무기 특성)
   let dmg = st.atk * def.mult * wk.dmg * stag * Elements.vuln(e) * (1 + (st.dmg || 0) / 100) * (0.9 + Math.random() * 0.2);
   if (crit) dmg *= 1 + st.critDmg / 100;
   // 유니크 기습: 적의 옆 · 등 뒤, 또는 경직 · 빙결 · 쓰러진 적
@@ -118,8 +118,9 @@ function hitEnemy(e, def, p, w) {
     World.onKill(e);
   }
   // 검사 검기: 베인 상처(2026-10-25) — 4초 동안 받는 피해 +25%
-  if (def.id === 'wave') { if (!(e.cutT > 0) && !e.dying) World.text(e.x, e.y, e.h + 10, '베인 상처', '#ff8a7a'); e.cutT = WAVE_CUT.t; }
-  if (!blocked) Elements.onHit(e, def, p);  // 그 기술 칸에 끼운 속성석 효과(방패에 막히면 안 터짐)
+  if (def.id === 'wave' || def.id === 'quake') { if (!(e.cutT > 0) && !e.dying) World.text(e.x, e.y, e.h + 10, '베인 상처', '#ff8a7a'); e.cutT = WAVE_CUT.t; }
+  if (!blocked && !def.noEl) Elements.onHit(e, def, p);  // 그 기술 칸에 끼운 속성석 효과(방패에 막히면 안 터짐) · noEl = 검기 두 줄 · 롯드 세 발의 덤(속성은 한 발만)
+  if (wk.bleed && (def.slot === 'basic' || def.bleedy) && !blocked && !e.dying) addBleed(e, p, wk.bleed);  // 싸이: 찌를 때마다 · 칼날 폭풍에 출혈 중첩
   if (def.slot === 'basic') p.sp = Math.min(p.maxSp, p.sp + (wk.onHitSp || p.cls.stamina.onHit));  // 기본 공격이 맞으면 기력이 찬다(검 연계: 더)
   // 싸이(제압): 교차 베기 · 돌진 베기에 맞은 적은 잠시 무장해제 — 주는 피해가 준다(hurtPlayer)
   if (wk.disarm && !e.dying && (def.rush || (def.fin && def.slot === 'basic'))) {
@@ -138,6 +139,32 @@ function hitEnemy(e, def, p, w) {
   if (!p.remote) Input.rumble(crit || heavy ? 0.5 : 0.25, crit || heavy ? 90 : 50);
   if (dmg) World.number(e.x, e.y, (e.z || 0) + e.h + 4, dmg, crit ? '#ffd34d' : rc && rc[0] > 1 ? '#5fe0d0' : stag > 1 ? '#7fe3ff' : '#ffffff', crit || (rc && rc[0] > 1));
   return true;
+}
+
+// 출혈(싸이, 2026-10-30): 중첩 n(최대 max) · t 초 · 0.5초마다 중첩당 공격력 × per × 0.5 물리 피해(몹 방어 깎임). 레이드 보스는 심장이 드러난 동안만
+function addBleed(e, p, B) {
+  const b = e.bleed, per = p.stats.atk * B.per;
+  e.bleed = { n: Math.min(B.max, (b ? b.n : 0) + 1), t: B.t, tick: b ? b.tick : 0.5, per: Math.max(b ? b.per : 0, per) };
+}
+function bleedTick(e, dt) {
+  const b = e.bleed;
+  if (!b) return;
+  if (e.dying || e.state === 'dead') { e.bleed = null; return; }
+  b.t -= dt; b.tick -= dt;
+  if (Math.random() < dt * 4) World.ember(e, '#c8202a');
+  if (b.tick <= 0) {
+    b.tick += 0.5;
+    const rc = e.def.raid ? (e.state === 'exposed' ? Raid.cut(e)[0] : 0) : 1;
+    const d = Math.round(b.n * b.per * 0.5 * (1 - (e.armorCut || 0)) * Elements.vuln(e) * rc);
+    if (d > 0) {
+      e.hp -= d;
+      if (e.def.raid) Raid.clamp(e);
+      if (e.def.dummy) Practice.add(d, '출혈');
+      World.number(e.x + (Math.random() - 0.5) * 6, e.y, e.h + 2, d, '#ff4a5a');
+      if (e.hp <= 0) { e.dying = true; if (e.def.boss || e.def.rooted) { e.state = 'dead'; e.t = 0; } else { e.state = 'air'; e.vz = Math.max(e.vz || 0, 100); } World.onKill(e); }
+    }
+  }
+  if (b.t <= 0) e.bleed = null;
 }
 
 // 몹 공격이 플레이어에 닿음. 결과: 'hit' · 'miss'(대시 무적 등). src = 공격한 몹(탄이면 탄)
@@ -163,12 +190,15 @@ function hurtPlayer(p, src, dmgRaw, knock) {
   if (fx.dashguard && p.guardT > 0) dmgBase *= UNIQUE_FX.dashguard;  // 잔상 보호막
   if (src && (src.chill > 0 || src.state === 'frozen') && Elements.has(p.prof, 'frost', 'p2')) dmgBase *= 0.7;  // 한기(빙결석 전설부터)
   if (p.markT > 0) dmgBase *= RAID_RULE.markMul;  // 레이드 공허 표식
+  if (p.wardT > 0) dmgBase *= 1 - (p.wardCut || 0);  // 스태프 수호 파동 보호막
   if (p.hidden) endHide(p, '들켰다!');  // 숨은 중에 맞으면 드러남
   const dmg = Math.max(1, Math.round(dmgBase));
   p.hp -= dmg;
   World.noteHit();  // 레이드 기록: 맞은 횟수
-  p.state = 'hurt'; p.t = 0.3; p.act = null; p.charge = 0;  // 맞으면 모으던 기가 흩어진다
-  p.kx = push.x * knock; p.ky = push.y * knock;
+  // 망치(분쇄): 공격 중에 맞으면 피해만 받고 동작은 그대로(안 밀림)
+  const sa = p.state === 'act' && (WEAPON_KINDS[p.stats.kind] || {}).superArmor;
+  if (!sa) { p.state = 'hurt'; p.t = 0.3; p.act = null; p.charge = 0;  // 맞으면 모으던 기가 흩어진다
+    p.kx = push.x * knock; p.ky = push.y * knock; }
   p.iframes = 0.5;
   p.flash = 0.12;
   World.shake(2);

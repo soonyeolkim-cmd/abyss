@@ -694,11 +694,11 @@ const World = (() => {
       const step = Math.hypot(s.vx, s.vy) * dt;
       s.x += s.vx * dt; s.y += s.vy * dt; s.left -= step; s.t += dt;
       s.trail = (s.trail || 0) + step;
-      if (s.trail >= 14 && !s.ball) { s.trail = 0; Elements.waveTrail(s, p); }  // 검기 칸 속성석: 불길 · 독 꼬리
-      if (s.left <= 0 || !Dungeon.walkable(lv, s.x, s.y, 1)) { if (s.onEnd) s.onEnd(s); else Elements.waveEnd(s, p); s.gone = true; continue; }
+      if (s.trail >= 14 && !s.ball && !(s.def && s.def.noEl)) { s.trail = 0; Elements.waveTrail(s, p); }  // 검기 칸 속성석: 불길 · 독 꼬리
+      if (s.left <= 0 || !Dungeon.walkable(lv, s.x, s.y, 1)) { if (s.onEnd) s.onEnd(s); else if (!(s.def && s.def.noEl)) Elements.waveEnd(s, p); s.gone = true; continue; }  // noEl 덤 줄은 끝 폭발 없음
       let landed = false;
       for (const e of enemies) {
-        if (s.hit.has(e) || (e.z || 0) > AIR_REACH || Math.hypot(e.x - s.x, e.y - s.y) > s.r + e.r) continue;
+        if (s.hit.has(e) || (e.z || 0) > AIR_REACH || (s.ground ? groundDist(e.x - s.x, e.y - s.y) : Math.hypot(e.x - s.x, e.y - s.y)) > s.r + e.r) continue;  // 지진파: 바닥 타원
         if (hitEnemy(e, s.def, p)) { s.hit.add(e); landed = true; if (s.onHitE) s.onHitE(e); }
       }
       if (landed) hitstop(0.04);

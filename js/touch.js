@@ -126,7 +126,7 @@ const Touch = (() => {
         g.drawImage(Hud.pixIcon(C.icons[slot], col), 0, 0);
         drawn[slot] = key;
       }
-      const s = els[slot].querySelector('small'), t = C.slotShort[slot];
+      const s = els[slot].querySelector('small'), t = slotShortOf(Game.prof, slot);
       if (s.textContent !== t) s.textContent = t;
     }
     // 물약 병 그림(그림 파일이 늦게 읽히면 다음 번에 그려진다) + 남은 개수

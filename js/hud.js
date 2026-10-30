@@ -361,7 +361,7 @@ const Hud = (() => {
         Gfx.stoneIcon(ctx, s, x + 34, y + 33, 16);
       }
       if (slot === 'wave' && C.special.cd) cool(ctx, x, y, 44, p.specialCd / specialCdOf(p), p.specialCd);  // 특수기 쿨타임
-      T_(ctx, (Input.touchMode() ? '' : L(SKILL_KEYS[slot]) + ' ') + C.slotShort[slot], x + 22, PY + 12, 11, col || '#c8b8a0', 'center');
+      T_(ctx, (Input.touchMode() ? '' : L(SKILL_KEYS[slot]) + ' ') + slotShortOf(p.prof, slot), x + 22, PY + 12, 11, col || '#c8b8a0', 'center');
       const n = costs[slot];
       T_(ctx, '기력 ' + n, x + 22, PY + 73, 10, !n ? '#6a7a90' : p.sp >= n ? '#8ab8ff' : '#ff7a6a', 'center');
     });

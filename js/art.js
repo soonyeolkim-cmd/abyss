@@ -102,7 +102,25 @@ const Art = (() => {
     return { th, hx: hx + p.fv.x * push, hy: hy + p.fv.y * push, trail };
   }
 
+  // 망치 도약 강타(2026-10-30): 뛰어오른 높이 leapZ 만큼 몸 · 무기를 위로(그림자는 world.js 가 바닥에) · 스태프 보호막 빛 막 · 싸이 칼날 폭풍 단검
   function player(ctx, p, time) {
+    if (p.wardT > 0 && !p.dead) {  // 수호 파동 보호막: 몸을 감싸는 옅은 하늘빛 막(끝날 무렵 깜빡)
+      ctx.save(); ctx.globalAlpha = (p.wardT < 0.4 ? 0.5 + 0.5 * Math.sin(time * 40) : 1) * 0.35; ctx.fillStyle = '#9ad8ff';
+      ctx.beginPath(); ctx.ellipse(p.x, p.y - 10, 11, 14, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = Math.min(1, ctx.globalAlpha * 2); ctx.strokeStyle = '#d8f0ff'; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
+    }
+    const a = p.act, d = a && a.def;
+    if (p.state === 'act' && d && d.blades && a.time >= a.s && a.time < a.s + a.a) {  // 칼날 폭풍: 판정 반지름(바닥 타원) 위를 도는 단검 넷
+      const R = a.hd.radius, P = Math.PI * 2;
+      for (let i = 0; i < 4; i++) {
+        const an = a.time * 14 + i * P / 4, x = p.x + Math.cos(an) * R * 0.85, y = p.y + Math.sin(an) * R * 0.85 * GROUND_Y - 6;
+        Gfx.spr(ctx, 'weapon_knife', x, y, { rot: an + Math.PI, alpha: 0.95 });
+      }
+    }
+    if (!p.leapZ) return playerBody(ctx, p, time);
+    ctx.save(); ctx.translate(0, -p.leapZ); playerBody(ctx, p, time); ctx.restore();
+  }
+  function playerBody(ctx, p, time) {
     // 유니크 잎사귀 방패가 준비돼 있으면 발밑에 초록 고리
     if (p.stats.fx && p.stats.fx.leaf && !(p.leafT > 0) && !p.dead) {
       ctx.save();
@@ -695,8 +713,27 @@ const Art = (() => {
     ctx.globalCompositeOperation = 'source-over';
   }
   // 섬광 검기: 날아가는 쪽으로 볼록한 초승달
+  // 망치 지진파(2026-10-30): 바닥 타원(판정 s.r × GROUND_Y 그대로)이 갈라지며 바위 조각이 솟는다 + 뒤로 남는 금(이미 지나간 곳)
+  function quakeShot(ctx, s, hex, light, dark) {
+    const r = s.r, ry = r * GROUND_Y, l = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / l, dy = s.vy / l, f = Math.floor(s.t * 14), P = Math.PI * 2;
+    ctx.save();
+    ctx.globalAlpha = 0.55; ctx.fillStyle = '#2a1c14';
+    ctx.beginPath(); ctx.ellipse(s.x, s.y, r, ry, 0, 0, P); ctx.fill();
+    ctx.globalAlpha = 0.85; ctx.strokeStyle = hex; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.ellipse(s.x, s.y, r, ry, 0, 0, P); ctx.stroke();
+    ctx.globalAlpha = 0.7; ctx.strokeStyle = dark;  // 뒤로 남는 금
+    ctx.beginPath(); ctx.moveTo(s.x - dx * r * 0.6, s.y - dy * ry * 0.6); ctx.lineTo(s.x - dx * r * 1.8 + dy * 2, s.y - dy * ry * 1.8 - dx * 2); ctx.lineTo(s.x - dx * r * 2.6, s.y - dy * ry * 2.6); ctx.stroke();
+    for (let i = 0; i < 5; i++) {  // 솟는 바위 조각(타원 안)
+      const a = i * 1.257 + (f % 7) * 0.45, rr = r * (0.25 + ((i * 37 + f * 3) % 10) / 15), x = s.x + Math.cos(a) * rr, y = s.y + Math.sin(a) * rr * GROUND_Y, h = 4 + ((i * 13 + f) % 5);
+      ctx.globalAlpha = 1; ctx.fillStyle = i % 2 ? light : hex;
+      ctx.beginPath(); ctx.moveTo(x - 2.5, y); ctx.lineTo(x + 2.5, y); ctx.lineTo(x + 0.5, y - h); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = dark; ctx.fillRect(Math.round(x - 2), Math.round(y), 5, 1);
+    }
+    ctx.restore();
+  }
   function wave(ctx, s) {
     const hex = s.col && s.col[0] === '#' ? s.col : '#b39cff', dark = Gfx.mix(hex, 0.45, 'black'), light = Gfx.mix(hex, 0.45, 'white');
+    if (s.quake) { quakeShot(ctx, s, hex, light, dark); return; }
     if (s.orb) { orb(ctx, s, hex, light); return; }
     if (s.knife) {  // 암살자 표창: 날아가는 쪽을 겨눈 은빛 단검(어두운 테두리 · 보랏빛 손잡이) + 뒤로 흐린 빛 줄
       ctx.save();

@@ -238,8 +238,9 @@ const Elements = (() => {
     if (!s) return;
     const k = power(s), big = !!def.fin || def.slot === 'dash', wave = def.slot === 'wave', open = slotOpen(s);
     // 검사 검기는 속성 효과 약 2배 · 속성 피해 3배(2026-10-25 사용자). 마법사 마력탄도 검사처럼 배율(2026-10-30 사용자: 마법사가 약해서) — ORB_EL
-    const sw = !wave ? 1 : def.id === 'wave' ? 2 : def.id === 'orb' ? ORB_EL.sw : 1;
-    const swd = !wave ? 1 : def.id === 'wave' ? 3 : def.id === 'orb' ? ORB_EL.swd : 1;
+    const sword = def.id === 'wave' || def.id === 'quake';  // 망치 지진파도 검기와 같은 배율(2026-10-30)
+    const sw = !wave ? 1 : sword ? 2 : def.id === 'orb' ? ORB_EL.sw : 1;
+    const swd = !wave ? 1 : sword ? 3 : def.id === 'orb' ? ORB_EL.swd : 1;
     switch (s.el) {
       case 'fire':
         burn(e, p, k * (big ? 1.5 : 1));
@@ -467,6 +468,7 @@ const Elements = (() => {
 
   // 상태이상 시간 흐름(몹 업데이트 앞에서)
   function tick(e, dt) {
+    if (e.bleed && !World.mirror) bleedTick(e, dt);  // 싸이 출혈(combat.js)
     if (e.cutT > 0) e.cutT -= dt;
     if (e.disarmT > 0) e.disarmT -= dt;  // 싸이 무장해제
     if (e.burn) {
