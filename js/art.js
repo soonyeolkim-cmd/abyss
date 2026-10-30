@@ -102,7 +102,7 @@ const Art = (() => {
     return { th, hx: hx + p.fv.x * push, hy: hy + p.fv.y * push, trail };
   }
 
-  // 망치 도약 강타(2026-10-30): 뛰어오른 높이 leapZ 만큼 몸 · 무기를 위로(그림자는 world.js 가 바닥에) · 스태프 보호막 빛 막 · 싸이 칼날 폭풍 단검
+  // 스태프 보호막 빛 막 · 싸이 칼날 폭풍 단검(2026-10-30)
   function player(ctx, p, time) {
     if (p.wardT > 0 && !p.dead) {  // 수호 파동 보호막: 몸을 감싸는 옅은 하늘빛 막(끝날 무렵 깜빡)
       ctx.save(); ctx.globalAlpha = (p.wardT < 0.4 ? 0.5 + 0.5 * Math.sin(time * 40) : 1) * 0.35; ctx.fillStyle = '#9ad8ff';
@@ -117,8 +117,7 @@ const Art = (() => {
         Gfx.spr(ctx, 'weapon_knife', x, y, { rot: an + Math.PI, alpha: 0.95 });
       }
     }
-    if (!p.leapZ) return playerBody(ctx, p, time);
-    ctx.save(); ctx.translate(0, -p.leapZ); playerBody(ctx, p, time); ctx.restore();
+    playerBody(ctx, p, time);
   }
   function playerBody(ctx, p, time) {
     // 유니크 잎사귀 방패가 준비돼 있으면 발밑에 초록 고리

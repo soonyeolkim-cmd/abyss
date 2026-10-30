@@ -79,7 +79,7 @@ function comboDef(C, idx, wk) {
 // 무기별 기술(2026-10-30 사용자 A안): 망치 = 회전베기 자리 대지 강타 · 검기 자리 지진파(WEAPON_KINDS chargeDef · specialDef)
 const chargeDefOf = (C, wk) => (wk && wk.chargeDef && C[wk.chargeDef]) || C.charge.def;
 const specialDefOf = (C, wk) => (wk && wk.specialDef && C[wk.specialDef]) || C.special;
-const dashDefOf = (C, wk) => (wk && wk.dashDef && C[wk.dashDef]) || C.dashAttack;  // 대시 → 공격: 망치 도약 강타 · 싸이 물러나며 표창 · 롯드 순간 파동 · 스태프 수호 파동
+const dashDefOf = (C, wk) => (wk && wk.dashDef && C[wk.dashDef]) || C.dashAttack;  // 대시 → 공격: 망치 대지 충격 · 싸이 물러나며 표창 · 롯드 순간 파동 · 스태프 수호 파동
 // 칸 짧은 이름(HUD · 터치 버튼 · 장비 창): 망치는 회전 → 강타 · 검기 → 지진파
 function slotShortOf(prof, slot) {
   const C = clsOf(prof), wk = WEAPON_KINDS[weaponKindOf(prof)] || {};
@@ -173,7 +173,6 @@ function updatePlayer(p, dt, room, gates) {
   p.specialCd = Math.max(0, p.specialCd - dt);
   p.rushChainT = Math.max(0, (p.rushChainT || 0) - dt);
   p.wardT = Math.max(0, (p.wardT || 0) - dt);  // 스태프 수호 파동 보호막
-  if (p.state !== 'act') p.leapZ = 0;
   p.spWarnT -= dt;
   p.spDelay -= dt;
   if (p.spDelay <= 0 && !p.dead) p.sp = Math.min(p.maxSp, p.sp + C.stamina.regen * (1 + p.stats.spRegen / 100) * dt);  // 기력 회복(갑옷 '기력 회복 속도'만큼 빠르게)
@@ -405,8 +404,7 @@ function updateAct(p, dt, room) {
   }
   // 롯드: 마력탄을 쏘는 동안에도 걸을 수 있다(느리게, 보는 쪽은 그대로)
   if (d.orb && wkOf(p).castMove) { const m = moveInput(p); if (m) { const sp = p.cls.speed * (1 + p.stats.move / 100) * wkOf(p).castMove; Dungeon.move(room, p, m.x * sp * dt, m.y * sp * dt, BODY_R, false); } }
-  // 망치 도약 강타: 준비 동안 앞으로 뛰어올랐다(leapZ — art.js 몸을 위로) 내려앉는다 · 싸이 물러나며 표창: 기술 동안 뒤로 빠진다
-  if (d.leap) { const k = Math.min(1, a.time / Math.max(0.001, a.s)); p.leapZ = k < 1 ? Math.sin(Math.PI * k) * d.leap.h : 0; if (k < 1) Dungeon.move(room, p, p.fv.x * d.leap.dist / a.s * dt, p.fv.y * d.leap.dist / a.s * dt, BODY_R, false); }
+  // 싸이 물러나며 표창: 기술 동안 뒤로 빠진다
   if (d.backstep && a.time < tB) Dungeon.move(room, p, -p.fv.x * d.backstep / tB * dt, -p.fv.y * d.backstep / tB * dt, BODY_R, false);
   if (a.time < tB) {
     let v = 0;

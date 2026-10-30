@@ -51,10 +51,10 @@ const CLASSES = {
     charge: { holdDelay: 0.22, time: 0.55, move: 0.45, cost: 20,
       def: { name: '회전베기', slot: 'charge', fin: true, startup: 0.05, active: 0.22, recovery: 0.32, mult: 2.4, knock: 160, stun: 0.6, radius: 44, spin: true, heavy: true, outward: true } },  // 범위 34 → 44(+30%, 2026-10-24 사용자)
     // ── 무기별 기술(2026-10-30 사용자 A안: 같은 직업이라도 무기마다 노는 방식이 다르게) — WEAPON_KINDS chargeDef · specialDef · combo4 ──
-    // (2026-10-30 둘째 판) 회전(V): 검 = 돌진 회전(앞으로 미끄러지며 두 바퀴) · 망치 = 대회전(제자리 크게 세 바퀴, 둘레 적을 끌어당김) / 대시 → 공격: 망치 = 도약 강타(뛰어올라 앞 바닥 내려찍기)
-    dashSpin: { name: '돌진 회전', short: '돌진', slot: 'charge', fin: true, startup: 0.05, active: 0.3, recovery: 0.3, mult: 1.45, knock: 120, stun: 0.5, radius: 38, spin: true, hits: 2, dash: 70, heavy: true, outward: true },
+    // (2026-10-30 둘째 판) 회전(V): 검 = 돌진 회전(앞으로 미끄러지며 두 바퀴) · 망치 = 대회전(제자리 크게 세 바퀴, 둘레 적을 끌어당김)    dashSpin: { name: '돌진 회전', short: '돌진', slot: 'charge', fin: true, startup: 0.05, active: 0.3, recovery: 0.3, mult: 1.45, knock: 120, stun: 0.5, radius: 38, spin: true, hits: 2, dash: 70, heavy: true, outward: true },
     bigSpin: { name: '대회전', short: '대회전', slot: 'charge', fin: true, startup: 0.08, active: 0.48, recovery: 0.4, mult: 1.6, knock: -70, stun: 0.4, radius: 66, spin: true, hits: 3, heavy: true, outward: true },  // knock 음수 = 끌어당김
-    leapSlam: { name: '도약 강타', slot: 'dash', startup: 0.2, active: 0.08, recovery: 0.36, mult: 2.8, knock: 120, stun: 0.6, area: { ahead: 22, r: 38 }, launch: 150, leap: { h: 18, dist: 40 }, swing: [-150, 10], iframes: true, heavy: true },
+    // (셋째 판) 대시 → 공격: 망치 = 대지 충격 — 대시 끝 제자리에서 둘레 바닥 충격파(뛰어올라 앞으로 더 나가던 도약 강타는 너무 빨라 바꿈, 2026-10-30 사용자)
+    groundSlam: { name: '대지 충격', slot: 'dash', startup: 0.16, active: 0.08, recovery: 0.36, mult: 2.8, knock: 120, stun: 0.6, area: { ahead: 0, r: 44 }, launch: 150, swing: [-150, 10], iframes: true, heavy: true },
     // (첫 판, 지금은 안 씀) 망치 회전베기 자리 = 대지 강타: 제자리 둘레 바닥 충격파 + 띄우기
     quakeSlam: { name: '대지 강타', short: '강타', slot: 'charge', fin: true, startup: 0.16, active: 0.08, recovery: 0.36, mult: 3.0, knock: 120, stun: 0.6, area: { ahead: 0, r: 46 }, launch: 170, swing: [-150, 10], heavy: true },
     // 망치 검기 자리 = 지진파: 땅을 타고 앞으로 가며 꿰뚫는 충격(바닥 타원 판정 = 갈라진 땅 그림, art.js quake). 속성 효과 · 배율은 검기와 같게(elements.js)
@@ -168,8 +168,8 @@ const WEAPON_KINDS = {
     trait: ['연격', '4연타 · 돌진 회전 · 검기 두 줄 · 치명타 +10% · 기본 공격이 맞으면 기력 +7'], onHitSp: 7, specialCd: 0.4,
     combo4: true, twinWave: { gap: 7, mult: 0.62 }, critAdd: 10, chargeDef: 'dashSpin' },
   heavy: { name: '중량', speed: 0.88, reach: 0, dmg: 1, knock: 1.4, arc: 1.1,
-    trait: ['분쇄', '모든 타격에 앞 충격파 · 공격 중 안 밀림 · 대회전 · 지진파 · 도약 강타'], crush: true, finisher: 'slam',
-    shockHit: { ahead: 22, r: 18, mult: 0.7 }, superArmor: true, chargeDef: 'bigSpin', specialDef: 'quake', dashDef: 'leapSlam' },
+    trait: ['분쇄', '모든 타격에 앞 충격파 · 공격 중 안 밀림 · 대회전 · 지진파 · 대지 충격'], crush: true, finisher: 'slam',
+    shockHit: { ahead: 22, r: 18, mult: 0.7 }, superArmor: true, chargeDef: 'bigSpin', specialDef: 'quake', dashDef: 'groundSlam' },
   wand: { name: '경량', speed: 1.15, reach: 0, dmg: 1, knock: 0.9, arc: 1,   // 마법사 롯드
     trait: ['연사', '마력탄 세 발 · 쏘면서 걷기 · 삼중 마법진 · 대시가 순간이동 · 마력탄 기력 2'], orb: { speed: 300, range: 190 }, specialCost: 2,
     orbVolley: { n: 3, spread: 14, mult: 0.55 }, castMove: 0.7, chargeDef: 'trioCircle', dashDef: 'blinkPulse', blinkDodge: 64 },
