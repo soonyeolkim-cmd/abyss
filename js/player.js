@@ -79,7 +79,7 @@ function comboDef(C, idx, wk) {
 // 무기별 기술(2026-10-30 사용자 A안): 망치 = 회전베기 자리 대지 강타 · 검기 자리 지진파(WEAPON_KINDS chargeDef · specialDef)
 const chargeDefOf = (C, wk) => (wk && wk.chargeDef && C[wk.chargeDef]) || C.charge.def;
 const specialDefOf = (C, wk) => (wk && wk.specialDef && C[wk.specialDef]) || C.special;
-const dashDefOf = (C, wk) => (wk && wk.dashDef && C[wk.dashDef]) || C.dashAttack;  // 대시 → 공격: 망치 대지 충격 · 싸이 물러나며 표창 · 롯드 순간 파동 · 스태프 수호 파동
+const dashDefOf = (C, wk) => (wk && wk.dashDef && C[wk.dashDef]) || C.dashAttack;  // 대시 → 공격: 망치 대지 충격 · 롯드 순간 파동 · 스태프 수호 파동(암살자는 두 무기 모두 선풍 베기)
 // 칸 짧은 이름(HUD · 터치 버튼 · 장비 창): 망치는 회전 → 강타 · 검기 → 지진파
 function slotShortOf(prof, slot) {
   const C = clsOf(prof), wk = WEAPON_KINDS[weaponKindOf(prof)] || {};

@@ -105,7 +105,7 @@ const CLASSES = {
     stab: { name: '백스탭', slot: 'charge', startup: 0.12, active: 0.12, recovery: 0.3, mult: 4.0, knock: 220, stun: 0.9, reach: [0, 42], arc: 160, swing: [-120, 120], blink: 40, back: true, heavy: true, iframes: true },  // back = 언제나 등 뒤 공격(+30%)
     // 선풍 베기(대시 → 공격, 봉인의 숲 쌍검): 제자리에서 한 바퀴 돌며 둘레를 두 번 벤다
     dashAttack: { name: '선풍 베기', slot: 'dash', startup: 0.03, active: 0.24, recovery: 0.24, mult: 1.3, knock: 220, stun: 0.45, radius: 40, spin: true, hits: 2, outward: true, iframes: true },
-    // 싸이(2026-10-30): 숨기 자리 = 칼날 폭풍(몸 둘레를 도는 단검이 네 번 벤다, 출혈) · 대시 → 공격 = 물러나며 표창(뒤로 빠지며 단검 셋)
+    // 싸이(2026-10-30): 숨기 자리 = 칼날 폭풍(몸 둘레를 도는 단검이 네 번 벤다, 출혈) · (지금은 안 씀) 대시 → 공격 = 물러나며 표창(뒤로 빠지며 단검 셋) — 두 무기 모두 선풍 베기로(2026-10-30 사용자)
     saiStorm: { name: '칼날 폭풍', short: '폭풍', slot: 'charge', fin: true, startup: 0.05, active: 0.6, recovery: 0.25, mult: 1.25, knock: 40, stun: 0.25, radius: 40, spin: true, hits: 4, outward: true, bleedy: true, blades: true },
     saiDash: { name: '물러나며 표창', slot: 'dash', startup: 0.04, active: 0.1, recovery: 0.25, mult: 1.4, knock: 60, stun: 0.3, thrust: true, backstep: 52, iframes: true,
       knives: { n: 3, spread: 14, speed: 340, range: 180, r: 5 } },
@@ -181,8 +181,8 @@ const WEAPON_KINDS = {
     trait: ['암습', '숨기 기력 10 · 숨은 동안 빠름 · 숨은 뒤 첫 공격은 반드시 치명타 · 백스탭 +30% · 치명타 +10%'], hideCost: 10, ambush: true,
     hideMove: 1.25, stabMul: 1.3, critAdd: 10 },
   sai: { name: '묵직', speed: 0.95, reach: 0, dmg: 1, knock: 1.1, arc: 1, rush: 0.2,
-    trait: ['제압', '찌를 때마다 출혈 · 칼날 폭풍 · 연속 돌진 · 물러나며 표창 · 무장해제'], disarm: { t: 3, cut: 0.3 },
-    bleed: { per: 0.12, max: 8, t: 4 }, rushChain: 1.2, chargeDef: 'saiStorm', dashDef: 'saiDash' },
+    trait: ['제압', '찌를 때마다 출혈 · 칼날 폭풍 · 연속 돌진 · 무장해제'], disarm: { t: 3, cut: 0.3 },
+    bleed: { per: 0.12, max: 8, t: 4 }, rushChain: 1.2, chargeDef: 'saiStorm' },  // 대시 → 공격은 카타르와 같은 선풍 베기(2026-10-30 사용자, 물러나며 표창 saiDash 는 안 씀)
 };
 
 // ── 몹 ── atk.lunge = 공격하며 튀어나가는 속도, ranged = 멀리서 쏨(shot: 탄 속도 · 피해)
