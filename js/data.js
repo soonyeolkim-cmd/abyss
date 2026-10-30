@@ -174,8 +174,8 @@ const WEAPON_KINDS = {
     trait: ['연사', '마력탄 세 발 · 쏘면서 걷기 · 삼중 마법진 · 대시가 순간이동 · 마력탄 기력 2'], orb: { speed: 300, range: 190 }, specialCost: 2,
     orbVolley: { n: 3, spread: 14, mult: 0.55 }, castMove: 0.7, chargeDef: 'trioCircle', dashDef: 'blinkPulse', blinkDodge: 64 },
   staff: { name: '중량', speed: 0.88, reach: 0, dmg: 1, knock: 1.4, arc: 1.1,  // 마법사 스태프
-    trait: ['광역', '큰 마법진이 두 번 터짐 · 마력탄 → 운석 · 수호 파동(보호막) · 숨결 +15%'], circleR: 59, breath: 1.15,
-    circleTwice: { delay: 0.45, mult: 0.6 }, orb: { speed: 130 }, orbBurst: { r: 34, mult: 1.0 }, meteor: true, dashDef: 'wardPulse' },
+    trait: ['광역', '큰 마법진이 두 번 터짐 · 마력탄 → 운석 · 대시가 순간이동 · 수호 파동(보호막) · 숨결 +15%'], circleR: 59, breath: 1.15,
+    circleTwice: { delay: 0.45, mult: 0.6 }, orb: { speed: 130 }, orbBurst: { r: 34, mult: 1.0 }, meteor: true, dashDef: 'wardPulse', blinkDodge: 64 },  // 대시 = 롯드와 같은 순간이동(2026-10-30 사용자)
   // 암살자(2026-10-25): 카타르 = 빠름(검과 같은 속도), 싸이 = 묵직(조금 느리고 공격력 ×1.2 · 돌진 베기 피해 +20%)
   katar: { name: '경량', speed: 1.15, reach: 0, dmg: 1, knock: 0.9, arc: 1,
     trait: ['암습', '숨기 기력 10 · 숨은 동안 빠름 · 숨은 뒤 첫 공격은 반드시 치명타 · 백스탭 +30% · 치명타 +10%'], hideCost: 10, ambush: true,
