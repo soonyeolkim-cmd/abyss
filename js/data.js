@@ -51,7 +51,8 @@ const CLASSES = {
     charge: { holdDelay: 0.22, time: 0.55, move: 0.45, cost: 20,
       def: { name: '회전베기', slot: 'charge', fin: true, startup: 0.05, active: 0.22, recovery: 0.32, mult: 2.4, knock: 160, stun: 0.6, radius: 44, spin: true, heavy: true, outward: true } },  // 범위 34 → 44(+30%, 2026-10-24 사용자)
     // ── 무기별 기술(2026-10-30 사용자 A안: 같은 직업이라도 무기마다 노는 방식이 다르게) — WEAPON_KINDS chargeDef · specialDef · combo4 ──
-    // (2026-10-30 둘째 판) 회전(V): 검 = 돌진 회전(앞으로 미끄러지며 두 바퀴) · 망치 = 대회전(제자리 크게 세 바퀴, 둘레 적을 끌어당김)    dashSpin: { name: '돌진 회전', short: '돌진', slot: 'charge', fin: true, startup: 0.05, active: 0.3, recovery: 0.3, mult: 1.45, knock: 120, stun: 0.5, radius: 38, spin: true, hits: 2, dash: 70, heavy: true, outward: true },
+    // (2026-10-30 둘째 판) 회전(V): 검 = 돌진 회전(앞으로 미끄러지며 두 바퀴) · 망치 = 대회전(제자리 크게 세 바퀴, 둘레 적을 끌어당김)
+    dashSpin: { name: '돌진 회전', short: '돌진', slot: 'charge', fin: true, startup: 0.05, active: 0.3, recovery: 0.3, mult: 1.45, knock: 120, stun: 0.5, radius: 38, spin: true, hits: 2, dash: 70, heavy: true, outward: true },
     bigSpin: { name: '대회전', short: '대회전', slot: 'charge', fin: true, startup: 0.08, active: 0.48, recovery: 0.4, mult: 1.6, knock: -70, stun: 0.4, radius: 66, spin: true, hits: 3, heavy: true, outward: true },  // knock 음수 = 끌어당김
     // (셋째 판) 대시 → 공격: 망치 = 대지 충격 — 대시 끝 제자리에서 둘레 바닥 충격파(뛰어올라 앞으로 더 나가던 도약 강타는 너무 빨라 바꿈, 2026-10-30 사용자)
     groundSlam: { name: '대지 충격', slot: 'dash', startup: 0.16, active: 0.08, recovery: 0.36, mult: 2.8, knock: 120, stun: 0.6, area: { ahead: 0, r: 44 }, launch: 150, swing: [-150, 10], iframes: true, heavy: true },
