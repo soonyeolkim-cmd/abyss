@@ -539,7 +539,8 @@ const DUNGEONS = [
 // → 2026-10-26 사용자 '중간 보스 피통 5배 이상 · 공격 좀 더 자주': mid { hp 체력 배율(레이드 체력은 그대로 — raidDef 가 나눔),
 //   cd 공격 사이 쉼 배율(enemy.js bossThink · recover 뒤), rec 내려찍기 · 탄 · 돌진 뒤 굳는 시간 배율 } — 층마다 수호자(floors boss)에 붙인다
 // floors(2026-10-26 사용자: 기존 던전을 빌리던 것 → '살아 있는 심연' 전용 몹 · 풍경): 층마다 몹 무리(pool — 같은 이름 여러 번 = 더 자주) · 수호자 · 음악(빌린 곡)
-const ENDLESS = { max: 3, diff: 2, lv: 100, entry: 95, ilvl: [100, 104], stepHp: 0.30, stepDmg: 0.80, bossHp: 0.43, bossDmg: 0.64, hp: 1.06, dmg: 1.04, reward: 0.05, rooms: 9, packs: 2, packAdd: 3,
+// gear = 장비 드롭 배율(층 수호자 확정 1개는 빼고 — 일반 · 정예 · 고유 몹 · 상자), dust100 = Lv.100 장비 분해 가루 배율(2026-10-30 사용자: 한 바퀴 50개쯤 → 1/3, 가루 ×3)
+const ENDLESS = { max: 3, diff: 2, lv: 100, entry: 95, ilvl: [100, 104], gear: 1 / 3, dust100: 3, stepHp: 0.30, stepDmg: 0.80, bossHp: 0.43, bossDmg: 0.64, hp: 1.06, dmg: 1.04, reward: 0.05, rooms: 9, packs: 2, packAdd: 3,
   mid: { hp: 3, dmg: 1.25, cd: 0.6, rec: 0.6 },  // 2026-10-26 사용자 '체력 20% 줄이고 공격 · 빈도 높이자': hp 5 → 4 · dmg 1.25 새로(레이드는 raidDef 가 나눔) · cd 0.4 → 0.3 · rec 0.75 → 0.6
   // → 이어서 '체력 초기(×1)의 3배 수준': hp 4 → 3 · 3층 문지기만 쉼 2배(cd 0.6) → '1 · 2층도 3층 수준으로': cd 0.3 → 0.6(셋 다)
   floors: [
@@ -1022,7 +1023,8 @@ const INHERIT_PRICE = 3000;  // 계승 주문서도 판다(복구 주문서 자�
 const ESSENCE = { boss: f => 2 + f, unique: 0.5, elite: 0.06, floorMul: f => 1 + 0.1 * (f - 1), dust: [1, 2, 5], dustPer: 10, minReq: 90 };
 const ESSENCE_COLOR = '#c58aff';
 const CORE_COLOR = '#5fe0d0';  // 심연의 핵(레이드 보상, Lv.100 유니크 제작 재료 — 제작은 나중)
-const scrapDust = it => (it && !it.uniq && it.rarity <= 2 && Items.req(it) >= ESSENCE.minReq ? ESSENCE.dust[it.rarity] : 0);
+// Lv.100(심연 드롭)은 가루 × ENDLESS.dust100 — 심연 장비 드롭을 1/3 로 줄인 만큼(2026-10-30 사용자: 한 바퀴 가루는 그대로)
+const scrapDust = it => (it && !it.uniq && it.rarity <= 2 && Items.req(it) >= ESSENCE.minReq ? ESSENCE.dust[it.rarity] * (isLv100(it) ? ENDLESS.dust100 : 1) : 0);
 // 2026-10-26 사용자: Lv.100 장비(심연 드롭)는 등급 상관없이 일괄 분해 · Lv.100 유니크(제작품)는 분해도 판매도 안 됨
 const isLv100 = it => !!it && Items.req(it) >= UNIQUE_CRAFT_LV;
 const noSell = it => isLv100(it) && !!it.uniq;

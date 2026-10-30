@@ -874,7 +874,7 @@ const World = (() => {
         Sfx.chest();
         const items = [];
         // 장비 수 줄임(2026-10-24 사용자): 보물 상자 1개(좋은 등급 잘 나옴) · 작은 상자 60% 확률로 1개
-        if (c.big || Math.random() < 0.6) items.push(mk(c.big ? lv.ilvlR[1] : ilvl(), { boost: c.big ? 0.8 : 0.4 }));
+        if (c.big || Math.random() < 0.6 * gearMul()) items.push(mk(c.big ? lv.ilvlR[1] : ilvl(), { boost: c.big ? 0.8 : 0.4 }));
         const stones = c.big ? [rollStone(STONE_BOSS_BOOST)] : Math.random() < 0.5 ? [rollStone()] : [];
         const scrolls = c.big || Math.random() < SCROLL_DROP_RATE.chest ? [rollScroll()] : [];
         loot(c.x, c.y - 4, { gold: goldRoll(c.big ? [40, 70] : [15, 30]), items, stones, scrolls });
@@ -884,6 +884,7 @@ const World = (() => {
     }
   }
 
+  const gearMul = () => (lv.def.endless ? ENDLESS.gear : 1);  // 끝없는 심연: 장비 드롭 1/3(보스 확정 1개는 그대로) · 분해 가루 ×3(data.js scrapDust)
   // ── 몹이 쓰러짐 ──
   function onKill(e) {
     if (e.def.part) { Raid.partDied(e); return; }  // 레이드 부품(공허 수정 · 구슬): 경험치 · 전리품 · 처치 수 없음
@@ -966,13 +967,13 @@ const World = (() => {
       return;
     }
     if (e.rank === 'unique') {
-      const uItems = [mk(lv.ilvlR[1], { boost: 0.6 })];
+      const uItems = Math.random() < gearMul() ? [mk(lv.ilvlR[1], { boost: 0.6 })] : [];
       if (lv.ilvlR[1] < UNIQUE_CRAFT_LV && Math.random() < UNIQUE_DROP.unique * DIFFS[RUN.diff].uniq * lowUniq(prof.lv, dlv())) uItems.push(Items.makeUnique(lv.ilvlR[1]));
       loot(e.x, e.y, { gold: goldRoll(d.gold, 4), items: uItems, stones: [rollStone()], scrolls: Math.random() < SCROLL_DROP_RATE.unique ? [rollScroll()] : [], essence: essenceRoll('unique') });
       return;
     }
     const elite = e.rank === 'elite';
-    const items = Math.random() < (elite ? 0.2 : 0.06) ? [mk(ilvl(), { boost: elite ? 0.3 : 0 })] : [];  // 일반 6% · 정예 20% (예전 13% · 40%)
+    const items = Math.random() < (elite ? 0.2 : 0.06) * gearMul() ? [mk(ilvl(), { boost: elite ? 0.3 : 0 })] : [];  // 일반 6% · 정예 20% (예전 13% · 40%)
     const stones = Math.random() < (elite ? 0.15 : 0.07) ? [rollStone()] : [];
     const scrolls = Math.random() < (elite ? SCROLL_DROP_RATE.elite : SCROLL_DROP_RATE.normal) ? [rollScroll()] : [];
     loot(e.x, e.y, { gold: Math.random() < 0.75 ? goldRoll(d.gold, elite ? 2 : 1) : 0, items, stones, scrolls, essence: elite ? essenceRoll('elite') : 0 });
