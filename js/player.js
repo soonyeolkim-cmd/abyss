@@ -293,7 +293,7 @@ function tryStart(p, b) {
   if (b === 'special') {
     const wk = wkOf(p), chain = C.special.rush && wk.rushChain && p.rushChainT > 0;  // 싸이: 돌진 베기 뒤 잠깐 동안 한 번 더(기력 · 쿨타임 없이, 한 번만)
     const md = specialDefOf(C, wk).merge;  // 소환사 방울 합체: 솜뿔이 min 마리 이상이어야(아니면 기력 · 대기를 안 쓴다)
-    if (md && !Summon.canMerge(p, md)) { if (p.spWarnT <= 0) { World.text(p.x, p.y, 40, Summon.count() ? '솜뿔이가 ' + md.min + '마리 이상 있어야 합체해요' : '소환수가 없어요 — 먼저 ' + Input.label('charge') + ' 소환', '#d6b4f6'); p.spWarnT = 0.6; } return false; }
+    if (md && !Summon.canMerge(p, md)) { if (p.spWarnT <= 0) { World.text(p.x, p.y, 40, Summon.count() ? '솜뿔이가 ' + md.min + '마리 모여야 합체해요 (지금 ' + Summon.count() + '마리)' : '소환수가 없어요 — 먼저 ' + Input.label('charge') + ' 소환', '#d6b4f6'); p.spWarnT = 0.6; } return false; }
     const cd = specialDefOf(C, wk).chain;  // 소환사 계약서 사슬 계약: 걸 적이 없으면 기력 · 대기를 안 쓴다
     if (cd && !Summon.chainTarget(p, cd)) { if (p.spWarnT <= 0) { World.text(p.x, p.y, 40, '사슬을 걸 적이 없어요', '#d6b4f6'); p.spWarnT = 0.6; } return false; }
     if (!chain && (p.specialCd > 0 || !spend(p, costOf(p.prof, 'special')))) return false;

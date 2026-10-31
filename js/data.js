@@ -184,10 +184,10 @@ const CLASSES = {
       chain: { range: 170, pull: 60, bind: 2, mark: 4 } },  // mark = 사슬에 걸린 적은 이 초 동안 꼬마 악마에게 맞을 때도 특수 칸 속성석 효과(예전 광폭화 몫)
     dashAttack: { name: '영혼 흡수', slot: 'dash', startup: 0.04, active: 0.12, recovery: 0.3, mult: 1.0, knock: 160, stun: 0.45, radius: 40, pulse: true, soul: 0.08, iframes: true, heavy: true, thrust: true },
     // ── 무기별 기술(2026-10-31 사용자 '무기별 특징이 없다' → 추천안: 방울 = 물량 · 소모 · 합체, 계약서 = 집중 · 경호 · 도발) ──
-    // 방울 특수(Z) = 솜뿔이 합체: 있는 솜뿔이(2마리 이상)가 모두 뭉쳐 큰 솜뿔이 하나 — t 초 동안 hop 초마다 뛰어 내려앉으며 둘레 충격(반지름 r0 + rN × 마릿수,
+    // 방울 특수(Z) = 솜뿔이 합체: 솜뿔이 min 마리(= 최대 6, 2026-10-31 사용자 '6마리 때만')가 모두 뭉쳐 큰 솜뿔이 하나 — t 초 동안 hop 초마다 뛰어 내려앉으며 둘레 충격(반지름 r0 + rN × 마릿수,
     //   한 방 = 솜뿔이 한 방 × per × 마릿수 — 충격 고리 그림 = 판정). 짧은 광폭이면 더 자주 뛴다. 끝나면 그 자리에서 크게 터지고(burst) 그 마릿수 그대로 체력을 채워 흩어진다(js/summon.js merge · split, 2026-10-31 사용자 1 + 2안)
     merge: { id: 'merge', name: '솜뿔이 합체', short: '합체', icon: 'merge', slot: 'wave', cd: 10, cost: 100, startup: 0.05, active: 0.05, recovery: 0.2, mult: 0, knock: 0, stun: 0, thrust: true,
-      merge: { t: 8, min: 2, hop: 0.8, air: 0.45, r0: 14, rN: 2, per: 1.3, scale0: 1, scaleN: 0.22, extra: 0.35,
+      merge: { t: 8, min: 6, hop: 0.8, air: 0.45, r0: 14, rN: 2, per: 1.3, scale0: 1, scaleN: 0.22, extra: 0.35,
         burst: { r0: 20, rN: 2, per: 4 } } },  // burst = 끝날 때 폭발(반지름 r0 + rN × 마릿수, 한 방 = 솜뿔이 한 방 × per × 마릿수)  // extra = 착지 때 스킬 칸 속성석 효과를 (마릿수 - 1) × extra 번 더
     // 방울 대시 → 공격 = 메아리: 내 둘레(radius) + 모든 솜뿔이 자리(echo.r)에서 종소리 고리가 한꺼번에 — 한 적은 한 번만(그림 = 판정)
     echoPulse: { name: '메아리', slot: 'dash', startup: 0.04, active: 0.12, recovery: 0.3, mult: 1.0, knock: 140, stun: 0.45, radius: 30, pulse: true, echo: { r: 26 }, iframes: true, heavy: true, thrust: true },
@@ -235,7 +235,7 @@ const WEAPON_KINDS = {
     bleed: { per: 0.12, max: 8, t: 4 }, rushChain: 1.2, chargeDef: 'saiStorm' },
   // 소환사(2026-10-31): 방울 = 솜뿔이 군단(여럿 · 빠름) · 계약서 = 꼬마 악마(한두 마리 · 크고 셈, 내리치기 범위). pet = SUMMON 키 · summonCost = 소환 기력. 대시 = 순간이동(혼령 걸음)
   bell: { name: '경량', speed: 1.15, reach: 0, dmg: 1, knock: 0.9, arc: 1,
-    trait: ['군단', '솜뿔이 2마리씩 · 최대 6 · 나눠 맡음 · 쓰러지면 솜 터짐 · 큰 종소리 = 소환수 2초 광폭 · 솜뿔이 합체(끝나면 폭발) · 메아리(대시해도 솜뿔이는 그 자리) · 대시가 순간이동'],
+    trait: ['군단', '솜뿔이 2마리씩 · 최대 6 · 나눠 맡음 · 쓰러지면 솜 터짐 · 큰 종소리 = 소환수 2초 광폭 · 솜뿔이 6마리 합체(끝나면 폭발) · 메아리(대시해도 솜뿔이는 그 자리) · 대시가 순간이동'],
     pet: 'puff', summonCost: 20, blinkDodge: 64, specialDef: 'merge', dashDef: 'echoPulse', specialCd: 10, specialCost: 100, noRegroup: true },  // noRegroup = 대시해도 솜뿔이가 싸우던 자리에 남음(메아리)
   pact: { name: '중량', speed: 0.88, reach: 0, dmg: 1, knock: 1.4, arc: 1.1,
     trait: ['계약', '꼬마 악마 최대 2 · 낙인 적 집중 · 없으면 곁을 지킴 · 내리치면 도발 · 큰 낙인 = 소환수 2초 광폭 + 낙인 터뜨리기 · 사슬 계약 · 계약 집행 · 대시가 순간이동(악마가 곁으로)'],
