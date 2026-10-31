@@ -123,6 +123,7 @@ const UI = (() => {
       while (ln.length > 1 && ctx.measureText(ln).width > maxW) ln = ln.slice(0, -2) + '…';
       T_(ctx, ln, x, y + i * lh, sz, col);
     });
+    return out.length;  // 쓴 줄 수
   }
   const menuNav = (sel, n) => {
     if (Input.nav('up')) sel = (sel + n - 1) % n;
@@ -812,22 +813,24 @@ const UI = (() => {
       }
       // 오른쪽 아래: 설명 + 비교
       Gfx.panel(ctx, 380, 334, 556, 160, B);
-      if (SELL && sel.from === 'bag' && sel.item) T_(ctx, noSell(sel.item) ? '판매 안 됨' : '판매 가격 +' + sel.item.value + 'G', 916, 364, 16, noSell(sel.item) ? '#8a7e88' : '#ffd34d', 'right');
-      if (SCRAP && sel.from === 'bag' && sel.item) { const d = scrapDust(sel.item); T_(ctx, d ? '가루 +' + d : '분해 안 됨', 916, 364, 15, d ? ESSENCE_COLOR : '#8a7e88', 'right'); }
+      if (SELL && sel.from === 'bag' && sel.item) T_(ctx, noSell(sel.item) ? '판매 안 됨' : '판매 가격 +' + sel.item.value + 'G', 916, 489, 15, noSell(sel.item) ? '#8a7e88' : '#ffd34d', 'right');
+      if (SCRAP && sel.from === 'bag' && sel.item) { const d = scrapDust(sel.item); T_(ctx, d ? '가루 +' + d : '분해 안 됨', 916, 489, 15, d ? ESSENCE_COLOR : '#8a7e88', 'right'); }
       if (sel.item) {
-        const lines = Items.describe(sel.item, prof);
-        let y = 364;
-        lines.forEach((ln, i) => {
-          if (y > 482) return;
-          T_(ctx, ln.t, 400, y, ln.big ? 18 : 13, ln.c);
-          y += ln.big ? 24 : 18;
+        // 설명 줄: 비교 칸이 있으면 그 왼쪽(CMP_X − 12)까지만 — 넘치는 줄(무기 특성 · 유니크 효과)은 두 줄로 감싼다(2026-10-31 사용자 '설명 칸 겹친다')
+        const lines = Items.describe(sel.item, prof), CMP_X = 790, cmp = sel.from === 'bag', W = (cmp ? CMP_X - 12 : 920) - 400;
+        let y = 362;
+        lines.forEach(ln => {
+          if (y > 490) return;
+          if (ln.big) { T_(ctx, ln.t, 400, y, 18, ln.c); y += 22; return; }
+          y += 15 * wrapText(ctx, ln.t, 400, y, 12, W, 2, 15, ln.c);
         });
-        if (sel.from === 'bag') {  // 낀 것과 비교(사기 · 팔기 창에서도 무엇을 팔아도 되는지 보이게)
+        if (cmp) {  // 낀 것과 비교(사기 · 팔기 창에서도 무엇을 팔아도 되는지 보이게) — 오른쪽 좁은 칸
           const cur = prof.equip[sel.item.slot];
           const diff = Items.compare(sel.item, cur);
-          T_(ctx, cur ? '낀 것과 비교' : '빈 칸에 낀다', 690, 364, 14, '#c8b8a0');
+          T_(ctx, cur ? '낀 것과 비교' : '빈 칸에 낀다', CMP_X, 362, 13, '#c8b8a0');
           diff.slice(0, 7).forEach(({ k, d }, i) => {
-            T_(ctx, (d > 0 ? '▲ ' : '▼ ') + statName(k, prof) + ' ' + (d > 0 ? '+' : '') + d + (STATS[k].pct ? '%' : ''), 690, 386 + i * 18, 13, d > 0 ? '#7dff8a' : '#ff7a6a');
+            const t = (d > 0 ? '▲ ' : '▼ ') + statName(k, prof) + ' ' + (d > 0 ? '+' : '') + d + (STATS[k].pct ? '%' : '');
+            wrapText(ctx, t, CMP_X, 381 + i * 16, 12, 916 - CMP_X, 1, 16, d > 0 ? '#7dff8a' : '#ff7a6a');
           });
         }
       } else if (sel.from === 'shop') {
