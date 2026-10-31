@@ -185,10 +185,6 @@ function hurtPlayer(p, src, dmgRaw, knock) {
     Sfx.stone();
     return 'miss';
   }
-  // 성기사(js/paladin.js): 막기(앞쪽 · 완벽한 막기면 피해 0) · 신성 갑옷(손님 기기는 방장이 보낸 src.bl · src.ar 대로)
-  const blk = Paladin.guard(p, src);
-  if (blk === 'perfect') return 'miss';
-  const armor = World.mirror && p === World.player ? !!src.ar : Paladin.armored(p);
   const push = unit(p.x - src.x, p.y - src.y, { x: -p.fv.x, y: -p.fv.y });
   const K = 50 * POWER(p.prof.lv);  // 방어력 기준도 레벨 곡선(그 레벨 장비 방어력이면 비슷한 비율로 깎인다)
   let dmgBase = dmgRaw * K / (K + p.stats.def);
@@ -198,15 +194,11 @@ function hurtPlayer(p, src, dmgRaw, knock) {
   if (p.markT > 0) dmgBase *= RAID_RULE.markMul;  // 레이드 공허 표식
   if (p.wardT > 0) dmgBase *= 1 - (p.wardCut || 0);  // 스태프 수호 파동 보호막
   if (p.hidden) { dmgBase *= p.cls.charge.hide.hitMul; endHide(p, '들켰다! 급소 피해'); }  // 숨은 중에 맞으면 드러나고 더 아프다(2026-10-31 사용자)
-  if (blk === 'block') dmgBase *= 1 - p.cls.charge.def.block.cut;  // 성기사 막기
-  if (armor) dmgBase *= 1 - CLASSES.paladin.divineArmor.armor.cut;  // 성기사 신성 갑옷
-  dmgBase *= Paladin.auraMul(p);  // 성기사 오라(나 · 둘레 성기사 파티원)
   const dmg = Math.max(1, Math.round(dmgBase));
   p.hp -= dmg;
-  if (armor && !World.mirror) Paladin.armorHit(p, dmg);
   World.noteHit();  // 레이드 기록: 맞은 횟수
   // 망치(분쇄): 공격 중에 맞으면 피해만 받고 동작은 그대로(안 밀림)
-  const sa = (p.state === 'act' && (WEAPON_KINDS[p.stats.kind] || {}).superArmor) || blk || armor;  // 성기사: 막는 중 · 갑옷이면 안 밀림
+  const sa = p.state === 'act' && (WEAPON_KINDS[p.stats.kind] || {}).superArmor;  // 성기사 성망치도
   if (!sa) { p.state = 'hurt'; p.t = 0.3; p.act = null; p.charge = 0;  // 맞으면 모으던 기가 흩어진다
     p.kx = push.x * knock; p.ky = push.y * knock; }
   p.iframes = 0.5;

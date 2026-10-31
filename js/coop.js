@@ -306,17 +306,14 @@ const Coop = (() => {
   function remoteHurt(q, src, dmgRaw, knock) {
     if (q.dead || (q.ifr && !src.unavoid)) return 'miss';  // unavoid = 대시 무적도 못 피함(레이드 수정 폭발)
     const enemy = !!src.def, slow = enemy ? !!((src.affixes && src.affixes.includes('frost')) || src.def.chillHit) : !!src.chill;
-    // 성기사 손님 몸: 막기(방장이 판정 — 몹 휘청 · 속성석) · 신성 갑옷(받은 피해를 모아 둠, 방어 계산 전 값)
-    const bl = src.pct ? null : Paladin.guard(q, src), ar = !src.pct && Paladin.armored(q);
-    if (ar) Paladin.armorHit(q, dmgRaw * (1 - q.armorA.cut) * (bl === 'block' ? 1 - q.act.def.block.cut : 1));
     Net.sendTo(q.pid, { t: 'hurt', d: Math.round(dmgRaw * 10) / 10, k: knock, x: r1(src.x), y: r1(src.y), slow: slow ? 1 : 0, cz: enemy && (src.chill > 0 || src.state === 'frozen') ? 1 : 0,
-      pc: src.pct || 0, un: src.unavoid ? 1 : 0, st: src.stun || 0, mk: src.mark || 0, bl: bl === 'perfect' ? 2 : bl ? 1 : 0, ar: ar ? 1 : 0 });  // 레이드 벌(최대 체력 비율 · 못 피함 · 기절 · 공허 표식) · bl/ar = 성기사 막기 · 갑옷
+      pc: src.pct || 0, un: src.unavoid ? 1 : 0, st: src.stun || 0, mk: src.mark || 0 });  // 레이드 벌(최대 체력 비율 · 못 피함 · 기절 · 공허 표식)
     return 'hit';
   }
   Net.on('hurt', m => {
     if (!World.mirror || Game.scene !== 'run') return;
     const p = World.player;
-    const r = hurtPlayer(p, { x: m.x, y: m.y, chill: m.cz, state: m.cz ? 'frozen' : '', pct: m.pc || 0, unavoid: !!m.un, stun: m.st || 0, mark: m.mk || 0, bl: m.bl || 0, ar: m.ar || 0 }, m.d, m.k);
+    const r = hurtPlayer(p, { x: m.x, y: m.y, chill: m.cz, state: m.cz ? 'frozen' : '', pct: m.pc || 0, unavoid: !!m.un, stun: m.st || 0, mark: m.mk || 0 }, m.d, m.k);
     if (r === 'hit' && m.slow) p.slowT = 2;
   });
   // 방장: 몹 처치 → 손님들도 각자 경험치 · 전리품

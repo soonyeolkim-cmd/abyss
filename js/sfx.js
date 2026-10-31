@@ -171,7 +171,7 @@ const Sfx = (() => {
     deny: () => { smp('uiDeny', { vol: 0.5 }); tone({ type: 'square', f: 180, f2: 140, dur: 0.1, vol: 0.06 }); },
     reveal: () => [660, 880, 1320, 1760].forEach((f, i) => tone({ type: 'sine', f, dur: 0.35, vol: 0.1, delay: i * 0.08 })),
     pickup: () => smp('leather', { vol: 0.6 }),
-    block: perfect => { noise({ dur: 0.08, vol: 0.2, freq: 3200, q: 4 }); tone({ type: 'triangle', f: perfect ? 1500 : 900, f2: perfect ? 1400 : 700, dur: perfect ? 0.35 : 0.18, vol: 0.12 }); if (perfect) tone({ type: 'sine', f: 2400, dur: 0.4, vol: 0.06, delay: 0.03 }); },
+    holy: () => { noise({ dur: 0.08, vol: 0.14, freq: 3200, q: 4 }); tone({ type: 'triangle', f: 1500, f2: 1400, dur: 0.35, vol: 0.12 }); tone({ type: 'sine', f: 2400, dur: 0.4, vol: 0.06, delay: 0.03 }); },  // 성기사 축성 · 신성력 가득(맑은 종소리)
     stone: () => { smp('glass', { vol: 0.45, rate: 1.3 }); tone({ type: 'sine', f: 1800, dur: 0.25, vol: 0.06, delay: 0.04 }); },
     potion: () => { tone({ type: 'sine', f: 300, f2: 700, dur: 0.25, vol: 0.18 }); noise({ dur: 0.2, vol: 0.06, freq: 1500 }); },
     // 콘텐츠 해금(2026-10-29): 오르는 짧은 나팔 + 길게 울리는 화음

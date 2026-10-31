@@ -737,6 +737,7 @@ const World = (() => {
       const p = f.p || World.player;  // 깐 사람(파티: 손님 몸일 수도)
       actor = p;
       f.t += dt; f.tick -= dt;
+      if (f.holy) Paladin.fieldUpdate(f, dt);  // 성기사 축성(js/paladin.js)
       if (f.tick <= 0) { f.tick += 0.5; Elements.fieldTick(f); }
       // 마법진: delay 뒤 한 번 크게 터진다(마법진 칸 속성석은 그 자리에서 둘레 효과)
       if (f.magic && !f.done && f.t >= f.delay) {
@@ -1272,6 +1273,7 @@ const World = (() => {
     playerShot: s => { if (!mirror) pshots.push(Object.assign({ t: 0, owner: actor || p }, s)); },
     field: f => { if (!mirror) fields.push(Object.assign({ t: 0, tick: 0.2 }, f)); },
     magicActive: () => fields.some(f => f.magic && !f.done),  // 아직 안 터진 마법진이 있나
+    holyFields: () => fields.filter(f => f.holy && f.t < f.life),  // 성기사 축성 성역(손님 기기는 방장 소식으로 받은 것 — 깐 사람 pid)
     // 상태이상 알갱이(몸에서 피어오름)
     ember: (e, col) => fx.push({ type: 'spark', x: e.x + (Math.random() - 0.5) * e.r * 2, y: e.y, z: e.z + Math.random() * e.h, vx: 0, vy: 0, vz: 30, t: 0, life: 0.4, col }),
     // 레이드: 그 자리에 몹(부품) 하나 · 내 화면 가운데 알림 · 지난 시간

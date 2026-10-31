@@ -196,51 +196,49 @@ const CLASSES = {
       execute: { range: 170, mult: 1.5 } },
     charge: { cost: 20, def: { name: '소환', slot: 'charge', startup: 0.14, active: 0.05, recovery: 0.22, mult: 0, knock: 0, stun: 0, summon: true, swing: [-150, -60] } },  // swing = 방울 · 계약서를 머리 위로 들어 올림
   },
-  // ── 성기사(2026-10-31 사용자: 다섯 번째 직업, 메모/paladin-plan.md) ── 막고 → 신성력을 모으고 → 심판한다. 성기사 몫은 js/paladin.js.
-  // 신성력(최대 PALADIN.holyMax): 막기 성공(완벽한 막기 2) · 3타가 맞으면 1. 특수(Z)가 모두 써서 세지는 만큼(1 · 2 · 3).
-  // 기본(X) 메이스 3연타(3타 = 내려찍기 + 신성력) · 스킬(V) 방패 막기(메이스) / 신성 갑옷(성망치) · 특수(Z) 심판(빛기둥) / 천벌(둘레 빛 원) · 대시 → 공격 = 방패 강타(기절).
-  // 패시브 신성 오라: 나와 둘레 PALADIN.aura.r 안 파티원이 받는 피해 -cut(파티원 기기에서 내 위치를 보고 — js/paladin.js auraMul)
+  // ── 성기사(2026-10-31 사용자: 다섯 번째 직업, 메모/paladin-plan.md) ── 때려서 신성력을 모으고 → 큰 빛 기술로 터뜨린다. 성기사 몫은 js/paladin.js.
+  // 개편(2026-10-31 사용자 '여럿이 하기 어려운 게임인데 너무 파티용' → 공격형 성전사): 막기 · 신성 갑옷 · 둘레 파티원 치유 · 오라를 빼고, 딜은 다른 직업만큼 · 혼자 버티는 힘은 자기 회복으로.
+  // 신성력(최대 PALADIN.holyMax): 3타 · 신성 돌진 · 신성 강타가 맞으면 1, 축성을 놓으면 1. 특수(Z)가 모두 써서 세지는 만큼 · 쓴 만큼 내 체력 회복(PALADIN.healPer).
+  // 기본(X) 3연타(3타 = 내려찍기 + 신성력) · 스킬(V) 신성 돌진(메이스) / 축성(성망치) · 특수(Z) 심판(빛기둥) / 축복받은 망치(나선) · 대시 → 공격 = 신성 강타(기절).
   paladin: {
     id: 'paladin', name: '성기사', sprite: 'paladin', atkName: '공격력',
     weapons: ['mace', 'warhammer'],
-    slotNames: { basic: '기본 공격', charge: '막기 · 신성 갑옷', wave: '심판 · 천벌', dash: '대시' },  // 스킬 칸: 메이스 = 방패 막기 · 성망치 = 신성 갑옷 / 특수 칸: 메이스 = 심판 · 성망치 = 천벌
-    slotShort: { basic: '기본', charge: '막기', wave: '심판', dash: '대시' },
-    icons: { basic: 'mace', charge: 'shield', wave: 'judge', dash: 'dash' },
-    baseHp: 120, baseAtk: 4, speed: 80,  // 오래 버티는 직업: 체력 기본값 검사의 1.2배
+    slotNames: { basic: '기본 공격', charge: '신성 돌진 · 축성', wave: '심판 · 축복받은 망치', dash: '대시' },  // 스킬 칸: 메이스 = 신성 돌진 · 성망치 = 축성 / 특수 칸: 메이스 = 심판 · 성망치 = 축복받은 망치
+    slotShort: { basic: '기본', charge: '돌진', wave: '심판', dash: '대시' },
+    icons: { basic: 'mace', charge: 'holyrush', wave: 'judge', dash: 'dash' },
+    baseHp: 110, baseAtk: 4, speed: 82,
     stamina: { base: 110, regen: 10, delay: 0.6, onHit: 4 },
     dodge: { time: 0.26, speed: 220, iframes: 0.22, cd: 0, attackWindow: 0.18, cost: 8 },
     potion: { heal: 0.4, cd: 1.0, max: 5 },
     combo: [
-      { name: '내려치기', slot: 'basic', startup: 0.08, active: 0.08, recovery: 0.22, mult: 1.3, knock: 80, stun: 0.34, reach: [0, 24], arc: 70, lunge: 6, swing: [-120, 40] },
-      { name: '올려치기', slot: 'basic', startup: 0.07, active: 0.09, recovery: 0.24, mult: 1.4, knock: 90, stun: 0.36, reach: [0, 24], arc: 80, lunge: 6, swing: [60, -110] },
+      { name: '내려치기', slot: 'basic', startup: 0.08, active: 0.08, recovery: 0.2, mult: 1.3, knock: 80, stun: 0.34, reach: [0, 24], arc: 70, lunge: 6, swing: [-120, 40] },
+      { name: '올려치기', slot: 'basic', startup: 0.07, active: 0.09, recovery: 0.22, mult: 1.4, knock: 90, stun: 0.36, reach: [0, 24], arc: 80, lunge: 6, swing: [60, -110] },
       // 3타: 앞 바닥 내려찍기(area — 바닥 타원 판정 = nova 그림) · holy = 맞으면 신성력
-      { name: '성광 내려찍기', slot: 'basic', fin: true, startup: 0.13, active: 0.08, recovery: 0.36, mult: 2.4, knock: 160, stun: 0.55, area: { ahead: 22, r: 20 }, swing: [-150, 10], heavy: true, holy: 1 },
+      { name: '성광 내려찍기', slot: 'basic', fin: true, startup: 0.12, active: 0.08, recovery: 0.32, mult: 2.4, knock: 160, stun: 0.55, area: { ahead: 22, r: 20 }, swing: [-150, 10], heavy: true, holy: 1 },
     ],
-    // 스킬(V) 메이스 = 방패 막기(2026-10-31 사용자 B: 한 번 누르면 active 초 동안 방패를 세움). 앞쪽 반원으로 오는 공격(몹 · 탄)을 받아냄.
-    //   처음 perfect 초 안에 맞으면 완벽한 막기: 피해 0 · 몹 휘청(stagger 초, 보스는 안 휘청) · 신성력 +2 · 곧바로 counterT 초 동안 X = 반격 베기.
-    //   그 뒤는 그냥 막기: 피해 × (1 - cut) · 안 밀림 · 신성력 +1. 스킬 칸 속성석 = 막을 때 때린 몹에게 그 속성 효과(완벽한 막기는 마무리 세기)
-    charge: { cost: 12, def: { name: '방패 막기', slot: 'charge', startup: 0, active: 0.8, recovery: 0.12, mult: 0, knock: 0, stun: 0, guard: true,
-      block: { perfect: 0.25, cut: 0.7, stagger: 0.9, counterT: 0.6 } } },
-    // 완벽한 막기 뒤 X: 빠르고 넓은 반격(메이스 WEAPON_KINDS.mace.counter)
-    counter: { name: '반격 베기', slot: 'basic', fin: true, startup: 0.03, active: 0.1, recovery: 0.28, mult: 3.0, knock: 180, stun: 0.6, reach: [0, 30], arc: 110, swing: [-130, 90], heavy: true, holy: 1 },
-    // 스킬(V) 성망치 = 신성 갑옷: t 초 동안 안 밀리고 받는 피해 × (1 - cut), 그동안 받은 피해를 모았다가 끝날 때 둘레 burst.r 보복 폭발
-    //   (한 방 = 공격력 × burst.base + 모은 피해 × burst.store, 바닥 타원 판정 = nova 그림) · 신성력 +1(모은 피해가 최대 체력의 burst.more 넘으면 +1 더)
-    divineArmor: { name: '신성 갑옷', short: '갑옷', icon: 'holyarmor', slot: 'charge', startup: 0.05, active: 0.05, recovery: 0.15, mult: 0, knock: 0, stun: 0, swing: [-150, -60],
-      armor: { t: 2, cut: 0.5, burst: { r: 40, base: 2.0, store: 1.0, more: 0.15 } } },
-    // 특수(Z) 메이스 = 심판: 신성력 n 개를 모두 써서 한 자리에 빛기둥 n 번(delay 초 간격, 반지름 r — 바닥 타원 판정 = 기둥 그림), 기둥마다 한 방 mult.
-    //   자리 = 앞쪽 range 안 가장 가까운 적(없으면 내 앞 first). 한 마리에게 다 꽂히게(2026-10-31 — 일렬로 떨어뜨리니 한 마리에겐 하나만 맞았음)
-    //   n = 3 이면 나와 둘레 heal.r 안 파티원 체력 heal.pct 회복. 신성력이 없으면 못 씀(기력 · 대기 안 씀)
-    special: { id: 'judge', name: '심판', short: '심판', icon: 'judge', slot: 'wave', cd: 1.5, cost: 15, startup: 0.12, active: 0.05, recovery: 0.3, mult: 7.5, knock: 120, stun: 0.5, thrust: true,
-      judge: { range: 80, first: 30, r: 20, delay: 0.12 }, heal: { pct: 0.1, r: 90 } },
-    // 특수(Z) 성망치 = 천벌: 망치로 제자리를 내려찍어 둘레 빛 원(반지름 r0 + rN × n, 바닥 타원 판정 = nova 그림), 한 방 = mult + perN × (n - 1). n = 3 이면 회복은 심판과 같음
-    smite: { id: 'smite', name: '천벌', short: '천벌', icon: 'smite', slot: 'wave', cd: 1.5, cost: 15, startup: 0.16, active: 0.08, recovery: 0.38, mult: 3, knock: 150, stun: 0.6, swing: [-150, 10], heavy: true,
-      smite: { r0: 26, rN: 12, perN: 3 }, heal: { pct: 0.1, r: 90 } },
-    // 대시 → 공격 = 방패 강타: 앞 몹을 방패로 쳐서 기절(긴 경직)
-    dashAttack: { name: '방패 강타', slot: 'dash', startup: 0.04, active: 0.1, recovery: 0.3, mult: 1.6, knock: 140, stun: 1.0, reach: [0, 24], arc: 70, thrust: true, heavy: true, iframes: true },
+    // 스킬(V) 메이스 = 신성 돌진: 방패를 앞세워 가장 가까운 적(누른 쪽 먼저)을 향해 돌진(암살자 돌진 베기와 같은 길 고르기 — 적을 지나 past 더, 최소 min · 최대 max, 없으면 dash) ·
+    //   지나가는 동안 무적, 앞 방패 띠(noBody)에 닿는 적 모두 한 방 · 맞으면 신성력 · 멈춘 자리에서 빛 폭발(end.r — 바닥 타원 판정 = nova 그림, 스킬 칸 속성석 폭발도 그 반지름)
+    charge: { cost: 18, def: { name: '신성 돌진', slot: 'charge', rush: true, startup: 0.05, active: 0.16, recovery: 0.26, mult: 2.0, knock: 130, stun: 0.5,
+      reach: [0, 18], noBody: true, dash: 70, past: 14, min: 40, max: 100, safe: 0.1, ease: true, heavy: true, holy: 1, swing: [-60, -20],
+      end: { r: 34, mult: 2.0 } } },
+    // 스킬(V) 성망치 = 축성: 발밑에 t 초 동안 성역(바닥 타원 반지름 r — 그림 = 판정). tick 초마다 안의 적에게 공격력 × mult(경직 없음 — 연타 버팀이 안 쌓이게) · 안의 적은 느려짐(slow 배) ·
+    //   내가 안에 있으면 초당 최대 체력의 heal 회복 · 놓을 때 신성력 +1 · 스킬 칸 속성석 폭발(반지름 r). 하나만(있는 동안 다시 못 놓음 — 기력도 안 씀)
+    consecrate: { name: '축성', short: '축성', icon: 'consecrate', slot: 'charge', startup: 0.12, active: 0.05, recovery: 0.24, mult: 0, knock: 0, stun: 0, swing: [-150, 10], heavy: true,
+      sanctum: { r: 46, t: 5, tick: 0.5, mult: 0.75, slow: 0.55, heal: 0.02, holy: 1 } },
+    // 특수(Z) 메이스 = 심판: 신성력 n 개를 모두 써서 한 자리에 빛기둥 n 번(가득이면 +1, delay 초 간격, 반지름 r — 바닥 타원 판정 = 기둥 그림), 기둥마다 한 방 mult.
+    //   자리 = 앞쪽 range 안 가장 가까운 적(없으면 내 앞 first). 한 마리에게 다 꽂히게(2026-10-31 — 일렬로 떨어뜨리니 한 마리에겐 하나만 맞았음). 신성력이 없으면 못 씀(기력 · 대기 안 씀)
+    special: { id: 'judge', name: '심판', short: '심판', icon: 'judge', slot: 'wave', cd: 1.5, cost: 15, startup: 0.12, active: 0.05, recovery: 0.3, mult: 4.5, knock: 120, stun: 0.5, thrust: true,
+      judge: { range: 90, first: 30, r: 22, delay: 0.11 } },
+    // 특수(Z) 성망치 = 축복받은 망치: 신성력 n 개(가득이면 +1)만큼 빛 망치가 나를 가운데 두고 나선으로 돌며 퍼진다(life 초 동안 반지름 r0 → r1, 초당 spin 바퀴).
+    //   망치마다 바닥 타원 hr 안 적에게 한 방(같은 적은 망치마다 again 초에 한 번 — 망치 빛 그림 = 판정)
+    hammers: { id: 'hammers', name: '축복받은 망치', short: '망치', icon: 'hammers', slot: 'wave', cd: 1.5, cost: 15, startup: 0.1, active: 0.05, recovery: 0.28, mult: 1.5, knock: 50, stun: 0.25, swing: [-150, 10], heavy: true,
+      spiral: { life: 2.4, r0: 10, r1: 70, spin: 1.6, hr: 9, again: 0.3 } },
+    // 대시 → 공격 = 신성 강타: 앞 몹을 쳐서 기절(긴 경직) · 맞으면 신성력
+    dashAttack: { name: '신성 강타', slot: 'dash', startup: 0.04, active: 0.1, recovery: 0.3, mult: 1.8, knock: 140, stun: 1.0, reach: [0, 24], arc: 70, thrust: true, heavy: true, iframes: true, holy: 1 },
   },
 };
-// 성기사 공통 값(js/paladin.js): 신성력 최대 · 오라(반지름 r 안 — 나 포함 — 받는 피해 × (1 - cut))
-const PALADIN = { holyMax: 3, aura: { r: 80, cut: 0.1 } };
+// 성기사 공통 값(js/paladin.js): 신성력 최대 · 신성력 하나를 쓸 때마다 최대 체력의 healPer 회복 · 가득(holyMax) 쓰면 빛기둥 · 망치 full 개 더
+const PALADIN = { holyMax: 5, healPer: 0.03, full: 1 };
 // 검(경량) 4연타: 베기 · 되베기 · 올려베기 · 찌르기(2026-10-30) — 한 대 배율은 그대로, 한 번 더 베는 만큼 빠른 연타
 CLASSES.swordsman.combo4 = [CLASSES.swordsman.combo[0], CLASSES.swordsman.combo[1],
   { name: '올려베기', slot: 'basic', startup: 0.05, active: 0.08, recovery: 0.18, mult: 1.05, knock: 70, stun: 0.32, reach: [0, 25], arc: 75, lunge: 6, swing: [-100, 70] },
@@ -284,11 +282,11 @@ const WEAPON_KINDS = {
   pact: { name: '중량', speed: 0.88, reach: 0, dmg: 1, knock: 1.4, arc: 1.1,
     trait: ['계약', '꼬마 악마 최대 2 · 낙인 적 집중 · 없으면 곁을 지킴 · 내리치면 도발 · 큰 낙인 = 소환수 2초 광폭 + 낙인 터뜨리기 · 사슬 계약 · 계약 집행 · 대시가 순간이동(악마가 곁으로)'],
     pet: 'imp', summonCost: 30, blinkDodge: 64, combo: 'brandCombo', dashDef: 'pactExec' },  // combo = 기본 공격 목록(영혼 낙인)  // 대시 → 공격은 카타르와 같은 선풍 베기(2026-10-30 사용자, 물러나며 표창 saiDash 는 안 씀)
-  // 성기사(2026-10-31): 메이스(+ 방패) = 정밀 막기 · 반격 · 심판 / 성망치 = 신성 갑옷 · 보복 · 천벌. chargeCost = 스킬 칸 기력 · shield = 몸에 방패를 그림
-  mace: { name: '경량', speed: 1.0, reach: 0, dmg: 1, knock: 1, arc: 1, shield: true,
-    trait: ['수호', '방패 막기(앞에서 오는 공격 · 완벽한 막기 = 피해 0 · 몹 휘청 · 신성력 2) · 완벽한 막기 뒤 X = 반격 베기 · 심판(빛기둥) · 방패 강타'], counter: 'counter', chargeCost: 12 },
-  warhammer: { name: '중량', speed: 0.86, reach: 0, dmg: 1, knock: 1.4, arc: 1.1,
-    trait: ['응징', '신성 갑옷(2초 안 밀림 · 피해 절반 · 받은 만큼 보복 폭발) · 천벌(둘레 빛 원) · 방패 강타'], chargeDef: 'divineArmor', specialDef: 'smite', chargeCost: 25 },
+  // 성기사(2026-10-31 개편 — 공격형 성전사): 메이스(+ 방패) = 신성 돌진 · 심판(한 마리에 빛기둥) / 성망치 = 축성(성역) · 축복받은 망치(둘레 나선). chargeCost = 스킬 칸 기력 · shield = 몸에 방패를 그림
+  mace: { name: '경량', speed: 1.05, reach: 0, dmg: 1, knock: 1, arc: 1, shield: true,
+    trait: ['열성', '신성 돌진(지나가며 치고 끝에 빛 폭발 · 무적) · 심판(노린 적에게 빛기둥) · 신성력을 쓰면 체력 회복'], chargeCost: 18 },
+  warhammer: { name: '중량', speed: 0.88, reach: 0, dmg: 1, knock: 1.4, arc: 1.1, superArmor: true,
+    trait: ['축성', '축성(발밑 성역 5초 — 안의 적 계속 피해 · 느려짐, 안에 서 있으면 회복) · 축복받은 망치(둘레 나선) · 공격 중 안 밀림'], chargeDef: 'consecrate', specialDef: 'hammers', chargeCost: 30 },
 };
 
 // 소환수(2026-10-31 사용자 — js/summon.js). max 마리(꽉 차면 스킬 칸을 눌러도 안 부름) · 유지 시간 없음(체력이 다 닳거나 던전을 나갈 때까지, 다음 층으로 따라옴) · hp = 주인 최대 체력 × · def = 주인 방어력 × ·
@@ -1090,12 +1088,12 @@ const summonerWord = (t, prof) => {
   return t.replace(/ \(사슬 걸린 적은 [^)]*\)/, '').split('사슬 계약 · 사슬 걸린 적이 악마에게 맞은 자리').join('큰 솜뿔이가 내려앉은 자리').split('사슬 계약 · 사슬 걸린 적이 악마에게 맞').join('큰 솜뿔이에게 맞')
     .split('사슬 계약에 맞은 적').join('큰 솜뿔이에게 맞은 적').split('사슬 계약에 맞으면').join('큰 솜뿔이에게 맞으면').split('사슬 계약').join('솜뿔이 합체');
 };
-// 성기사 칸 능력(2026-10-31): 스킬 칸(막기 · 신성 갑옷)은 검사 회전베기 것 그대로(완벽한 막기 · 보복 폭발 때 둘레 속성 폭발), 특수 칸 = 심판 · 천벌
+// 성기사 칸 능력(2026-10-31 개편): 스킬 칸(신성 돌진 · 축성)은 검사 회전베기 것 그대로(돌진 끝 빛 폭발 · 축성을 놓을 때 둘레 속성 폭발), 특수 칸 = 심판 · 축복받은 망치
 const EL_ABIL_PALADIN = {
-  fire: { wave: ['작열 심판', '심판 · 천벌에 맞은 자리에서 불꽃이 터진다'] },
-  frost: { wave: ['얼음 심판', '심판 · 천벌에 맞으면 냉기 1 더'] },
-  thunder: { wave: ['벼락 심판', '심판 · 천벌에 맞은 적마다 벼락'] },
-  poison: { wave: ['독침 심판', '심판 · 천벌에 맞으면 독 1중첩 더'] },
+  fire: { wave: ['작열 심판', '심판 · 축복받은 망치에 맞은 자리에서 불꽃이 터진다'] },
+  frost: { wave: ['얼음 심판', '심판 · 축복받은 망치에 맞으면 냉기 1 더'] },
+  thunder: { wave: ['벼락 심판', '심판 · 축복받은 망치에 맞은 적마다 벼락'] },
+  poison: { wave: ['독침 심판', '심판 · 축복받은 망치에 맞으면 독 1중첩 더'] },
 };
 // 칸 능력 [이름, 설명]: 직업에 맞게
 const elAbil = (el, slot, prof) => {

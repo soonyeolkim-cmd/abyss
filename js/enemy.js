@@ -269,7 +269,7 @@ function mobMove(lv, e, dx, dy) {
 function chase(e, dt, lv, p) {
   const dir = World.flowDir(e);
   if (!dir) return false;
-  const step = e.def.speed * e.speedMul * dt;
+  const step = e.def.speed * e.speedMul * (e.slowUntil > World.time ? e.slowK : 1) * dt;  // 성기사 축성 안이면 느려짐
   mobMove(lv, e, dir.x * step, dir.y * step);
   e.fv = dir;
   e.moving = true;
@@ -305,7 +305,7 @@ function aiMove(e, dt, room, p) {
   }
   const dx = wx - e.x, dy = wy - e.y, dist = Math.hypot(dx, dy);
   if (dist > 3) {
-    const step = Math.min(dist, d.speed * e.speedMul * dt);
+    const step = Math.min(dist, d.speed * e.speedMul * (e.slowUntil > World.time ? e.slowK : 1) * dt);
     Dungeon.move(room, e, dx / dist * step, dy / dist * step, e.r);
     e.moving = true;
     e.walkT += dt;

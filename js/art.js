@@ -179,7 +179,7 @@ const Art = (() => {
       if (full && Math.random() < 0.4) { ctx.fillStyle = Elements.color(p.prof, 'charge'); ctx.fillRect(Math.round(p.x + (Math.random() - 0.5) * 22), Math.round(p.y - Math.random() * 22), 1, 1); }
       ctx.restore();
     }
-    Paladin.drawUnder(ctx, p, time);  // 성기사: 발밑 오라 · 신성 갑옷 빛
+    Paladin.drawUnder(ctx, p, time);  // 성기사: 신성력 가득이면 발밑 금빛
     const behind = p.fv.y < -0.35 && p.state !== 'act';
     const offFront = pose.off && p.state === 'act' && p.fv.y > 0.3;  // 왼손 무기는 보통 몸 뒤, 아래를 보고 휘두를 때만 앞
     if (pose.off && !offFront) drawWeapon(pose.off);
@@ -187,7 +187,7 @@ const Art = (() => {
     Gfx.spr(ctx, name, p.x, p.y - (p.state === 'dead' ? -4 : 0), o);
     if (!behind) drawWeapon();
     if (offFront) drawWeapon(pose.off);
-    Paladin.drawOver(ctx, p, time, o.flip);  // 성기사: 방패(막는 동안 앞에 크게)
+    Paladin.drawOver(ctx, p, time, o.flip);  // 성기사: 방패(신성 돌진 중엔 앞에 크게) · 축복받은 망치
     // 칼 궤적: 그 기술 칸에 속성석이 있으면 속성 색, 없으면 흰색(봉인의 숲 규칙)
     if (pose.trail && w && p.act && p.act.def.orbTip) {
       // 롯드 · 스태프: 끝의 빛 구슬이 지나간 자리에 흐려지는 구슬 다섯 개(봉인의 숲 지팡이와 같은 결)
@@ -1316,6 +1316,7 @@ const Art = (() => {
   function field(ctx, f, time) {
     if (f.magic) { magicCircle(ctx, f, time); return; }
     if (f.wave) { voidWave(ctx, f, time); return; }
+    if (f.holy) { Paladin.drawField(ctx, f, time); return; }  // 성기사 축성
     if (f.blast) {
       // 화염 강화 몹의 죽음 폭발 예고: 붉은 원이 차오른다
       if (f.done) return;
