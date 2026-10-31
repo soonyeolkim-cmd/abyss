@@ -583,7 +583,7 @@ const Art = (() => {
   function comet(ctx, s, y, len, w, alpha = 0.6) {  // 날아온 쪽으로 가늘어지는 꼬리
     const sp = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / sp, dy = s.vy / sp;
     const g = ctx.createLinearGradient(s.x, y, s.x - dx * len, y - dy * len);
-    g.addColorStop(0, s.col); g.addColorStop(1, 'rgba(0,0,0,0)');
+    g.addColorStop(0, s.col); g.addColorStop(1, Gfx.clear(s.col));  // 검정 투명으로 끝내면 꼬리가 흙빛으로 탁해짐
     ctx.globalAlpha = alpha; ctx.fillStyle = g;
     ctx.beginPath(); ctx.moveTo(s.x - dy * w, y + dx * w); ctx.lineTo(s.x - dx * len, y - dy * len); ctx.lineTo(s.x + dy * w, y - dx * w); ctx.closePath(); ctx.fill();
   }
@@ -665,7 +665,7 @@ const Art = (() => {
     }
     // 몸통(2026-10-26 사용자: 경계가 뚜렷하지 않게): 테두리 없이 가운데 흰빛 → 밝은 색 → 속성 색 → 투명으로 번지는 빛 덩어리. 판정(s.r)은 그대로
     const R = r + 1, g = ctx.createRadialGradient(s.x - 0.5, y - 0.5, 0, s.x, y, R);
-    g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.3, light); g.addColorStop(0.72, hex); g.addColorStop(1, 'rgba(0,0,0,0)');
+    g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.3, light); g.addColorStop(0.72, hex); g.addColorStop(1, Gfx.clear(hex));
     ctx.globalAlpha = 1; ctx.fillStyle = g;
     ctx.beginPath(); ctx.arc(s.x, y, R, 0, P); ctx.fill();
     glow(ctx, s.x, y, r * 0.7, '#ffffff', 0.35);  // 심을 한 번 더 밝게
@@ -1117,7 +1117,7 @@ const Art = (() => {
       } else if (f.el === 'poison') {  // 부풀어 퍼지는 독구름
         ctx.globalCompositeOperation = 'source-over';
         const s = Math.min(f.r * 0.15, 5 + T + 4 * rnd(i, 4)) * (0.6 + 0.6 * q), cg = ctx.createRadialGradient(x, y - q * 4, 0, x, y - q * 4, s);
-        cg.addColorStop(0, i % 2 ? '#d8ffb0' : f.col); cg.addColorStop(1, 'rgba(0,0,0,0)');
+        cg.addColorStop(0, i % 2 ? '#d8ffb0' : f.col); cg.addColorStop(1, Gfx.clear(i % 2 ? '#d8ffb0' : f.col));
         ctx.globalAlpha = 0.6 * (1 - q); ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(x, y - q * 4, s, 0, P); ctx.fill();
         ctx.globalCompositeOperation = 'lighter';
       } else {  // 속성석 없음: 보랏빛 별
@@ -1280,10 +1280,10 @@ const Art = (() => {
     const T = f.tier || 0, col = ELEMENTS[f.el].color, fade = Math.min(1, (f.life - f.t) / 0.5, f.t / 0.15), P = Math.PI * 2, n = Math.max(3, Math.round(f.r / 4 * (1 + 0.5 * T)));
     ctx.save();
     ctx.translate(f.x, f.y); ctx.scale(1, 0.6);
-    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, f.r * 1.1);
-    g.addColorStop(0, col); g.addColorStop(0.6, col); g.addColorStop(1, 'rgba(0,0,0,0)');
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, f.r);
+    g.addColorStop(0, col); g.addColorStop(0.65, col); g.addColorStop(1, Gfx.clear(col));  // 같은 색 투명으로 번짐(검정으로 끝내면 탁함) — 판정 f.r 안에서 끝남
     ctx.globalAlpha = ((f.el === 'frost' ? 0.3 : 0.26) + T * 0.05) * fade; ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(0, 0, f.r * 1.1, 0, P); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, 0, f.r, 0, P); ctx.fill();
     if (T >= 2) {  // 안쪽 둘레를 도는 밝은 빛 고리(끊긴 호 셋)
       ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = Gfx.mix(col, 0.5, 'white'); ctx.lineWidth = 1.5;
       for (let i = 0; i < 3; i++) { const a = time * 1.6 + i * P / 3; ctx.globalAlpha = (0.35 + 0.1 * T) * fade; ctx.beginPath(); ctx.arc(0, 0, f.r * 0.85, a, a + 1.1); ctx.stroke(); }

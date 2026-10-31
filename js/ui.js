@@ -233,6 +233,7 @@ const UI = (() => {
   //   (1단계 = Lv.100 '살아 있는 심연' — 만렙을 풀어 단계가 늘면 줄이 아래로 늘어난다, data.js ABYSS_STAGES). 끝없는 심연은 늘 1층부터, 난이도 없음
   // 난이도(2026-10-24): 고른 던전 줄에서 ←→ 로 보통 · 모험 · 영웅. 아래 난이도 보스를 잡아야 열린다
   const selectRows = () => DUNGEONS;
+  const dunLocked = (prof, d) => (d.needs && !prof.cleared[d.needs]) || prof.lv < d.lv;  // 잠긴 던전: 난이도도 못 고른다(2026-10-31 사용자)
   const selectMode = () => select.modeOverride || (typeof Town !== 'undefined' ? Town.where : 'belloc');  // 파티 손님 '방장 고르기 보기'는 방장 마을로(modeOverride)
   const select = {
     sel: 0, diff: 0, card: 0,
@@ -241,8 +242,8 @@ const UI = (() => {
       const rows = selectRows(prof);
       this.sel = menuNav(Math.min(this.sel, rows.length - 1), rows.length);
       const d = rows[this.sel];
-      if (Input.nav('left')) this.diff = Math.max(0, this.diff - 1);
-      if (Input.nav('right')) this.diff = Math.min(DIFFS.length - 1, this.diff + 1);
+      if (!dunLocked(prof, d) && Input.nav('left')) this.diff = Math.max(0, this.diff - 1);
+      if (!dunLocked(prof, d) && Input.nav('right')) this.diff = Math.min(DIFFS.length - 1, this.diff + 1);
       if (Input.wasPressed('back')) { Game.open('town'); return; }
       if (Input.wasPressed('ok')) {
         if (d.needs && !prof.cleared[d.needs]) Game.toast('먼저 ' + DUNGEONS.find(x => x.id === d.needs).name + ' 보스를 쓰러뜨려야 해요');
@@ -279,7 +280,7 @@ const UI = (() => {
         if (i < top || i >= top + VISD) return;
         const y = 76 + (i - top) * 72, on = i === this.sel;
         zone(60, y, 840, 64, { on: () => this.sel === i, pick: () => { this.sel = i; } });
-        const lowLv = prof.lv < d.lv, lockd = (d.needs && !prof.cleared[d.needs]) || lowLv;
+        const lockd = dunLocked(prof, d);
         Gfx.panel(ctx, 60, y, 840, 64, { border: on ? '#ffd36a' : '#5a4650', bg: d.tint && !lockd ? '#1a1418' : undefined });
         // 던전 분위기 색 띠
         if (d.tint) { ctx.fillStyle = lockd ? '#2a2228' : d.tint; ctx.fillRect(62, y + 2, 6, 60); }
@@ -307,7 +308,12 @@ const UI = (() => {
         const low = !lockd && Net.linked && Net.role === 'host' ? Net.members().filter(m => m.lv < d.lv) : [];
         if (low.length) T_(ctx, low.length === 1 ? clsOf(low[0]).name + ' Lv.' + low[0].lv + ' — 같이 못 가요' : '파티원 ' + low.length + '명 레벨 부족', 880, y + 52, 12, '#d88aff', 'right');
       });
-      // 고른 난이도 설명
+      // 고른 난이도 설명(잠긴 던전은 난이도 없이 안내만)
+      if (dunLocked(prof, sd)) {
+        T_(ctx, '잠긴 던전 — 열리면 난이도를 고를 수 있어요', 480, 516, 13, '#8a6060', 'center');
+        if (!Input.touchMode()) T_(ctx, '던전 ↑↓ · 돌아가기 ' + L('back'), 480, 535, 11, '#6a6068', 'center');
+        return;
+      }
       const df = DIFFS[this.diff];
       const bt = prof.bestTimes && prof.bestTimes[timeKey(DUNGEONS[this.sel].id, this.diff)];
       if (bt) T_(ctx, '최고 기록 ' + fmtTime(bt), 930, 535, 11, '#ffd36a', 'right');

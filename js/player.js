@@ -462,7 +462,7 @@ function updateAct(p, dt, room) {
       const mid = i === (n - 1) >> 1, od = vol ? Object.assign({}, d, { mult: d.mult * vol.mult, noEl: !mid }) : d;  // 속성석 효과는 가운데 한 발만
       const ang = a0 + (i - (n - 1) / 2) * (vol ? vol.spread : 0) * Math.PI / 180, ux = Math.cos(ang), uy = Math.sin(ang);
       World.playerShot({ x: p.x + ux * 8, y: p.y + uy * 8, vx: ux * d.orb.speed, vy: uy * d.orb.speed, left: d.orb.range, r: d.orb.r,
-        ball: true, orb: true, once: true, homing: true, def: od, hit: new Set(), stone: st, col: st ? ELEMENTS[st.el].color : wk.meteor ? '#ff9a5a' : '#b39cff', meteor: !!wk.meteor,
+        ball: true, orb: true, once: true, homing: true, def: od, hit: new Set(), stone: st, col: st ? ELEMENTS[st.el].color : '#b39cff', meteor: !!wk.meteor,  // 속성석 없으면 롯드 · 스태프 모두 마법 보라(예전 운석 주황은 화염석과 헷갈림, 2026-10-31 사용자)
         tier, el: st ? st.el : '', ss: Elements.ss(st, p.prof),
         onEnd: s => {
           World.sparks(s.x, s.y - 8, 8, 10 + tier * 6, s.col, tier >= 2);

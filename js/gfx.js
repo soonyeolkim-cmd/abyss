@@ -245,6 +245,14 @@ const Gfx = (() => {
     const t = toward === 'white' ? 255 : 0;
     return 'rgb(' + c.map(v => Math.round(v + (t - v) * k)).join(',') + ')';
   }
+  // 같은 색의 완전 투명('#rrggbb' · 'rgb(r,g,b)'). 그라디언트를 'rgba(0,0,0,0)' 으로 끝내면 크롬이 검정 쪽으로 섞어
+  // 덮어 칠할 때 중간이 흙빛으로 탁해진다(2026-10-31 스태프 운석 꼬리) — 번지는 끝은 이것으로
+  function clear(col) {
+    let c = null;
+    if (col && col[0] === '#') { const n = parseInt(col.slice(1, 7), 16); c = [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+    else if (col) { const m = col.match(/rgba?\(([^)]+)\)/); if (m) c = m[1].split(',').slice(0, 3).map(v => +v); }
+    return c ? 'rgba(' + c.join(',') + ',0)' : 'rgba(0,0,0,0)';
+  }
   function shapeIcon(shape, tint) {
     const key = shape + tint;
     if (iconCache[key]) return iconCache[key];
@@ -435,5 +443,5 @@ const Gfx = (() => {
     ctx.fillStyle = fg; ctx.fillRect(x, y, Math.round(w * Math.max(0, Math.min(1, k))), h);
   }
 
-  return { WEAPON_TINT, FONT, mix, ready, spr, anim, icon, stoneIcon, aurora, scrollIcon, essenceIcon, coreIcon, text, panel, bar };
+  return { WEAPON_TINT, FONT, mix, clear, ready, spr, anim, icon, stoneIcon, aurora, scrollIcon, essenceIcon, coreIcon, text, panel, bar };
 })();
