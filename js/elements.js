@@ -52,6 +52,8 @@ const Elements = (() => {
   const slotOpen = s => s.size >= EL_UNLOCK.slot;
   const blade = prof => { const s = socket(prof, 'basic'); return !!s && s.el === 'thunder' && slotOpen(s); };  // 전기 칼날(player.js)
   // 잠깐 뒤에 하기(뇌운 · 연쇄 폭발)
+  // 번개는 벽 너머 적을 안 친다(2026-10-31 사용자 '벽으로 구분된 곳은 공격 안 하게'): (x, y)에서 그 적까지 벽에 막히지 않았는지
+  const sees = (x, y, e) => Dungeon.los(World.level, x, y - 4, e.x, e.y - 4);
   let later = [];
   const after = (t, fn) => later.push({ t, fn });
   let thorT = 0;
@@ -63,7 +65,7 @@ const Elements = (() => {
       if (thorT >= 3) {
         thorT = 0;
         // 감전된 적이 많을수록 낙뢰가 세다(2026-10-29 사용자): 하나 늘 때마다 +thor.per, 최대 +thor.max. 떨어지는 곳은 그대로 4마리까지
-        const p = P(), all = World.enemies().filter(e => live(e) && e.shockT > 0), list = all.slice(0, 4);
+        const p = P(), all = World.enemies().filter(e => live(e) && e.shockT > 0 && sees(p.x, p.y, e)), list = all.slice(0, 4);  // 내게서 벽에 막힌 적은 빼고
         const boost = 1 + Math.min(THUNDER.thor.max, THUNDER.thor.per * Math.max(0, all.length - 1));
         for (const e of list) { World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25, tier: bestTier(p.prof, 'thunder') }); damage(e, p.stats.atk * 0.5 * th * boost, 'thunder'); }
         if (list.length) Sfx.zap();
@@ -180,7 +182,7 @@ const Elements = (() => {
       for (const e of World.enemies()) {
         if (hit.has(e) || !live(e)) continue;
         const d = Math.hypot(e.x - cur.x, e.y - cur.y);
-        if (d < bd) { bd = d; best = e; }
+        if (d < bd && sees(cur.x, cur.y, e)) { bd = d; best = e; }  // 벽 너머로는 안 튄다
       }
       if (!best) {  // 기본 공격 연쇄(back): 튈 적이 없으면 남은 번개가 처음 적에게(하나에 chainBack — 혼자 있는 적 · 보스 보완). 검기는 벼락이 따로 있어 안 함
         if (back && live(from)) { if (i === 0) Sfx.zap(); World.fx({ type: 'strike', x: from.x, y: from.y, t: 0, life: 0.25, tier: T }); damage(from, dmg * THUNDER.chainBack * (count - i), 'thunder'); }
@@ -358,7 +360,7 @@ const Elements = (() => {
         break;
       case 'thunder': {  // 낙뢰: 그려진 반지름 R(바닥 타원) 안 가까운 적부터 2 + 크기 마리(예전 R + 30 동그라미 → 그림 밖 적도 맞았다)
         nova(0.4);
-        const far = near.slice().sort((a, b) => groundDist(a.x - p.x, a.y - p.y) - groundDist(b.x - p.x, b.y - p.y)).slice(0, thunderStrikes(s));
+        const far = near.filter(e => sees(p.x, p.y, e)).sort((a, b) => groundDist(a.x - p.x, a.y - p.y) - groundDist(b.x - p.x, b.y - p.y)).slice(0, thunderStrikes(s));  // 벽 너머 적은 빼고
         for (const e of far) {
           World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25, tier: tier(s) });
           damage(e, atk * 0.7 * k, 'thunder');
@@ -384,7 +386,7 @@ const Elements = (() => {
     if (s.el !== 'thunder' && p.dashTrail >= 14) { p.dashTrail = 0; World.field({ x: p.x, y: p.y, r: 10, el: s.el, life: 1.5 + 0.25 * s.size, k, p }); }
     // 번개 질주(보통부터): 스친 적 모두
     if (s.el === 'thunder' && slotOpen(s)) for (const e of World.enemies()) {
-      if (!live(e) || p.dashHit.has(e) || Math.hypot(e.x - p.x, e.y - p.y) > 20 + e.r) continue;
+      if (!live(e) || p.dashHit.has(e) || Math.hypot(e.x - p.x, e.y - p.y) > 20 + e.r || !sees(p.x, p.y, e)) continue;
       p.dashHit.add(e);
       World.fx({ type: 'bolt', x0: p.x, y0: p.y - 8, x1: e.x, y1: e.y - e.h * 0.5, t: 0, life: 0.15 });
       damage(e, p.stats.atk * 0.4 * k, 'thunder'); shock(e, k);
@@ -398,7 +400,7 @@ const Elements = (() => {
     const k = power(s), atk = p.stats.atk;
     if (s.el === 'thunder') {  // 벼락 발자국: 끝난 자리 반지름 48(바닥 타원, 그림과 같음) 안 가장 가까운 적에게 벼락
       let best = null, bd = Infinity;
-      for (const e of World.enemies()) { const d = groundDist(e.x - p.x, e.y - p.y); if (live(e) && d <= 48 + e.r && d < bd) { bd = d; best = e; } }
+      for (const e of World.enemies()) { const d = groundDist(e.x - p.x, e.y - p.y); if (live(e) && d <= 48 + e.r && d < bd && sees(p.x, p.y, e)) { bd = d; best = e; } }
       novaAt(p.x, p.y, 48, 'thunder', tier(s), s.size, 0.3);
       if (best) { World.fx({ type: 'strike', x: best.x, y: best.y, t: 0, life: 0.25, tier: tier(s) }); Sfx.zap(); damage(best, atk * 0.6 * k, 'thunder'); shock(best, k); }
     }
@@ -415,7 +417,7 @@ const Elements = (() => {
     if (s.el === 'frost') World.field({ x: p.x, y: p.y, r: R * 0.8, el: 'frost', life: 3, k, p, tier: tier(s) });
     if (s.el === 'thunder') after(1, () => {  // 뇌운: 1초 뒤 같은 반지름 R 안에 한 번 더(그림도 다시)
       novaAt(p.x, p.y, R, 'thunder', tier(s), s.size, 0.35);
-      const far = World.enemies().filter(e => live(e) && groundDist(e.x - p.x, e.y - p.y) <= R + e.r)
+      const far = World.enemies().filter(e => live(e) && groundDist(e.x - p.x, e.y - p.y) <= R + e.r && sees(p.x, p.y, e))
         .sort((a, b) => groundDist(a.x - p.x, a.y - p.y) - groundDist(b.x - p.x, b.y - p.y)).slice(0, thunderStrikes(s));
       for (const e of far) { World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25, tier: tier(s) }); damage(e, atk * 0.5 * k, 'thunder'); shock(e, k); }
       if (far.length) Sfx.zap();
