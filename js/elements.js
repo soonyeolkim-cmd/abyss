@@ -566,7 +566,7 @@ const Elements = (() => {
     }
     const word = t => (mage ? t.split('대시 찌르기').join('마력 파동').split('회전베기').join('마법진').split('찌르기').join('마력 폭풍').split('검기').join('마력탄')
       : assassin ? t.split('대시 찌르기').join('선풍 베기').split('마무리(찌르기)').join('마무리(교차 베기)')
-      : summoner ? t.split('대시 찌르기').join('영혼 흡수').split('마무리(찌르기)').join('마무리(2타)') : t);
+      : summoner ? summonerWord(t, prof).split('마무리(찌르기)').join('마무리(2타)') : t);
     const [an] = elAbil(s.el, slot, prof);
     return [...T[s.el][slot].map(word), slotOpen(s) ? '✦ ' + an + ' (열림)' : '· ' + an + ' — 보통 크기부터 열려요'];
   }

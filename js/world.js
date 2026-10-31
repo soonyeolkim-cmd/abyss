@@ -465,6 +465,7 @@ const World = (() => {
       if (best && best.hidden && e.spot !== best && e.state !== 'dead') World.text(e.x, e.y, (e.h || 16) + 14, '!', '#ff6a5a');  // 숨은 나를 알아챘다
       e.spot = best && best.hidden ? best : null;
       // 소환사 소환수(2026-10-31): 보스 · 레이드 부품이 아닌 몹은 바짝 붙은(48px 안) 소환수가 사람보다 가까우면 그 소환수를 노린다
+      if (e.taunt && !e.def.boss && !e.def.part && !e.taunt.q.gone) return e.taunt.q;  // 꼬마 악마 도발(내리치기에 맞음 — js/summon.js)
       if (!e.def.boss && !e.def.part) for (const q of Summon.list()) {
         if (q.gone || (lv.roomMaps && roomOf(q) !== e.ri)) continue;
         const d = Math.hypot(q.x - e.x, q.y - e.y);

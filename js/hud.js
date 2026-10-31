@@ -160,6 +160,25 @@ const Hud = (() => {
     '..3..........3..',
     '................',
   ];
+  // 솜뿔이 합체(방울 특수, 2026-10-31): 큰 솜뿔이 + 아래 양쪽에서 위로 모여드는 작은 솜뿔이 둘
+  const MERGE_PIX = [
+    '................',
+    '.....4....4.....',
+    '.....3....3.....',
+    '...1111111111...',
+    '..112222222211..',
+    '.11211111111211.',
+    '.11244111144211.',
+    '.11243111134211.',
+    '.11211133111211.',
+    '.12111111111121.',
+    '..111111111111..',
+    '...1111111111...',
+    '................',
+    '.11...4..4...11.',
+    '111..44..44..111',
+    '.1............1.',
+  ];
   const FRENZY_PIX = [
     '.......2........',
     '......212.......',
@@ -270,6 +289,7 @@ const Hud = (() => {
     rush: (x, y) => RUSH_PIX[y] ? STR_PAL[RUSH_PIX[y][x]] || 0 : 0,
     bell: (x, y) => BELL_PIX[y] ? STR_PAL[BELL_PIX[y][x]] || 0 : 0,
     summon: (x, y) => SUMMON_PIX[y] ? STR_PAL[SUMMON_PIX[y][x]] || 0 : 0,
+    merge: (x, y) => MERGE_PIX[y] ? STR_PAL[MERGE_PIX[y][x]] || 0 : 0,
     frenzy: (x, y) => FRENZY_PIX[y] ? STR_PAL[FRENZY_PIX[y][x]] || 0 : 0,
     orb: (x, y) => {
       const d = Math.hypot(x + 0.5 - 10.5, y + 0.5 - 8);
@@ -413,7 +433,7 @@ const Hud = (() => {
       const x = 374 + i * 56, y = PY + 16, s = Elements.socket(prof, slot), col = s ? ELEMENTS[s.el].color : null;
       box(ctx, x, y, 44, col);
       // 기술 아이콘을 크게(2026-10-24 사용자), 낀 속성석은 오른쪽 아래에 작게. 속성석이 있으면 아이콘이 그 속성 색
-      skillIcon(ctx, C.icons[slot], x + 22, y + 21, col || '#a89cb0');  // 기본 칸도 도트 기술 아이콘(무기 그림 대신, 2026-10-24 사용자)
+      skillIcon(ctx, slotIconOf(prof, slot), x + 22, y + 21, col || '#a89cb0');  // 기본 칸도 도트 기술 아이콘(무기 그림 대신, 2026-10-24 사용자)
       if (s) {
         ctx.fillStyle = 'rgba(10,6,8,0.75)'; ctx.beginPath(); ctx.arc(x + 34, y + 33, 9, 0, Math.PI * 2); ctx.fill();
         Gfx.stoneIcon(ctx, s, x + 34, y + 33, 16);
@@ -439,6 +459,7 @@ const Hud = (() => {
     const legend = STONE_SLOTS.some(sl => { const st = Elements.socket(prof, sl); return st && st.size >= 4; });  // 완전한 · 전설 · 태초 돌은 빛이 돌아서 가끔 다시
     const key = [Math.ceil(Math.max(0, p.hp)), p.maxHp, Math.floor(p.sp), p.maxSp, prof.potions, prof.gold, prof.lv, Math.round(prof.exp / expToNext(prof.lv) * 680),
       Input.device, Input.settings.padLayout, dashCost(p), legend ? Math.floor(performance.now() / 100) : 0,
+      C.id === 'summoner' ? Summon.count() : 0, Math.ceil(p.specialCd * 10), Math.ceil((p.hideCd || 0) * 10),  // 소환수 수 · 특수기 · 숨기 쿨타임(기력이 가득일 때도 바뀌게)
       SLOTS.map(sl => { const it = prof.equip[sl]; return it ? it.uid + ':' + (it.gems || []).map(gm => (gm ? gm.el + gm.size : '')).join() : ''; }).join(),
       STONE_SLOTS.map(sl => { const st = Elements.socket(prof, sl); return st ? st.el + st.size : ''; }).join()].join('|');
     if (key !== panelKey) {

@@ -119,11 +119,11 @@ const Touch = (() => {
     for (const slot in els) {
       if (slot === 'basic' && inTown) continue;  // 마을: 말 걸기 버튼(mode 에서 그림)
       const st = Elements.socket(prof, slot), col = st ? ELEMENTS[st.el].color : '#a89cb0';
-      const key = C.icons[slot] + col;
+      const key = slotIconOf(prof, slot) + col;
       if (drawn[slot] !== key) {
         const g = els[slot].querySelector('canvas').getContext('2d');
         g.clearRect(0, 0, ICON, ICON);
-        g.drawImage(Hud.pixIcon(C.icons[slot], col), 0, 0);
+        g.drawImage(Hud.pixIcon(slotIconOf(prof, slot), col), 0, 0);
         drawn[slot] = key;
       }
       const s = els[slot].querySelector('small'), t = slotShortOf(Game.prof, slot);
