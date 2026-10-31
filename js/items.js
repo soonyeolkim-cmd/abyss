@@ -298,6 +298,18 @@ const Items = (() => {
     }
     return { swaps, skipped };
   }
+  // 가방 당기기(2026-10-31 사용자 '일괄 판매 · 분해 뒤 남은 장비가 멀리 흩어져서'): 빈칸 없이 앞으로, 놓인 순서는 그대로
+  function compactBag(prof) {
+    const a = prof.bag.filter(Boolean);
+    prof.bag.fill(null);
+    a.forEach((it, i) => { prof.bag[i] = it; });
+  }
+  // 가방 정리: 부위(무기 → 투구 → … → 반지) → 등급 높은 것 → 착용 레벨 높은 것 → 강화 높은 것 순으로 앞에서부터
+  function sortBag(prof) {
+    const a = prof.bag.filter(Boolean).sort((x, y) => SLOTS.indexOf(x.slot) - SLOTS.indexOf(y.slot) || y.rarity - x.rarity || y.ilvl - x.ilvl || (y.ups || 0) - (x.ups || 0) || x.uid - y.uid);
+    prof.bag.fill(null);
+    a.forEach((it, i) => { prof.bag[i] = it; });
+  }
   // 바꿔 낄 때 보석 옮기기: from 의 보석을 to 의 빈 칸으로. 빈 칸이 없으면 to 에 낀 보석을 주머니로 빼고 그 칸에,
   // to 에 칸이 아예 없으면(일반) 주머니로. { moved, pouch(주머니로 간 수) }
   function moveGems(prof, from, to) {
@@ -334,5 +346,5 @@ const Items = (() => {
 
   function setNextUid(n) { nextUid = Math.max(nextUid, n); }
 
-  return { classOk, normalize, migrate, rescale, refix, make, makeUnique, total, playerStats, describe, compare, base, setNextUid, score, better, baseScore, realScore, upgradeKind, req, canWear, equipBest, moveGems, isJunk, junk, sellable, sellAll, nameOf, canEnchant, enchant, canTransfer, transfer, removeHidden, addScroll, takeScroll, scrollStacks };
+  return { classOk, normalize, migrate, rescale, refix, make, makeUnique, total, playerStats, describe, compare, base, setNextUid, score, better, baseScore, realScore, upgradeKind, req, canWear, equipBest, moveGems, compactBag, sortBag, isJunk, junk, sellable, sellAll, nameOf, canEnchant, enchant, canTransfer, transfer, removeHidden, addScroll, takeScroll, scrollStacks };
 })();

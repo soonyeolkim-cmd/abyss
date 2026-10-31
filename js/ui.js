@@ -437,8 +437,16 @@ const UI = (() => {
     const skip = skipped.length ? '강화된 ' + skipped.map(s => SLOT_NAMES[s]).join(' · ') + ' 칸은 건너뜀 (강화를 옮긴 뒤 끼기)' : '';
     Game.toast(swaps.length ? '더 좋은 장비 ' + swaps.length + '개로 바꿔 꼈어요' + (skip ? ' · ' + skip : '') : skip || '이미 기본 능력치가 가장 좋은 장비를 끼고 있어요');
     if (!swaps.length) return;
+    Items.compactBag(prof);  // 빈 칸에 끼운 장비 자리가 비면 앞으로 당긴다(2026-10-31 사용자)
     Game.changed();
     askGemsMove(prof, swaps);
+  }
+  // 가방 정리(2026-10-31 사용자): 가방 아래 오른쪽 버튼 · 단축키 물약 버튼
+  function bagSort(prof) {
+    if (!prof.bag.some(Boolean)) { Game.toast('가방이 비었어요'); return; }
+    Items.sortBag(prof);
+    Game.toast('가방을 정리했어요 (부위 → 등급 → 레벨 순)');
+    Game.changed();
   }
   // 분해: 가방 칸 idx 들을 정수 가루로(낀 보석은 주머니로)
   function scrapAll(prof, idxs) {
@@ -463,14 +471,14 @@ const UI = (() => {
     if (!idx.length) { Game.toast('한꺼번에 분해할 장비가 없어요'); return; }
     const dust = idx.reduce((a, i) => a + scrapDust(prof.bag[i]), 0);
     Game.overlay({ type: 'confirm', text: '장비 ' + idx.length + '개를 분해할까요? (가루 +' + dust + ')', sub: '유니크 · 강화된 것은 남겨요 · 낀 보석은 주머니로',
-      yes: () => scrapAll(prof, idx) });
+      yes: () => { scrapAll(prof, idx); Items.compactBag(prof); Game.changed(); } });  // 남은 장비는 앞으로(2026-10-31 사용자)
   }
   function bulkSell(prof) {
     const idx = Items.sellable(prof);
     if (!idx.length) { Game.toast('팔 장비가 없어요 (유니크 · 강화된 것 · 보석 낀 것은 안 팔아요)'); return; }
     const gold = idx.reduce((a, i) => a + prof.bag[i].value, 0);
     Game.overlay({ type: 'confirm', text: '가방 장비 ' + idx.length + '개를 팔까요? (+' + gold + 'G)', sub: '유니크 · 강화된 것 · 보석 낀 것은 등급 상관없이 남겨요 · 낀 장비도 그대로',
-      yes: () => { const r = Items.sellAll(prof, idx); Game.toast(idx.length + '개 판매 +' + r.gold + 'G'); Game.changed(); } });
+      yes: () => { const r = Items.sellAll(prof, idx); Items.compactBag(prof); Game.toast(idx.length + '개 판매 +' + r.gold + 'G'); Game.changed(); } });  // 남은 장비는 앞으로(2026-10-31 사용자)
   }
   // 상점 물건: 물약 + 가장 작은(조각) 속성석 · 보석
   // 상점 물건 n개 사기(아이템 사고팔기 창 · 수량 창 공용)
@@ -573,14 +581,17 @@ const UI = (() => {
       if (this.zone === 'bag') return { item: prof.bag[this.idx], from: 'bag' };
       if (this.zone === 'equip') { const s = this.eslot; return { item: prof.equip[s], from: 'equip', slot: s }; }
       if (this.zone === 'btn') return { item: null, from: 'btn' };
+      if (this.zone === 'sort') return { item: null, from: 'sort' };
       return { item: null, from: 'shop', good: SHOP_GOODS()[this.shop] };
     },
     update(o, prof) {
       if (Input.wasPressed('back') || Input.wasPressed('inv')) { Game.closeOverlay(); return; }
       if (Input.wasPressed('special')) { bulkEquip(prof); return; }  // 단축키: 특수기 버튼 = 일괄 교체
+      if (Input.wasPressed('potion')) { bagSort(prof); return; }    // 단축키: 물약 버튼 = 가방 정리
       this.navigate(o.mode);
       if (!Input.wasPressed('ok')) return;
       if (this.zone === 'btn') { INV_BTNS[o.mode][this.btn].go(prof); return; }
+      if (this.zone === 'sort') { bagSort(prof); return; }
       const sel = this.selected(prof);
       if (sel.from === 'shop' && sel.good.scroll) {  // 계승 주문서 사기
         if (prof.gold < INHERIT_PRICE) { Game.toast('골드가 모자라요 (' + INHERIT_PRICE + 'G)'); return; }
@@ -670,7 +681,9 @@ const UI = (() => {
         }
         if (Input.nav('right') && col < BAG_COLS - 1) this.idx++;
         if (Input.nav('up')) { if (row > 0) this.idx -= BAG_COLS; else { this.zone = 'btn'; this.btn = Math.min(INV_BTNS[mode].length - 1, col >= 6 ? 1 : 0); } }
-        if (Input.nav('down') && row < BAG_SIZE / BAG_COLS - 1) this.idx += BAG_COLS;
+        if (Input.nav('down')) { if (row < BAG_SIZE / BAG_COLS - 1) this.idx += BAG_COLS; else this.zone = 'sort'; }  // 맨 아랫줄에서 ↓ = 가방 정리 버튼
+      } else if (this.zone === 'sort') {
+        if (Input.nav('up') || Input.nav('left')) { this.zone = 'bag'; this.idx = BAG_SIZE - 1; }
       } else if (this.zone === 'btn') {
         const n = INV_BTNS[mode].length;
         if (Input.nav('left')) { if (this.btn > 0) this.btn--; }
@@ -795,6 +808,13 @@ const UI = (() => {
         lx += 13 + ctx.measureText(t).width + 16;
       }
       T_(ctx, '가방이 가득 차면 낀 것보다 못한 장비는 주울 때 골드로 바뀌어요', 400, 304, 12, '#7a7078');
+      { // 가방 정리 버튼(2026-10-31 사용자): 가방 판 오른쪽 아래
+        const x = 826, y = 288, on = this.zone === 'sort';
+        zone(x, y, 92, 28, { pick: () => { this.zone = 'sort'; }, now: true });
+        ctx.fillStyle = on ? 'rgba(255,211,106,0.18)' : 'rgba(255,255,255,0.05)'; ctx.fillRect(x, y, 92, 26);
+        ctx.strokeStyle = on ? '#ffd36a' : '#5a4650'; ctx.lineWidth = on ? 2 : 1; ctx.strokeRect(x + 0.5, y + 0.5, 91, 25);
+        T_(ctx, '가방 정리', x + 46, y + 18, 13, on ? '#ffd36a' : '#e8e0d0', 'center');
+      }
       // 오른쪽 아래: 설명 + 비교
       Gfx.panel(ctx, 380, 334, 556, 160, B);
       if (SELL && sel.from === 'bag' && sel.item) T_(ctx, noSell(sel.item) ? '판매 안 됨' : '판매 가격 +' + sel.item.value + 'G', 916, 364, 16, noSell(sel.item) ? '#8a7e88' : '#ffd34d', 'right');
@@ -828,6 +848,10 @@ const UI = (() => {
           T_(ctx, GEMS[g.el] ? gemText(g) + ' (' + GEMS[g.el].where + ')' : '무기 속성석 칸에 끼우면 그 기술에 ' + ELEMENTS[g.el].name + ' 속성이 붙어요', 400, 394, 13, '#c8b8a0');
           T_(ctx, '세공사에서 같은 것 3개를 합치면 한 단계 큰 것이 돼요', 400, 416, 13, '#9a8e96');
         }
+      } else if (sel.from === 'sort') {
+        T_(ctx, '가방 장비를 빈칸 없이 앞으로 모아 정리해요', 400, 370, 14, '#c8b8a0');
+        T_(ctx, '부위 순(무기 → 투구 → … → 반지) · 같은 부위는 등급 · 레벨 · 강화 높은 것부터', 400, 394, 13, '#9a8e96');
+        T_(ctx, '일괄 교체 · 판매 · 분해 뒤에는 남은 장비가 놓인 순서대로 앞으로 모여요', 400, 418, 13, '#9a8e96');
       } else if (sel.from === 'btn') {
         const sell = INV_BTNS[o.mode][this.btn].sell, scrap = INV_BTNS[o.mode][this.btn].scrap;
         if (scrap) {
@@ -842,8 +866,8 @@ const UI = (() => {
         T_(ctx, '아이템 설명', 400, 370, 15, '#8a7e88');
         T_(ctx, '가방이나 장비 칸에서 아이템을 고르면 능력치 · 보석 · 낀 것과 비교가 여기에 나와요', 400, 396, 13, '#6a6068');
       }
-      const hint = this.zone === 'btn' ? '누르기 ' + L('ok') : o.mode === 'shop' ? (sel.from === 'shop' ? '구매 ' : '보기만 · 구매는 왼쪽 ') + L('ok') : o.mode === 'sell' && sel.from === 'bag' ? '판매 ' + L('ok') : SCRAP && sel.from === 'bag' ? '분해 ' + L('ok') : (sel.from === 'equip' ? '벗기 ' : '끼기 ') + L('ok');
-      hintBar(ctx, hint + ' · 일괄 교체 ' + L('special') + ' · 맨 윗줄에서 ↑ = 버튼 · 닫기 ' + L('back') + ' / ' + L('inv'));
+      const hint = this.zone === 'btn' || this.zone === 'sort' ? '누르기 ' + L('ok') : o.mode === 'shop' ? (sel.from === 'shop' ? '구매 ' : '보기만 · 구매는 왼쪽 ') + L('ok') : o.mode === 'sell' && sel.from === 'bag' ? '판매 ' + L('ok') : SCRAP && sel.from === 'bag' ? '분해 ' + L('ok') : (sel.from === 'equip' ? '벗기 ' : '끼기 ') + L('ok');
+      hintBar(ctx, hint + ' · 일괄 교체 ' + L('special') + ' · 정리 ' + L('potion') + ' · 맨 윗줄에서 ↑ = 버튼 · 닫기 ' + L('back') + ' / ' + L('inv'));
     },
   };
   let sellView = false;  // 장비 팔기 창을 그리는 중(가방 칸에 판매가 · 붉은 고름 테두리)
