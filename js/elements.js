@@ -240,7 +240,7 @@ const Elements = (() => {
     if (!s) return;
     const k = power(s), big = !!def.fin || def.slot === 'dash', wave = def.slot === 'wave', open = slotOpen(s);
     // 검사 검기는 속성 효과 약 2배 · 속성 피해 3배(2026-10-25 사용자). 마법사 마력탄도 검사처럼 배율(2026-10-30 사용자: 마법사가 약해서) — ORB_EL
-    const sword = def.id === 'wave' || def.id === 'quake';  // 망치 지진파도 검기와 같은 배율(2026-10-30)
+    const sword = def.id === 'wave' || def.id === 'quake' || def.id === 'judge' || def.id === 'smite';  // 망치 지진파도 검기와 같은 배율(2026-10-30) · 성기사 심판 · 천벌도(2026-10-31 — 몇 초에 한 번이라 한 번에 세게)
     const orbLike = def.id === 'orb';
     const sw = !wave ? 1 : sword ? 2 : orbLike ? ORB_EL.sw : 1;
     const swd = !wave ? 1 : sword ? 3 : orbLike ? ORB_EL.swd : 1;
@@ -564,9 +564,18 @@ const Elements = (() => {
       T.thunder.wave = ['사슬 계약에 맞은 적에서 번개가 ' + (1 + Math.floor(s.size / 2)) + '번 튐 (사슬 걸린 적은 ' + CLASSES.summoner.special.chain.mark + '초 동안 악마에게 맞을 때도)', '공격력의 ' + pc(0.5 * k) + ' + 감전'];
       T.poison.wave = ['사슬 계약에 맞으면 독 2 (사슬 걸린 적은 ' + CLASSES.summoner.special.chain.mark + '초 동안 악마에게 맞을 때도)', '0.5초마다 중첩당 공격력의 ' + pc(0.05 * k)];
     }
+    // 성기사(2026-10-31): 스킬 칸 = 막기 · 신성 갑옷(회전베기 자리 — 완벽한 막기 · 보복 폭발 때 둘레 폭발, 막을 때 때린 몹에게도), 특수 칸 = 심판 · 천벌
+    const paladin = clsOf(prof).id === 'paladin';
+    if (paladin) {
+      T.fire.wave = ['심판 · 천벌에 맞으면 화상 3초: 초당 공격력의 ' + pc(0.3 * k), '보통 크기부터: 맞은 자리에서 불꽃 폭발'];
+      T.frost.wave = ['심판 · 천벌에 맞으면 냉기 2', '냉기 ' + FREEZE_AT + ' = 빙결 ' + (1 + 0.25 * k).toFixed(1) + '초'];
+      T.thunder.wave = ['심판 · 천벌에 맞은 적에서 번개가 ' + (1 + Math.floor(s.size / 2)) + '번 튐', '공격력의 ' + pc(0.5 * THUNDER.waveChain * k) + ' + 감전'];
+      T.poison.wave = ['심판 · 천벌에 맞으면 독 2 (보통 크기부터 3)', '0.5초마다 중첩당 공격력의 ' + pc(0.05 * k)];
+    }
     const word = t => (mage ? t.split('대시 찌르기').join('마력 파동').split('회전베기').join('마법진').split('찌르기').join('마력 폭풍').split('검기').join('마력탄')
       : assassin ? t.split('대시 찌르기').join('선풍 베기').split('마무리(찌르기)').join('마무리(교차 베기)')
-      : summoner ? summonerWord(t, prof).split('마무리(찌르기)').join('마무리(2타)') : t);
+      : summoner ? summonerWord(t, prof).split('마무리(찌르기)').join('마무리(2타)')
+      : paladin ? t.split('대시 찌르기').join('방패 강타').split('회전베기 때').join('완벽한 막기 · 보복 폭발 때').split('마무리(찌르기)').join('마무리(3타)') : t);
     const [an] = elAbil(s.el, slot, prof);
     return [...T[s.el][slot].map(word), slotOpen(s) ? '✦ ' + an + ' (열림)' : '· ' + an + ' — 보통 크기부터 열려요'];
   }

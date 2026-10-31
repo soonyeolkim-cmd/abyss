@@ -179,6 +179,7 @@ const Art = (() => {
       if (full && Math.random() < 0.4) { ctx.fillStyle = Elements.color(p.prof, 'charge'); ctx.fillRect(Math.round(p.x + (Math.random() - 0.5) * 22), Math.round(p.y - Math.random() * 22), 1, 1); }
       ctx.restore();
     }
+    Paladin.drawUnder(ctx, p, time);  // 성기사: 발밑 오라 · 신성 갑옷 빛
     const behind = p.fv.y < -0.35 && p.state !== 'act';
     const offFront = pose.off && p.state === 'act' && p.fv.y > 0.3;  // 왼손 무기는 보통 몸 뒤, 아래를 보고 휘두를 때만 앞
     if (pose.off && !offFront) drawWeapon(pose.off);
@@ -186,6 +187,7 @@ const Art = (() => {
     Gfx.spr(ctx, name, p.x, p.y - (p.state === 'dead' ? -4 : 0), o);
     if (!behind) drawWeapon();
     if (offFront) drawWeapon(pose.off);
+    Paladin.drawOver(ctx, p, time, o.flip);  // 성기사: 방패(막는 동안 앞에 크게)
     // 칼 궤적: 그 기술 칸에 속성석이 있으면 속성 색, 없으면 흰색(봉인의 숲 규칙)
     if (pose.trail && w && p.act && p.act.def.orbTip) {
       // 롯드 · 스태프: 끝의 빛 구슬이 지나간 자리에 흐려지는 구슬 다섯 개(봉인의 숲 지팡이와 같은 결)
@@ -941,6 +943,18 @@ const Art = (() => {
           ctx.fillStyle = f.col; ctx.beginPath(); ctx.moveTo(x, top - s); ctx.lineTo(x + s, top); ctx.lineTo(x, top + s); ctx.lineTo(x - s, top); ctx.closePath(); ctx.fill();
           ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(x) - 1, Math.round(top) - 1, 2, 2);
           if (!f.miss && drop >= 1) { ctx.strokeStyle = f.col; ctx.lineWidth = f.big ? 2 : 1; const rr = f.r * (1.3 - 0.3 * Math.min(1, k * 2)); ctx.beginPath(); ctx.ellipse(x, y, rr, rr * GROUND_Y, 0, 0, Math.PI * 2); ctx.stroke(); }
+          ctx.restore();
+          break;
+        }
+        case 'holybeam': {  // 성기사 심판: 하늘에서 내리꽂는 빛기둥 + 바닥 빛 원(판정 = 바닥 타원 반지름 f.r — 기둥 너비도 그 안)
+          const e = 1 - k, drop = Math.min(1, k * 5), top = f.y - 70, bot = top + (f.y - top) * drop, w = f.r * (0.9 - 0.4 * k);
+          ctx.save(); ctx.globalCompositeOperation = 'lighter';
+          ctx.globalAlpha = 0.5 * e; ctx.fillStyle = f.col; ctx.fillRect(Math.round(f.x - w), Math.round(top), Math.round(w * 2), Math.round(bot - top));
+          ctx.globalAlpha = 0.8 * e; ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(f.x - w * 0.35), Math.round(top), Math.max(1, Math.round(w * 0.7)), Math.round(bot - top));
+          if (drop >= 1) {
+            ctx.globalAlpha = 0.35 * e; ctx.fillStyle = f.col; ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r, f.r * GROUND_Y, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 0.9 * e; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r * (0.6 + 0.4 * k), f.r * GROUND_Y * (0.6 + 0.4 * k), 0, 0, Math.PI * 2); ctx.stroke();
+          }
           ctx.restore();
           break;
         }

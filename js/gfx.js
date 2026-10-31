@@ -9,7 +9,7 @@ const Gfx = (() => {
   // mage = 마법사(검사 몸 + 파란 로브 · 금빛 띠 · 끝이 꺾인 뾰족 모자, 2026-10-25 사용자 고름 B)
   const SHEETS = {}, HERO = {};
   // 검사 몸 + 의상 시트(16x28 × 9칸): 직업 hero · mage, 마을 NPC kael(파수꾼 카엘) · miner(늙은 광부) · gambler(도박꾼 단지) — tools/npc-outfit.js 로 구움
-  for (const id of ['hero', 'mage', 'assassin', 'summoner', 'kael', 'miner', 'gambler']) {  // assassin = 암살자(2026-10-25) · summoner = 소환사(2026-10-31, tools/class-outfit.js SUMM1)
+  for (const id of ['hero', 'mage', 'assassin', 'summoner', 'paladin', 'kael', 'miner', 'gambler']) {  // paladin = 성기사(2026-10-31, tools/class-outfit.js PAL1)  // assassin = 암살자(2026-10-25) · summoner = 소환사(2026-10-31, tools/class-outfit.js SUMM1)
     const img = new Image();
     img.src = 'assets/dt/' + id + '.png';
     ['idle_anim_f0', 'idle_anim_f1', 'idle_anim_f2', 'idle_anim_f3', 'run_anim_f0', 'run_anim_f1', 'run_anim_f2', 'run_anim_f3', 'hit_anim_f0']
@@ -27,6 +27,9 @@ const Gfx = (() => {
     weapon_bell: ['....o....', '...oGo...', '..oggwo..', '.oggwggo.', '.ogggggo.', '.ogggggo.', 'oGGGGGGGo', '.oo.o.oo.', '....g....', '...oRo...', '...oro...', '...oRo...', '...oro...', '...oGo...', '....o....'],
     // 계약서(2026-10-31): 위아래 말린 두루마리 · 보라 글씨 · 붉은 인장 · 아래 끈
     weapon_pact: ['oooooooo', 'oGPPPPGo', '.oooooo.', '.opkkpo.', '.oppppo.', '.opkkko.', '.oppppo.', '.opkkpo.', '.opsspo.', '.oppppo.', '.oooooo.', 'oGPPPPGo', 'oooooooo', '...rr...', '...r.r..'],
+    // 성기사(2026-10-31): 메이스 = 금빛 테 두른 강철 머리(돌기) · 긴 손잡이 / 성망치 = 넓은 강철 머리 · 금 장식 · 가운데 빛 · 긴 자루
+    weapon_mace: ['..o.o.o..', '.oaoaoao.', 'oawaaawao', 'oaawaaaao', 'ogaaaaago', '.ogggggo.', '..oGGGo..', '...oGo...', '...oro...', '...oRo...', '...oro...', '...oRo...', '...oro...', '...oGo...', '....o....'],
+    weapon_warhammer: ['ooooooooooo', 'oaawaaaaago', 'oawwaggaaGo', 'oaaagwwgaGo', 'oaawaggaaGo', 'oaaaaaaaago', 'ooooogooooo', '....oGo....', '....oro....', '....oRo....', '....oro....', '....oRo....', '....oro....', '....oRo....', '....oro....', '....oGo....', '.....o.....'],
     weapon_sai: ['....o....', '...owo...', '...owo...', '...owo...', '...oao...', '...oao...', '.o.oao.o.', 'oaooaooao', 'oaooaooao', '.oaoaoao.', '..oaaao..', '...ogo...', '...oro...', '...oRo...', '...oro...', '...oGo...', '....o....'],
   };
   for (const name in WPIX) {

@@ -1504,12 +1504,13 @@ const UI = (() => {
 
   // ── 새 캐릭터: 직업 고르기 화면(2026-10-31 사용자 '목록 말고 화면에서 고르게') ── 카드 넷(검사 · 마법사 · 암살자 · 소환사) + 코드로 불러오기 버튼.
   // ←→ 카드 · ↓ 불러오기 버튼 · 만들기 = 확인, 폰은 카드를 한 번 누르면 고르고 한 번 더 누르면 만들기
-  const NEWCHAR_CLS = ['swordsman', 'mage', 'assassin', 'summoner'];
+  const NEWCHAR_CLS = ['swordsman', 'mage', 'assassin', 'summoner', 'paladin'];
   const NEWCHAR_TXT = {
     swordsman: ['근접 연타 · 회전베기 · 검기', [['검', '빠른 연격 · 치명타'], ['망치', '범위 분쇄 · 안 밀림']]],
     mage: ['숨결 · 마력탄 · 마법진', [['롯드', '세 발 연사 · 순간이동'], ['스태프', '큰 마법진 · 운석']]],
     assassin: ['양손 무기 · 그림자 숨기', [['카타르', '기습 · 백스탭'], ['싸이', '출혈 · 연속 돌진']]],
     summoner: ['소환수와 함께 싸운다', [['방울', '솜뿔이 6마리 · 합체'], ['계약서', '꼬마 악마 2 · 사슬']]],
+    paladin: ['막고 · 모으고 · 심판한다', [['메이스', '방패 막기 · 반격'], ['성망치', '신성 갑옷 · 천벌']]],
   };
   const newcharAv = {};  // 카드 그림용 몸(직업 첫 무기를 든 모습)
   const newchar = {
@@ -1533,7 +1534,8 @@ const UI = (() => {
       ctx.fillStyle = 'rgba(8,4,10,0.98)'; ctx.fillRect(0, 0, 960, 540);
       T_(ctx, '캐릭터 ' + (o.n + 1) + ' — 직업 고르기', 480, 62, 24, '#f0e0b8', 'center');
       NEWCHAR_CLS.forEach((id, i) => {
-        const C = CLASSES[id], x = 40 + i * 225, y = 92, w = 205, h = 340, on = this.sel === i, [role, wps] = NEWCHAR_TXT[id];
+        const STEP = 184, x0 = (960 - (NEWCHAR_CLS.length * STEP - 10)) / 2;  // 카드 다섯 장(2026-10-31 성기사)이 한 화면에
+        const C = CLASSES[id], x = x0 + i * STEP, y = 92, w = STEP - 10, h = 340, on = this.sel === i, [role, wps] = NEWCHAR_TXT[id];
         zone(x, y, w, h, { on: () => this.sel === i, pick: () => { this.sel = i; } });
         Gfx.panel(ctx, x, y, w, h, { border: on ? '#ffd36a' : '#5a4650' });
         T_(ctx, C.name, x + w / 2, y + 36, 22, on ? '#ffd36a' : '#f0e0b8', 'center');
@@ -1543,10 +1545,10 @@ const UI = (() => {
         const av = newcharAv[id] || (newcharAv[id] = { cls: id, equip: { weapon: Items.make(1, { slot: 'weapon', kind: C.weapons[0], rarity: 0 }) } });
         Art.avatar(ctx, av, x + w / 2 - 6, y + 196, 4, on ? time : 0);
         if (id === 'summoner') { Summon.icon(ctx, 'puff', x + 40, y + 196, 3, on ? time : 0); Summon.icon(ctx, 'imp', x + w - 38, y + 176, 2, on ? time : 0); }
-        T_(ctx, role, x + w / 2, y + 232, 14, '#c8b8a0', 'center');
+        T_(ctx, role, x + w / 2, y + 232, 13, '#c8b8a0', 'center');
         wps.forEach(([wn, wd], j) => {
-          T_(ctx, wn, x + 18, y + 266 + j * 26, 14, '#ffd36a');
-          T_(ctx, wd, x + 18 + 56, y + 266 + j * 26, 12, '#9a8e96');
+          T_(ctx, wn, x + 12, y + 266 + j * 26, 13, '#ffd36a');
+          T_(ctx, wd, x + 12 + 50, y + 266 + j * 26, 11, '#9a8e96');
         });
         T_(ctx, '공격 = ' + (C.atkName || '공격력'), x + w / 2, y + h - 14, 12, '#7a7078', 'center');
       });

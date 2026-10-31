@@ -64,7 +64,7 @@ const wkOf = p => WEAPON_KINDS[(p.stats && p.stats.kind) || weaponKindOf(p.prof)
 // 기력: which = 'charge' | 'special'(HUD · 설정 조작표도 이것으로)
 function costOf(prof, which) {
   const C = clsOf(prof), wk = WEAPON_KINDS[weaponKindOf(prof)] || WEAPON_KINDS.none;
-  if (which === 'charge') return C.charge.hide && wk.hideCost !== undefined ? wk.hideCost : wk.summonCost !== undefined ? wk.summonCost : C.charge.cost;  // 소환사: 소환 기력은 무기 종류로
+  if (which === 'charge') return C.charge.hide && wk.hideCost !== undefined ? wk.hideCost : wk.summonCost !== undefined ? wk.summonCost : wk.chargeCost !== undefined ? wk.chargeCost : C.charge.cost;  // 소환사: 소환 기력은 무기 종류로 · 성기사 막기 · 신성 갑옷(chargeCost)
   return wk.specialCost !== undefined ? wk.specialCost : C.special.cost;
 }
 const specialCdOf = p => { const wk = wkOf(p); return wk.specialCd !== undefined ? wk.specialCd : p.cls.special.cd; };
@@ -94,6 +94,7 @@ function slotShortOf(prof, slot) {
 function slotIconOf(prof, slot) {
   const C = clsOf(prof), wk = WEAPON_KINDS[weaponKindOf(prof)] || {};
   if (slot === 'wave' && wk.specialDef && C[wk.specialDef] && C[wk.specialDef].icon) return C[wk.specialDef].icon;
+  if (slot === 'charge' && wk.chargeDef && C[wk.chargeDef] && C[wk.chargeDef].icon) return C[wk.chargeDef].icon;  // 성기사 성망치: 신성 갑옷
   return C.icons[slot];
 }
 
@@ -104,6 +105,7 @@ function actDef(C, kind, idx, body) {
   if (kind === 'charge') return chargeDefOf(C, body ? wkOf(body) : null);
   if (kind === 'special') return specialDefOf(C, body ? wkOf(body) : null);
   if (kind === 'stab') return C.stab || null;         // 암살자 백스탭
+  if (kind === 'counter') { const wk = body ? wkOf(body) : null; return (wk && wk.counter && C[wk.counter]) || C.counter || null; }  // 성기사 반격 베기
   return null;
 }
 
@@ -192,6 +194,7 @@ function updatePlayer(p, dt, room, gates) {
   p.potionCd = Math.max(0, p.potionCd - dt);
   p.leafT = Math.max(0, (p.leafT || 0) - dt);    // 유니크 잎사귀 방패 다시 생기기까지
   p.guardT = Math.max(0, (p.guardT || 0) - dt);  // 유니크 잔상 보호막 남은 시간
+  if (C.id === 'paladin') Paladin.update(p, dt);  // 성기사: 반격 시간 · 신성 갑옷 · 빛기둥(js/paladin.js)
   if (p.echo) updateEcho(p, dt);
   if (p.hidden && !p.dead && !p.remote) updateHide(p, dt);  // 방장 쪽 손님 몸은 손님이 보낸 숨기 상태만(길 · 기력은 손님 기기에서)
   p.slowT = Math.max(0, (p.slowT || 0) - dt);  // 냉기 강화 몹에게 맞으면 느려짐
@@ -262,6 +265,8 @@ function tryStart(p, b) {
   p.buffer = null;
   if (b === 'attack') {
     if (p.hidden) return hiddenStrike(p);  // 암살자: 숨은 중 공격 = 백스탭 · 표창
+    const cw = wkOf(p).counter;  // 성기사 메이스: 완벽한 막기 바로 뒤 공격 = 반격 베기
+    if (p.counterT > 0 && cw && C[cw]) { p.counterT = 0; startAct(p, C[cw], 'counter', 0); return true; }
     if (p.dashAtkT > 0) { p.dashAtkT = 0; startAct(p, dashDefOf(C, wkOf(p)), 'dashAtk', 0); }  // 대시 끝난 직후도 대시 찌르기
     else startAct(p, comboDef(C, 0, wkOf(p)), 'combo', 0);
     return true;
@@ -284,6 +289,7 @@ function tryStart(p, b) {
     // 마법진은 한 번에 하나만(2026-10-24 사용자) — 깔린 것이 터지기 전에는 못 깐다(기력도 안 씀)
     // 소환사: 그 무기 소환수가 이미 최대면 안 부른다(기력도 안 씀, 2026-10-31 사용자 — 마법진처럼 알림)
     if (C.charge.def.summon && Summon.full(p)) { if (p.spWarnT <= 0) { const m = SUMMON[wkOf(p).pet || 'puff']; World.text(p.x, p.y, 40, m.name + ' 최대 ' + m.max + '마리 — 더 부를 수 없어요', '#c9b8ff'); p.spWarnT = 0.6; } return false; }
+    if (p.armorT > 0 && chargeDefOf(C, wkOf(p)).armor) return false;  // 성기사 신성 갑옷: 입은 동안은 다시 못 입음
     if (C.charge.def.circle && World.magicActive()) { if (p.spWarnT <= 0) { World.text(p.x, p.y, 40, '마법진이 이미 있어요', '#c9b8ff'); p.spWarnT = 0.6; } return false; }
     if (!spend(p, costOf(p.prof, 'charge'))) return false;
     startAct(p, chargeDefOf(C, wkOf(p)), 'charge', 0);
@@ -294,7 +300,9 @@ function tryStart(p, b) {
     const wk = wkOf(p), chain = C.special.rush && wk.rushChain && p.rushChainT > 0;  // 싸이: 돌진 베기 뒤 잠깐 동안 한 번 더(기력 · 쿨타임 없이, 한 번만)
     const md = specialDefOf(C, wk).merge;  // 소환사 방울 합체: 솜뿔이 min 마리 이상이어야(아니면 기력 · 대기를 안 쓴다)
     if (md && !Summon.canMerge(p, md)) { if (p.spWarnT <= 0) { World.text(p.x, p.y, 40, Summon.count() ? '솜뿔이가 ' + md.min + '마리 모여야 합체해요 (지금 ' + Summon.count() + '마리)' : '소환수가 없어요 — 먼저 ' + Input.label('charge') + ' 소환', '#d6b4f6'); p.spWarnT = 0.6; } return false; }
-    const cd = specialDefOf(C, wk).chain;  // 소환사 계약서 사슬 계약: 걸 적이 없으면 기력 · 대기를 안 쓴다
+    const sd = specialDefOf(C, wk);  // 성기사 심판 · 천벌: 신성력이 없으면 못 씀(기력 · 대기 안 씀)
+    if ((sd.judge || sd.smite) && !(p.holy > 0)) { if (p.spWarnT <= 0) { World.text(p.x, p.y, 40, '신성력이 없어요 — 막기 · 3타로 모아요', '#ffd86a'); p.spWarnT = 0.6; } return false; }
+    const cd = sd.chain;  // 소환사 계약서 사슬 계약: 걸 적이 없으면 기력 · 대기를 안 쓴다
     if (cd && !Summon.chainTarget(p, cd)) { if (p.spWarnT <= 0) { World.text(p.x, p.y, 40, '사슬을 걸 적이 없어요', '#d6b4f6'); p.spWarnT = 0.6; } return false; }
     if (!chain && (p.specialCd > 0 || !spend(p, costOf(p.prof, 'special')))) return false;
     if (!chain) p.specialCd = specialCdOf(p);
@@ -397,7 +405,7 @@ function startAct(p, def, kind, idx, o = {}) {
   if (def.spin && def.slot === 'charge') { const st = Elements.socket(p.prof, 'charge'); if (st) hd.radius *= 1 + 0.05 * (st.size + 1); }
   // 망치 대지 강타: 회전베기처럼 차지 칸 속성석 크기마다 넓게 — 충격파 그림도 hd.area 를 따름
   if (def.area && def.slot === 'charge') { const st = Elements.socket(p.prof, 'charge'); hd.area = { ahead: def.area.ahead, r: def.area.r * (st ? 1 + 0.05 * (st.size + 1) : 1) }; }
-  if (kind !== 'dashAtk' && !o.aimed && !def.summon && !def.chain && !def.merge) aimAt(p, def.brand ? def.brand.range : def.circle ? def.circle.range : def.orb ? def.orb.range * 0.7 : def.wave ? def.wave.range * 0.6 : def.quake ? def.quake.range * 0.6 : def.knives ? def.knives.range * 0.8 : def.area ? def.area.ahead + def.area.r : def.radius || hd.reach[1]);  // 대시 찌르기는 대시한 방향 그대로 · 검기는 멀리까지
+  if (kind !== 'dashAtk' && !o.aimed && !def.summon && !def.chain && !def.merge && !def.armor) aimAt(p, def.guard ? 60 : def.judge ? def.judge.range : def.smite ? def.smite.r0 + def.smite.rN : def.brand ? def.brand.range : def.circle ? def.circle.range : def.orb ? def.orb.range * 0.7 : def.wave ? def.wave.range * 0.6 : def.quake ? def.quake.range * 0.6 : def.knives ? def.knives.range * 0.8 : def.area ? def.area.ahead + def.area.r : def.radius || hd.reach[1]);  // 대시 찌르기는 대시한 방향 그대로 · 검기는 멀리까지
   p.state = 'act';
   p.act = {
     def, hd, kind, idx, time: 0, hit: new Set(), wave: -1, fxDone: false, x0: p.x, y0: p.y,
@@ -409,8 +417,10 @@ function startAct(p, def, kind, idx, o = {}) {
   if (def.orb) Sfx.cast();  // 마력탄: 마법 소리(2026-10-25)
   else if (def.heavy || def.spin) Sfx.heavySwing(); else Sfx.swing();
   // 파티 손님: 방장 쪽 내 몸도 같은 동작을(맞히기 · 속성석 효과는 거기서)
+  // 성기사 심판 · 천벌: 쓰는 신성력(방장 쪽 손님 몸은 손님이 보낸 수 o.holy)
+  if (def.judge || def.smite) { p.act.holy = p.remote ? (o.holy || 0) : (p.holy || 0); if (!p.remote) p.holy = 0; }
   if (World.mirror && p === World.player) Coop.sendAct({ k: kind, i: idx, x: p.x, y: p.y, fx: p.fv.x, fy: p.fv.y, push: p.act.push ? 1 : 0,
-    len: o.len, fly: o.fly && o.fly.map(Math.round) });
+    len: o.len, fly: o.fly && o.fly.map(Math.round), ho: p.act.holy });
 }
 
 function updateAct(p, dt, room) {
@@ -492,10 +502,13 @@ function updateAct(p, dt, room) {
       Sfx.cast();
     }
     if (d.chain) Summon.chain(p, d);  // 소환사 계약서 사슬 계약
+    if (d.judge) Paladin.judge(p, d, a.holy);  // 성기사 심판(빛기둥)
+    if (d.smite) Paladin.smite(p, d, a.holy);  // 성기사 천벌(둘레 빛 원)
+    if (d.armor) Paladin.armorStart(p, d.armor);  // 성기사 신성 갑옷
     if (d.merge) Summon.merge(p, d.merge);  // 소환사 방울 솜뿔이 합체
     if (d.echo) Summon.echo(p, d, a.hit);  // 소환사 방울 메아리: 솜뿔이 자리마다 고리(내 둘레 고리와 같은 목록 — 한 적은 한 번)
     if (d.execute) Summon.execute(p, d.execute);  // 소환사 계약서 계약 집행
-    if (a.kind === 'charge' && !d.circle && !d.knives && !d.summon) Elements.chargeBurst(p, d.spin ? a.hd.radius : a.hd.area ? a.hd.area.r : 0);  // 회전베기 · 대지 강타: 속성 범위 = 베기 · 충격파 범위
+    if (a.kind === 'charge' && !d.circle && !d.knives && !d.summon && !d.guard && !d.armor) Elements.chargeBurst(p, d.spin ? a.hd.radius : a.hd.area ? a.hd.area.r : 0);  // 회전베기 · 대지 강타: 속성 범위 = 베기 · 충격파 범위
     if (a.kind === 'stab') Elements.chargeBurst(p);  // 백스탭도 차지 칸 속성석 폭발(대상 등 뒤 자리에서)
     if (a.fly) World.fx({ type: 'shadowpath', pts: [[a.fly.x0, a.fly.y0]], follow: p, w: 8, t: 0, life: 0.3, col: '#b9a0ff' });  // 날아온 길  // 회전베기 칸 속성석: 둘레 폭발(마법진은 터질 때 그 자리에서)
     if (d.pulse) World.fx({ type: 'pulse', x: p.x, y: p.y, r: a.hd.radius, t: 0, life: 0.3, col: Elements.color(p.prof, 'dash') });
@@ -582,6 +595,7 @@ function updateAct(p, dt, room) {
       if (hitEnemy(e, d, p)) { a.hit.add(e); landed = true; nHit++; if (d.breath) Elements.breathHit(e, d, p); if (d.mark) { Summon.basicHit(p, e, d, !a.hasted); a.hasted = true; } }  // 소환사 종소리: 표식 · 소환수 가속(한 번에 한 번) · 큰 종소리 협공
     }
     if (d.soul && nHit) Summon.heal(nHit * d.soul);  // 소환사 영혼 흡수: 소환수 체력
+    if (d.holy && landed && !a.holyDone) { a.holyDone = true; Paladin.gain(p, d.holy); }  // 성기사 3타 · 반격 베기: 맞으면 신성력
     // 유니크 잔상 일격: 3타째가 맞으면 잔상이 같은 적을 더 친다
     if (landed && d.fin && p.stats.fx.echo && !p.echo) p.echo = { t: 0, n: 0, targets: [...a.hit], def: Object.assign({}, d, { mult: d.mult * UNIQUE_FX.echoMult, knock: 30, stun: 0.2, heavy: false }) };
     if (landed) {
