@@ -287,7 +287,9 @@ const Art = (() => {
       else if ((e.chill > 0 || e.crackT > 0) && tick === 0) o.flash = '#cfefff';
       else if (e.shockT > 0 && tick === 2) o.flash = '#fff2a0';
     }
-    if (e.spawnT > 0) {
+    // 나타나는 중: 땅에서 솟는 몹은 투명 → 진하게. 보스는 깨기 전부터 서 있어서 투명해지면 사라졌다 다시 나오는 것처럼 보임(2026-10-31 사용자) → 흰빛으로 번쩍
+    if (e.spawnT > 0 && d.boss) o.flash = Math.floor(time * 14) % 2 ? '#ffffff' : false;
+    else if (e.spawnT > 0) {
       const k = Math.min(1, e.spawnT / 0.7);
       o.alpha = 1 - k;
       y += k * 8;

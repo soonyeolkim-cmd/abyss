@@ -504,7 +504,8 @@ const World = (() => {
     if (!bossAwake && [p, ...rps].some(t => Dungeon.roomAt(lv, t.x, t.y) === lv.boss)) {
       bossAwake = true;
       const b = enemies.find(e => e.rank === 'boss');
-      if (b) { b.awake = true; b.spawnT = lv.def.raid ? 2 : 0.8; msg = (lv.def.raid ? '최종 보스 — ' : lv.def.endless ? '중간 보스 — ' : '') + b.name; msgT = 2.2; Sfx.roar(); shake(4); Story.trigger('boss', lv.def); }
+      if (b) { b.awake = true; b.spawnT = lv.def.raid ? 2 : 0.8; addFx({ type: 'pulse', x: b.x, y: b.y, r: b.r + 14, t: 0, life: 0.5, col: '#ffffff' }); sparks(b.x, b.y, b.h * 0.5, 16, '#ffffff', true);  // 깨어남: 몸 둘레 흰 고리 · 불티(판정 없음)
+        msg = (lv.def.raid ? '최종 보스 — ' : lv.def.endless ? '중간 보스 — ' : '') + b.name; msgT = 2.2; Sfx.roar(); shake(4); Story.trigger('boss', lv.def); }
     }
     // 계단: 밟으면 물어본다(실수로 나가지 않게). 내려섰다가 다시 밟으면 또 묻는다
     if (lv.stairs && !p.dead) {
@@ -1121,7 +1122,7 @@ const World = (() => {
     for (const m of mates) if (inView(m.x, m.y)) list.push({ y: m.y, draw: () => { if (!m.hidden) Art.shadow(ctx, m.x, m.y, 6, 0, 1); Art.player(ctx, m, time); } });
     Summon.drawList(ctx, list, time, p, inView);  // 소환사 소환수
     list.sort((a, b) => a.y - b.y);
-    for (const e of vis) { if (untouchable(e)) continue; Art.aura(ctx, e, time); Art.shadow(ctx, e.x, e.y, e.r + 2, e.z, e.spawnT > 0 ? 0.4 : 1); }  // 땅속 · 사라진 몹은 그림자 없음
+    for (const e of vis) { if (untouchable(e)) continue; Art.aura(ctx, e, time); Art.shadow(ctx, e.x, e.y, e.r + 2, e.z, e.spawnT > 0 && !e.def.boss ? 0.4 : 1); }  // 땅속 · 사라진 몹은 그림자 없음
     if (!p.hidden) Art.shadow(ctx, p.x, p.y, 6, 0, 1);
     drawWards(ctx);
     Summon.drawMarks(ctx, time);  // 소환사 표식 적

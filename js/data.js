@@ -225,8 +225,10 @@ const WEAPON_KINDS = {
 // speed · r(몸) · sight(주인 둘레 이 안의 적만 노림) · atk { mult 주인 공격력 배율, cd 초, reach px, wind 준비 초, aoe = 내리치기 반지름(바닥 타원 — 그림 = 판정) }.
 // 배율은 연습장에서 맞춤(본인 약 40% · 소환수 약 60%). killSp = 소환수가 적을 쓰러뜨리면 주인 기력 +
 const SUMMON = {
-  puff: { name: '솜뿔이', max: 4, hp: 0.15, def: 0.3, speed: 96, r: 5, h: 13, sight: 140, atk: { mult: 0.9, cd: 0.75, reach: 10, wind: 0.12 } },
-  imp: { name: '꼬마 악마', max: 2, hp: 0.4, def: 0.5, speed: 78, r: 8, h: 19, sight: 150, atk: { mult: 1.9, cd: 1.1, reach: 14, wind: 0.22, aoe: 22 } },
+  // 체력 · 방어(2026-10-31 사용자 '너무 빨리 녹는다 — 적어도 플레이어 체력 수준'): 솜뿔이 0.15 · 0.3 → 1.0 · 1.0, 꼬마 악마 0.4 · 0.5 → 1.5 · 1.0
+  //   (Lv.40 오크 한 방 432: 예전 솜뿔이 한 대 · 꼬마 악마 두 대에 쓰러짐 → 이제 나처럼 네 대 · 꼬마 악마 다섯 대)
+  puff: { name: '솜뿔이', max: 4, hp: 1.0, def: 1.0, speed: 96, r: 5, h: 13, sight: 140, atk: { mult: 0.9, cd: 0.75, reach: 10, wind: 0.12 } },
+  imp: { name: '꼬마 악마', max: 2, hp: 1.5, def: 1.0, speed: 78, r: 8, h: 19, sight: 150, atk: { mult: 1.9, cd: 1.1, reach: 14, wind: 0.22, aoe: 22 } },
   killSp: 5, leash: 230, markMul: 1.2, hasten: 0.1, assist: 0.3,  // 표식 적 피해 배율 · 영혼탄이 맞을 때 소환수 다음 공격 당김(초) · 협공 한 방(소환수 한 방 배율 ×)
 };
 
