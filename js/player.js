@@ -456,13 +456,13 @@ function updateAct(p, dt, room) {
     // 그림 단계 tier(2026-10-26 사용자: 속성석 레벨에 따라 멋져지게, 구간마다): 0 = 없음 · 조각 · 작은 / 1 = 보통 · 큰 / 2 = 완전한 / 3 = 전설 · 태초(art.js orb)
     if (d.orb) {
       const st = Elements.socket(p.prof, 'wave'), tier = Elements.tier(st), wk = wkOf(p), vol = wk.orbVolley;
-      // 롯드: 세 발을 조금씩 벌려 한꺼번에(한 발 배율은 줄임) · 스태프: 느린 운석(meteor — 구슬 크기는 마력탄 그대로, 맞은 자리에서 크게 터짐, orbBurst)
+      // 롯드: 세 발을 조금씩 벌려 한꺼번에(한 발 배율은 줄임) — 따라가지 않고 늘 세 가닥 그대로(2026-10-31 사용자: 몹 하나로 뭉쳤음) · 스태프: 느린 운석(따라감)(meteor — 구슬 크기는 마력탄 그대로, 맞은 자리에서 크게 터짐, orbBurst)
       const n = vol ? vol.n : 1, a0 = Math.atan2(p.fv.y, p.fv.x);
       for (let i = 0; i < n; i++) {
       const mid = i === (n - 1) >> 1, od = vol ? Object.assign({}, d, { mult: d.mult * vol.mult, noEl: !mid }) : d;  // 속성석 효과는 가운데 한 발만
       const ang = a0 + (i - (n - 1) / 2) * (vol ? vol.spread : 0) * Math.PI / 180, ux = Math.cos(ang), uy = Math.sin(ang);
       World.playerShot({ x: p.x + ux * 8, y: p.y + uy * 8, vx: ux * d.orb.speed, vy: uy * d.orb.speed, left: d.orb.range, r: d.orb.r,
-        ball: true, orb: true, once: true, homing: true, def: od, hit: new Set(), stone: st, col: st ? ELEMENTS[st.el].color : '#b39cff', meteor: !!wk.meteor,  // 속성석 없으면 롯드 · 스태프 모두 마법 보라(예전 운석 주황은 화염석과 헷갈림, 2026-10-31 사용자)
+        ball: true, orb: true, once: true, homing: !vol, def: od, hit: new Set(), stone: st, col: st ? ELEMENTS[st.el].color : '#b39cff', meteor: !!wk.meteor,  // 속성석 없으면 롯드 · 스태프 모두 마법 보라(예전 운석 주황은 화염석과 헷갈림, 2026-10-31 사용자)
         tier, el: st ? st.el : '', ss: Elements.ss(st, p.prof),
         onEnd: s => {
           World.sparks(s.x, s.y - 8, 8, 10 + tier * 6, s.col, tier >= 2);
