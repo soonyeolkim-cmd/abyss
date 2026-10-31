@@ -22,7 +22,7 @@ const Paladin = (() => {
     }
   }
   if (typeof Net !== 'undefined') Net.on('holy', m => { if (World.mirror && Game.scene === 'run') gain(World.player, m.n, true); });
-  // 특수(Z)를 쓸 때(player.js startAct): 신성력을 모두 비우고 하나에 최대 체력 healPer 씩 회복
+  // 특수(Z)를 쓸 때(player.js startAct): 신성력을 모두 비우고 하나에 최대 체력 healPer 씩 회복(0 개여도 Z 는 나감 — 2026-10-31 사용자 '바로 쓸 수 있게')
   function spend(p) {
     const n = p.holy || 0;
     p.holy = 0;
@@ -33,8 +33,8 @@ const Paladin = (() => {
     World.number(p.x, p.y, 30, h, HEAL);
     World.sparks(p.x, p.y, 16, 4 + 2 * n, '#bfffb0');
   }
-  // 빛기둥 · 망치 수: 쓴 신성력, 가득이면 PALADIN.full 더
-  const countOf = n => n + (n >= PALADIN.holyMax ? PALADIN.full : 0);
+  // 빛기둥 · 망치 수: 기본 PALADIN.base + 쓴 신성력, 가득이면 PALADIN.full 더
+  const countOf = n => PALADIN.base + n + (n >= PALADIN.holyMax ? PALADIN.full : 0);
 
   // ── 신성 돌진(메이스 스킬 칸) 끝 ── 멈춘 자리에서 빛 폭발(바닥 타원 r = nova 그림), 스킬 칸 속성석 폭발도 같은 반지름. 돌진에 맞은 적의 속성석 효과는 이미 났으므로 폭발은 noEl
   function rushEnd(p, d) {
@@ -106,7 +106,6 @@ const Paladin = (() => {
 
   // ── 심판(메이스 특수) ── n = 쓴 신성력. 앞쪽 range 안 가장 가까운 적 자리에 빛기둥이 차례로
   function judge(p, d, n) {
-    if (!n) return;
     const J = d.judge;
     // 자리: 앞쪽(뒤 빼고) range 안 · 벽에 안 막힌 가장 가까운 적, 없으면 내 앞 first
     let tgt = null, bd = J.range;
@@ -131,7 +130,6 @@ const Paladin = (() => {
 
   // ── 축복받은 망치(성망치 특수) ── 망치 n 개가 나를 가운데 두고 나선으로 돌며 퍼진다(life 초 동안 반지름 r0 → r1). 몸을 따라 움직임
   function hammers(p, d, n) {
-    if (!n) return;
     const c = countOf(n), a0 = Math.random() * Math.PI * 2;
     p.hamCasts = p.hamCasts || [];
     p.hamCasts.push({ t: 0, def: d, list: Array.from({ length: c }, (_, i) => ({ a0: a0 + i * Math.PI * 2 / c, hit: new Map(), x: p.x, y: p.y, trail: [] })) });

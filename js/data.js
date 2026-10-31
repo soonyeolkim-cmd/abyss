@@ -198,7 +198,7 @@ const CLASSES = {
   },
   // ── 성기사(2026-10-31 사용자: 다섯 번째 직업, 메모/paladin-plan.md) ── 때려서 신성력을 모으고 → 큰 빛 기술로 터뜨린다. 성기사 몫은 js/paladin.js.
   // 개편(2026-10-31 사용자 '여럿이 하기 어려운 게임인데 너무 파티용' → 공격형 성전사): 막기 · 신성 갑옷 · 둘레 파티원 치유 · 오라를 빼고, 딜은 다른 직업만큼 · 혼자 버티는 힘은 자기 회복으로.
-  // 신성력(최대 PALADIN.holyMax): 3타 · 신성 돌진 · 신성 강타가 맞으면 1, 축성을 놓으면 1. 특수(Z)가 모두 써서 세지는 만큼 · 쓴 만큼 내 체력 회복(PALADIN.healPer).
+  // 신성력(최대 PALADIN.holyMax): 3타 · 신성 돌진 · 신성 강타가 맞으면 1, 축성을 놓으면 1. 특수(Z)는 언제든 나가고, 모인 신성력을 모두 써서 세지는 만큼 · 쓴 만큼 내 체력 회복(PALADIN.healPer).
   // 기본(X) 3연타(3타 = 내려찍기 + 신성력) · 스킬(V) 신성 돌진(메이스) / 축성(성망치) · 특수(Z) 심판(빛기둥) / 축복받은 망치(나선) · 대시 → 공격 = 신성 강타(기절).
   paladin: {
     id: 'paladin', name: '성기사', sprite: 'paladin', atkName: '공격력',
@@ -225,20 +225,21 @@ const CLASSES = {
     //   내가 안에 있으면 초당 최대 체력의 heal 회복 · 놓을 때 신성력 +1 · 스킬 칸 속성석 폭발(반지름 r). 하나만(있는 동안 다시 못 놓음 — 기력도 안 씀)
     consecrate: { name: '축성', short: '축성', icon: 'consecrate', slot: 'charge', startup: 0.12, active: 0.05, recovery: 0.24, mult: 0, knock: 0, stun: 0, swing: [-150, 10], heavy: true,
       sanctum: { r: 46, t: 5, tick: 0.5, mult: 0.75, slow: 0.55, heal: 0.02, holy: 1 } },
-    // 특수(Z) 메이스 = 심판: 신성력 n 개를 모두 써서 한 자리에 빛기둥 n 번(가득이면 +1, delay 초 간격, 반지름 r — 바닥 타원 판정 = 기둥 그림), 기둥마다 한 방 mult.
-    //   자리 = 앞쪽 range 안 가장 가까운 적(없으면 내 앞 first). 한 마리에게 다 꽂히게(2026-10-31 — 일렬로 떨어뜨리니 한 마리에겐 하나만 맞았음). 신성력이 없으면 못 씀(기력 · 대기 안 씀)
-    special: { id: 'judge', name: '심판', short: '심판', icon: 'judge', slot: 'wave', cd: 1.5, cost: 15, startup: 0.12, active: 0.05, recovery: 0.3, mult: 4.5, knock: 120, stun: 0.5, thrust: true,
+    // 특수(Z) 메이스 = 심판: 신성력 n 개를 모두 써서 한 자리에 빛기둥 1 + n 번(가득이면 +1, delay 초 간격, 반지름 r — 바닥 타원 판정 = 기둥 그림), 기둥마다 한 방 mult.
+    //   자리 = 앞쪽 range 안 가장 가까운 적(없으면 내 앞 first). 한 마리에게 다 꽂히게(2026-10-31 — 일렬로 떨어뜨리니 한 마리에겐 하나만 맞았음). 신성력이 없어도 기둥 하나는 나감
+    special: { id: 'judge', name: '심판', short: '심판', icon: 'judge', slot: 'wave', cd: 1.5, cost: 15, startup: 0.12, active: 0.05, recovery: 0.3, mult: 4.2, knock: 120, stun: 0.5, thrust: true,
       judge: { range: 90, first: 30, r: 22, delay: 0.11 } },
-    // 특수(Z) 성망치 = 축복받은 망치: 신성력 n 개(가득이면 +1)만큼 빛 망치가 나를 가운데 두고 나선으로 돌며 퍼진다(life 초 동안 반지름 r0 → r1, 초당 spin 바퀴).
+    // 특수(Z) 성망치 = 축복받은 망치: 신성력 n 개를 모두 써서 1 + n 개(가득이면 +1) 빛 망치가 나를 가운데 두고 나선으로 돌며 퍼진다(life 초 동안 반지름 r0 → r1, 초당 spin 바퀴).
     //   망치마다 바닥 타원 hr 안 적에게 한 방(같은 적은 망치마다 again 초에 한 번 — 망치 빛 그림 = 판정)
-    hammers: { id: 'hammers', name: '축복받은 망치', short: '망치', icon: 'hammers', slot: 'wave', cd: 1.5, cost: 15, startup: 0.1, active: 0.05, recovery: 0.28, mult: 1.5, knock: 50, stun: 0.25, swing: [-150, 10], heavy: true,
+    hammers: { id: 'hammers', name: '축복받은 망치', short: '망치', icon: 'hammers', slot: 'wave', cd: 1.5, cost: 15, startup: 0.1, active: 0.05, recovery: 0.28, mult: 1.4, knock: 50, stun: 0.25, swing: [-150, 10], heavy: true,
       spiral: { life: 2.4, r0: 10, r1: 70, spin: 1.6, hr: 9, again: 0.3 } },
     // 대시 → 공격 = 신성 강타: 앞 몹을 쳐서 기절(긴 경직) · 맞으면 신성력
     dashAttack: { name: '신성 강타', slot: 'dash', startup: 0.04, active: 0.1, recovery: 0.3, mult: 1.8, knock: 140, stun: 1.0, reach: [0, 24], arc: 70, thrust: true, heavy: true, iframes: true, holy: 1 },
   },
 };
-// 성기사 공통 값(js/paladin.js): 신성력 최대 · 신성력 하나를 쓸 때마다 최대 체력의 healPer 회복 · 가득(holyMax) 쓰면 빛기둥 · 망치 full 개 더
-const PALADIN = { holyMax: 5, healPer: 0.03, full: 1 };
+// 성기사 공통 값(js/paladin.js): 신성력 최대 · 신성력 하나를 쓸 때마다 최대 체력의 healPer 회복 · 빛기둥 · 망치 수 = base + 쓴 신성력(가득 holyMax 쓰면 full 개 더)
+//   신성력이 없어도 Z 는 base 개로 바로 나간다(2026-10-31 사용자 — 예전엔 3타 · V 로 모아야만 열렸음)
+const PALADIN = { holyMax: 5, healPer: 0.03, full: 1, base: 1 };
 // 검(경량) 4연타: 베기 · 되베기 · 올려베기 · 찌르기(2026-10-30) — 한 대 배율은 그대로, 한 번 더 베는 만큼 빠른 연타
 CLASSES.swordsman.combo4 = [CLASSES.swordsman.combo[0], CLASSES.swordsman.combo[1],
   { name: '올려베기', slot: 'basic', startup: 0.05, active: 0.08, recovery: 0.18, mult: 1.05, knock: 70, stun: 0.32, reach: [0, 25], arc: 75, lunge: 6, swing: [-100, 70] },
