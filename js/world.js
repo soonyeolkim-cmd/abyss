@@ -58,7 +58,7 @@ const World = (() => {
     partySeed = seed;
     mirror = !!seed && Net.role === 'guest';
     actor = null; nextId = 1; byId.clear(); flows.clear(); goneIds = [];
-    Summon.reset();  // 소환사 소환수는 층 · 던전마다 새로
+    Summon.reset();  // 소환사 소환수는 던전마다 새로
     freeLevel();
     lv = seed ? seeded(seed, () => Dungeon.generate(def)) : Dungeon.generate(def);
     lv.ilvlR = diffIlvl(def, diff);  // 난이도에 따른 장비 레벨 범위
@@ -194,7 +194,7 @@ const World = (() => {
     const def = endlessDef(floor), seed = floorSeed(floor);
     RUN.ease = def.ease;
     actor = null; nextId = 1; byId.clear(); flows.clear(); goneIds = [];
-    Summon.reset();  // 소환사 소환수는 층 · 던전마다 새로
+    Summon.carry();  // 소환사 소환수는 다음 층으로 따라온다(던전을 새로 들어갈 때만 새로)
     freeLevel();
     lv = seed ? seeded(seed, () => Dungeon.generate(def)) : Dungeon.generate(def);
     lv.ilvlR = diffIlvl(def, RUN.diff);

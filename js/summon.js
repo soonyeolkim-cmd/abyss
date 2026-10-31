@@ -10,7 +10,7 @@ const Summon = (() => {
   // 소환수가 칠 수 있는 적: 살아 있고 · 땅 위 · 나타난 뒤 · 레이드 공허 구슬은 빼고(되받아치기가 너무 쉬워짐) · 깨어 있거나 표식 · 허수아비
   const valid = e => e && live(e) && !untouchable(e) && !(e.spawnT > 0) && e.def.part !== 'orb' && (e.awake || e.petMark > 0 || e.def.dummy);
 
-  function reset() { pets = []; }
+  function reset() { pets = []; frenzyT = 0; }
   const count = () => pets.length;
   const list = () => pets;
 
@@ -18,8 +18,10 @@ const Summon = (() => {
   const proxy = (q, p) => Object.assign(Object.create(p), { x: q.x, y: q.y, fv: q.fv });
   function hit(q, p, e, def) {
     const was = e.dying;
+    if (e.petMark > 0) def = Object.assign({}, def, { mult: def.mult * SUMMON.markMul });  // 표식 적은 소환수에게 더 아프다
     if (!hitEnemy(e, def, proxy(q, p))) return false;
     if (!was && e.dying) { p.sp = Math.min(p.maxSp, p.sp + SUMMON.killSp); }  // 패시브: 소환수가 쓰러뜨리면 기력
+    if (def.rage && !e.dying) Elements.onHit(e, { id: 'frenzy', name: '광폭', slot: 'wave', pet: true }, proxy(q, p));  // 광폭화 중: 특수 칸 속성석 효과도
     return true;
   }
 
@@ -36,7 +38,7 @@ const Summon = (() => {
       if (Dungeon.walkable(lv, tx, ty, C.r)) { x = tx; y = ty; break; }
     }
     const hp = Math.round(p.maxHp * C.hp);
-    const q = { pet: true, id: ++uid, kind, x, y, z: 0, fv: { x: p.fv.x, y: p.fv.y }, r: C.r, h: C.h, hp, maxHp: hp, life: C.life, state: 'idle', t: 0,
+    const q = { pet: true, id: ++uid, kind, x, y, z: 0, fv: { x: p.fv.x, y: p.fv.y }, r: C.r, h: C.h, hp, maxHp: hp, state: 'idle', t: 0,
       atkCd: 0.35, tgt: null, thinkT: 0, kx: 0, ky: 0, flash: 0, dead: false, walkT: Math.random() * 3, appear: 0.35, slot: pets.length };
     pets.push(q);
     const st = Elements.socket(p.prof, 'charge'), col = st ? ELEMENTS[st.el].color : '#b9a0ff';
@@ -74,11 +76,11 @@ const Summon = (() => {
 
   // ── 고르기 · 움직이기 ──
   // 주인 둘레 sight 안 · 벽에 안 막힌 적 가운데 표식 적(가까운 것)부터, 없으면 이 소환수에서 가장 가까운 적
-  function pick(q, p, lv) {
-    const C = cfg(q);
+  function pick(q, p, lv, range) {
+    const C = cfg(q), sight = range || C.sight;
     let best = null, bd = Infinity, marked = false;
     for (const e of World.enemies()) {
-      if (!valid(e) || Math.hypot(e.x - p.x, e.y - p.y) > C.sight) continue;
+      if (!valid(e) || Math.hypot(e.x - p.x, e.y - p.y) > sight) continue;
       if (lv.roomMaps && e.ri !== undefined && e.ri !== World.roomOf(q)) continue;
       if (!Dungeon.los(lv, q.x, q.y - 4, e.x, e.y - 4)) continue;
       const m = e.petMark > 0, d = Math.hypot(e.x - q.x, e.y - q.y);
@@ -97,55 +99,43 @@ const Summon = (() => {
     const back = Math.atan2(-p.fv.y, -p.fv.x), a = back + (n > 1 ? (i / (n - 1) - 0.5) * 2.2 : 0);
     const tx = p.x + Math.cos(a) * 18, ty = p.y + Math.sin(a) * 12;
     const d = Math.hypot(tx - q.x, ty - q.y);
-    if (d > 6) step(q, lv, tx, ty, cfg(q).speed * (d > 60 ? 1.5 : 1), dt);
+    if (d > 6) step(q, lv, tx, ty, cfg(q).speed * rage('move') * (d > 60 ? 1.5 : 1), dt);
     else { q.moving = false; q.fv = unit(p.fv.x, p.fv.y, q.fv); }
   }
   // 준비가 끝나면 친다: 솜뿔이 = 노린 적 하나(박치기) · 꼬마 악마 = 앞 바닥 내리치기(반지름 aoe — 충격 그림 = 판정)
   function strike(q, p, lv) {
     const C = cfg(q), A = C.atk;
     q.state = 'idle'; q.atkCd = A.cd * (0.9 + Math.random() * 0.2);
+    const mult = A.mult * rage('dmg');
     if (A.aoe) {
       const x = q.x + q.fv.x * (q.r + 4), y = q.y + q.fv.y * (q.r + 4);
       World.fx({ type: 'shock', x, y, r: A.aoe, t: 0, life: 0.3 });
       World.dust(x, y, 6);
-      const def = { name: '악마 내리치기', slot: 'charge', pet: true, fin: true, mult: A.mult, knock: 120, stun: 0.45, heavy: true };  // fin = 큰 한 방(속성 효과 1.5배 · 냉기 · 독 2)
+      const def = { name: '악마 내리치기', slot: 'charge', pet: true, fin: true, mult, knock: 120, stun: 0.45, heavy: true, rage: raging() };  // fin = 큰 한 방(속성 효과 1.5배 · 냉기 · 독 2)
       for (const e of World.enemies()) if (valid(e) && groundDist(e.x - x, e.y - y) <= A.aoe + e.r) hit(q, p, e, def);
       Sfx.heavySwing();
     } else {
       const e = q.tgt;
       if (!valid(e) || Math.hypot(e.x - q.x, e.y - q.y) > A.reach + e.r + q.r + 6) return;
       q.kx = q.fv.x * 60; q.ky = q.fv.y * 60;  // 통 튀어 박치기
-      hit(q, p, e, { name: '솜뿔이 박치기', slot: 'charge', pet: true, mult: A.mult, knock: 50, stun: 0.25 });
+      hit(q, p, e, { name: '솜뿔이 박치기', slot: 'charge', pet: true, mult, knock: 50, stun: 0.25, rage: raging() });
       Sfx.swing();
     }
   }
 
-  // ── 돌격 명령(특수 칸): 모든 소환수가 표식 적(없으면 저마다 가까운 적)에게 돌진해 한 방(배율 rush) — 소환수는 남는다 ──
-  function command(p) {
-    const lv = World.level;
-    let any = false;
-    for (const q of pets) {
-      if (q.gone) continue;
-      const e = pick(q, p, lv);
-      if (!e) continue;
-      q.state = 'rush'; q.t = 0.7; q.tgt = e; any = true;
-      World.fx({ type: 'streak', x0: q.x, y0: q.y, follow: q, t: 0, life: 0.3 });
-    }
-    if (any) Sfx.dash();
-    return any;
+  // ── 광폭화(특수 칸, 2026-10-31 사용자 1안 — 예전 돌격 명령은 소환수가 원래 하는 일과 겹쳐서 바꿈) ──
+  // t 초 동안 모든 소환수(그 사이 새로 부른 것도): 공격 속도 × aspd · 이동 × move · 한 방 × dmg, 몸이 scale 배로 커지고 붉게 빛난다.
+  // 특수 칸 속성석: 광폭화 중 소환수 공격에 그 속성 효과가 하나 더 붙는다(slot 'wave' 로 한 번 더 — elements.js onHit)
+  let frenzyT = 0, F = null;
+  function frenzy(p, f) {
+    F = f; frenzyT = f.t;
+    World.text(p.x, p.y, 40, '광폭화!', '#ff5a5a', true);
+    for (const q of pets) if (!q.gone) { World.sparks(q.x, q.y, q.h * 0.5, 10, '#ff5a5a', true); q.atkCd = Math.min(q.atkCd, 0.1); }
+    World.shake(2);
+    Sfx.roar();
   }
-  function rushStep(q, p, lv, dt) {
-    const e = q.tgt, C = cfg(q);
-    q.t -= dt;
-    if (!valid(e) || q.t <= 0) { q.state = 'idle'; return; }
-    if (Math.hypot(e.x - q.x, e.y - q.y) <= e.r + q.r + 6) {
-      q.state = 'idle'; q.atkCd = 0.4;
-      World.sparks(e.x, e.y, e.h * 0.5, 10, '#ffd36a', true);
-      hit(q, p, e, { id: 'command', name: '돌격', slot: 'wave', pet: true, mult: C.rush, knock: 160, stun: 0.5, heavy: true });
-      return;
-    }
-    step(q, lv, e.x, e.y, 260, dt);
-  }
+  const raging = () => frenzyT > 0;
+  const rage = k => (frenzyT > 0 && F ? F[k] : 1);
 
   // 혼령 걸음(대시)이 끝나면 소환수가 내 곁으로(반짝이며 옮겨 옴)
   function regroup(p) {
@@ -159,21 +149,42 @@ const Summon = (() => {
       World.sparks(q.x, q.y, 6, 5, '#d6b4f6');
     });
   }
-  // 영혼 흡수(대시 → 공격): 맞힌 수 × soul 초만큼 유지 시간이 는다(최대 SUMMON.soulMax)
-  function extend(sec) {
-    if (!sec) return;
-    for (const q of pets) if (!q.gone) q.life = Math.min(SUMMON.soulMax, q.life + sec);
+  // 영혼 흡수(대시 → 공격): 맞힌 수 × soul 만큼 소환수 체력을 채운다(최대 체력 비율, 2026-10-31 — 유지 시간을 없애서 시간 늘리기 대신)
+  function heal(k) {
+    if (!k) return;
+    for (const q of pets) if (!q.gone && q.hp < q.maxHp) {
+      const h = Math.min(q.maxHp - q.hp, Math.round(q.maxHp * k));
+      q.hp += h; World.number(q.x, q.y, q.h + 2, h, '#7dff8a'); World.sparks(q.x, q.y, q.h * 0.5, 4, '#7dff8a');
+    }
   }
+  // 영혼탄(기본 공격)이 맞음: 표식 · 모든 소환수 다음 공격 당김 · 큰 영혼탄이면 모든 소환수가 그 자리에서 협공 한 방(분홍 줄이 그 적까지 — 맞는 적 = 줄 끝)
+  function boltHit(p, e, d) {
+    if (d.mark) e.petMark = d.mark;
+    for (const q of pets) if (!q.gone) q.atkCd -= SUMMON.hasten;
+    if (!d.fin || !valid(e)) return;
+    for (const q of pets) {
+      if (q.gone || q.appear > 0 || !valid(e)) continue;
+      World.fx({ type: 'shadowpath', pts: [[q.x, q.y - q.h * 0.5], [e.x, e.y - e.h * 0.5]], w: 3, t: 0, life: 0.25, col: '#ff8ab8' });
+      hit(q, p, e, { name: '협공', slot: 'charge', pet: true, mult: cfg(q).atk.mult * SUMMON.assist * rage('dmg'), knock: 40, stun: 0.2, rage: raging() });
+    }
+    if (pets.length) World.sparks(e.x, e.y, e.h * 0.5, 8, '#ff8ab8', true);
+  }
+  // 다음 층(끝없는 심연)으로 내려가도 따라온다 — 다음 틀에 내 곁으로 옮긴다
+  function carry() { for (const q of pets) { q.warp = true; q.state = 'idle'; q.tgt = null; q.kx = q.ky = 0; } }
+  // 그 무기의 소환수가 이미 최대인가(스킬 칸을 눌러도 안 부름 — player.js)
+  const full = p => { const k = kindOf(p); return pets.filter(q => !q.gone && q.kind === k).length >= SUMMON[k].max; };
 
   function update(dt, lv, p) {
     if (World.mirror) return;
     for (const e of World.enemies()) if (e.petMark > 0) e.petMark -= dt;  // 기본 공격 표식
+    if (frenzyT > 0) frenzyT -= dt;
     if (!pets.length) return;
     const n = pets.length;
     pets.forEach((q, i) => {
       if (q.gone) return;
-      q.life -= dt; q.flash = Math.max(0, q.flash - dt); q.appear = Math.max(0, q.appear - dt); q.moving = false;
-      if (q.life <= 0 || p.dead) { vanish(q, p); return; }
+      q.flash = Math.max(0, q.flash - dt); q.appear = Math.max(0, q.appear - dt); q.moving = false;  // 유지 시간 없음(2026-10-31 사용자: 체력이 다 닳을 때까지)
+      if (p.dead) { vanish(q, p); return; }
+      if (q.warp) { q.warp = false; q.x = p.x; q.y = p.y; World.sparks(q.x, q.y, 6, 6, '#d6b4f6'); }
       if (q.kx || q.ky) {
         Dungeon.move(lv, q, q.kx * dt, q.ky * dt, q.r);
         const f = Math.exp(-9 * dt); q.kx *= f; q.ky *= f;
@@ -186,15 +197,15 @@ const Summon = (() => {
         return;
       }
       if (q.appear > 0) return;
-      if (q.state === 'rush') { rushStep(q, p, lv, dt); return; }
-      if (q.state === 'wind') { q.t -= dt; if (q.t <= 0) strike(q, p, lv); return; }
+      if (q.state === 'wind') { q.t -= dt * rage('aspd'); if (q.t <= 0) strike(q, p, lv); return; }
+      if (raging() && Math.random() < dt * 4) World.sparks(q.x, q.y, q.h * 0.6, 1, '#ff5a5a');  // 광폭화: 붉은 불티
       const C = cfg(q);
-      q.thinkT -= dt; q.atkCd -= dt;
+      q.thinkT -= dt; q.atkCd -= dt * rage('aspd');
       if (q.thinkT <= 0 || !valid(q.tgt)) { q.tgt = pick(q, p, lv); q.thinkT = 0.25; }
       const e = q.tgt;
       if (e) {
         const gap = Math.hypot(e.x - q.x, e.y - q.y) - e.r - q.r;
-        if (gap > C.atk.reach) step(q, lv, e.x, e.y, C.speed, dt);
+        if (gap > C.atk.reach) step(q, lv, e.x, e.y, C.speed * rage('move'), dt);
         else {
           q.fv = unit(e.x - q.x, e.y - q.y, q.fv);
           if (q.atkCd <= 0) { q.state = 'wind'; q.t = C.atk.wind; }
@@ -271,9 +282,13 @@ const Summon = (() => {
         const imp = q.kind === 'imp', fly = imp ? 5 + Math.sin(time * 4 + q.id) * 1.5 : 0;  // 꼬마 악마는 떠 있다
         Art.shadow(ctx, q.x, q.y, q.r + 1, fly, q.appear > 0 ? 0.5 : 1);
         const f = imp ? Math.floor(time * 6 + q.id) % 2 : (q.moving || q.state === 'wind' ? Math.floor(q.walkT * 8) % 2 : Math.floor(time * 2 + q.id) % 2);
-        const img = bake(q.kind, f, tint, q.flash > 0), k = q.appear > 0 ? 1 - q.appear / 0.35 : 1;
+        const img = bake(q.kind, f, tint, q.flash > 0), k = (q.appear > 0 ? 1 - q.appear / 0.35 : 1) * rage('scale');
+        if (raging()) {  // 광폭화: 몸 둘레 붉은 빛(맥박)
+          const pulse = 0.25 + 0.12 * Math.sin(time * 12 + q.id);
+          ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(255,60,60,' + pulse + ')';
+          ctx.beginPath(); ctx.ellipse(Math.round(q.x), Math.round(q.y - fly - img.height * 0.45 * k), img.width * 0.6 * k, img.height * 0.55 * k, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
         ctx.save();
-        if (q.life < 3 && Math.floor(time * 8) % 2) ctx.globalAlpha = 0.45;  // 곧 돌아감: 깜빡
         ctx.translate(Math.round(q.x), Math.round(q.y - fly));
         if (q.fv.x < -0.1) ctx.scale(-1, 1);
         ctx.scale(k, k);
@@ -286,6 +301,13 @@ const Summon = (() => {
         }
       } });
     }
+  }
+  // 다른 화면(직업 고르기 카드)에서 소환수 하나: 발 = (x, y), k 배
+  function icon(ctx, kind, x, y, k, time) {
+    const f = Math.floor(time * (kind === 'imp' ? 6 : 3)) % 2, img = bake(kind, f), fly = kind === 'imp' ? Math.sin(time * 4) * 1.5 : 0;
+    ctx.save(); ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, Math.round(x - img.width * k / 2), Math.round(y - img.height * k + fly * k), img.width * k, img.height * k);
+    ctx.restore();
   }
   // 표식 적: 발밑 분홍 고리 + 머리 위 작은 분홍 표(시안 그대로)
   function drawMarks(ctx, time) {
@@ -302,5 +324,5 @@ const Summon = (() => {
     }
   }
 
-  return { reset, count, list, spawn, hurt, command, regroup, extend, update, drawList, drawMarks };
+  return { reset, count, list, spawn, hurt, frenzy, raging, regroup, heal, carry, full, boltHit, update, drawList, drawMarks, icon };
 })();

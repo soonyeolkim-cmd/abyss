@@ -57,7 +57,7 @@ const Art = (() => {
         push = ph === 0 ? -3 * k : ph === 1 ? lerp(-3, reachK, Math.min(1, k * 2)) : lerp(reachK, 2, k);
         if (d.off) push = -2;  // 왼손 찌르기(암살자): 오른손은 당겨 둔다
       } else {
-        const s0 = d.swing[0] * RAD, s1 = d.swing[1] * RAD;
+        const sw = d.swing || [0, 0], s0 = sw[0] * RAD, s1 = sw[1] * RAD;  // 휘두름이 없는 기술(소환 등)은 그대로 든다 — 없으면 매 프레임 오류로 끊겼다(2026-10-31)
         th = aim + (ph === 0 ? s0 : ph === 1 ? lerp(s0, s1, k) : s1);
         if (d.noBody || d.area) return { th, hx: hx + p.fv.x * push, hy: hy + p.fv.y * push, flip, trail: null, off: p.cls.dual ? offPose(p, time, { th, hx, hy, trail: null }, aim, flip) : undefined };  // 돌진 베기(띠) · 망치 내려찍기(바닥 타원): 칼 궤적 대신 판정 모양 그림
         // 칼 궤적은 판정 부채꼴(정면 ± arc) 안만 그린다 — 칼은 시작각부터 휘둘러도 궤적은 판정 각도에서 시작 · 끝(2026-10-26 이펙트 범위 = 판정 범위)

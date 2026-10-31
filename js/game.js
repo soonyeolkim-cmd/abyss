@@ -40,6 +40,7 @@ const Game = (() => {
     if (o.type === 'soundtest') UI.soundtest.open(o);
     if (o.type === 'confirm') UI.confirm.sel = o.defaultYes ? 0 : 1;
     if (o.type === 'choice') UI.choice.sel = 0;
+    if (o.type === 'newchar') UI.newchar.open();
     if (o.type === 'coop') Coop.open();
     if (o.type === 'jar') Jar.open(prof);
     if (o.type === 'craft') Craft.open(prof);
@@ -79,6 +80,7 @@ const Game = (() => {
       else if (top.type === 'soundtest') UI.soundtest.update(top);
       else if (top.type === 'confirm') UI.confirm.update(top);
       else if (top.type === 'choice') UI.choice.update(top);
+      else if (top.type === 'newchar') UI.newchar.update(top);
       else if (top.type === 'talk') Story.update(top);
       else if (top.type === 'coop') Coop.update(top);
       else if (top.type === 'coopwait') Coop.waitUpdate();
@@ -138,6 +140,7 @@ const Game = (() => {
       else if (o.type === 'soundtest') UI.soundtest.draw(ctx, o);
       else if (o.type === 'confirm') UI.confirm.draw(ctx, o);
       else if (o.type === 'choice') UI.choice.draw(ctx, o);
+      else if (o.type === 'newchar') UI.newchar.draw(ctx, o, time);
       else if (o.type === 'talk') Story.draw(ctx, o);
       else if (o.type === 'coop') Coop.draw(ctx, o, prof);
       else if (o.type === 'coopwait') Coop.waitDraw(ctx);

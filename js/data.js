@@ -152,25 +152,30 @@ const CLASSES = {
       circle: { range: 120, ahead: 34, r: 26, delay: 0.35 }, trio: { n: 3, step: 30, gap: 0.15 } },
   },
   // ── 소환사(2026-10-31 사용자: 네 번째 직업, 메모/summoner-plan.md) ── 본인은 약하고 소환수가 싸운다. 소환수 = js/summon.js(주인 능력치 그대로 — 한 방은 스킬 칸 기술로 친다).
-  // 기본(X) = 짧은 2연타 · 맞힌 적에 표식(mark 초, 소환수가 먼저 노림) · 스킬(V) = 소환(솜뿔이 · 꼬마 악마 — 무기 종류로) ·
-  // 특수(Z) = 돌격 명령(모든 소환수가 표식 적에게 돌진해 세게) · 대시 = 혼령 걸음(순간이동, 끝에 소환수가 곁으로) → 공격 = 영혼 흡수(맞힌 수만큼 소환수 유지 +soul 초)
+  // 기본(X) = 영혼탄 2연발(2026-10-31 사용자 B안 — 근접 2연타는 표식만 남기고 버리는 동작이라 바꿈): 맞힌 적에 표식(mark 초, 소환수가 먼저 노리고 소환수에게 받는 피해 × SUMMON.markMul) ·
+  //   맞힐 때마다 모든 소환수 다음 공격 SUMMON.hasten 초 빨라짐 · 2타(큰 영혼탄)가 맞으면 모든 소환수가 그 적에게 협공 한 방(js/summon.js boltHit) · 스킬(V) = 소환(솜뿔이 · 꼬마 악마 — 무기 종류로) ·
+  // 특수(Z) = 광폭화(5초 동안 모든 소환수가 빠르고 세게 — 2026-10-31 사용자, 예전 돌격 명령은 소환수가 원래 하는 일과 겹쳐서 바꿈) · 대시 = 혼령 걸음(순간이동, 끝에 소환수가 곁으로) → 공격 = 영혼 흡수(맞힌 수만큼 소환수 유지 +soul 초)
   summoner: {
     id: 'summoner', name: '소환사', sprite: 'summoner', atkName: '주문력',
     weapons: ['bell', 'pact'],
-    slotNames: { basic: '기본 공격', charge: '소환', wave: '돌격 명령', dash: '대시' },
-    slotShort: { basic: '기본', charge: '소환', wave: '돌격', dash: '대시' },
-    icons: { basic: 'bell', charge: 'summon', wave: 'command', dash: 'dash' },
+    slotNames: { basic: '기본 공격', charge: '소환', wave: '광폭화', dash: '대시' },
+    slotShort: { basic: '기본', charge: '소환', wave: '광폭', dash: '대시' },
+    icons: { basic: 'bell', charge: 'summon', wave: 'frenzy', dash: 'dash' },
     baseHp: 100, baseAtk: 4, speed: 82,
-    stamina: { base: 140, regen: 12, delay: 0.6, onHit: 4 },  // 마법사처럼 기술로 싸워서 넉넉하게
+    stamina: { base: 140, regen: 12, delay: 0.6, onHit: 1 },  // 마법사처럼 기술로 싸워서 넉넉하게 · onHit 4 → 1(멀리서 쉽게 맞히는 영혼탄이 광폭화 기력을 다 채워 버려서, 2026-10-31)
     dodge: { time: 0.28, speed: 230, iframes: 0.24, cd: 0, attackWindow: 0.18, cost: 8 },
     potion: { heal: 0.4, cd: 1.0, max: 5 },
     combo: [
-      { name: '방울 치기', slot: 'basic', startup: 0.07, active: 0.09, recovery: 0.2, mult: 1.45, knock: 60, stun: 0.3, reach: [0, 26], arc: 70, lunge: 5, swing: [-100, 60], mark: 4 },
-      { name: '방울 치기', slot: 'basic', fin: true, startup: 0.08, active: 0.1, recovery: 0.3, mult: 2.35, knock: 140, stun: 0.45, reach: [0, 28], arc: 80, lunge: 8, swing: [70, -110], heavy: true, mark: 4 },
+      { name: '영혼탄', slot: 'basic', startup: 0.07, active: 0.05, recovery: 0.2, mult: 1.45, knock: 50, stun: 0.25, thrust: true, mark: 4, bolt: { speed: 260, range: 110, r: 5 } },
+      { name: '큰 영혼탄', slot: 'basic', fin: true, startup: 0.1, active: 0.05, recovery: 0.32, mult: 2.35, knock: 120, stun: 0.4, thrust: true, heavy: true, mark: 4, bolt: { speed: 240, range: 120, r: 7, burst: 20, burstMul: 0.6 } },  // burst = 맞은 자리 작은 폭발(둘레 적 × burstMul)
     ],
-    special: { id: 'command', name: '돌격 명령', short: '돌격', slot: 'wave', cd: 2.5, cost: 12, startup: 0.05, active: 0.05, recovery: 0.18, mult: 0, knock: 0, stun: 0, command: true },
-    dashAttack: { name: '영혼 흡수', slot: 'dash', startup: 0.04, active: 0.12, recovery: 0.3, mult: 1.0, knock: 160, stun: 0.45, radius: 40, pulse: true, soul: 1, iframes: true, heavy: true, thrust: true },
-    charge: { cost: 20, def: { name: '소환', slot: 'charge', startup: 0.14, active: 0.05, recovery: 0.22, mult: 0, knock: 0, stun: 0, summon: true } },
+    // 광폭화: t 초 · 공격 속도 × aspd · 이동 × move · 한 방 × dmg · 그림 scale 배(js/summon.js frenzy) — thrust = 방울 · 계약서를 앞으로 내민다
+    // 2026-10-31 사용자 '대기가 너무 길다 — 기력을 높이고 대기를 줄이자, 장비가 좋아지면 무한 광폭화도': 대기 12 → 4.5초(광폭화 5초보다 짧아 이어 쓸 수 있음) · 기력 25 → 120.
+    //   잰 유지율(허수아비, 영혼탄 + 광폭화만): Lv.20 갑옷 없음 67% · Lv.40 레어 갑옷(기력 회복 +26%) 78% · Lv.99 유니크(+70%) 100%
+    special: { id: 'frenzy', name: '광폭화', short: '광폭', slot: 'wave', cd: 4.5, cost: 120, startup: 0.05, active: 0.05, recovery: 0.2, mult: 0, knock: 0, stun: 0, thrust: true,
+      frenzy: { t: 5, aspd: 2, move: 1.5, dmg: 1.3, scale: 1.25 } },
+    dashAttack: { name: '영혼 흡수', slot: 'dash', startup: 0.04, active: 0.12, recovery: 0.3, mult: 1.0, knock: 160, stun: 0.45, radius: 40, pulse: true, soul: 0.08, iframes: true, heavy: true, thrust: true },
+    charge: { cost: 20, def: { name: '소환', slot: 'charge', startup: 0.14, active: 0.05, recovery: 0.22, mult: 0, knock: 0, stun: 0, summon: true, swing: [-150, -60] } },  // swing = 방울 · 계약서를 머리 위로 들어 올림
   },
 };
 // 검(경량) 4연타: 베기 · 되베기 · 올려베기 · 찌르기(2026-10-30) — 한 대 배율은 그대로, 한 번 더 베는 만큼 빠른 연타
@@ -216,13 +221,13 @@ const WEAPON_KINDS = {
     trait: ['계약', '꼬마 악마 최대 2마리 · 소환 기력 30 · 범위 내리치기 · 대시가 순간이동'], pet: 'imp', summonCost: 30, blinkDodge: 64 },  // 대시 → 공격은 카타르와 같은 선풍 베기(2026-10-30 사용자, 물러나며 표창 saiDash 는 안 씀)
 };
 
-// 소환수(2026-10-31 사용자 — js/summon.js). max 마리(넘치면 가장 오래된 것이 사라짐) · life 초 · hp = 주인 최대 체력 × · def = 주인 방어력 × ·
-// speed · r(몸) · sight(주인 둘레 이 안의 적만 노림) · atk { mult 주인 공격력 배율, cd 초, reach px, wind 준비 초, aoe = 내리치기 반지름(바닥 타원 — 그림 = 판정) } · rush = 돌격 명령 한 방 배율.
+// 소환수(2026-10-31 사용자 — js/summon.js). max 마리(꽉 차면 스킬 칸을 눌러도 안 부름) · 유지 시간 없음(체력이 다 닳거나 던전을 나갈 때까지, 다음 층으로 따라옴) · hp = 주인 최대 체력 × · def = 주인 방어력 × ·
+// speed · r(몸) · sight(주인 둘레 이 안의 적만 노림) · atk { mult 주인 공격력 배율, cd 초, reach px, wind 준비 초, aoe = 내리치기 반지름(바닥 타원 — 그림 = 판정) }.
 // 배율은 연습장에서 맞춤(본인 약 40% · 소환수 약 60%). killSp = 소환수가 적을 쓰러뜨리면 주인 기력 +
 const SUMMON = {
-  puff: { name: '솜뿔이', max: 4, life: 15, hp: 0.15, def: 0.3, speed: 96, r: 5, h: 13, sight: 140, atk: { mult: 1.15, cd: 0.75, reach: 10, wind: 0.12 }, rush: 4.2 },
-  imp: { name: '꼬마 악마', max: 2, life: 15, hp: 0.4, def: 0.5, speed: 78, r: 8, h: 19, sight: 150, atk: { mult: 2.6, cd: 1.1, reach: 14, wind: 0.22, aoe: 22 }, rush: 6.4 },
-  killSp: 5, leash: 230, soulMax: 20,
+  puff: { name: '솜뿔이', max: 4, hp: 0.15, def: 0.3, speed: 96, r: 5, h: 13, sight: 140, atk: { mult: 0.9, cd: 0.75, reach: 10, wind: 0.12 } },
+  imp: { name: '꼬마 악마', max: 2, hp: 0.4, def: 0.5, speed: 78, r: 8, h: 19, sight: 150, atk: { mult: 1.9, cd: 1.1, reach: 14, wind: 0.22, aoe: 22 } },
+  killSp: 5, leash: 230, markMul: 1.2, hasten: 0.1, assist: 0.3,  // 표식 적 피해 배율 · 영혼탄이 맞을 때 소환수 다음 공격 당김(초) · 협공 한 방(소환수 한 방 배율 ×)
 };
 
 // ── 몹 ── atk.lunge = 공격하며 튀어나가는 속도, ranged = 멀리서 쏨(shot: 탄 속도 · 피해)
@@ -986,10 +991,10 @@ const EL_ABIL_ASSASSIN = {
 };
 // 소환사 칸 능력(2026-10-31): 스킬 칸 = 소환수(소환수 공격에 그 속성), 특수 칸 = 돌격 명령 한 방. 없는 칸은 검사 것 그대로
 const EL_ABIL_SUMMONER = {
-  fire: { charge: ['불꽃 소환수', '소환수가 쓰러지거나 사라진 자리에서 불꽃이 터진다'], wave: ['작열 돌격', '돌격 명령에 맞은 적 자리에서 불꽃이 터진다'] },
-  frost: { charge: ['서리 소환수', '소환수 공격에 냉기 1 더'], wave: ['얼음 돌격', '돌격 명령에 맞으면 냉기 1 더(거의 바로 빙결)'] },
-  thunder: { charge: ['번개 소환수', '소환수 공격에서 번개가 한 번 튄다'], wave: ['벼락 돌격', '돌격 명령에 맞은 적마다 벼락'] },
-  poison: { charge: ['독 소환수', '소환수 공격에 독 1중첩 더'], wave: ['독침 돌격', '돌격 명령에 맞으면 독 3중첩'] },
+  fire: { charge: ['불꽃 소환수', '소환수가 쓰러지거나 사라진 자리에서 불꽃이 터진다'], wave: ['작열 광폭', '광폭화 중 소환수가 때린 자리에서 불꽃이 터진다'] },
+  frost: { charge: ['서리 소환수', '소환수 공격에 냉기 1 더'], wave: ['얼음 광폭', '광폭화 중 소환수 공격에 냉기 1 더'] },
+  thunder: { charge: ['번개 소환수', '소환수 공격에서 번개가 한 번 튄다'], wave: ['벼락 광폭', '광폭화 중 소환수가 때린 적마다 벼락'] },
+  poison: { charge: ['독 소환수', '소환수 공격에 독 1중첩 더'], wave: ['독침 광폭', '광폭화 중 소환수 공격에 독 1중첩 더'] },
 };
 // 칸 능력 [이름, 설명]: 직업에 맞게
 const elAbil = (el, slot, prof) => {

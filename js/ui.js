@@ -171,13 +171,7 @@ const UI = (() => {
         { label: '캐릭터 지우기', go: () => Game.overlay({ type: 'confirm', danger: true, hold: 2, text: name + '(' + clsOf(p).name + ' Lv.' + p.lv + ')를 지울까요?', sub: '지우면 되돌릴 수 없어요 — 남기려면 먼저 코드로 내보내 두세요',
           yes: () => { Save.wipe(n); this.open(); Game.toast(name + '를 지웠어요'); } }) },
       ] });
-      else Game.overlay({ type: 'choice', title: name + ' · 빈 칸', items: [
-        { label: '새로 만들기 — 검사', go: () => Game.startSlot(n, true, 'swordsman') },
-        { label: '새로 만들기 — 마법사', go: () => Game.startSlot(n, true, 'mage') },
-        { label: '새로 만들기 — 암살자', go: () => Game.startSlot(n, true, 'assassin') },
-        { label: '새로 만들기 — 소환사', go: () => Game.startSlot(n, true, 'summoner') },
-        { label: '코드로 불러오기', go: () => this.importCode(n) },
-      ] });
+      else Game.overlay({ type: 'newchar', n });  // 빈 칸: 직업 고르기 화면(2026-10-31 사용자)
     },
     // 코드 내보내기: 클립보드에 복사(안 되면 복사할 수 있게 창에 띄움)
     exportCode(n) {
@@ -1504,6 +1498,63 @@ const UI = (() => {
   };
 
   // ── 고르기 창(세공사 · 마을 메뉴): o = { title, items: [{ label, go }] } ──
+
+  // ── 새 캐릭터: 직업 고르기 화면(2026-10-31 사용자 '목록 말고 화면에서 고르게') ── 카드 넷(검사 · 마법사 · 암살자 · 소환사) + 코드로 불러오기 버튼.
+  // ←→ 카드 · ↓ 불러오기 버튼 · 만들기 = 확인, 폰은 카드를 한 번 누르면 고르고 한 번 더 누르면 만들기
+  const NEWCHAR_CLS = ['swordsman', 'mage', 'assassin', 'summoner'];
+  const NEWCHAR_TXT = {
+    swordsman: ['근접 연타 · 회전베기 · 검기', [['검', '빠른 연격 · 치명타'], ['망치', '범위 분쇄 · 안 밀림']]],
+    mage: ['숨결 · 마력탄 · 마법진', [['롯드', '세 발 연사 · 순간이동'], ['스태프', '큰 마법진 · 운석']]],
+    assassin: ['양손 무기 · 그림자 숨기', [['카타르', '기습 · 백스탭'], ['싸이', '출혈 · 연속 돌진']]],
+    summoner: ['영혼탄 · 소환 · 광폭화', [['방울', '솜뿔이 군단(4마리)'], ['계약서', '꼬마 악마(2마리)']]],
+  };
+  const newcharAv = {};  // 카드 그림용 몸(직업 첫 무기를 든 모습)
+  const newchar = {
+    sel: 0,
+    open() { this.sel = 0; },
+    update(o) {
+      if (Input.wasPressed('back') || Input.wasPressed('pause')) { Game.closeOverlay(); return; }
+      const N = NEWCHAR_CLS.length;
+      if (this.sel < N) {
+        if (Input.nav('left')) this.sel = (this.sel + N - 1) % N;
+        if (Input.nav('right')) this.sel = (this.sel + 1) % N;
+        if (Input.nav('down')) this.sel = N;  // 코드로 불러오기
+      } else if (Input.nav('up')) this.sel = 0;
+      if (!Input.wasPressed('ok')) return;
+      Game.closeOverlay();
+      if (this.sel < N) Game.startSlot(o.n, true, NEWCHAR_CLS[this.sel]);
+      else title.importCode(o.n);
+    },
+    draw(ctx, o, time) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = 'rgba(8,4,10,0.98)'; ctx.fillRect(0, 0, 960, 540);
+      T_(ctx, '캐릭터 ' + (o.n + 1) + ' — 직업 고르기', 480, 62, 24, '#f0e0b8', 'center');
+      NEWCHAR_CLS.forEach((id, i) => {
+        const C = CLASSES[id], x = 40 + i * 225, y = 92, w = 205, h = 340, on = this.sel === i, [role, wps] = NEWCHAR_TXT[id];
+        zone(x, y, w, h, { on: () => this.sel === i, pick: () => { this.sel = i; } });
+        Gfx.panel(ctx, x, y, w, h, { border: on ? '#ffd36a' : '#5a4650' });
+        T_(ctx, C.name, x + w / 2, y + 36, 22, on ? '#ffd36a' : '#f0e0b8', 'center');
+        const g = ctx.createRadialGradient(x + w / 2, y + 140, 8, x + w / 2, y + 140, 90);
+        g.addColorStop(0, 'rgba(255,220,150,' + (on ? 0.16 : 0.05) + ')'); g.addColorStop(1, 'rgba(255,220,150,0)');
+        ctx.fillStyle = g; ctx.fillRect(x + 4, y + 50, w - 8, 170);
+        const av = newcharAv[id] || (newcharAv[id] = { cls: id, equip: { weapon: Items.make(1, { slot: 'weapon', kind: C.weapons[0], rarity: 0 }) } });
+        Art.avatar(ctx, av, x + w / 2 - 6, y + 196, 4, on ? time : 0);
+        if (id === 'summoner') { Summon.icon(ctx, 'puff', x + 40, y + 196, 3, on ? time : 0); Summon.icon(ctx, 'imp', x + w - 38, y + 176, 2, on ? time : 0); }
+        T_(ctx, role, x + w / 2, y + 232, 14, '#c8b8a0', 'center');
+        wps.forEach(([wn, wd], j) => {
+          T_(ctx, wn, x + 18, y + 266 + j * 26, 14, '#ffd36a');
+          T_(ctx, wd, x + 18 + 56, y + 266 + j * 26, 12, '#9a8e96');
+        });
+        T_(ctx, '공격 = ' + (C.atkName || '공격력'), x + w / 2, y + h - 14, 12, '#7a7078', 'center');
+      });
+      const bon = this.sel === NEWCHAR_CLS.length, bx = 380, by = 448;
+      zone(bx, by, 200, 34, { pick: () => { this.sel = NEWCHAR_CLS.length; }, now: true });
+      Gfx.panel(ctx, bx, by, 200, 34, { border: bon ? '#ffd36a' : '#5a4650', bg: '#1d151b' });
+      T_(ctx, '코드로 불러오기', bx + 100, by + 23, 14, bon ? '#ffd36a' : '#c8b8a0', 'center');
+      if (!Input.touchMode()) T_(ctx, '고르기 ←→ · 불러오기 ↓ · 만들기 ' + L('ok') + ' · 돌아가기 ' + L('back'), 480, 512, 13, '#8a7e88', 'center');
+      else T_(ctx, '카드를 한 번 더 누르면 만들어요', 480, 512, 13, '#8a7e88', 'center');
+    },
+  };
   const choice = {
     sel: 0,
     update(o) {
@@ -2003,5 +2054,5 @@ const UI = (() => {
     return null;
   }
 
-  return { dragStart, dragMove, dragEnd, shopItems, qty, title, choice, select, inv, stones, gems, manage, smith, vault, pause, settings, soundtest, confirm, result, tap, tapLayer, resolveTap, touchSpecial, zone, touchHold };
+  return { dragStart, dragMove, dragEnd, shopItems, qty, title, newchar, choice, select, inv, stones, gems, manage, smith, vault, pause, settings, soundtest, confirm, result, tap, tapLayer, resolveTap, touchSpecial, zone, touchHold };
 })();

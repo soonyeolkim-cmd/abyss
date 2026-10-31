@@ -275,6 +275,8 @@ function tryStart(p, b) {
   }
   if (b === 'charge') {  // 회전베기 · 마법진: 누르면 바로(기력 cost)
     // 마법진은 한 번에 하나만(2026-10-24 사용자) — 깔린 것이 터지기 전에는 못 깐다(기력도 안 씀)
+    // 소환사: 그 무기 소환수가 이미 최대면 안 부른다(기력도 안 씀, 2026-10-31 사용자 — 마법진처럼 알림)
+    if (C.charge.def.summon && Summon.full(p)) { if (p.spWarnT <= 0) { const m = SUMMON[wkOf(p).pet || 'puff']; World.text(p.x, p.y, 40, m.name + ' 최대 ' + m.max + '마리 — 더 부를 수 없어요', '#c9b8ff'); p.spWarnT = 0.6; } return false; }
     if (C.charge.def.circle && World.magicActive()) { if (p.spWarnT <= 0) { World.text(p.x, p.y, 40, '마법진이 이미 있어요', '#c9b8ff'); p.spWarnT = 0.6; } return false; }
     if (!spend(p, costOf(p.prof, 'charge'))) return false;
     startAct(p, chargeDefOf(C, wkOf(p)), 'charge', 0);
@@ -283,7 +285,7 @@ function tryStart(p, b) {
   }
   if (b === 'special') {
     const wk = wkOf(p), chain = C.special.rush && wk.rushChain && p.rushChainT > 0;  // 싸이: 돌진 베기 뒤 잠깐 동안 한 번 더(기력 · 쿨타임 없이, 한 번만)
-    if (C.special.command && !Summon.count()) { if (p.spWarnT <= 0) { World.text(p.x, p.y, 40, '소환수가 없어요', '#d6b4f6'); p.spWarnT = 0.6; } return false; }  // 소환사 돌격 명령
+    if (C.special.frenzy && !Summon.count()) { if (p.spWarnT <= 0) { World.text(p.x, p.y, 40, '소환수가 없어요 — 먼저 ' + Input.label('charge') + ' 소환', '#d6b4f6'); p.spWarnT = 0.6; } return false; }  // 소환사 광폭화: 소환수가 없으면 기력 · 대기를 안 쓴다
     if (!chain && (p.specialCd > 0 || !spend(p, costOf(p.prof, 'special')))) return false;
     if (!chain) p.specialCd = specialCdOf(p);
     endHide(p);
@@ -385,7 +387,7 @@ function startAct(p, def, kind, idx, o = {}) {
   if (def.spin && def.slot === 'charge') { const st = Elements.socket(p.prof, 'charge'); if (st) hd.radius *= 1 + 0.05 * (st.size + 1); }
   // 망치 대지 강타: 회전베기처럼 차지 칸 속성석 크기마다 넓게 — 충격파 그림도 hd.area 를 따름
   if (def.area && def.slot === 'charge') { const st = Elements.socket(p.prof, 'charge'); hd.area = { ahead: def.area.ahead, r: def.area.r * (st ? 1 + 0.05 * (st.size + 1) : 1) }; }
-  if (kind !== 'dashAtk' && !o.aimed && !def.summon && !def.command) aimAt(p, def.circle ? def.circle.range : def.orb ? def.orb.range * 0.7 : def.wave ? def.wave.range * 0.6 : def.quake ? def.quake.range * 0.6 : def.knives ? def.knives.range * 0.8 : def.area ? def.area.ahead + def.area.r : def.radius || hd.reach[1]);  // 대시 찌르기는 대시한 방향 그대로 · 검기는 멀리까지
+  if (kind !== 'dashAtk' && !o.aimed && !def.summon && !def.frenzy) aimAt(p, def.bolt ? def.bolt.range * 0.8 : def.circle ? def.circle.range : def.orb ? def.orb.range * 0.7 : def.wave ? def.wave.range * 0.6 : def.quake ? def.quake.range * 0.6 : def.knives ? def.knives.range * 0.8 : def.area ? def.area.ahead + def.area.r : def.radius || hd.reach[1]);  // 대시 찌르기는 대시한 방향 그대로 · 검기는 멀리까지
   p.state = 'act';
   p.act = {
     def, hd, kind, idx, time: 0, hit: new Set(), wave: -1, fxDone: false, x0: p.x, y0: p.y,
@@ -454,7 +456,27 @@ function updateAct(p, dt, room) {
       World.fx({ type: 'ring', follow: p, r: a.hd.radius, t: 0, life: 0.3, col: Elements.color(p.prof, d.slot || 'none'), tier: Elements.tier(st), el: st ? st.el : '', ss: Elements.ss(st, p.prof) });
     }
     if (d.summon) Summon.spawn(p);  // 소환사 소환(스킬 칸 속성석 = 소환수 속성 — 폭발 대신)
-    if (d.command && !Summon.command(p)) World.text(p.x, p.y, 40, '노릴 적이 없어요', '#d6b4f6');  // 돌격 명령
+    // 소환사 영혼탄(기본): 처음 닿은 적에서 사라지는 구슬(기본 칸 속성석 색) — 맞으면 표식 · 소환수 가속 · 큰 영혼탄은 협공(js/summon.js boltHit), 유니크 잔상 일격도 여기서
+    if (d.bolt) {
+      const B = d.bolt, st = Elements.socket(p.prof, 'basic'), ux = p.fv.x, uy = p.fv.y;
+      World.playerShot({ x: p.x + ux * 8, y: p.y + uy * 8 - 4, vx: ux * B.speed, vy: uy * B.speed, left: B.range, r: B.r, ball: true, orb: true, once: true, def: d, hit: new Set(),
+        col: st ? ELEMENTS[st.el].color : '#d6b4f6', tier: Elements.tier(st), el: st ? st.el : '', ss: Elements.ss(st, p.prof),
+        onHitE: e => {
+          Summon.boltHit(p, e, d);
+          if (d.fin && p.stats.fx.echo && !p.echo && !e.dying) p.echo = { t: 0, n: 0, targets: [e], def: Object.assign({}, d, { mult: d.mult * UNIQUE_FX.echoMult, knock: 30, stun: 0.2, heavy: false, bolt: null }) };
+        },
+        onEnd: s => {
+          World.sparks(s.x, s.y - 8, 6, 8, s.col);
+          // 큰 영혼탄: 맞은 자리에서 작게 터진다(바닥 타원 burst r — 그림 = 판정, 처음 맞은 적은 빼고 둘레만)
+          if (B.burst && s.hit.size) {
+            World.fx({ type: 'nova', x: s.x, y: s.y, r: B.burst, col: s.col, el: s.el || '', tier: s.tier || 0, ss: s.ss || 0, bare: true, seed: Math.random() * 1000, t: 0, life: 0.35 });
+            const bd = { name: '영혼 폭발', mult: d.mult * B.burstMul, knock: 60, stun: 0.25 };
+            for (const e of World.enemies()) if (!s.hit.has(e) && groundDist(e.x - s.x, e.y - s.y) <= B.burst + e.r) hitEnemy(e, bd, p);
+          }
+        } });
+      Sfx.cast();
+    }
+    if (d.frenzy) Summon.frenzy(p, d.frenzy);  // 소환사 광폭화
     if (a.kind === 'charge' && !d.circle && !d.knives && !d.summon) Elements.chargeBurst(p, d.spin ? a.hd.radius : a.hd.area ? a.hd.area.r : 0);  // 회전베기 · 대지 강타: 속성 범위 = 베기 · 충격파 범위
     if (a.kind === 'stab') Elements.chargeBurst(p);  // 백스탭도 차지 칸 속성석 폭발(대상 등 뒤 자리에서)
     if (a.fly) World.fx({ type: 'shadowpath', pts: [[a.fly.x0, a.fly.y0]], follow: p, w: 8, t: 0, life: 0.3, col: '#b9a0ff' });  // 날아온 길  // 회전베기 칸 속성석: 둘레 폭발(마법진은 터질 때 그 자리에서)
@@ -541,7 +563,7 @@ function updateAct(p, dt, room) {
       if (d.breath && !Dungeon.los(World.level, p.x, p.y - 4, e.x, e.y - 4)) continue;  // 숨결은 벽 너머로 안 닿는다
       if (hitEnemy(e, d, p)) { a.hit.add(e); landed = true; nHit++; if (d.breath) Elements.breathHit(e, d, p); if (d.mark) e.petMark = d.mark; }  // 소환사 기본 공격: 표식(소환수가 먼저 노림)
     }
-    if (d.soul && nHit) Summon.extend(nHit * d.soul);  // 소환사 영혼 흡수
+    if (d.soul && nHit) Summon.heal(nHit * d.soul);  // 소환사 영혼 흡수: 소환수 체력
     // 유니크 잔상 일격: 3타째가 맞으면 잔상이 같은 적을 더 친다
     if (landed && d.fin && p.stats.fx.echo && !p.echo) p.echo = { t: 0, n: 0, targets: [...a.hit], def: Object.assign({}, d, { mult: d.mult * UNIQUE_FX.echoMult, knock: 30, stun: 0.2, heavy: false }) };
     if (landed) {
