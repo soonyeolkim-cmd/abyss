@@ -135,7 +135,7 @@ function hitEnemy(e, def, p, w) {
   World.sparks(hx, hy, hz, crit ? 8 : heavy ? 5 : 3, blocked ? '#ece0cc' : warded ? '#5fe0d0' : crit ? '#ffd34d' : '#ffe9a8', true);
   World.impact(hx, hy, hz, crit ? 14 : heavy ? 11 : 8);
   World.shake(crit ? 3 : heavy ? 2.5 : 1.5);
-  if (crit) World.hitstop(0.07);
+  if (crit) World.hitstop(def && def.hitstop !== undefined ? Math.min(0.07, def.hitstop) : 0.07);  // 멈칫을 줄인 기술(검 돌진 회전)은 치명타도 그만큼만
   if (!p.remote) Input.rumble(crit || heavy ? 0.5 : 0.25, crit || heavy ? 90 : 50);
   if (dmg) World.number(e.x, e.y, (e.z || 0) + e.h + 4, dmg, crit ? '#ffd34d' : rc && rc[0] > 1 ? '#5fe0d0' : stag > 1 ? '#7fe3ff' : '#ffffff', crit || (rc && rc[0] > 1));
   return true;

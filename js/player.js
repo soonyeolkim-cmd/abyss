@@ -416,7 +416,7 @@ function updateAct(p, dt, room) {
   if (d.backstep && a.time < tB) Dungeon.move(room, p, -p.fv.x * d.backstep / tB * dt, -p.fv.y * d.backstep / tB * dt, BODY_R, false);
   if (a.time < tB) {
     let v = 0;
-    if (d.dash) { if (a.time >= tA) v = (a.len || d.dash) / a.a; }  // 돌진 베기는 그 적까지 거리(a.len)
+    if (d.dash) { if (a.time >= tA) v = (a.len || d.dash) / a.a * (d.ease ? 2 * Math.max(0, 1 - (a.time - tA) / a.a) : 1); }  // 돌진 베기는 그 적까지 거리(a.len) · ease = 빠르게 나가 미끄러지듯 멈춤(거리는 같음)
     // 기본 공격 내딛기(lunge): 방향키를 누르고 있을 때만(2026-10-24 사용자: 중립이면 제자리, 누르면 그쪽으로 전진)
     else if (d.lunge && a.push) v = d.lunge / tB;
     if (v) Dungeon.move(room, p, p.fv.x * v * dt, p.fv.y * v * dt, BODY_R, false);
@@ -541,7 +541,7 @@ function updateAct(p, dt, room) {
     // 유니크 잔상 일격: 3타째가 맞으면 잔상이 같은 적을 더 친다
     if (landed && d.fin && p.stats.fx.echo && !p.echo) p.echo = { t: 0, n: 0, targets: [...a.hit], def: Object.assign({}, d, { mult: d.mult * UNIQUE_FX.echoMult, knock: 30, stun: 0.2, heavy: false }) };
     if (landed) {
-      World.hitstop(d.heavy ? 0.08 : 0.045);
+      World.hitstop(d.hitstop !== undefined ? d.hitstop : d.heavy ? 0.08 : 0.045);  // 기술마다 멈칫을 줄일 수 있다(검 돌진 회전)
       if (d.heavy) World.shake(2);
     }
   }
