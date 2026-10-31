@@ -185,9 +185,10 @@ const CLASSES = {
     dashAttack: { name: '영혼 흡수', slot: 'dash', startup: 0.04, active: 0.12, recovery: 0.3, mult: 1.0, knock: 160, stun: 0.45, radius: 40, pulse: true, soul: 0.08, iframes: true, heavy: true, thrust: true },
     // ── 무기별 기술(2026-10-31 사용자 '무기별 특징이 없다' → 추천안: 방울 = 물량 · 소모 · 합체, 계약서 = 집중 · 경호 · 도발) ──
     // 방울 특수(Z) = 솜뿔이 합체: 있는 솜뿔이(2마리 이상)가 모두 뭉쳐 큰 솜뿔이 하나 — t 초 동안 hop 초마다 뛰어 내려앉으며 둘레 충격(반지름 r0 + rN × 마릿수,
-    //   한 방 = 솜뿔이 한 방 × per × 마릿수 — 충격 고리 그림 = 판정). 끝나면 그 마릿수 그대로 체력을 채워 흩어진다(js/summon.js merge)
+    //   한 방 = 솜뿔이 한 방 × per × 마릿수 — 충격 고리 그림 = 판정). 짧은 광폭이면 더 자주 뛴다. 끝나면 그 자리에서 크게 터지고(burst) 그 마릿수 그대로 체력을 채워 흩어진다(js/summon.js merge · split, 2026-10-31 사용자 1 + 2안)
     merge: { id: 'merge', name: '솜뿔이 합체', short: '합체', icon: 'merge', slot: 'wave', cd: 10, cost: 100, startup: 0.05, active: 0.05, recovery: 0.2, mult: 0, knock: 0, stun: 0, thrust: true,
-      merge: { t: 8, min: 2, hop: 0.8, air: 0.45, r0: 18, rN: 3, per: 1.3, scale0: 1, scaleN: 0.22, extra: 1 } },  // extra = 착지 때 스킬 칸 속성석 효과를 (마릿수 - 1) × extra 번 더
+      merge: { t: 8, min: 2, hop: 0.8, air: 0.45, r0: 14, rN: 2, per: 1.3, scale0: 1, scaleN: 0.22, extra: 0.35,
+        burst: { r0: 20, rN: 2, per: 4 } } },  // burst = 끝날 때 폭발(반지름 r0 + rN × 마릿수, 한 방 = 솜뿔이 한 방 × per × 마릿수)  // extra = 착지 때 스킬 칸 속성석 효과를 (마릿수 - 1) × extra 번 더
     // 방울 대시 → 공격 = 메아리: 내 둘레(radius) + 모든 솜뿔이 자리(echo.r)에서 종소리 고리가 한꺼번에 — 한 적은 한 번만(그림 = 판정)
     echoPulse: { name: '메아리', slot: 'dash', startup: 0.04, active: 0.12, recovery: 0.3, mult: 1.0, knock: 140, stun: 0.45, radius: 30, pulse: true, echo: { r: 26 }, iframes: true, heavy: true, thrust: true },
     // 계약서 대시 → 공격 = 계약 집행: 영혼 흡수 그대로 + 낙인 찍힌 적(내 둘레 range 안 가장 가까운)이 있으면 꼬마 악마가 그 곁으로 순간이동해 바로 내리치기(악마 한 방 × mult)
@@ -234,7 +235,7 @@ const WEAPON_KINDS = {
     bleed: { per: 0.12, max: 8, t: 4 }, rushChain: 1.2, chargeDef: 'saiStorm' },
   // 소환사(2026-10-31): 방울 = 솜뿔이 군단(여럿 · 빠름) · 계약서 = 꼬마 악마(한두 마리 · 크고 셈, 내리치기 범위). pet = SUMMON 키 · summonCost = 소환 기력. 대시 = 순간이동(혼령 걸음)
   bell: { name: '경량', speed: 1.15, reach: 0, dmg: 1, knock: 0.9, arc: 1,
-    trait: ['군단', '솜뿔이 2마리씩 · 최대 6 · 나눠 맡음 · 쓰러지면 솜 터짐 · 큰 종소리 = 소환수 2초 광폭 · 솜뿔이 합체 · 메아리(대시해도 솜뿔이는 그 자리) · 대시가 순간이동'],
+    trait: ['군단', '솜뿔이 2마리씩 · 최대 6 · 나눠 맡음 · 쓰러지면 솜 터짐 · 큰 종소리 = 소환수 2초 광폭 · 솜뿔이 합체(끝나면 폭발) · 메아리(대시해도 솜뿔이는 그 자리) · 대시가 순간이동'],
     pet: 'puff', summonCost: 20, blinkDodge: 64, specialDef: 'merge', dashDef: 'echoPulse', specialCd: 10, specialCost: 100, noRegroup: true },  // noRegroup = 대시해도 솜뿔이가 싸우던 자리에 남음(메아리)
   pact: { name: '중량', speed: 0.88, reach: 0, dmg: 1, knock: 1.4, arc: 1.1,
     trait: ['계약', '꼬마 악마 최대 2 · 낙인 적 집중 · 없으면 곁을 지킴 · 내리치면 도발 · 큰 낙인 = 소환수 2초 광폭 + 낙인 터뜨리기 · 사슬 계약 · 계약 집행 · 대시가 순간이동(악마가 곁으로)'],
@@ -248,10 +249,10 @@ const SUMMON = {
   // 체력 · 방어(2026-10-31 사용자 '너무 빨리 녹는다 — 적어도 플레이어 체력 수준'): 솜뿔이 0.15 · 0.3 → 1.0 · 1.0, 꼬마 악마 0.4 · 0.5 → 1.5 · 1.0
   //   (Lv.40 오크 한 방 432: 예전 솜뿔이 한 대 · 꼬마 악마 두 대에 쓰러짐 → 이제 나처럼 네 대 · 꼬마 악마 다섯 대)
   // 무기별 성격(2026-10-31 사용자 추천안): 솜뿔이 = 한 번에 batch 마리 · 한 적에 share 마리까지만(남는 녀석은 다른 적 — 적이 하나뿐이면 모두) ·
-  //   쓰러지면 그 자리 솜 터짐(pop: 반지름 r · 솜뿔이 한 방 × mult, 그림 = 판정). 최대 4 → 6 이라 한 방 0.9 → 0.65 · 체력 1.0 → 0.7(더 쉽게 쓰고 다시 부름)
+  //   쓰러지면 그 자리 솜 터짐(pop: 반지름 r · 솜뿔이 한 방 × mult, 그림 = 판정). 최대 4 → 6 이라 한 방 0.9 → 0.55(합체 끝 폭발 · 짧은 광폭 몫만큼 더 내림) · 체력 1.0 → 0.7(더 쉽게 쓰고 다시 부름)
   // 꼬마 악마 = 표식 적은 markSight(주인 둘레)까지 쫓고, 표식 적이 없으면 주인 둘레 guard 안 적 · 나나 악마를 노리는 적만(경호) ·
   //   내리치기에 맞은 적은 taunt 초 동안 그 악마를 노림(보스 빼고) · 큰 낙인 협공 = 낙인 폭발(반지름 r · 악마 한 방 × mult)
-  puff: { name: '솜뿔이', max: 6, batch: 2, share: 2, hp: 0.7, def: 1.0, speed: 96, r: 5, h: 13, sight: 140, atk: { mult: 0.65, cd: 0.75, reach: 10, wind: 0.12 },
+  puff: { name: '솜뿔이', max: 6, batch: 2, share: 2, hp: 0.7, def: 1.0, speed: 96, r: 5, h: 13, sight: 140, atk: { mult: 0.55, cd: 0.75, reach: 10, wind: 0.12 },
     pop: { r: 16, mult: 0.8 } },
   imp: { name: '꼬마 악마', max: 2, hp: 1.5, def: 1.0, speed: 78, r: 8, h: 19, sight: 150, markSight: 200, guard: 80, taunt: 3, atk: { mult: 1.6, cd: 1.1, reach: 14, wind: 0.22, aoe: 22 },
     detonate: { r: 26, mult: 0.2 } },

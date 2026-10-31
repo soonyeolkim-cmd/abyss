@@ -111,18 +111,70 @@ const Summon = (() => {
     }
     return best;
   }
+  // 목표 쪽으로 곧장 걷다가, 기둥 · 상자 · 벽 모서리에 막히면(거의 못 나아가면) 둘레 칸 길찾기로 다음 칸을 잡아 detourT 초 동안 그 칸으로 간다
+  // (2026-10-31 사용자 '기둥을 잘 못 피해' — 칸 거리표 Dungeon.bfs 는 기둥을 모르니 여기서 기둥 칸도 막힌 칸으로 센다)
+  const WAY_R = 10;  // 목표 칸 둘레 이 칸 수 안에서만 찾음
+  function wayPoint(lv, q, tx, ty) {
+    if (!lv.colKey || lv.colKey.n !== lv.columns.length) lv.colKey = { n: lv.columns.length, set: new Set(lv.columns.map(c => c[0] + ',' + c[1])) };  // 레이드 기둥은 부서지면 줄어듦
+    const cols = lv.colKey.set, N = WAY_R * 2 + 1, gx0 = Math.floor(tx / T) - WAY_R, gy0 = Math.floor(ty / T) - WAY_R;
+    const open = (x, y) => lv.at(x, y) === 1 && !cols.has(x + ',' + y);
+    const dist = new Int16Array(N * N).fill(-1), qu = [];
+    const sx = Math.floor(tx / T) - gx0, sy = Math.floor(ty / T) - gy0;
+    dist[sy * N + sx] = 0; qu.push(sy * N + sx);
+    for (let h = 0; h < qu.length; h++) {
+      const i = qu[h], x = i % N, y = (i / N) | 0;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, ny = y + dy, j = ny * N + nx;
+        if (nx < 0 || ny < 0 || nx >= N || ny >= N || dist[j] >= 0 || !open(gx0 + nx, gy0 + ny)) continue;
+        dist[j] = dist[i] + 1; qu.push(j);
+      }
+    }
+    const px = Math.floor(q.x / T) - gx0, py = Math.floor(q.y / T) - gy0;
+    if (px < 0 || py < 0 || px >= N || py >= N) return null;
+    const here = dist[py * N + px];  // 기둥 칸 윗틈(막힌 칸)에 서 있으면 -1
+    // 갈 수 있나: line = 그 칸 가운데까지 곧장(1/3 · 2/3 · 끝이 모두 빈 자리), slide = 한 걸음이라도 나아감(가로 · 세로 따로 미끄러짐)
+    const line = (x, y) => [1 / 3, 2 / 3, 1].every(k => Dungeon.walkable(lv, q.x + (x - q.x) * k, q.y + (y - q.y) * k, q.r));
+    const slide = (x, y) => { const u = unit(x - q.x, y - q.y, q.fv); return (Math.abs(u.x) > 0.1 && Dungeon.walkable(lv, q.x + Math.sign(u.x) * 2, q.y, q.r)) || (Math.abs(u.y) > 0.1 && Dungeon.walkable(lv, q.x, q.y + Math.sign(u.y) * 2, q.r)); };
+    // 1) 곧장 갈 수 있는 이웃 칸 중 목표에 가까운 것(지금 칸보다 가까워야 — 막힌 칸에 서 있으면 아무 칸이나 빠져나가기) 2) 없으면 미끄러져 나아가는 더 가까운 칸
+    const pick = (ok, needCloser) => {
+      let best = null, bd = needCloser ? here : 1e9;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+        const nx = px + dx, ny = py + dy;
+        if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+        const v = dist[ny * N + nx];
+        if (v < 0 || v >= bd) continue;
+        if (dx && dy && (!open(gx0 + px + dx, gy0 + py) || !open(gx0 + px, gy0 + py + dy))) continue;  // 모서리 끼임 방지
+        if (!ok((gx0 + nx) * T + 8, (gy0 + ny) * T + 10)) continue;
+        bd = v; best = [gx0 + nx, gy0 + ny];
+      }
+      return best;
+    };
+    const best = pick(line, here >= 0) || (here >= 0 ? pick(slide, true) : null);
+    return best && { x: best[0] * T + 8, y: best[1] * T + 10 };
+  }
   function step(q, lv, tx, ty, sp, dt) {
-    const u = unit(tx - q.x, ty - q.y, q.fv);
+    const gx = tx, gy = ty;  // 원래 목표(길찾기는 늘 이것으로)
+    if (q.detourT > 0 && q.way) { q.detourT -= dt; if (Math.hypot(q.way.x - q.x, q.way.y - q.y) < 3) q.detourT = 0; else { tx = q.way.x; ty = q.way.y; } }
+    const u = unit(tx - q.x, ty - q.y, q.fv), x0 = q.x, y0 = q.y, d = sp * dt;
+    Dungeon.move(lv, q, u.x * d, u.y * d, q.r);
+    // 목표에 0.3초 넘게 가까워지지 않아도 막힌 셈(소환수끼리 밀어내 제자리걸음일 때 — 걸음 자체는 움직인 것처럼 보임)
+    const gd = Math.hypot(gx - q.x, gy - q.y);
+    q.stuckT = q.lastGd !== undefined && gd > q.lastGd - d * 0.3 ? (q.stuckT || 0) + dt : 0;
+    q.lastGd = gd;
+    if ((Math.hypot(q.x - x0, q.y - y0) < d * 0.4 || q.stuckT > 0.3) && !(q.detourT > 0.25)) {  // 막힘: 다음 칸 잡기(막 잡은 칸으로 가는 중이면 그대로)
+      const w = wayPoint(lv, q, gx, gy);
+      if (w) { q.way = w; q.detourT = 0.5; q.stuckT = 0; }
+    }
     q.fv = u;
-    Dungeon.move(lv, q, u.x * sp * dt, u.y * sp * dt, q.r);
     q.walkT += dt; q.moving = true;
   }
   // 주인 뒤쪽 반원에 줄지어 따라다닌다(몇 번째인지 slot 으로 자리)
   function follow(q, p, lv, dt, i, n) {
     const back = Math.atan2(-p.fv.y, -p.fv.x), a = back + (n > 1 ? (i / (n - 1) - 0.5) * 2.2 : 0);
-    const tx = p.x + Math.cos(a) * 18, ty = p.y + Math.sin(a) * 12;
+    let tx = p.x + Math.cos(a) * 18, ty = p.y + Math.sin(a) * 12, near = 6;
+    if (!Dungeon.walkable(lv, tx, ty, q.r)) { tx = p.x; ty = p.y; near = q.r + 10; }  // 내 뒤 자리가 기둥 · 벽 안이면 내 곁으로
     const d = Math.hypot(tx - q.x, ty - q.y);
-    if (d > 6) step(q, lv, tx, ty, cfg(q).speed * rage('move') * (d > 60 ? 1.5 : 1), dt);
+    if (d > near) step(q, lv, tx, ty, cfg(q).speed * rage('move') * (d > 60 ? 1.5 : 1), dt);
     else { q.moving = false; q.fv = unit(p.fv.x, p.fv.y, q.fv); }
   }
   // 준비가 끝나면 친다: 솜뿔이 = 노린 적 하나(박치기) · 꼬마 악마 = 앞 바닥 내리치기(반지름 aoe — 충격 그림 = 판정)
@@ -180,8 +232,8 @@ const Summon = (() => {
     const M = q.M;
     q.mergeT -= dt; q.thinkT -= dt;
     if (q.mergeT <= 0 && q.air <= 0) { split(q, p); return; }
-    if (q.air > 0) {  // 공중: 정한 자리로 날아가 내려앉음
-      const k = 1 - q.air / M.air;
+    if (q.air > 0) {  // 공중: 정한 자리로 날아가 내려앉음(뛰는 시간 airT — 짧은 광폭이면 짧아짐)
+      const k = 1 - q.air / q.airT;
       q.air -= dt;
       Dungeon.move(lv, q, q.vx * dt, q.vy * dt, q.r);
       q.z = Math.sin(Math.PI * Math.min(1, k)) * 26;
@@ -189,7 +241,7 @@ const Summon = (() => {
       if (q.air <= 0) land(q, p);
       return;
     }
-    q.hopT -= dt;
+    q.hopT -= dt * rage('aspd');  // 큰 종소리 짧은 광폭: 큰 솜뿔이도 더 자주 뛴다(2026-10-31 사용자 2안)
     if (q.hopT > 0) return;
     if (q.thinkT <= 0 || !valid(q.tgt)) { q.tgt = pick(q, p, lv); q.thinkT = 0.25; }
     const e = q.tgt;
@@ -200,7 +252,8 @@ const Summon = (() => {
     if (!e && d < 10) { q.hopT = 0.2; return; }  // 따라갈 곳 바로 옆: 그냥 기다림
     if (d > lim) { tx = q.x + (tx - q.x) / d * lim; ty = q.y + (ty - q.y) / d * lim; }
     q.fv = unit(tx - q.x, ty - q.y, q.fv);
-    q.vx = (tx - q.x) / M.air; q.vy = (ty - q.y) / M.air; q.air = M.air;
+    q.airT = q.air = M.air / rage('aspd');
+    q.vx = (tx - q.x) / q.airT; q.vy = (ty - q.y) / q.airT;
   }
   function land(q, p) {
     const M = q.M, n = q.giant, R = M.r0 + M.rN * n;
@@ -220,12 +273,22 @@ const Summon = (() => {
     }
     Sfx.heavySwing();
   }
+  // 합체가 끝나면 그 자리에서 크게 터지며 흩어진다(2026-10-31 사용자 1안 — 모았다 터뜨리는 한 방, 보스에게도 이득):
+  // 반지름 burst.r0 + burst.rN × 마릿수(nova · shock 고리 = 판정), 한 방 = 솜뿔이 한 방 × burst.per × 마릿수. 속성석 효과는 스킬 · 특수 칸 한 번씩(덤 없음 — 번개 무리가 너무 셈)
   function split(q, p) {
-    const n = q.giant;
+    const n = q.giant, B = q.M.burst, R = B.r0 + B.rN * n;
     q.gone = true; q.dead = true;
     pets = pets.filter(o => !o.gone);
-    World.fx({ type: 'pulse', x: q.x, y: q.y, r: q.r + 12, t: 0, life: 0.35, col: '#e8d8ff' });
-    World.sparks(q.x, q.y, 10, 12, '#e8d8ff', true);
+    if (p && !p.dead && !World.mirror) {
+      World.fx({ type: 'nova', x: q.x, y: q.y, r: R, col: '#e8d8ff', el: '', tier: 2, ss: 0, bare: true, seed: Math.random() * 1000, t: 0, life: 0.45 });
+      World.fx({ type: 'shock', x: q.x, y: q.y, r: R, t: 0, life: 0.35 });
+      World.text(q.x, q.y, q.h + 14, '솜뿔이 폭발!', '#e8d8ff', true);
+      World.dust(q.x, q.y, 12); World.shake(3);
+      const def = { name: '솜뿔이 폭발', slot: 'charge', pet: true, fin: true, mult: SUMMON.puff.atk.mult * B.per * n, knock: 160, stun: 0.6, heavy: true, wave: true };
+      for (const e of World.enemies()) if (valid(e) && groundDist(e.x - q.x, e.y - q.y) <= R + e.r) hit(q, p, e, def);
+      Sfx.fire();
+    }
+    World.sparks(q.x, q.y, 10, 16, '#e8d8ff', true);
     for (let i = 0; i < n; i++) spawnOne(p, 'puff', q.x, q.y, i);  // 체력을 채워 흩어진다
   }
 
