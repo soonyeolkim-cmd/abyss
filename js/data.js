@@ -152,8 +152,9 @@ const CLASSES = {
       circle: { range: 120, ahead: 34, r: 26, delay: 0.35 }, trio: { n: 3, step: 30, gap: 0.15 } },
   },
   // ── 소환사(2026-10-31 사용자: 네 번째 직업, 메모/summoner-plan.md) ── 본인은 약하고 소환수가 싸운다. 소환수 = js/summon.js(주인 능력치 그대로 — 한 방은 스킬 칸 기술로 친다).
-  // 기본(X) = 영혼탄 2연발(2026-10-31 사용자 B안 — 근접 2연타는 표식만 남기고 버리는 동작이라 바꿈): 맞힌 적에 표식(mark 초, 소환수가 먼저 노리고 소환수에게 받는 피해 × SUMMON.markMul) ·
-  //   맞힐 때마다 모든 소환수 다음 공격 SUMMON.hasten 초 빨라짐 · 2타(큰 영혼탄)가 맞으면 모든 소환수가 그 적에게 협공 한 방(js/summon.js boltHit) · 스킬(V) = 소환(솜뿔이 · 꼬마 악마 — 무기 종류로) ·
+  // 기본(X) = 무기마다(2026-10-31 사용자 3안 — 영혼탄 구슬은 마법사 마력탄과 겹쳐서): 방울 = 종소리 파동(앞 부채꼴 여러 마리) · 계약서 = 영혼 낙인(한 마리에게 바로).
+  //   맞힌 적에 표식(mark 초, 소환수가 먼저 노리고 소환수에게 받는 피해 × SUMMON.markMul) · 한 번 칠 때마다 모든 소환수 다음 공격 SUMMON.hasten 초 빨라짐 ·
+  //   2타(큰 종소리 · 큰 낙인)가 맞으면 모든 소환수가 그 적에게 협공 한 방(js/summon.js basicHit) · 스킬(V) = 소환(솜뿔이 · 꼬마 악마 — 무기 종류로) ·
   // 특수(Z) = 광폭화(5초 동안 모든 소환수가 빠르고 세게 — 2026-10-31 사용자, 예전 돌격 명령은 소환수가 원래 하는 일과 겹쳐서 바꿈) · 대시 = 혼령 걸음(순간이동, 끝에 소환수가 곁으로) → 공격 = 영혼 흡수(맞힌 수만큼 소환수 유지 +soul 초)
   summoner: {
     id: 'summoner', name: '소환사', sprite: 'summoner', atkName: '주문력',
@@ -166,8 +167,15 @@ const CLASSES = {
     dodge: { time: 0.28, speed: 230, iframes: 0.24, cd: 0, attackWindow: 0.18, cost: 8 },
     potion: { heal: 0.4, cd: 1.0, max: 5 },
     combo: [
-      { name: '영혼탄', slot: 'basic', startup: 0.07, active: 0.05, recovery: 0.2, mult: 1.45, knock: 50, stun: 0.25, thrust: true, mark: 4, bolt: { speed: 260, range: 110, r: 5 } },
-      { name: '큰 영혼탄', slot: 'basic', fin: true, startup: 0.1, active: 0.05, recovery: 0.32, mult: 2.35, knock: 120, stun: 0.4, thrust: true, heavy: true, mark: 4, bolt: { speed: 240, range: 120, r: 7, burst: 20, burstMul: 0.6 } },  // burst = 맞은 자리 작은 폭발(둘레 적 × burstMul)
+      // 방울 = 종소리 파동: 방울을 흔들면 앞 부채꼴(길이 reach · 반각 arc)로 음파 고리가 퍼져 닿은 적 모두(art.js fx 'sound' — 그림 = 판정)
+      { name: '종소리', slot: 'basic', startup: 0.07, active: 0.14, recovery: 0.2, mult: 1.5, knock: 60, stun: 0.3, reach: [0, 62], arc: 40, swing: [-30, 30], sound: true, mark: 4 },
+      { name: '큰 종소리', slot: 'basic', fin: true, startup: 0.09, active: 0.16, recovery: 0.3, mult: 2.4, knock: 140, stun: 0.45, reach: [0, 74], arc: 50, swing: [40, -60], heavy: true, sound: true, mark: 4 },
+    ],
+    // 계약서 = 영혼 낙인(WEAPON_KINDS.pact.combo): 앞쪽 range 안 가장 가까운 적에게 바로 낙인(날아가는 것 없음, art.js fx 'brand') ·
+    //   큰 낙인은 그 자리에서 작게 터진다(바닥 타원 burst — 그림 = 판정, 둘레 적 × burstMul)
+    brandCombo: [
+      { name: '영혼 낙인', slot: 'basic', startup: 0.08, active: 0.05, recovery: 0.22, mult: 1.3, knock: 40, stun: 0.3, swing: [-150, -60], mark: 4, brand: { range: 110 } },
+      { name: '큰 낙인', slot: 'basic', fin: true, startup: 0.12, active: 0.05, recovery: 0.32, mult: 2.1, knock: 120, stun: 0.45, swing: [-160, -40], heavy: true, mark: 4, brand: { range: 120, burst: 22, burstMul: 0.4 } },
     ],
     // 광폭화: t 초 · 공격 속도 × aspd · 이동 × move · 한 방 × dmg · 그림 scale 배(js/summon.js frenzy) — thrust = 방울 · 계약서를 앞으로 내민다
     // 2026-10-31 사용자 '대기가 너무 길다 — 기력을 높이고 대기를 줄이자, 장비가 좋아지면 무한 광폭화도': 대기 12 → 4.5초(광폭화 5초보다 짧아 이어 쓸 수 있음) · 기력 25 → 120.
@@ -216,9 +224,9 @@ const WEAPON_KINDS = {
     bleed: { per: 0.12, max: 8, t: 4 }, rushChain: 1.2, chargeDef: 'saiStorm' },
   // 소환사(2026-10-31): 방울 = 솜뿔이 군단(여럿 · 빠름) · 계약서 = 꼬마 악마(한두 마리 · 크고 셈, 내리치기 범위). pet = SUMMON 키 · summonCost = 소환 기력. 대시 = 순간이동(혼령 걸음)
   bell: { name: '경량', speed: 1.15, reach: 0, dmg: 1, knock: 0.9, arc: 1,
-    trait: ['군단', '솜뿔이 최대 4마리 · 소환 기력 20 · 작고 빠른 군단 · 대시가 순간이동'], pet: 'puff', summonCost: 20, blinkDodge: 64 },
+    trait: ['군단', '솜뿔이 최대 4마리 · 소환 기력 20 · 종소리 파동 · 대시가 순간이동'], pet: 'puff', summonCost: 20, blinkDodge: 64 },
   pact: { name: '중량', speed: 0.88, reach: 0, dmg: 1, knock: 1.4, arc: 1.1,
-    trait: ['계약', '꼬마 악마 최대 2마리 · 소환 기력 30 · 범위 내리치기 · 대시가 순간이동'], pet: 'imp', summonCost: 30, blinkDodge: 64 },  // 대시 → 공격은 카타르와 같은 선풍 베기(2026-10-30 사용자, 물러나며 표창 saiDash 는 안 씀)
+    trait: ['계약', '꼬마 악마 최대 2마리 · 소환 기력 30 · 영혼 낙인 · 대시가 순간이동'], pet: 'imp', summonCost: 30, blinkDodge: 64, combo: 'brandCombo' },  // combo = 기본 공격 목록(영혼 낙인)  // 대시 → 공격은 카타르와 같은 선풍 베기(2026-10-30 사용자, 물러나며 표창 saiDash 는 안 씀)
 };
 
 // 소환수(2026-10-31 사용자 — js/summon.js). max 마리(꽉 차면 스킬 칸을 눌러도 안 부름) · 유지 시간 없음(체력이 다 닳거나 던전을 나갈 때까지, 다음 층으로 따라옴) · hp = 주인 최대 체력 × · def = 주인 방어력 × ·
@@ -228,8 +236,8 @@ const SUMMON = {
   // 체력 · 방어(2026-10-31 사용자 '너무 빨리 녹는다 — 적어도 플레이어 체력 수준'): 솜뿔이 0.15 · 0.3 → 1.0 · 1.0, 꼬마 악마 0.4 · 0.5 → 1.5 · 1.0
   //   (Lv.40 오크 한 방 432: 예전 솜뿔이 한 대 · 꼬마 악마 두 대에 쓰러짐 → 이제 나처럼 네 대 · 꼬마 악마 다섯 대)
   puff: { name: '솜뿔이', max: 4, hp: 1.0, def: 1.0, speed: 96, r: 5, h: 13, sight: 140, atk: { mult: 0.9, cd: 0.75, reach: 10, wind: 0.12 } },
-  imp: { name: '꼬마 악마', max: 2, hp: 1.5, def: 1.0, speed: 78, r: 8, h: 19, sight: 150, atk: { mult: 1.9, cd: 1.1, reach: 14, wind: 0.22, aoe: 22 } },
-  killSp: 5, leash: 230, markMul: 1.2, hasten: 0.1, assist: 0.3,  // 표식 적 피해 배율 · 영혼탄이 맞을 때 소환수 다음 공격 당김(초) · 협공 한 방(소환수 한 방 배율 ×)
+  imp: { name: '꼬마 악마', max: 2, hp: 1.5, def: 1.0, speed: 78, r: 8, h: 19, sight: 150, atk: { mult: 1.6, cd: 1.1, reach: 14, wind: 0.22, aoe: 22 } },
+  killSp: 5, leash: 230, markMul: 1.2, hasten: 0.1, assist: 0.3,  // 표식 적 피해 배율 · 기본 공격이 맞을 때 소환수 다음 공격 당김(초) · 협공 한 방(소환수 한 방 배율 ×)
 };
 
 // ── 몹 ── atk.lunge = 공격하며 튀어나가는 속도, ranged = 멀리서 쏨(shot: 탄 속도 · 피해)

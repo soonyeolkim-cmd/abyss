@@ -157,9 +157,10 @@ const Summon = (() => {
       q.hp += h; World.number(q.x, q.y, q.h + 2, h, '#7dff8a'); World.sparks(q.x, q.y, q.h * 0.5, 4, '#7dff8a');
     }
   }
-  // 영혼탄(기본 공격)이 맞음: 표식 · 모든 소환수 다음 공격 당김 · 큰 영혼탄이면 모든 소환수가 그 자리에서 협공 한 방(분홍 줄이 그 적까지 — 맞는 적 = 줄 끝)
-  function boltHit(p, e, d) {
+  // 기본 공격(종소리 · 낙인)이 맞음: 표식 · first(그 공격의 처음 맞은 적)면 모든 소환수 다음 공격 당김 + 큰 종소리 · 큰 낙인이면 모든 소환수가 그 적에게 협공 한 방(분홍 줄이 그 적까지 — 맞는 적 = 줄 끝)
+  function basicHit(p, e, d, first) {
     if (d.mark) e.petMark = d.mark;
+    if (!first) return;
     for (const q of pets) if (!q.gone) q.atkCd -= SUMMON.hasten;
     if (!d.fin || !valid(e)) return;
     for (const q of pets) {
@@ -324,5 +325,5 @@ const Summon = (() => {
     }
   }
 
-  return { reset, count, list, spawn, hurt, frenzy, raging, regroup, heal, carry, full, boltHit, update, drawList, drawMarks, icon };
+  return { reset, count, list, spawn, hurt, frenzy, raging, regroup, heal, carry, full, basicHit, update, drawList, drawMarks, icon };
 })();

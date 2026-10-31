@@ -62,7 +62,8 @@ const Art = (() => {
         if (d.noBody || d.area) return { th, hx: hx + p.fv.x * push, hy: hy + p.fv.y * push, flip, trail: null, off: p.cls.dual ? offPose(p, time, { th, hx, hy, trail: null }, aim, flip) : undefined };  // 돌진 베기(띠) · 망치 내려찍기(바닥 타원): 칼 궤적 대신 판정 모양 그림
         // 칼 궤적은 판정 부채꼴(정면 ± arc) 안만 그린다 — 칼은 시작각부터 휘둘러도 궤적은 판정 각도에서 시작 · 끝(2026-10-26 이펙트 범위 = 판정 범위)
         const arc = Math.min(Math.PI, ((a.hd && a.hd.arc) || d.arc || 180) * RAD), clip = v => Math.max(-arc, Math.min(arc, v));
-        if (ph >= 1 && (ph === 1 || t - a.s - a.a < 0.1)) trail = { a0: aim + clip(s0), a1: aim + clip(th - aim), fade: ph === 1 ? 1 : 1 - (t - a.s - a.a) / 0.1 };
+        if (ph >= 1 && !d.sound && !d.brand && (ph === 1 || t - a.s - a.a < 0.1)) trail =  // 소환사 종소리 · 낙인은 칼 궤적 없음(방울을 흔들 · 계약서를 듦)
+          { a0: aim + clip(s0), a1: aim + clip(th - aim), fade: ph === 1 ? 1 : 1 - (t - a.s - a.a) / 0.1 };
       }
     } else if (p.charge > 0) {
       // 기를 모으는 중: 칼을 뒤로 젖혀 든다(다 모이면 떨린다)
@@ -914,6 +915,32 @@ const Art = (() => {
             ctx.globalAlpha = 0.9 * (1 - q); ctx.fillRect(Math.round(ox + Math.cos(ang) * d), Math.round(oy + Math.sin(ang) * d), 1, 1);
           }
           if (T) breathMotif(ctx, f, k, T, ox, oy, h, rnd);
+          ctx.restore();
+          break;
+        }
+        case 'sound': {  // 소환사 종소리 파동: 판정 부채꼴(몸 가운데 · 길이 R · 반각 arc) 안에서만 퍼지는 음파 고리 셋(바깥 고리가 R 에 닿으면 끝) — 그림 = 판정
+          const o = f.follow || f, ox = o.x, oy = o.y - 6, h = f.arc * Math.PI / 180, n = f.big ? 4 : 3;
+          ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+          for (let i = 0; i < n; i++) {
+            const q = Math.max(0, Math.min(1, k * 1.5 - i * 0.18));
+            if (q <= 0 || q >= 1) continue;
+            const rr = Math.max(4, f.R * q);
+            ctx.globalAlpha = (1 - q) * 0.95; ctx.strokeStyle = f.col; ctx.lineWidth = f.big ? 3 : 2;
+            ctx.beginPath(); ctx.arc(ox, oy, rr, f.a - h, f.a + h); ctx.stroke();
+            ctx.globalAlpha = (1 - q) * 0.8; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.arc(ox, oy, rr, f.a - h * 0.7, f.a + h * 0.7); ctx.stroke();
+          }
+          ctx.restore();
+          break;
+        }
+        case 'brand': {  // 소환사 영혼 낙인: 맞은 적 머리 위에서 분홍 문양(마름모)이 쾅 내려오고 발밑에 낙인 고리 · 빛기둥(맞는 건 그 적 하나 — 큰 낙인 폭발은 'nova' 로 따로)
+          const drop = Math.min(1, k * 4), x = f.x, y = f.y, top = y - (f.h || 12) - 10 - 26 * (1 - drop), s = f.big ? 5 : 4;
+          ctx.save();
+          if (!f.miss) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35 * (1 - k); ctx.fillStyle = f.col; ctx.fillRect(Math.round(x) - (f.big ? 3 : 2), Math.round(top), f.big ? 6 : 4, Math.round(y - top)); ctx.globalCompositeOperation = 'source-over'; }
+          ctx.globalAlpha = 1 - Math.max(0, k - 0.5) * 2;
+          ctx.fillStyle = f.col; ctx.beginPath(); ctx.moveTo(x, top - s); ctx.lineTo(x + s, top); ctx.lineTo(x, top + s); ctx.lineTo(x - s, top); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(x) - 1, Math.round(top) - 1, 2, 2);
+          if (!f.miss && drop >= 1) { ctx.strokeStyle = f.col; ctx.lineWidth = f.big ? 2 : 1; const rr = f.r * (1.3 - 0.3 * Math.min(1, k * 2)); ctx.beginPath(); ctx.ellipse(x, y, rr, rr * GROUND_Y, 0, 0, Math.PI * 2); ctx.stroke(); }
           ctx.restore();
           break;
         }
