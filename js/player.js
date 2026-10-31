@@ -294,7 +294,8 @@ function tryStart(p, b) {
     const wk = wkOf(p), chain = C.special.rush && wk.rushChain && p.rushChainT > 0;  // 싸이: 돌진 베기 뒤 잠깐 동안 한 번 더(기력 · 쿨타임 없이, 한 번만)
     const md = specialDefOf(C, wk).merge;  // 소환사 방울 합체: 솜뿔이 min 마리 이상이어야(아니면 기력 · 대기를 안 쓴다)
     if (md && !Summon.canMerge(p, md)) { if (p.spWarnT <= 0) { World.text(p.x, p.y, 40, Summon.count() ? '솜뿔이가 ' + md.min + '마리 이상 있어야 합체해요' : '소환수가 없어요 — 먼저 ' + Input.label('charge') + ' 소환', '#d6b4f6'); p.spWarnT = 0.6; } return false; }
-    if (C.special.frenzy && !md && !Summon.count()) { if (p.spWarnT <= 0) { World.text(p.x, p.y, 40, '소환수가 없어요 — 먼저 ' + Input.label('charge') + ' 소환', '#d6b4f6'); p.spWarnT = 0.6; } return false; }  // 소환사 광폭화: 소환수가 없으면 기력 · 대기를 안 쓴다
+    const cd = specialDefOf(C, wk).chain;  // 소환사 계약서 사슬 계약: 걸 적이 없으면 기력 · 대기를 안 쓴다
+    if (cd && !Summon.chainTarget(p, cd)) { if (p.spWarnT <= 0) { World.text(p.x, p.y, 40, '사슬을 걸 적이 없어요', '#d6b4f6'); p.spWarnT = 0.6; } return false; }
     if (!chain && (p.specialCd > 0 || !spend(p, costOf(p.prof, 'special')))) return false;
     if (!chain) p.specialCd = specialCdOf(p);
     endHide(p);
@@ -396,7 +397,7 @@ function startAct(p, def, kind, idx, o = {}) {
   if (def.spin && def.slot === 'charge') { const st = Elements.socket(p.prof, 'charge'); if (st) hd.radius *= 1 + 0.05 * (st.size + 1); }
   // 망치 대지 강타: 회전베기처럼 차지 칸 속성석 크기마다 넓게 — 충격파 그림도 hd.area 를 따름
   if (def.area && def.slot === 'charge') { const st = Elements.socket(p.prof, 'charge'); hd.area = { ahead: def.area.ahead, r: def.area.r * (st ? 1 + 0.05 * (st.size + 1) : 1) }; }
-  if (kind !== 'dashAtk' && !o.aimed && !def.summon && !def.frenzy && !def.merge) aimAt(p, def.brand ? def.brand.range : def.circle ? def.circle.range : def.orb ? def.orb.range * 0.7 : def.wave ? def.wave.range * 0.6 : def.quake ? def.quake.range * 0.6 : def.knives ? def.knives.range * 0.8 : def.area ? def.area.ahead + def.area.r : def.radius || hd.reach[1]);  // 대시 찌르기는 대시한 방향 그대로 · 검기는 멀리까지
+  if (kind !== 'dashAtk' && !o.aimed && !def.summon && !def.chain && !def.merge) aimAt(p, def.brand ? def.brand.range : def.circle ? def.circle.range : def.orb ? def.orb.range * 0.7 : def.wave ? def.wave.range * 0.6 : def.quake ? def.quake.range * 0.6 : def.knives ? def.knives.range * 0.8 : def.area ? def.area.ahead + def.area.r : def.radius || hd.reach[1]);  // 대시 찌르기는 대시한 방향 그대로 · 검기는 멀리까지
   p.state = 'act';
   p.act = {
     def, hd, kind, idx, time: 0, hit: new Set(), wave: -1, fxDone: false, x0: p.x, y0: p.y,
@@ -490,7 +491,7 @@ function updateAct(p, dt, room) {
       }
       Sfx.cast();
     }
-    if (d.frenzy) Summon.frenzy(p, d.frenzy);  // 소환사 광폭화
+    if (d.chain) Summon.chain(p, d);  // 소환사 계약서 사슬 계약
     if (d.merge) Summon.merge(p, d.merge);  // 소환사 방울 솜뿔이 합체
     if (d.echo) Summon.echo(p, d, a.hit);  // 소환사 방울 메아리: 솜뿔이 자리마다 고리(내 둘레 고리와 같은 목록 — 한 적은 한 번)
     if (d.execute) Summon.execute(p, d.execute);  // 소환사 계약서 계약 집행

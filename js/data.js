@@ -159,9 +159,9 @@ const CLASSES = {
   summoner: {
     id: 'summoner', name: '소환사', sprite: 'summoner', atkName: '주문력',
     weapons: ['bell', 'pact'],
-    slotNames: { basic: '기본 공격', charge: '소환', wave: '광폭화 · 합체', dash: '대시' },  // 특수 칸: 계약서 = 광폭화 · 방울 = 솜뿔이 합체
-    slotShort: { basic: '기본', charge: '소환', wave: '광폭', dash: '대시' },
-    icons: { basic: 'bell', charge: 'summon', wave: 'frenzy', dash: 'dash' },
+    slotNames: { basic: '기본 공격', charge: '소환', wave: '합체 · 사슬', dash: '대시' },  // 특수 칸: 방울 = 솜뿔이 합체 · 계약서 = 사슬 계약
+    slotShort: { basic: '기본', charge: '소환', wave: '사슬', dash: '대시' },
+    icons: { basic: 'bell', charge: 'summon', wave: 'chain', dash: 'dash' },
     baseHp: 100, baseAtk: 4, speed: 82,
     stamina: { base: 140, regen: 12, delay: 0.6, onHit: 1 },  // 마법사처럼 기술로 싸워서 넉넉하게 · onHit 4 → 1(멀리서 쉽게 맞히는 영혼탄이 광폭화 기력을 다 채워 버려서, 2026-10-31)
     dodge: { time: 0.28, speed: 230, iframes: 0.24, cd: 0, attackWindow: 0.18, cost: 8 },
@@ -177,11 +177,11 @@ const CLASSES = {
       { name: '영혼 낙인', slot: 'basic', startup: 0.08, active: 0.05, recovery: 0.22, mult: 1.3, knock: 40, stun: 0.3, swing: [-150, -60], mark: 4, brand: { range: 110 } },
       { name: '큰 낙인', slot: 'basic', fin: true, startup: 0.12, active: 0.05, recovery: 0.32, mult: 2.1, knock: 120, stun: 0.45, swing: [-160, -40], heavy: true, mark: 4, brand: { range: 120, burst: 22, burstMul: 0.4 } },
     ],
-    // 광폭화: t 초 · 공격 속도 × aspd · 이동 × move · 한 방 × dmg · 그림 scale 배(js/summon.js frenzy) — thrust = 방울 · 계약서를 앞으로 내민다
-    // 2026-10-31 사용자 '대기가 너무 길다 — 기력을 높이고 대기를 줄이자, 장비가 좋아지면 무한 광폭화도': 대기 12 → 4.5초(광폭화 5초보다 짧아 이어 쓸 수 있음) · 기력 25 → 120.
-    //   잰 유지율(허수아비, 영혼탄 + 광폭화만): Lv.20 갑옷 없음 67% · Lv.40 레어 갑옷(기력 회복 +26%) 78% · Lv.99 유니크(+70%) 100%
-    special: { id: 'frenzy', name: '광폭화', short: '광폭', slot: 'wave', cd: 4.5, cost: 120, startup: 0.05, active: 0.05, recovery: 0.2, mult: 0, knock: 0, stun: 0, thrust: true,
-      frenzy: { t: 5, aspd: 2, move: 1.5, dmg: 1.3, scale: 1.25 } },
+    // 특수(Z) 계약서 = 사슬 계약(2026-10-31 사용자 A + 1안 — 광폭화는 Z 에서 빼고 큰 2타의 짧은 광폭 SUMMON.rush 로 내림):
+    //   내 둘레 chain.range 안 표식 적(없으면 가장 가까운 적)에게 사슬 → 그 적 둘레 pull 안 적을 끌어 모아 bind 초 묶음(경직 · 밀림 거의 없음, 보스는 끌지 않고 표식만) ·
+    //   묶인 적 모두 표식 · 사슬 한 방(내 공격, 특수 칸 속성석) · 꼬마 악마는 바로 다음 공격 준비(js/summon.js chain). 방울은 WEAPON_KINDS.bell.specialDef = 합체
+    special: { id: 'chain', name: '사슬 계약', short: '사슬', icon: 'chain', slot: 'wave', cd: 6, cost: 60, startup: 0.08, active: 0.05, recovery: 0.25, mult: 2.0, knock: 0, stun: 0, thrust: true,
+      chain: { range: 170, pull: 60, bind: 2, mark: 4 } },  // mark = 사슬에 걸린 적은 이 초 동안 꼬마 악마에게 맞을 때도 특수 칸 속성석 효과(예전 광폭화 몫)
     dashAttack: { name: '영혼 흡수', slot: 'dash', startup: 0.04, active: 0.12, recovery: 0.3, mult: 1.0, knock: 160, stun: 0.45, radius: 40, pulse: true, soul: 0.08, iframes: true, heavy: true, thrust: true },
     // ── 무기별 기술(2026-10-31 사용자 '무기별 특징이 없다' → 추천안: 방울 = 물량 · 소모 · 합체, 계약서 = 집중 · 경호 · 도발) ──
     // 방울 특수(Z) = 솜뿔이 합체: 있는 솜뿔이(2마리 이상)가 모두 뭉쳐 큰 솜뿔이 하나 — t 초 동안 hop 초마다 뛰어 내려앉으며 둘레 충격(반지름 r0 + rN × 마릿수,
@@ -234,10 +234,10 @@ const WEAPON_KINDS = {
     bleed: { per: 0.12, max: 8, t: 4 }, rushChain: 1.2, chargeDef: 'saiStorm' },
   // 소환사(2026-10-31): 방울 = 솜뿔이 군단(여럿 · 빠름) · 계약서 = 꼬마 악마(한두 마리 · 크고 셈, 내리치기 범위). pet = SUMMON 키 · summonCost = 소환 기력. 대시 = 순간이동(혼령 걸음)
   bell: { name: '경량', speed: 1.15, reach: 0, dmg: 1, knock: 0.9, arc: 1,
-    trait: ['군단', '솜뿔이 한 번에 2마리 · 최대 6 · 적을 나눠 맡음 · 쓰러지면 솜 터짐 · 종소리 파동 · 솜뿔이 합체 · 메아리(대시해도 솜뿔이는 그 자리) · 대시가 순간이동'],
+    trait: ['군단', '솜뿔이 2마리씩 · 최대 6 · 나눠 맡음 · 쓰러지면 솜 터짐 · 큰 종소리 = 소환수 2초 광폭 · 솜뿔이 합체 · 메아리(대시해도 솜뿔이는 그 자리) · 대시가 순간이동'],
     pet: 'puff', summonCost: 20, blinkDodge: 64, specialDef: 'merge', dashDef: 'echoPulse', specialCd: 10, specialCost: 100, noRegroup: true },  // noRegroup = 대시해도 솜뿔이가 싸우던 자리에 남음(메아리)
   pact: { name: '중량', speed: 0.88, reach: 0, dmg: 1, knock: 1.4, arc: 1.1,
-    trait: ['계약', '꼬마 악마 최대 2마리 · 낙인 적만 집중 · 낙인 없으면 곁을 지킴 · 내리치면 도발 · 영혼 낙인 · 큰 낙인 폭발 · 광폭화 · 계약 집행 · 대시가 순간이동(악마가 곁으로)'],
+    trait: ['계약', '꼬마 악마 최대 2 · 낙인 적 집중 · 없으면 곁을 지킴 · 내리치면 도발 · 큰 낙인 = 소환수 2초 광폭 + 낙인 터뜨리기 · 사슬 계약 · 계약 집행 · 대시가 순간이동(악마가 곁으로)'],
     pet: 'imp', summonCost: 30, blinkDodge: 64, combo: 'brandCombo', dashDef: 'pactExec' },  // combo = 기본 공격 목록(영혼 낙인)  // 대시 → 공격은 카타르와 같은 선풍 베기(2026-10-30 사용자, 물러나며 표창 saiDash 는 안 씀)
 };
 
@@ -255,6 +255,8 @@ const SUMMON = {
     pop: { r: 16, mult: 0.8 } },
   imp: { name: '꼬마 악마', max: 2, hp: 1.5, def: 1.0, speed: 78, r: 8, h: 19, sight: 150, markSight: 200, guard: 80, taunt: 3, atk: { mult: 1.6, cd: 1.1, reach: 14, wind: 0.22, aoe: 22 },
     detonate: { r: 26, mult: 0.2 } },
+  // rush = 큰 2타(큰 종소리 · 큰 낙인)가 맞으면 모든 소환수 짧은 광폭(2026-10-31 사용자 A안 — 예전 Z 광폭화 5초 · ×2 · ×1.3 대신): t 초 · 공격 속도 × aspd · 이동 × move · 한 방 × dmg · 그림 scale 배
+  rush: { t: 2, aspd: 1.5, move: 1.2, dmg: 1, scale: 1.1 },
   killSp: 5, leash: 230, markMul: 1.2, hasten: 0.1, assist: 0.3,  // 표식 적 피해 배율 · 기본 공격이 맞을 때 소환수 다음 공격 당김(초) · 협공 한 방(소환수 한 방 배율 ×)
 };
 
@@ -1017,18 +1019,20 @@ const EL_ABIL_ASSASSIN = {
   thunder: { charge: ['뇌운 그림자', '백스탭 · 표창 1초 뒤 낙뢰가 한 번 더 떨어진다'], wave: ['벼락 돌진', '돌진 베기에 맞은 적마다 벼락'] },
   poison: { charge: ['독 터뜨리기', '백스탭 · 표창이 쌓인 독을 한꺼번에 터뜨린다'], wave: ['독침 돌진', '돌진 베기에 맞으면 독 3중첩'] },
 };
-// 소환사 칸 능력(2026-10-31): 스킬 칸 = 소환수(소환수 공격에 그 속성), 특수 칸 = 돌격 명령 한 방. 없는 칸은 검사 것 그대로
+// 소환사 칸 능력(2026-10-31): 스킬 칸 = 소환수(소환수 공격에 그 속성), 특수 칸 = 계약서 사슬 계약(방울은 summonerWord 가 '합체'로 바꿈). 없는 칸은 검사 것 그대로
 const EL_ABIL_SUMMONER = {
-  fire: { charge: ['불꽃 소환수', '소환수가 쓰러지거나 사라진 자리에서 불꽃이 터진다'], wave: ['작열 광폭', '광폭화 중 소환수가 때린 자리에서 불꽃이 터진다'] },
-  frost: { charge: ['서리 소환수', '소환수 공격에 냉기 1 더'], wave: ['얼음 광폭', '광폭화 중 소환수 공격에 냉기 1 더'] },
-  thunder: { charge: ['번개 소환수', '소환수 공격에서 번개가 한 번 튄다'], wave: ['벼락 광폭', '광폭화 중 소환수가 때린 적마다 벼락'] },
-  poison: { charge: ['독 소환수', '소환수 공격에 독 1중첩 더'], wave: ['독침 광폭', '광폭화 중 소환수 공격에 독 1중첩 더'] },
+  fire: { charge: ['불꽃 소환수', '소환수가 쓰러지거나 사라진 자리에서 불꽃이 터진다'], wave: ['작열 사슬', '사슬 계약 · 사슬 걸린 적이 악마에게 맞은 자리에서 불꽃이 터진다'] },
+  frost: { charge: ['서리 소환수', '소환수 공격에 냉기 1 더'], wave: ['얼음 사슬', '사슬 계약 · 사슬 걸린 적이 악마에게 맞으면 냉기 1 더'] },
+  thunder: { charge: ['번개 소환수', '소환수 공격에서 번개가 한 번 튄다'], wave: ['벼락 사슬', '사슬 계약 · 사슬 걸린 적이 악마에게 맞을 때마다 벼락'] },
+  poison: { charge: ['독 소환수', '소환수 공격에 독 1중첩 더'], wave: ['독침 사슬', '사슬 계약 · 사슬 걸린 적이 악마에게 맞으면 독 1중첩 더'] },
 };
-// 소환사 글: 무기마다 대시 → 공격 이름(영혼 흡수 · 메아리 · 계약 집행) · 방울은 광폭화 대신 합체(2026-10-31)
+// 소환사 글: 무기마다 대시 → 공격 이름(영혼 흡수 · 메아리 · 계약 집행) · 특수 칸 글은 계약서(사슬 계약) 기준 → 방울은 합체로(2026-10-31)
 const summonerWord = (t, prof) => {
   const C = CLASSES.summoner, wk = WEAPON_KINDS[weaponKindOf(prof)] || {};
   t = t.split('대시 찌르기').join((wk.dashDef && C[wk.dashDef] ? C[wk.dashDef] : C.dashAttack).name);
-  return wk.specialDef === 'merge' ? t.split('광폭화 중 소환수').join('합체 중 큰 솜뿔이').split('광폭화').join('합체') : t;
+  if (wk.specialDef !== 'merge') return t;
+  return t.replace(/ \(사슬 걸린 적은 [^)]*\)/, '').split('사슬 계약 · 사슬 걸린 적이 악마에게 맞은 자리').join('큰 솜뿔이가 내려앉은 자리').split('사슬 계약 · 사슬 걸린 적이 악마에게 맞').join('큰 솜뿔이에게 맞')
+    .split('사슬 계약에 맞은 적').join('큰 솜뿔이에게 맞은 적').split('사슬 계약에 맞으면').join('큰 솜뿔이에게 맞으면').split('사슬 계약').join('솜뿔이 합체');
 };
 // 칸 능력 [이름, 설명]: 직업에 맞게
 const elAbil = (el, slot, prof) => {
@@ -1036,7 +1040,7 @@ const elAbil = (el, slot, prof) => {
   const a = (own && own[el][slot]) || EL_ABIL[el][slot];
   if (id !== 'summoner') return a;
   const bell = (WEAPON_KINDS[weaponKindOf(prof)] || {}).specialDef === 'merge';
-  return [bell ? a[0].split('광폭').join('합체') : a[0], summonerWord(a[1], prof)];
+  return [bell ? a[0].split('사슬').join('합체') : a[0], summonerWord(a[1], prof)];
 };
 // 속성석 세트 효과(2026-10-24 사용자): 칸 4개가 모두 보통(3단계) 이상일 때. 세기 sc = 가장 낮은 돌의 power ÷ 보통 power(보통 1 → 태초 약 2.7)
 // 같은 속성 4개 = 공명, 두 속성 2개씩 = 듀오. 그 밖의 조합(3:1 · 1:1:1:1 · 2:1:1)은 없음

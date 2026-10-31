@@ -559,10 +559,10 @@ const Elements = (() => {
       T.frost.charge = ['소환수 공격에 냉기 1', '냉기 ' + FREEZE_AT + ' = 빙결 ' + (1 + 0.25 * k).toFixed(1) + '초'];
       T.thunder.charge = ['소환수 공격에 감전 3초: 받는 피해 +' + Math.round((SHOCK_VULN + 0.05 * Math.round(k - 1)) * 100) + '%', '소환수가 그 속성 색으로 물든다'];
       T.poison.charge = ['소환수 공격에 독 1, 최대 ' + POISON_MAX + '중첩', '0.5초마다 중첩당 공격력의 ' + pc(0.05 * k)];
-      T.fire.wave = ['광폭화 중 소환수 공격에 화상 하나 더', '초당 공격력의 ' + pc(0.3 * k)];
-      T.frost.wave = ['광폭화 중 소환수 공격에 냉기 하나 더', '냉기 ' + FREEZE_AT + ' = 빙결 ' + (1 + 0.25 * k).toFixed(1) + '초'];
-      T.thunder.wave = ['광폭화 중 소환수가 때린 적에서 번개가 ' + (1 + Math.floor(s.size / 2)) + '번 튐', '공격력의 ' + pc(0.5 * k) + ' + 감전'];
-      T.poison.wave = ['광폭화 중 소환수 공격에 독 하나 더', '0.5초마다 중첩당 공격력의 ' + pc(0.05 * k)];
+      T.fire.wave = ['사슬 계약에 맞으면 화상 3초 (사슬 걸린 적은 ' + CLASSES.summoner.special.chain.mark + '초 동안 악마에게 맞을 때도)', '초당 공격력의 ' + pc(0.3 * k)];
+      T.frost.wave = ['사슬 계약에 맞으면 냉기 1 (사슬 걸린 적은 ' + CLASSES.summoner.special.chain.mark + '초 동안 악마에게 맞을 때도)', '냉기 ' + FREEZE_AT + ' = 빙결 ' + (1 + 0.25 * k).toFixed(1) + '초'];
+      T.thunder.wave = ['사슬 계약에 맞은 적에서 번개가 ' + (1 + Math.floor(s.size / 2)) + '번 튐 (사슬 걸린 적은 ' + CLASSES.summoner.special.chain.mark + '초 동안 악마에게 맞을 때도)', '공격력의 ' + pc(0.5 * k) + ' + 감전'];
+      T.poison.wave = ['사슬 계약에 맞으면 독 2 (사슬 걸린 적은 ' + CLASSES.summoner.special.chain.mark + '초 동안 악마에게 맞을 때도)', '0.5초마다 중첩당 공격력의 ' + pc(0.05 * k)];
     }
     const word = t => (mage ? t.split('대시 찌르기').join('마력 파동').split('회전베기').join('마법진').split('찌르기').join('마력 폭풍').split('검기').join('마력탄')
       : assassin ? t.split('대시 찌르기').join('선풍 베기').split('마무리(찌르기)').join('마무리(교차 베기)')

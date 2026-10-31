@@ -22,7 +22,8 @@ const Summon = (() => {
     if (e.petMark > 0) def = Object.assign({}, def, { mult: def.mult * SUMMON.markMul });  // 표식 적은 소환수에게 더 아프다
     if (!hitEnemy(e, def, proxy(q, p))) return false;
     if (!was && e.dying) { p.sp = Math.min(p.maxSp, p.sp + SUMMON.killSp); }  // 패시브: 소환수가 쓰러뜨리면 기력
-    if ((def.rage || def.wave) && !e.dying) Elements.onHit(e, { id: 'frenzy', name: def.wave ? '합체' : '광폭', slot: 'wave', pet: true }, proxy(q, p));  // 광폭화 · 합체 착지: 특수 칸 속성석 효과도
+    if (def.wave && !e.dying) Elements.onHit(e, { id: 'frenzy', name: '합체', slot: 'wave', pet: true }, proxy(q, p));  // 합체 착지: 특수 칸 속성석 효과도
+    else if (q.kind === 'imp' && e.chainT > 0 && !e.dying) Elements.onHit(e, { id: 'frenzy', name: '사슬', slot: 'wave', pet: true }, proxy(q, p));  // 사슬 계약에 걸린 적: 악마에게 맞을 때도 특수 칸 속성석 효과
     if (def.taunt && !e.dying && !e.def.boss && !e.def.part) e.taunt = { q, t: def.taunt };  // 꼬마 악마 도발: 그 악마를 노림(world.js 목표 고르기)
     return true;
   }
@@ -260,16 +261,13 @@ const Summon = (() => {
     if (imps.length) World.text(tgt.x, tgt.y, (tgt.h || 16) + 14, '집행!', '#ff8ab8');
   }
 
-  // ── 광폭화(특수 칸, 2026-10-31 사용자 1안 — 예전 돌격 명령은 소환수가 원래 하는 일과 겹쳐서 바꿈) ──
-  // t 초 동안 모든 소환수(그 사이 새로 부른 것도): 공격 속도 × aspd · 이동 × move · 한 방 × dmg, 몸이 scale 배로 커지고 붉게 빛난다.
-  // 특수 칸 속성석: 광폭화 중 소환수 공격에 그 속성 효과가 하나 더 붙는다(slot 'wave' 로 한 번 더 — elements.js onHit)
+  // ── 짧은 광폭(2026-10-31 사용자 A안 — 예전 Z 광폭화를 큰 2타 덤으로 내림) ── 큰 종소리 · 큰 낙인이 맞으면 SUMMON.rush:
+  // t 초 동안 모든 소환수(그 사이 새로 부른 것도): 공격 속도 × aspd · 이동 × move · 한 방 × dmg, 몸이 scale 배로 커지고 붉게 빛난다. 이어 맞히면 시간만 다시 채움
   let frenzyT = 0, F = null;
   function frenzy(p, f) {
+    const fresh = frenzyT <= 0;
     F = f; frenzyT = f.t;
-    World.text(p.x, p.y, 40, '광폭화!', '#ff5a5a', true);
-    for (const q of pets) if (!q.gone) { World.sparks(q.x, q.y, q.h * 0.5, 10, '#ff5a5a', true); q.atkCd = Math.min(q.atkCd, 0.1); }
-    World.shake(2);
-    Sfx.roar();
+    if (fresh) for (const q of pets) if (!q.gone) World.sparks(q.x, q.y, q.h * 0.5, 5, '#ff5a5a');
   }
   const raging = () => frenzyT > 0;
   const rage = k => (frenzyT > 0 && F ? F[k] : 1);
@@ -300,6 +298,7 @@ const Summon = (() => {
     if (!first) return;
     for (const q of pets) if (!q.gone) q.atkCd -= SUMMON.hasten;
     if (!d.fin || !valid(e)) return;
+    frenzy(p, SUMMON.rush);  // 큰 2타: 모든 소환수 짧은 광폭
     // 계약서 큰 낙인: 꼬마 악마들이 낙인을 터뜨린다 — 그 적 둘레 반지름 detonate.r 폭발 하나(악마 한 방 × mult × 악마 수, 그림 = 판정)
     const imps = d.brand ? pets.filter(q => !q.gone && q.appear <= 0 && q.kind === 'imp') : [];
     if (imps.length) {
@@ -320,6 +319,46 @@ const Summon = (() => {
     }
     if (pets.length) World.sparks(e.x, e.y, e.h * 0.5, 8, '#ff8ab8', true);
   }
+  // ── 사슬 계약(계약서 특수 칸, 2026-10-31 사용자 1안) ── 내 둘레 range 안 · 벽에 안 막힌 표식 적(없으면 가장 가까운 적)이 중심.
+  // 중심 둘레 pull 안 적을 중심 곁으로 끌어 모아 bind 초 묶는다(보스 · 레이드 부품 · 땅에 박힌 몹은 끌지 않고 묶지도 않음 — 맞기만). 사슬 판정 = 그림(끌려온 적마다 중심까지 사슬)
+  function chainTarget(p, C) {
+    const lv = World.level;
+    let best = null, bk = null;
+    for (const e of World.enemies()) {
+      const d = Math.hypot(e.x - p.x, e.y - p.y);
+      if (!valid(e) || d > C.range || !Dungeon.los(lv, p.x, p.y - 4, e.x, e.y - 4)) continue;
+      const k = [e.petMark > 0 ? 0 : 1, d];
+      if (!bk || k[0] < bk[0] || (k[0] === bk[0] && k[1] < bk[1])) { best = e; bk = k; }
+    }
+    return best;
+  }
+  function chain(p, def) {
+    const C = def.chain, c = chainTarget(p, C);
+    if (!c) return;
+    const lv = World.level, st = Elements.socket(p.prof, 'wave'), col = st ? ELEMENTS[st.el].color : '#ff5a8a';
+    p.fv = unit(c.x - p.x, c.y - p.y, p.fv);
+    World.fx({ type: 'chain', pts: [[p.x, p.y - 8], [c.x, c.y - c.h * 0.5]], t: 0, life: 0.35, col });
+    World.fx({ type: 'pulse', x: c.x, y: c.y + 4, r: C.pull, t: 0, life: 0.35, col });  // 끌어 모으는 둘레(판정 = 그림)
+    const got = [];
+    for (const e of World.enemies()) {
+      if (!valid(e) || groundDist(e.x - c.x, e.y - c.y) > C.pull + e.r) continue;
+      const fixed = e.def.boss || e.def.part || e.def.rooted;
+      if (!fixed && e !== c) {  // 중심 곁(맞닿게)으로 끌어옴 — 벽에 막히면 거기까지
+        const d = Math.hypot(e.x - c.x, e.y - c.y), want = c.r + e.r + 2;
+        if (d > want) { const k = (d - want) / d; Dungeon.move(lv, e, (c.x - e.x) * k, (c.y - e.y) * k, e.r); }
+        World.fx({ type: 'chain', pts: [[c.x, c.y - c.h * 0.5], [e.x, e.y - e.h * 0.5]], t: 0, life: 0.35, col });
+      }
+      e.petMark = Math.max(e.petMark || 0, 4); e.chainT = C.mark;  // mark 초 동안 악마에게 맞을 때도 특수 칸 속성석 효과(보스도)
+      if (!fixed) { e.bindT = C.bind; e.bindC = c; e.chain = 0; }
+      got.push(e);
+    }
+    for (const e of got) hitEnemy(e, Object.assign({}, def, { stun: e.bindT > 0 ? C.bind : 0.3 }), p);  // 사슬 한 방(내 공격 · 특수 칸 속성석)
+    for (const q of pets) if (!q.gone && q.kind === 'imp') { q.tgt = c; q.atkCd = Math.min(q.atkCd, 0); q.thinkT = 0.5; }  // 꼬마 악마: 바로 그 무리로
+    World.text(c.x, c.y, (c.h || 16) + 14, '사슬 계약!', '#ff8ab8');
+    World.sparks(c.x, c.y, c.h * 0.5, 10, col, true);
+    World.shake(2);
+    Sfx.heavySwing();
+  }
   // 다음 층(끝없는 심연)으로 내려가도 따라온다 — 다음 틀에 내 곁으로 옮긴다
   function carry() { for (const q of pets) { q.warp = true; q.state = 'idle'; q.tgt = null; q.kx = q.ky = 0; } }
   // 그 무기의 소환수가 이미 최대인가(스킬 칸을 눌러도 안 부름 — player.js)
@@ -330,6 +369,8 @@ const Summon = (() => {
     for (const e of World.enemies()) {
       if (e.petMark > 0) e.petMark -= dt;  // 기본 공격 표식
       if (e.taunt && ((e.taunt.t -= dt) <= 0 || e.taunt.q.gone)) e.taunt = null;  // 꼬마 악마 도발
+      if (e.bindT > 0 && ((e.bindT -= dt) <= 0 || e.dying)) { e.bindT = 0; e.bindC = null; }  // 사슬 계약 묶임
+      if (e.chainT > 0) e.chainT -= dt;
     }
     if (frenzyT > 0) frenzyT -= dt;
     if (!pets.length) return;
@@ -466,6 +507,12 @@ const Summon = (() => {
   }
   // 표식 적: 발밑 분홍 고리 + 머리 위 작은 분홍 표(시안 그대로)
   function drawMarks(ctx, time) {
+    for (const e of World.enemies()) {  // 사슬 계약에 묶인 적: 중심 적까지 흔들리는 사슬(점선)
+      const c = e.bindC;
+      if (!(e.bindT > 0) || !c || c === e || !live(e) || !live(c)) continue;
+      ctx.save(); ctx.globalAlpha = Math.min(1, e.bindT * 2); ctx.strokeStyle = '#ff5a8a'; ctx.lineWidth = 1; ctx.setLineDash([2, 2]); ctx.lineDashOffset = -time * 20;
+      ctx.beginPath(); ctx.moveTo(Math.round(e.x), Math.round(e.y - e.h * 0.4)); ctx.lineTo(Math.round(c.x), Math.round(c.y - c.h * 0.4)); ctx.stroke(); ctx.restore();
+    }
     for (const e of World.enemies()) {
       if (!(e.petMark > 0) || !live(e)) continue;
       const a = e.petMark < 1 && Math.floor(time * 8) % 2 ? 0.4 : 1;
@@ -479,5 +526,5 @@ const Summon = (() => {
     }
   }
 
-  return { reset, count, list, spawn, hurt, frenzy, raging, merge, canMerge, echo, execute, regroup, heal, carry, full, basicHit, update, drawList, drawMarks, icon };
+  return { reset, count, list, spawn, hurt, frenzy, raging, merge, canMerge, echo, execute, chain, chainTarget, regroup, heal, carry, full, basicHit, update, drawList, drawMarks, icon };
 })();

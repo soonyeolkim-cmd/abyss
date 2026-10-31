@@ -944,6 +944,17 @@ const Art = (() => {
           ctx.restore();
           break;
         }
+        case 'chain': {  // 소환사 사슬 계약: 두 점 사이 사슬 고리(어두운 테 + 색 고리 번갈아), 처음엔 앞에서부터 뻗어 나감
+          const [[x0, y0], [x1, y1]] = f.pts, L = Math.hypot(x1 - x0, y1 - y0), n = Math.max(1, Math.floor(L / 5)), reach = Math.min(1, k * 4), e = 1 - k;
+          ctx.save(); ctx.globalAlpha = Math.min(1, e * 1.6);
+          for (let i = 0; i <= n * reach; i++) {
+            const x = x0 + (x1 - x0) * i / n, y = y0 + (y1 - y0) * i / n;
+            ctx.fillStyle = '#2a1018'; ctx.fillRect(Math.round(x) - 2, Math.round(y) - 2, 4, 4);
+            ctx.fillStyle = i % 2 ? f.col : '#ffd0e0'; ctx.fillRect(Math.round(x) - 1, Math.round(y) - 1, 2, 2);
+          }
+          ctx.restore();
+          break;
+        }
         case 'pulse': {  // 마력 파동: 몸에서 퍼지는 두 겹 빛 고리
           const c = f.col && f.col !== '#ffffff' ? f.col : '#b39cff', e = 1 - k;
           ctx.save();

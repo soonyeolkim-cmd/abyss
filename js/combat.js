@@ -77,7 +77,7 @@ function hitEnemy(e, def, p, w) {
   if (ed.raid) Raid.clamp(e);  // 한 번에 다음 단계를 건너뛰지 않게
   if (ed.dummy) Practice.add(dmg, def.slot || def.name, crit);  // 연습장 딜 측정(기술 칸, 칸이 없는 속성석 탄은 이름 — 화염구 등)
   e.flash = 0.1;
-  const knock = def.knock * wk.knock * (ed.boss ? 0.25 : ed.rooted ? 0 : blocked ? 0.3 : 1);  // 촉수는 밀리지 않음
+  const knock = def.knock * wk.knock * (ed.boss ? 0.25 : ed.rooted ? 0 : blocked ? 0.3 : 1) * (e.bindT > 0 ? 0.15 : 1);  // 촉수는 밀리지 않음 · 사슬에 묶인 적은 거의 안 밀림
   const heavy = !blocked && (def.heavy || crit || wk.crush);  // 망치(분쇄): 모든 공격이 준비 중인 적도 끊는다(방패에 막히면 못 끊음)
   const armored = blocked || e.state === 'frozen' ||  // 얼어 있으면 맞아도 그대로(띄우기만 깬다)
     (!heavy && ((ed.superArmor && (e.state === 'windup' || e.state === 'attack' || e.state === 'charge')) || e.armorT > 0 || committed(e)));
@@ -96,7 +96,8 @@ function hitEnemy(e, def, p, w) {
     e.kx = dir.x * knock; e.ky = dir.y * knock;
   } else if (!armored && !ed.boss) {
     e.chain = (e.state === 'hurt' ? e.chain : 0) + 1;
-    if (e.poise && e.chain >= e.poise) {
+    if (e.bindT > 0) { e.state = 'hurt'; e.t = Math.max(def.stun, e.bindT); e.chain = 0; e.kx = dir.x * knock; e.ky = dir.y * knock; }  // 사슬 계약에 묶임: 버팀 없이 묶인 동안 경직
+    else if (e.poise && e.chain >= e.poise) {
       // 연타를 계속 맞으면 버티고 바로 반격(막기 · 회피로 받아야 함)
       e.chain = 0;
       e.state = 'windup'; e.windupT = e.t = (ed.atk.windup || 0.5) * 0.7;
