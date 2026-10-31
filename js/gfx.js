@@ -9,7 +9,7 @@ const Gfx = (() => {
   // mage = 마법사(검사 몸 + 파란 로브 · 금빛 띠 · 끝이 꺾인 뾰족 모자, 2026-10-25 사용자 고름 B)
   const SHEETS = {}, HERO = {};
   // 검사 몸 + 의상 시트(16x28 × 9칸): 직업 hero · mage, 마을 NPC kael(파수꾼 카엘) · miner(늙은 광부) · gambler(도박꾼 단지) — tools/npc-outfit.js 로 구움
-  for (const id of ['hero', 'mage', 'assassin', 'kael', 'miner', 'gambler']) {  // assassin = 암살자(2026-10-25, tools/class-outfit.js)
+  for (const id of ['hero', 'mage', 'assassin', 'summoner', 'kael', 'miner', 'gambler']) {  // assassin = 암살자(2026-10-25) · summoner = 소환사(2026-10-31, tools/class-outfit.js SUMM1)
     const img = new Image();
     img.src = 'assets/dt/' + id + '.png';
     ['idle_anim_f0', 'idle_anim_f1', 'idle_anim_f2', 'idle_anim_f3', 'run_anim_f0', 'run_anim_f1', 'run_anim_f2', 'run_anim_f3', 'hit_anim_f0']
@@ -17,11 +17,16 @@ const Gfx = (() => {
   }
   // 암살자 무기 도트(2026-10-25 사용자: 양손 무기 — 아틀라스에 카타르 · 싸이가 없어서 코드로 그려 둔다). 칼끝이 위, 손잡이가 아래(아틀라스 무기와 같은 방향)
   // o 테두리 · w 날 빛 · a 강철 · d 어두운 강철 · g/G 금빛 날밑 · r/R 붉은 손잡이 감개
-  const WPIX_PAL = { o: '#1a1418', w: '#f4f8ff', a: '#b8c4d4', d: '#6a7488', g: '#d8a840', G: '#8a5a20', r: '#a02830', R: '#5a1018' };
+  // p/P 양피지 · k 글씨(보라) · s 붉은 인장 — 소환사 계약서(2026-10-31)
+  const WPIX_PAL = { o: '#1a1418', w: '#f4f8ff', a: '#b8c4d4', d: '#6a7488', g: '#d8a840', G: '#8a5a20', r: '#a02830', R: '#5a1018', p: '#ecdcb4', P: '#b8986a', k: '#6a3a8a', s: '#d0304a' };
   const WPIX = {
     // 카타르: 길고 곧은 세모 날 + 금빛 날밑 + 짧은 H 손잡이(양옆 막대 사이 가로 손잡이, 어둡게 — 크면 상자처럼 보임)
     weapon_katar: ['...o...', '..owo..', '..owo..', '..owo..', '.owado.', '.owado.', '.owado.', '.owado.', '.owado.', '.oaado.', 'oggggGo', 'od.r.do', 'od.R.do', 'oo...oo'],
     // 싸이: 가늘고 긴 가운데 날 + 양옆으로 휜 갈래(받아치는 데 쓰는 날) + 감은 손잡이
+    // 소환 방울(2026-10-31): 손잡이 위에 금빛 종 · 흰 반짝 · 아래로 늘어진 추
+    weapon_bell: ['....o....', '...oGo...', '..oggwo..', '.oggwggo.', '.ogggggo.', '.ogggggo.', 'oGGGGGGGo', '.oo.o.oo.', '....g....', '...oRo...', '...oro...', '...oRo...', '...oro...', '...oGo...', '....o....'],
+    // 계약서(2026-10-31): 위아래 말린 두루마리 · 보라 글씨 · 붉은 인장 · 아래 끈
+    weapon_pact: ['oooooooo', 'oGPPPPGo', '.oooooo.', '.opkkpo.', '.oppppo.', '.opkkko.', '.oppppo.', '.opkkpo.', '.opsspo.', '.oppppo.', '.oooooo.', 'oGPPPPGo', 'oooooooo', '...rr...', '...r.r..'],
     weapon_sai: ['....o....', '...owo...', '...owo...', '...owo...', '...oao...', '...oao...', '.o.oao.o.', 'oaooaooao', 'oaooaooao', '.oaoaoao.', '..oaaao..', '...ogo...', '...oro...', '...oRo...', '...oro...', '...oGo...', '....o....'],
   };
   for (const name in WPIX) {

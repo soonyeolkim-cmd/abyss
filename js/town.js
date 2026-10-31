@@ -278,7 +278,7 @@ const Town = (() => {
   }
 
   const TOWN_MENU = () => [
-    { label: '파티 (온라인 협동)', go: () => Game.overlay({ type: 'coop' }) },  // 2026-10-25 사용자: 방 코드로 2명
+    { label: '파티 (온라인 협동)', go: () => { if (clsOf(Game.prof).id === 'summoner') { Game.toast('소환사는 아직 혼자만 할 수 있어요 (파티는 다음에)'); return; } Game.overlay({ type: 'coop' }); } },  // 소환사 1차는 혼자만(2026-10-31 사용자)  // 2026-10-25 사용자: 방 코드로 2명
     { label: '장비 스테이터스', go: () => Game.overlay({ type: 'inv', mode: 'equip' }) },
     { label: '속성석 · 보석 관리', go: () => Game.overlay({ type: 'manage' }) },
     { label: '기록 · 칭호', go: () => Game.overlay({ type: 'records' }) },  // 레이드 기록 · 칭호 달기(2026-10-27, js/records.js)

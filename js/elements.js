@@ -241,14 +241,15 @@ const Elements = (() => {
     const k = power(s), big = !!def.fin || def.slot === 'dash', wave = def.slot === 'wave', open = slotOpen(s);
     // 검사 검기는 속성 효과 약 2배 · 속성 피해 3배(2026-10-25 사용자). 마법사 마력탄도 검사처럼 배율(2026-10-30 사용자: 마법사가 약해서) — ORB_EL
     const sword = def.id === 'wave' || def.id === 'quake';  // 망치 지진파도 검기와 같은 배율(2026-10-30)
-    const sw = !wave ? 1 : sword ? 2 : def.id === 'orb' ? ORB_EL.sw : 1;
-    const swd = !wave ? 1 : sword ? 3 : def.id === 'orb' ? ORB_EL.swd : 1;
+    const orbLike = def.id === 'orb' || def.id === 'command';  // 소환사 돌격 명령도 마법사 마력탄과 같은 배율(2026-10-31)
+    const sw = !wave ? 1 : sword ? 2 : orbLike ? ORB_EL.sw : 1;
+    const swd = !wave ? 1 : sword ? 3 : orbLike ? ORB_EL.swd : 1;
     switch (s.el) {
       case 'fire':
         burn(e, p, k * (big ? 1.5 : 1));
         if (wave && open) explode(e.x, e.y, 24, p.stats.atk * 0.4 * swd * k, 'fire', o => burn(o, p, k), tier(s));  // 작열 검기
         break;
-      case 'frost': chill(e, wave ? 1 + sw + (def.crit && open ? 1 : 0) : big ? 2 : 1, k); break;  // 암살자 얼음 돌진(보통부터): 냉기 1 더
+      case 'frost': chill(e, wave ? 1 + sw + (def.crit && open ? 1 : 0) : big ? 2 : def.pet && open ? 2 : 1, k); break;  // 암살자 얼음 돌진(보통부터): 냉기 1 더 · 서리 소환수(보통부터): 소환수 공격 냉기 1 더
       case 'thunder': {
         const wasShocked = e.shockT > 0;
         shock(e, k);
@@ -257,9 +258,10 @@ const Elements = (() => {
         else if (def.slot === 'basic' && open) chain(e, p, 1, p.stats.atk * 0.3 * k, k, tier(s), true);
         if (wave && open) { World.fx({ type: 'strike', x: e.x, y: e.y, t: 0, life: 0.25, tier: tier(s) }); damage(e, p.stats.atk * 0.6 * swd * k, 'thunder'); }  // 벼락 검기
         if (def.slot === 'basic' && open && wasShocked && !e.dying) overcharge(e, p, k, tier(s));  // 과충전 → 방전
+        if (def.pet && def.slot === 'charge' && open && !e.dying) chain(e, p, 1, p.stats.atk * 0.3 * k, k, tier(s));  // 번개 소환수(보통부터): 소환수 공격에서 한 번 튐
         break;
       }
-      case 'poison': poison(e, wave ? (open ? 3 : 2) + (sw > 1 ? 2 : 0) : big ? 2 : 1, p, k); break;  // 독침 검기 = 3중첩(검사 검기는 5)
+      case 'poison': poison(e, wave ? (open ? 3 : 2) + (sw > 1 ? 2 : 0) : big ? 2 : def.pet && open ? 2 : 1, p, k); break;  // 독 소환수(보통부터): 독 1중첩 더  // 독침 검기 = 3중첩(검사 검기는 5)
     }
   }
   // 속성 패시브(완전한부터): 어떤 공격이 맞아도
@@ -410,6 +412,15 @@ const Elements = (() => {
     if (s.el === 'poison') World.field({ x: p.x, y: p.y, r: 30, el: 'poison', life: 3, k, p, tier: tier(s) });
   }
 
+  // 소환사 불꽃 소환수(스킬 칸 화염석, 보통부터): 소환수가 쓰러지거나 돌아간 자리에서 불꽃 폭발(반지름 26 — 그림 = 판정)
+  function petEnd(q, p) {
+    if (World.mirror) return;
+    const s = socket(p.prof, 'charge');
+    if (!s || s.el !== 'fire' || !slotOpen(s)) return;
+    const k = power(s);
+    Sfx.fire();
+    explode(q.x, q.y, 26, p.stats.atk * 0.6 * k, 'fire', e => burn(e, p, k), tier(s));
+  }
   // 회전베기 부과 능력(보통부터): 불길 고리 · 얼음 장판 · 뇌운 · 독 터뜨리기
   function chargeExtra(p, s, k, R, near) {
     const atk = p.stats.atk;
@@ -541,8 +552,21 @@ const Elements = (() => {
       T.thunder.charge = ['백스탭 · 표창 뒤 가까운 적 ' + thunderStrikes(s) + '마리에 낙뢰', '공격력의 ' + pc(0.7 * k) + ' + 감전'];
       T.poison.charge = ['백스탭 · 표창 자리에 독안개(3초)', '안에 있으면 독이 계속 쌓임'];
     }
+    // 소환사(2026-10-31): 스킬 칸 = 소환수 공격에 붙는 속성 · 특수 칸 = 돌격 명령 한 방
+    const summoner = clsOf(prof).id === 'summoner';
+    if (summoner) {
+      T.fire.charge = ['소환수 공격에 화상: 초당 공격력의 ' + pc(0.3 * k), '소환수가 그 속성 색으로 물든다'];
+      T.frost.charge = ['소환수 공격에 냉기 1', '냉기 ' + FREEZE_AT + ' = 빙결 ' + (1 + 0.25 * k).toFixed(1) + '초'];
+      T.thunder.charge = ['소환수 공격에 감전 3초: 받는 피해 +' + Math.round((SHOCK_VULN + 0.05 * Math.round(k - 1)) * 100) + '%', '소환수가 그 속성 색으로 물든다'];
+      T.poison.charge = ['소환수 공격에 독 1, 최대 ' + POISON_MAX + '중첩', '0.5초마다 중첩당 공격력의 ' + pc(0.05 * k)];
+      T.fire.wave = ['돌격 명령에 맞으면 화상 3초: 초당 공격력의 ' + pc(0.3 * k), '소환수마다 한 방씩'];
+      T.frost.wave = ['돌격 명령에 맞으면 냉기 2', '냉기 ' + FREEZE_AT + ' = 빙결 ' + (1 + 0.25 * k).toFixed(1) + '초'];
+      T.thunder.wave = ['돌격 명령에 맞은 적에서 번개가 ' + (1 + Math.floor(s.size / 2)) + '번 튐', '공격력의 ' + pc(0.5 * k) + ' + 감전'];
+      T.poison.wave = ['돌격 명령에 맞으면 독 2', '0.5초마다 중첩당 공격력의 ' + pc(0.05 * k)];
+    }
     const word = t => (mage ? t.split('대시 찌르기').join('마력 파동').split('회전베기').join('마법진').split('찌르기').join('마력 폭풍').split('검기').join('마력탄')
-      : assassin ? t.split('대시 찌르기').join('선풍 베기').split('마무리(찌르기)').join('마무리(교차 베기)') : t);
+      : assassin ? t.split('대시 찌르기').join('선풍 베기').split('마무리(찌르기)').join('마무리(교차 베기)')
+      : summoner ? t.split('대시 찌르기').join('영혼 흡수').split('마무리(찌르기)').join('마무리(2타)') : t);
     const [an] = elAbil(s.el, slot, prof);
     return [...T[s.el][slot].map(word), slotOpen(s) ? '✦ ' + an + ' (열림)' : '· ' + an + ' — 보통 크기부터 열려요'];
   }
@@ -572,5 +596,5 @@ const Elements = (() => {
     return true;
   }
 
-  return { blade, mixed, setBonus, socket, power, ss: ssOf, stars, color, tier, burstR, onHit, basicSwing, breathHit, dashStart, dashMove, dashEnd, onDeath, step, reset, has, passives, best, chargeBurst, waveTrail, waveEnd, fieldTick, tick, vuln, describe, stacks, add, take, key };
+  return { petEnd, blade, mixed, setBonus, socket, power, ss: ssOf, stars, color, tier, burstR, onHit, basicSwing, breathHit, dashStart, dashMove, dashEnd, onDeath, step, reset, has, passives, best, chargeBurst, waveTrail, waveEnd, fieldTick, tick, vuln, describe, stacks, add, take, key };
 })();

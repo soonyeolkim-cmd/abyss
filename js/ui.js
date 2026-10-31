@@ -175,6 +175,7 @@ const UI = (() => {
         { label: '새로 만들기 — 검사', go: () => Game.startSlot(n, true, 'swordsman') },
         { label: '새로 만들기 — 마법사', go: () => Game.startSlot(n, true, 'mage') },
         { label: '새로 만들기 — 암살자', go: () => Game.startSlot(n, true, 'assassin') },
+        { label: '새로 만들기 — 소환사', go: () => Game.startSlot(n, true, 'summoner') },
         { label: '코드로 불러오기', go: () => this.importCode(n) },
       ] });
     },

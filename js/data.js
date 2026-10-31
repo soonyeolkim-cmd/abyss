@@ -151,6 +151,27 @@ const CLASSES = {
     trioCircle: { name: '삼중 마법진', short: '삼중', slot: 'charge', fin: true, startup: 0.1, active: 0.05, recovery: 0.28, mult: 1.6, knock: 160, stun: 0.5, thrust: true, heavy: true,
       circle: { range: 120, ahead: 34, r: 26, delay: 0.35 }, trio: { n: 3, step: 30, gap: 0.15 } },
   },
+  // ── 소환사(2026-10-31 사용자: 네 번째 직업, 메모/summoner-plan.md) ── 본인은 약하고 소환수가 싸운다. 소환수 = js/summon.js(주인 능력치 그대로 — 한 방은 스킬 칸 기술로 친다).
+  // 기본(X) = 짧은 2연타 · 맞힌 적에 표식(mark 초, 소환수가 먼저 노림) · 스킬(V) = 소환(솜뿔이 · 꼬마 악마 — 무기 종류로) ·
+  // 특수(Z) = 돌격 명령(모든 소환수가 표식 적에게 돌진해 세게) · 대시 = 혼령 걸음(순간이동, 끝에 소환수가 곁으로) → 공격 = 영혼 흡수(맞힌 수만큼 소환수 유지 +soul 초)
+  summoner: {
+    id: 'summoner', name: '소환사', sprite: 'summoner', atkName: '주문력',
+    weapons: ['bell', 'pact'],
+    slotNames: { basic: '기본 공격', charge: '소환', wave: '돌격 명령', dash: '대시' },
+    slotShort: { basic: '기본', charge: '소환', wave: '돌격', dash: '대시' },
+    icons: { basic: 'bell', charge: 'summon', wave: 'command', dash: 'dash' },
+    baseHp: 100, baseAtk: 4, speed: 82,
+    stamina: { base: 140, regen: 12, delay: 0.6, onHit: 4 },  // 마법사처럼 기술로 싸워서 넉넉하게
+    dodge: { time: 0.28, speed: 230, iframes: 0.24, cd: 0, attackWindow: 0.18, cost: 8 },
+    potion: { heal: 0.4, cd: 1.0, max: 5 },
+    combo: [
+      { name: '방울 치기', slot: 'basic', startup: 0.07, active: 0.09, recovery: 0.2, mult: 1.45, knock: 60, stun: 0.3, reach: [0, 26], arc: 70, lunge: 5, swing: [-100, 60], mark: 4 },
+      { name: '방울 치기', slot: 'basic', fin: true, startup: 0.08, active: 0.1, recovery: 0.3, mult: 2.35, knock: 140, stun: 0.45, reach: [0, 28], arc: 80, lunge: 8, swing: [70, -110], heavy: true, mark: 4 },
+    ],
+    special: { id: 'command', name: '돌격 명령', short: '돌격', slot: 'wave', cd: 2.5, cost: 12, startup: 0.05, active: 0.05, recovery: 0.18, mult: 0, knock: 0, stun: 0, command: true },
+    dashAttack: { name: '영혼 흡수', slot: 'dash', startup: 0.04, active: 0.12, recovery: 0.3, mult: 1.0, knock: 160, stun: 0.45, radius: 40, pulse: true, soul: 1, iframes: true, heavy: true, thrust: true },
+    charge: { cost: 20, def: { name: '소환', slot: 'charge', startup: 0.14, active: 0.05, recovery: 0.22, mult: 0, knock: 0, stun: 0, summon: true } },
+  },
 };
 // 검(경량) 4연타: 베기 · 되베기 · 올려베기 · 찌르기(2026-10-30) — 한 대 배율은 그대로, 한 번 더 베는 만큼 빠른 연타
 CLASSES.swordsman.combo4 = [CLASSES.swordsman.combo[0], CLASSES.swordsman.combo[1],
@@ -187,7 +208,21 @@ const WEAPON_KINDS = {
     hideMove: 1.25, stabMul: 1.3, critAdd: 10 },
   sai: { name: '묵직', speed: 0.95, reach: 0, dmg: 1, knock: 1.1, arc: 1, rush: 0.2,
     trait: ['제압', '찌를 때마다 출혈 · 칼날 폭풍 · 연속 돌진 · 무장해제'], disarm: { t: 3, cut: 0.3 },
-    bleed: { per: 0.12, max: 8, t: 4 }, rushChain: 1.2, chargeDef: 'saiStorm' },  // 대시 → 공격은 카타르와 같은 선풍 베기(2026-10-30 사용자, 물러나며 표창 saiDash 는 안 씀)
+    bleed: { per: 0.12, max: 8, t: 4 }, rushChain: 1.2, chargeDef: 'saiStorm' },
+  // 소환사(2026-10-31): 방울 = 솜뿔이 군단(여럿 · 빠름) · 계약서 = 꼬마 악마(한두 마리 · 크고 셈, 내리치기 범위). pet = SUMMON 키 · summonCost = 소환 기력. 대시 = 순간이동(혼령 걸음)
+  bell: { name: '경량', speed: 1.15, reach: 0, dmg: 1, knock: 0.9, arc: 1,
+    trait: ['군단', '솜뿔이 최대 4마리 · 소환 기력 20 · 작고 빠른 군단 · 대시가 순간이동'], pet: 'puff', summonCost: 20, blinkDodge: 64 },
+  pact: { name: '중량', speed: 0.88, reach: 0, dmg: 1, knock: 1.4, arc: 1.1,
+    trait: ['계약', '꼬마 악마 최대 2마리 · 소환 기력 30 · 범위 내리치기 · 대시가 순간이동'], pet: 'imp', summonCost: 30, blinkDodge: 64 },  // 대시 → 공격은 카타르와 같은 선풍 베기(2026-10-30 사용자, 물러나며 표창 saiDash 는 안 씀)
+};
+
+// 소환수(2026-10-31 사용자 — js/summon.js). max 마리(넘치면 가장 오래된 것이 사라짐) · life 초 · hp = 주인 최대 체력 × · def = 주인 방어력 × ·
+// speed · r(몸) · sight(주인 둘레 이 안의 적만 노림) · atk { mult 주인 공격력 배율, cd 초, reach px, wind 준비 초, aoe = 내리치기 반지름(바닥 타원 — 그림 = 판정) } · rush = 돌격 명령 한 방 배율.
+// 배율은 연습장에서 맞춤(본인 약 40% · 소환수 약 60%). killSp = 소환수가 적을 쓰러뜨리면 주인 기력 +
+const SUMMON = {
+  puff: { name: '솜뿔이', max: 4, life: 15, hp: 0.15, def: 0.3, speed: 96, r: 5, h: 13, sight: 140, atk: { mult: 1.15, cd: 0.75, reach: 10, wind: 0.12 }, rush: 4.2 },
+  imp: { name: '꼬마 악마', max: 2, life: 15, hp: 0.4, def: 0.5, speed: 78, r: 8, h: 19, sight: 150, atk: { mult: 2.6, cd: 1.1, reach: 14, wind: 0.22, aoe: 22 }, rush: 6.4 },
+  killSp: 5, leash: 230, soulMax: 20,
 };
 
 // ── 몹 ── atk.lunge = 공격하며 튀어나가는 속도, ranged = 멀리서 쏨(shot: 탄 속도 · 피해)
@@ -598,7 +633,7 @@ const RARITY = [
 ];
 // ── 유니크(주황, 2026-10-24) ── 봉인의 숲 특수 축복 하나씩. 기본 아이템은 단계에 맞춰 고르고 이름 · 효과만 고정.
 const UNIQUES = {
-  echo: { slot: 'weapon', name: '메아리', fx: '잔상 일격', desc: '마무리 타격(검사 3타 · 마법사 2타)을 잔상이 2번 더 친다' },
+  echo: { slot: 'weapon', name: '메아리', fx: '잔상 일격', desc: '마무리 타격(검사 3타 · 마법사 · 소환사 2타)을 잔상이 2번 더 친다' },
   leaf: { slot: 'armor', name: '숲지기의 갑주', fx: '잎사귀 방패', desc: '12초마다 피해 1번을 막는다' },
   skin: { slot: 'helmet', name: '돌거북 투구', fx: '굳은 피부', desc: '받는 피해 -12%' },
   ambush: { slot: 'gloves', name: '그림자 손', fx: '기습', desc: '옆 · 뒤 · 경직된 적에게 피해 +30%' },
@@ -617,6 +652,8 @@ const UNIQUE_NAMES_BY_TIER = {
     staff: ['울림 지팡이', '되뇌는 지팡이', '잔향 지팡이', '룬 공명장', '용의 포효', '심연 합창', '흑요 공명', '성화 성가', '별의 합창', '태초의 노래', '혈맥 합창'],
     katar: ['메아리 발톱', '되찌르기', '잔향 카타르', '룬 발톱', '용송곳니', '심연 송곳', '흑요 발톱', '성화 송곳니', '별빛 발톱', '태초의 송곳니', '혈석 송곳니'],
     sai: ['받아침', '되받는 싸이', '잔향 싸이', '룬 받침칼', '용뿔 싸이', '심연 갈퀴', '흑요 받침', '성화 삼지창', '별빛 받침', '태초의 받침', '혈석 갈퀴'],
+    bell: ['딸랑이', '메아리 방울', '잔향 방울', '룬 방울', '용의 방울', '심연의 종', '흑요 방울', '성화 종소리', '별빛 방울', '태초의 종', '혈석 방울'],
+    pact: ['낡은 계약서', '되새김 계약', '잔향 계약서', '룬 계약서', '용의 맹약', '심연 계약', '흑요 서약서', '성화 계약', '별의 계약', '태초의 계약', '핏빛 계약서'],
   },
   skin: ['돌거북 투구', '바위 껍질', '강철 등딱지', '룬 거북 투구', '용비늘 관', '심연 거북관', '흑요 껍데기', '성화 수호관', '별거북 투구', '태초의 등껍질', '혈석 등껍질'],
   leaf: ['숲지기의 갑주', '떡갈나무 갑옷', '강철 잎새 갑주', '룬 덩굴 갑주', '용림 갑주', '심연 가시나무', '흑요 수풀', '성화 세계수', '별잎 갑주', '태초의 숲', '핏줄 덩굴 갑주'],
@@ -635,6 +672,7 @@ const uniqueName = (u, kind, tier) => {
 const VAULT_CATS = [{ id: 'weapon_light', slot: 'weapon', cls: 'swordsman', name: '검' }, { id: 'weapon_heavy', slot: 'weapon', cls: 'swordsman', name: '망치' },
   { id: 'weapon_wand', slot: 'weapon', cls: 'mage', name: '롯드' }, { id: 'weapon_staff', slot: 'weapon', cls: 'mage', name: '스태프' },
   { id: 'weapon_katar', slot: 'weapon', cls: 'assassin', name: '카타르' }, { id: 'weapon_sai', slot: 'weapon', cls: 'assassin', name: '싸이' },
+  { id: 'weapon_bell', slot: 'weapon', cls: 'summoner', name: '방울' }, { id: 'weapon_pact', slot: 'weapon', cls: 'summoner', name: '계약서' },
   ...SLOTS.filter(s => s !== 'weapon').map(s => ({ id: s, slot: s, name: SLOT_NAMES[s] }))];
 VAULT_CATS.forEach(c => { c.uniq = Object.keys(UNIQUES).find(u => UNIQUES[u].slot === c.slot); });
 const vaultCat = it => (it.slot === 'weapon' ? 'weapon_' + (Items.base(it).kind || 'light') : it.slot);
@@ -737,6 +775,9 @@ const GEAR_FORMS = {
     // 암살자 무기(2026-10-25, 그림은 gfx.js WPIX 도트 — 양손에 하나씩): 카타르 = 검과 같은 세기, 싸이 = 느린 만큼 ×1.2
     { kind: 'katar', noun: '카타르', icon: 'weapon_katar', curve: { atk: lightAtk } },
     { kind: 'sai', noun: '싸이', icon: 'weapon_sai', curve: { atk: i => lightAtk(i) * 1.2 } },
+    // 소환사 무기(2026-10-31, 그림은 gfx.js WPIX 도트): 방울 = 검과 같은 세기, 계약서 = 중량(×1.3)
+    { kind: 'bell', noun: '방울', icon: 'weapon_bell', curve: { atk: lightAtk } },
+    { kind: 'pact', noun: '계약서', icon: 'weapon_pact', curve: { atk: i => lightAtk(i) * 1.3 } },
   ],
   helmet: [{ noun: '투구', icon: 'helmet', curve: { def: i => 1.5 * POWER(i), hp: i => 7 * POWER(i) } }],
   armor: [{ noun: '갑옷', icon: 'armor', curve: { def: i => 2.7 * POWER(i) } }],
@@ -943,9 +984,16 @@ const EL_ABIL_ASSASSIN = {
   thunder: { charge: ['뇌운 그림자', '백스탭 · 표창 1초 뒤 낙뢰가 한 번 더 떨어진다'], wave: ['벼락 돌진', '돌진 베기에 맞은 적마다 벼락'] },
   poison: { charge: ['독 터뜨리기', '백스탭 · 표창이 쌓인 독을 한꺼번에 터뜨린다'], wave: ['독침 돌진', '돌진 베기에 맞으면 독 3중첩'] },
 };
+// 소환사 칸 능력(2026-10-31): 스킬 칸 = 소환수(소환수 공격에 그 속성), 특수 칸 = 돌격 명령 한 방. 없는 칸은 검사 것 그대로
+const EL_ABIL_SUMMONER = {
+  fire: { charge: ['불꽃 소환수', '소환수가 쓰러지거나 사라진 자리에서 불꽃이 터진다'], wave: ['작열 돌격', '돌격 명령에 맞은 적 자리에서 불꽃이 터진다'] },
+  frost: { charge: ['서리 소환수', '소환수 공격에 냉기 1 더'], wave: ['얼음 돌격', '돌격 명령에 맞으면 냉기 1 더(거의 바로 빙결)'] },
+  thunder: { charge: ['번개 소환수', '소환수 공격에서 번개가 한 번 튄다'], wave: ['벼락 돌격', '돌격 명령에 맞은 적마다 벼락'] },
+  poison: { charge: ['독 소환수', '소환수 공격에 독 1중첩 더'], wave: ['독침 돌격', '돌격 명령에 맞으면 독 3중첩'] },
+};
 // 칸 능력 [이름, 설명]: 직업에 맞게
 const elAbil = (el, slot, prof) => {
-  const id = clsOf(prof).id, own = id === 'mage' ? EL_ABIL_MAGE : id === 'assassin' ? EL_ABIL_ASSASSIN : null;
+  const id = clsOf(prof).id, own = id === 'mage' ? EL_ABIL_MAGE : id === 'assassin' ? EL_ABIL_ASSASSIN : id === 'summoner' ? EL_ABIL_SUMMONER : null;
   return (own && own[el][slot]) || EL_ABIL[el][slot];
 };
 // 속성석 세트 효과(2026-10-24 사용자): 칸 4개가 모두 보통(3단계) 이상일 때. 세기 sc = 가장 낮은 돌의 power ÷ 보통 power(보통 1 → 태초 약 2.7)

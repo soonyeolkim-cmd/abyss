@@ -58,6 +58,7 @@ const World = (() => {
     partySeed = seed;
     mirror = !!seed && Net.role === 'guest';
     actor = null; nextId = 1; byId.clear(); flows.clear(); goneIds = [];
+    Summon.reset();  // 소환사 소환수는 층 · 던전마다 새로
     freeLevel();
     lv = seed ? seeded(seed, () => Dungeon.generate(def)) : Dungeon.generate(def);
     lv.ilvlR = diffIlvl(def, diff);  // 난이도에 따른 장비 레벨 범위
@@ -193,6 +194,7 @@ const World = (() => {
     const def = endlessDef(floor), seed = floorSeed(floor);
     RUN.ease = def.ease;
     actor = null; nextId = 1; byId.clear(); flows.clear(); goneIds = [];
+    Summon.reset();  // 소환사 소환수는 층 · 던전마다 새로
     freeLevel();
     lv = seed ? seeded(seed, () => Dungeon.generate(def)) : Dungeon.generate(def);
     lv.ilvlR = diffIlvl(def, RUN.diff);
@@ -462,11 +464,17 @@ const World = (() => {
       e.sus = close ? Math.min(H.nearT + 1, (e.sus || 0) + dt) : Math.max(0, (e.sus || 0) - dt);
       if (best && best.hidden && e.spot !== best && e.state !== 'dead') World.text(e.x, e.y, (e.h || 16) + 14, '!', '#ff6a5a');  // 숨은 나를 알아챘다
       e.spot = best && best.hidden ? best : null;
+      // 소환사 소환수(2026-10-31): 보스 · 레이드 부품이 아닌 몹은 바짝 붙은(48px 안) 소환수가 사람보다 가까우면 그 소환수를 노린다
+      if (!e.def.boss && !e.def.part) for (const q of Summon.list()) {
+        if (q.gone || (lv.roomMaps && roomOf(q) !== e.ri)) continue;
+        const d = Math.hypot(q.x - e.x, q.y - e.y);
+        if (d < 48 && d < bd) { bd = d; best = q; }
+      }
       return best || (lv.roomMaps || all.some(t => t.hidden) ? null : p);
     };
     for (const e of enemies) e.tgt = near(e);
     updateWards();
-    if (rps.length || lv.roomMaps) for (const t of all) assignRoles(enemies.filter(e => e.tgt === t), t);
+    if (rps.length || lv.roomMaps || Summon.count()) for (const t of [...all, ...Summon.list()]) assignRoles(enemies.filter(e => e.tgt === t), t);  // 소환수를 노리는 몹은 그 소환수 둘레로
     else assignRoles(enemies, p);
     for (const e of enemies) {
       // 멀리서 자는 몹은 상태이상만 흐르게(아무것도 안 한다). 방 하나 = 맵 하나: 방에 사람이 없으면 멈춰 있음(쓰러지는 중이면 마저)
@@ -475,6 +483,7 @@ const World = (() => {
       if (!e.awake && Math.abs(e.x - t.x) > 360 && Math.abs(e.y - t.y) > 260) continue;
       updateEnemy(e, dt, lv, t);
     }
+    Summon.update(dt, lv, p);  // 소환사 소환수(js/summon.js)
     separateEnemies(enemies, lv, all);
     enemies = enemies.filter(e => { const gone = e.state === 'dead' && e.t > (e.def.boss ? 1.6 : 1.2); if (gone) { byId.delete(e.id); if (rps.length) goneIds.push(e.id); } return !gone; });
     updateShots(dt);
@@ -1110,10 +1119,12 @@ const World = (() => {
     list.push({ y: p.y, draw: () => Art.player(ctx, p, time) });
     const mates = rps.length ? rps : Coop.runMates();  // 파티원(방장 화면 = 손님 몸들 그대로 · 손님 화면 = 받은 위치로 그리는 몸들)
     for (const m of mates) if (inView(m.x, m.y)) list.push({ y: m.y, draw: () => { if (!m.hidden) Art.shadow(ctx, m.x, m.y, 6, 0, 1); Art.player(ctx, m, time); } });
+    Summon.drawList(ctx, list, time, p, inView);  // 소환사 소환수
     list.sort((a, b) => a.y - b.y);
     for (const e of vis) { if (untouchable(e)) continue; Art.aura(ctx, e, time); Art.shadow(ctx, e.x, e.y, e.r + 2, e.z, e.spawnT > 0 ? 0.4 : 1); }  // 땅속 · 사라진 몹은 그림자 없음
     if (!p.hidden) Art.shadow(ctx, p.x, p.y, 6, 0, 1);
     drawWards(ctx);
+    Summon.drawMarks(ctx, time);  // 소환사 표식 적
     for (const it of list) it.draw();
     for (const s of shots) Art.shot(ctx, s, time);
     for (const s of pshots) Art.wave(ctx, s);

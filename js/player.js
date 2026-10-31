@@ -64,7 +64,7 @@ const wkOf = p => WEAPON_KINDS[(p.stats && p.stats.kind) || weaponKindOf(p.prof)
 // 기력: which = 'charge' | 'special'(HUD · 설정 조작표도 이것으로)
 function costOf(prof, which) {
   const C = clsOf(prof), wk = WEAPON_KINDS[weaponKindOf(prof)] || WEAPON_KINDS.none;
-  if (which === 'charge') return C.charge.hide && wk.hideCost !== undefined ? wk.hideCost : C.charge.cost;
+  if (which === 'charge') return C.charge.hide && wk.hideCost !== undefined ? wk.hideCost : wk.summonCost !== undefined ? wk.summonCost : C.charge.cost;  // 소환사: 소환 기력은 무기 종류로
   return wk.specialCost !== undefined ? wk.specialCost : C.special.cost;
 }
 const specialCdOf = p => { const wk = wkOf(p); return wk.specialCd !== undefined ? wk.specialCd : p.cls.special.cd; };
@@ -216,7 +216,7 @@ function updatePlayer(p, dt, room, gates) {
     case 'dodge':
       // 대시 중에 공격 = 대시 찌르기
       // 롯드 순간이동은 미끄러지는 동안 공격을 미뤄 두었다가 닿자마자(입력 버퍼 0.2초 > 이동 0.14초)
-      if (p.buffer === 'attack' && !p.blink) { p.buffer = null; Elements.dashEnd(p); startAct(p, dashDefOf(C, wkOf(p)), 'dashAtk', 0); break; }
+      if (p.buffer === 'attack' && !p.blink) { p.buffer = null; Elements.dashEnd(p); if (C.id === 'summoner') Summon.regroup(p); startAct(p, dashDefOf(C, wkOf(p)), 'dashAtk', 0); break; }
       p.t -= dt;
       if (p.blink) {  // 롯드: 대시 = 순간이동 — 한 번에 옮기면 멀미 나서(2026-10-30 사용자) T 초 동안 빠르게 미끄러지다 서서히 멈춤(벽에서 멈춤) · 떠난 자리 · 닿은 자리에 반짝임 + 지나간 길 그림
         const b = p.blink;
@@ -229,7 +229,7 @@ function updatePlayer(p, dt, room, gates) {
       Dungeon.move(room, p, p.dodgeV.x * C.dodge.speed * dt, p.dodgeV.y * C.dodge.speed * dt, BODY_R, gates);
       Elements.dashMove(p, C.dodge.speed * dt);  // 대시 칸 속성석: 지나간 길
       }
-      if (p.t <= 0) { p.state = 'idle'; p.blinked = false; p.dashAtkT = C.dodge.attackWindow; Elements.dashEnd(p); }
+      if (p.t <= 0) { p.state = 'idle'; p.blinked = false; p.dashAtkT = C.dodge.attackWindow; Elements.dashEnd(p); if (C.id === 'summoner') Summon.regroup(p); }  // 소환사 혼령 걸음: 소환수가 곁으로
       break;
     case 'act':
       updateAct(p, dt, room);
@@ -283,6 +283,7 @@ function tryStart(p, b) {
   }
   if (b === 'special') {
     const wk = wkOf(p), chain = C.special.rush && wk.rushChain && p.rushChainT > 0;  // 싸이: 돌진 베기 뒤 잠깐 동안 한 번 더(기력 · 쿨타임 없이, 한 번만)
+    if (C.special.command && !Summon.count()) { if (p.spWarnT <= 0) { World.text(p.x, p.y, 40, '소환수가 없어요', '#d6b4f6'); p.spWarnT = 0.6; } return false; }  // 소환사 돌격 명령
     if (!chain && (p.specialCd > 0 || !spend(p, costOf(p.prof, 'special')))) return false;
     if (!chain) p.specialCd = specialCdOf(p);
     endHide(p);
@@ -384,7 +385,7 @@ function startAct(p, def, kind, idx, o = {}) {
   if (def.spin && def.slot === 'charge') { const st = Elements.socket(p.prof, 'charge'); if (st) hd.radius *= 1 + 0.05 * (st.size + 1); }
   // 망치 대지 강타: 회전베기처럼 차지 칸 속성석 크기마다 넓게 — 충격파 그림도 hd.area 를 따름
   if (def.area && def.slot === 'charge') { const st = Elements.socket(p.prof, 'charge'); hd.area = { ahead: def.area.ahead, r: def.area.r * (st ? 1 + 0.05 * (st.size + 1) : 1) }; }
-  if (kind !== 'dashAtk' && !o.aimed) aimAt(p, def.circle ? def.circle.range : def.orb ? def.orb.range * 0.7 : def.wave ? def.wave.range * 0.6 : def.quake ? def.quake.range * 0.6 : def.knives ? def.knives.range * 0.8 : def.area ? def.area.ahead + def.area.r : def.radius || hd.reach[1]);  // 대시 찌르기는 대시한 방향 그대로 · 검기는 멀리까지
+  if (kind !== 'dashAtk' && !o.aimed && !def.summon && !def.command) aimAt(p, def.circle ? def.circle.range : def.orb ? def.orb.range * 0.7 : def.wave ? def.wave.range * 0.6 : def.quake ? def.quake.range * 0.6 : def.knives ? def.knives.range * 0.8 : def.area ? def.area.ahead + def.area.r : def.radius || hd.reach[1]);  // 대시 찌르기는 대시한 방향 그대로 · 검기는 멀리까지
   p.state = 'act';
   p.act = {
     def, hd, kind, idx, time: 0, hit: new Set(), wave: -1, fxDone: false, x0: p.x, y0: p.y,
@@ -452,7 +453,9 @@ function updateAct(p, dt, room) {
       const st = Elements.socket(p.prof, d.slot || 'none');
       World.fx({ type: 'ring', follow: p, r: a.hd.radius, t: 0, life: 0.3, col: Elements.color(p.prof, d.slot || 'none'), tier: Elements.tier(st), el: st ? st.el : '', ss: Elements.ss(st, p.prof) });
     }
-    if (a.kind === 'charge' && !d.circle && !d.knives) Elements.chargeBurst(p, d.spin ? a.hd.radius : a.hd.area ? a.hd.area.r : 0);  // 회전베기 · 대지 강타: 속성 범위 = 베기 · 충격파 범위
+    if (d.summon) Summon.spawn(p);  // 소환사 소환(스킬 칸 속성석 = 소환수 속성 — 폭발 대신)
+    if (d.command && !Summon.command(p)) World.text(p.x, p.y, 40, '노릴 적이 없어요', '#d6b4f6');  // 돌격 명령
+    if (a.kind === 'charge' && !d.circle && !d.knives && !d.summon) Elements.chargeBurst(p, d.spin ? a.hd.radius : a.hd.area ? a.hd.area.r : 0);  // 회전베기 · 대지 강타: 속성 범위 = 베기 · 충격파 범위
     if (a.kind === 'stab') Elements.chargeBurst(p);  // 백스탭도 차지 칸 속성석 폭발(대상 등 뒤 자리에서)
     if (a.fly) World.fx({ type: 'shadowpath', pts: [[a.fly.x0, a.fly.y0]], follow: p, w: 8, t: 0, life: 0.3, col: '#b9a0ff' });  // 날아온 길  // 회전베기 칸 속성석: 둘레 폭발(마법진은 터질 때 그 자리에서)
     if (d.pulse) World.fx({ type: 'pulse', x: p.x, y: p.y, r: a.hd.radius, t: 0, life: 0.3, col: Elements.color(p.prof, 'dash') });
@@ -531,13 +534,14 @@ function updateAct(p, dt, room) {
       const w = Math.floor((a.time - tA) / (a.a / d.hits));
       if (w !== a.wave) { a.wave = w; a.hit.clear(); }
     }
-    let landed = false;
+    let landed = false, nHit = 0;
     for (const e of World.enemies()) {
       if (!a.hd.reach && !a.hd.radius && !a.hd.area) break;  // 마력탄 · 마법진 · 표창: 몸 판정 없음
       if (a.hit.has(e) || !inHitbox(p, p.fv, a.hd, e, e.r)) continue;
       if (d.breath && !Dungeon.los(World.level, p.x, p.y - 4, e.x, e.y - 4)) continue;  // 숨결은 벽 너머로 안 닿는다
-      if (hitEnemy(e, d, p)) { a.hit.add(e); landed = true; if (d.breath) Elements.breathHit(e, d, p); }
+      if (hitEnemy(e, d, p)) { a.hit.add(e); landed = true; nHit++; if (d.breath) Elements.breathHit(e, d, p); if (d.mark) e.petMark = d.mark; }  // 소환사 기본 공격: 표식(소환수가 먼저 노림)
     }
+    if (d.soul && nHit) Summon.extend(nHit * d.soul);  // 소환사 영혼 흡수
     // 유니크 잔상 일격: 3타째가 맞으면 잔상이 같은 적을 더 친다
     if (landed && d.fin && p.stats.fx.echo && !p.echo) p.echo = { t: 0, n: 0, targets: [...a.hit], def: Object.assign({}, d, { mult: d.mult * UNIQUE_FX.echoMult, knock: 30, stun: 0.2, heavy: false }) };
     if (landed) {

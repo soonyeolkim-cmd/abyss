@@ -170,6 +170,7 @@ function bleedTick(e, dt) {
 // 몹 공격이 플레이어에 닿음. 결과: 'hit' · 'miss'(대시 무적 등). src = 공격한 몹(탄이면 탄)
 // p.safe = 보스를 쓰러뜨린 뒤 무적(2026-10-25 사용자: 보스 잡고 남은 탄 · 폭발에 죽는 일 없게)
 function hurtPlayer(p, src, dmgRaw, knock) {
+  if (p.pet) return Summon.hurt(p, src, dmgRaw, knock);  // 소환사 소환수(js/summon.js)
   if (src && src.disarmT > 0) dmgRaw *= 1 - (src.disarmCut || 0);  // 싸이 무장해제된 몹(탄은 쏠 때 몹 상태를 물려받음)
   if (p.remote) return Coop.remoteHurt(p, src, dmgRaw, knock);  // 파티 방장: 손님 몸이 맞음 → 손님 기기에서 무적 · 피해 계산
   if (src && src.pct) return after(p, src, pctHurt(p, src));
