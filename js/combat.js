@@ -191,7 +191,7 @@ function hurtPlayer(p, src, dmgRaw, knock) {
   if (src && (src.chill > 0 || src.state === 'frozen') && Elements.has(p.prof, 'frost', 'p2')) dmgBase *= 0.7;  // 한기(빙결석 전설부터)
   if (p.markT > 0) dmgBase *= RAID_RULE.markMul;  // 레이드 공허 표식
   if (p.wardT > 0) dmgBase *= 1 - (p.wardCut || 0);  // 스태프 수호 파동 보호막
-  if (p.hidden) endHide(p, '들켰다!');  // 숨은 중에 맞으면 드러남
+  if (p.hidden) { dmgBase *= p.cls.charge.hide.hitMul; endHide(p, '들켰다! 급소 피해'); }  // 숨은 중에 맞으면 드러나고 더 아프다(2026-10-31 사용자)
   const dmg = Math.max(1, Math.round(dmgBase));
   p.hp -= dmg;
   World.noteHit();  // 레이드 기록: 맞은 횟수
@@ -218,8 +218,8 @@ function after(p, src, r) {
 // 최대 체력의 pct 만큼(방어 · 잎사귀 방패 무시) — 레이드 벌. src.unavoid 면 대시 무적도 무시(수정 폭발), 아니면 대시로 피함(구슬 · 파동)
 function pctHurt(p, src) {
   if (p.dead || p.safe || (!src.unavoid && p.iframes > 0)) return 'miss';
-  const dmg = Math.max(1, Math.round(p.maxHp * src.pct * (p.markT > 0 ? RAID_RULE.markMul : 1)));
-  if (p.hidden) endHide(p, '들켰다!');
+  const dmg = Math.max(1, Math.round(p.maxHp * src.pct * (p.markT > 0 ? RAID_RULE.markMul : 1) * (p.hidden ? p.cls.charge.hide.hitMul : 1)));  // 숨은 중이면 더 아프다
+  if (p.hidden) endHide(p, '들켰다! 급소 피해');
   p.hp -= dmg;
   World.noteHit();
   p.state = 'hurt'; p.t = 0.3; p.act = null; p.charge = 0;

@@ -153,7 +153,8 @@ const UI = (() => {
       if (on && it.off) T_(ctx, it.off, x + 200, yy, 11, '#8a7e88');
     });
   }
-  // ── 캐릭터 선택(2026-10-24 사용자): 칸 3개 — 이어하기 · 새로 만들기 · 지우기 · 코드로 내보내기 / 불러오기 ──
+  // ── 캐릭터 선택(2026-10-24 사용자): 칸 6개(3칸 × 2줄, 2026-10-31) — 이어하기 · 새로 만들기 · 지우기 · 코드로 내보내기 / 불러오기 ──
+  const TITLE_COLS = 3;
   const title = {
     sel: 0, slots: [],
     open() { this.slots = []; for (let n = 0; n < Save.SLOTS_N; n++) this.slots.push(Save.load(n)); this.sel = Math.min(this.sel, Save.SLOTS_N - 1); },
@@ -161,6 +162,7 @@ const UI = (() => {
       const N = Save.SLOTS_N;
       if (Input.nav('left')) this.sel = (this.sel + N - 1) % N;
       if (Input.nav('right')) this.sel = (this.sel + 1) % N;
+      if (Input.nav('up') || Input.nav('down')) this.sel = (this.sel + TITLE_COLS) % N;  // 두 줄: 위아래 = 다른 줄 같은 자리
       if (!Input.wasPressed('ok')) return;
       const n = this.sel, p = this.slots[n], name = '캐릭터 ' + (n + 1);
       if (p) Game.overlay({ type: 'choice', title: name + ' · ' + clsOf(p).name + ' Lv.' + p.lv, items: [
@@ -197,29 +199,32 @@ const UI = (() => {
       Splash.backdrop(ctx, time);  // 시작 화면과 같은 동굴 배경(2026-10-25)
       T_(ctx, '심연속으로', 480, 76, 34, '#f0e0b8', 'center');  // 게임 이름(2026-10-24 사용자)
       T_(ctx, '캐릭터 선택', 480, 108, 16, '#9a8e96', 'center');
+      // 카드 3칸 × 2줄: 왼쪽 = 캐릭터 그림, 오른쪽 = 직업 · 레벨 · 칭호 · 골드 · 깬 던전 · 무기
       for (let n = 0; n < Save.SLOTS_N; n++) {
-        const x = 60 + n * 290, y = 134, w = 260, h = 320, on = this.sel === n, p = this.slots[n];
+        const x = 60 + (n % TITLE_COLS) * 290, y = 124 + Math.floor(n / TITLE_COLS) * 180, w = 260, h = 168, on = this.sel === n, p = this.slots[n];
         zone(x, y, w, h, { pick: () => { this.sel = n; }, now: true });
         Gfx.panel(ctx, x, y, w, h, { border: on ? '#ffd36a' : '#5a4650' });
-        T_(ctx, '캐릭터 ' + (n + 1), x + w / 2, y + 34, 16, on ? '#ffd36a' : '#c8b8a0', 'center');
+        T_(ctx, '캐릭터 ' + (n + 1), x + 16, y + 28, 14, on ? '#ffd36a' : '#c8b8a0');
         if (p) {
-          const g = ctx.createRadialGradient(x + w / 2, y + 150, 10, x + w / 2, y + 150, 110);
-          g.addColorStop(0, 'rgba(255,220,150,' + (on ? 0.14 : 0.06) + ')'); g.addColorStop(1, 'rgba(255,220,150,0)');
-          ctx.fillStyle = g; ctx.fillRect(x, y + 40, w, 220);
-          Art.avatar(ctx, p, x + w / 2 - 6, y + 210, 4, on ? time : 0);
-          T_(ctx, clsOf(p).name + ' Lv.' + p.lv, x + w / 2, y + 250, 20, '#f0e0b8', 'center');
-          if (p.story && p.story.trueEnding) T_(ctx, '★ 진엔딩', x + w / 2, y + 62, 14, '#ffd36a', 'center');  // 2026-10-25 심연의 문 영웅 클리어
+          if (p.story && p.story.trueEnding) T_(ctx, '★ 진엔딩', x + w - 14, y + 28, 12, '#ffd36a', 'right');  // 2026-10-25 심연의 문 영웅 클리어
+          const ax = x + 62, g = ctx.createRadialGradient(ax, y + 108, 6, ax, y + 108, 58);
+          g.addColorStop(0, 'rgba(255,220,150,' + (on ? 0.16 : 0.06) + ')'); g.addColorStop(1, 'rgba(255,220,150,0)');
+          ctx.fillStyle = g; ctx.fillRect(x + 4, y + 40, 116, 124);
+          Art.avatar(ctx, p, ax - 4, y + 148, 3, on ? time : 0);
+          const tx = x + 124;
+          T_(ctx, clsOf(p).name + ' Lv.' + p.lv, tx, y + 62, 17, '#f0e0b8');
           const pt = Records.titleOf(p);  // 단 칭호(2026-10-27)
-          if (pt) T_(ctx, '《' + pt + '》', x + w / 2, y + 84, 13, '#5fe0d0', 'center');
-          T_(ctx, '골드 ' + p.gold + 'G · 깬 던전 ' + Object.keys(p.cleared || {}).length + '/' + DUNGEONS.length, x + w / 2, y + 278, 13, '#9a8e96', 'center');
-          if (p.equip.weapon) T_(ctx, Items.nameOf(p.equip.weapon), x + w / 2, y + 300, 12, RARITY[p.equip.weapon.rarity].color, 'center');
+          if (pt) T_(ctx, '《' + pt + '》', tx, y + 84, 12, '#5fe0d0');
+          T_(ctx, '골드 ' + p.gold + 'G', tx, y + 106, 12, '#9a8e96');
+          T_(ctx, '깬 던전 ' + Object.keys(p.cleared || {}).length + '/' + DUNGEONS.length, tx, y + 124, 12, '#9a8e96');
+          if (p.equip.weapon) T_(ctx, Items.nameOf(p.equip.weapon), tx, y + 146, 12, RARITY[p.equip.weapon.rarity].color);
         } else {
-          T_(ctx, '+', x + w / 2, y + 170, 48, on ? '#ffd36a' : '#5a4650', 'center');
-          T_(ctx, '새 캐릭터', x + w / 2, y + 210, 16, on ? '#ffd36a' : '#8a7e88', 'center');
-          T_(ctx, '또는 코드로 불러오기', x + w / 2, y + 234, 12, '#6a6068', 'center');
+          T_(ctx, '+', x + w / 2, y + 96, 40, on ? '#ffd36a' : '#5a4650', 'center');
+          T_(ctx, '새 캐릭터', x + w / 2, y + 126, 15, on ? '#ffd36a' : '#8a7e88', 'center');
+          T_(ctx, '또는 코드로 불러오기', x + w / 2, y + 148, 12, '#6a6068', 'center');
         }
       }
-      if (!Input.touchMode()) T_(ctx, '고르기 ←→ · 선택 ' + L('ok'), 480, 500, 14, '#8a7e88', 'center');
+      if (!Input.touchMode()) T_(ctx, '고르기 ←→ ↑↓ · 선택 ' + L('ok'), 480, 500, 14, '#8a7e88', 'center');
       // 폰이 예전 파일을 붙잡고 있는지 · 패드를 알아보는지 보려고(2026-10-25: 안드로이드에서 패드를 써도 가상패드가 안 숨겨짐)
       const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
       const IN = { key: '키보드', pad: '패드', touch: '터치' };

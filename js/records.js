@@ -105,7 +105,7 @@ const Records = (() => {
     T_(ctx, '내 캐릭터끼리', 54, 330, 15, '#ffd36a');
     T_(ctx, '처치', 300, 330, 11, '#8a7e88', 'right'); T_(ctx, '혼자 최고', 430, 330, 11, '#8a7e88', 'right');
     for (let n = 0; n < Save.SLOTS_N; n++) {
-      const pr = n === Save.slot ? prof : others[n], y = 356 + n * 26, me = n === Save.slot;
+      const pr = n === Save.slot ? prof : others[n], y = 356 + n * 22, me = n === Save.slot;  // 줄 간격 22: 칸 6개(2026-10-31)도 판 안에
       if (!pr) { T_(ctx, (n + 1) + '. 빈 칸', 70, y, 13, '#5a5058'); continue; }
       const rr = pr.raidRec && pr.raidRec[st.stage], clears = rr ? rr.clears : (pr.endless && pr.endless.raid) || 0;
       T_(ctx, (n + 1) + '. ' + clsOf(pr).name + ' Lv.' + pr.lv + (me ? ' (지금)' : ''), 70, y, 13, me ? '#ffd36a' : '#e8dcc0');

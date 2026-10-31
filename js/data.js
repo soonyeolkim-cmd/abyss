@@ -100,8 +100,8 @@ const CLASSES = {
     // ready = 숨은 뒤 이만큼(초) 지나야 백스탭 · 표창이 나간다(2026-10-30 사용자: V 연타만으로 딜이 잘 나와서 — 숨었다가 노리는 맛). 그 전에 누르면 무시, 준비되면 보랏빛 반짝
     // 너프(2026-10-31 사용자 "레이드에서도 잔몹이 못 알아채 거의 무적"): cd = 드러난 뒤 다시 숨기까지(초, 카타르는 hideCd) · 숨은 동안 기력 회복 없음(player.js) ·
     //   잔몹(보통 몹)은 near px 안에 nearT 초 붙어 있으면 알아챔 · 정예 · 고유 · 보스는 숨은 시간을 쌓은 heat 가 notice 초를 넘으면 알아챔 —
-    //   heat 는 다시 숨어도 0 으로 안 돌아가고 드러나 있는 동안 초당 heatDecay 씩만 준다(world.js)
-    charge: { cost: 15, hide: { max: 3, drain: 0, move: 0.85, notice: 1.5, ready: 0.4, cd: 4, near: 40, nearT: 1, heatDecay: 0.5 },  // drain 6 → 0(2026-10-25 사용자: 숨는 동안 기력이 안 빠지게)
+    //   heat 는 다시 숨어도 0 으로 안 돌아가고 드러나 있는 동안 초당 heatDecay 씩만 준다(world.js) · 숨은 중에 맞으면 피해 × hitMul(combat.js)
+    charge: { cost: 15, hide: { max: 3, drain: 0, move: 0.85, notice: 1.5, ready: 0.4, cd: 4, near: 40, nearT: 1, heatDecay: 0.5, hitMul: 1.5 },  // drain 6 → 0(2026-10-25 사용자: 숨는 동안 기력이 안 빠지게)
       def: { name: '표창 던지기', slot: 'charge', startup: 0.05, active: 0.05, recovery: 0.22, mult: 1.2, knock: 60, stun: 0.3, thrust: true,
         knives: { n: 3, spread: 12, speed: 340, range: 200, r: 5 } } },
     // 백스탭(숨은 중 X · V, 2026-10-25 사용자: 라그나로크 로그 백스탭) — blink px 안(벽 너머 제외) 가장 가까운 적의 등 뒤로 준비(startup) 동안 돌아 들어가서 넓고 크게 휘두른다(무적).
@@ -379,7 +379,9 @@ Object.assign(ENEMIES, {
 //   → 체력 = 중간 보스 × 1.2(드러날 때만 제대로 맞으니 실제로는 중간 보스 몇 배 걸림) · 내려찍기 2번 · ×2 · 노출 시간 늘리고 제한 5분
 //   → 섞기로 바꾸며 드러나야 하는 횟수가 3 → 6~9 번이 되어 제한 5 → 7분 · 빠른 깸 2 → 3분 30초
 // 2026-10-29 사용자: 파훼 뒤 딜 타이밍(노출)은 모두 5초(내려찍기 4 · 기둥 6 · 수정 7 → 5, 구슬 5 그대로) · 구슬 더 빠르게 orbSpeed 120 → 150
-const RAID_RULE = { hpMul: 1.2, time: 420, shellCut: 0, exposedMul: 2, slams: 3, slamExpose: 5, pillarExpose: 5, crystalExpose: 5, crystalTime: 15, crystalPct: 0.2, repeat: [2, 3], shift: 1.2,
+// 2026-10-31 사용자 '최종 보스 체력 6배 — 한 딜 타임에 더 오래 때리게 · 파훼 횟수 3번쯤 더': hpMul 1.2 → 7.2 · repeat [2,3] → [3,4](드러나야 하는 횟수 6~9 → 9~12) ·
+//   제한 7 → 10분(질풍 3분 30초 → 5분 · 섬광 2분 → 3분 30초). 시험 캐릭터(Lv.99 +10 유니크, 근접 봇 초당 약 68만)로 한 몫 = 약 5~7초(예전 1~2초) — 드러난 5초를 꽉 채워 때려야 함
+const RAID_RULE = { hpMul: 7.2, time: 600, shellCut: 0, exposedMul: 2, slams: 3, slamExpose: 5, pillarExpose: 5, crystalExpose: 5, crystalTime: 15, crystalPct: 0.2, repeat: [3, 4], shift: 1.2,
   leap: { wind: 0.9, air: 0.35, h: 46 },  // 껍질 도약 내려찍기: wind 초 동안 내 발밑 예고(따라옴) → air 초 동안 그 자리로 날아와 내려찍기(높이 h)
   stun: 1.5, orbPct: 0.25, markT: 5, markMul: 1.3, wave: { delay: 0.5, speed: 240, w: 12, pct: 0.15, maxR: 560 },
   orbExpose: 5, orbSpeed: 150, orbBack: 1.15, rallyMax: 3, rallyChance: 0.5, essence: 10, cores: 1,
@@ -391,8 +393,8 @@ const RAID_TITLES = [
   { id: 'raid1', stage: 1, name: '파수꾼을 쓰러뜨린 자', cond: '심연의 파수꾼 처음 처치', ok: r => r.clears >= 1 },
   { id: 'raid10', stage: 1, name: '심연의 사냥꾼', cond: '심연의 파수꾼 10번 처치 (파티 포함)', ok: r => r.clears >= 10 },
   { id: 'raid50', stage: 1, name: '심연의 지배자', cond: '심연의 파수꾼 50번 처치 (파티 포함)', ok: r => r.clears >= 50 },
-  { id: 'swift1', stage: 1, name: '질풍', cond: '혼자 3분 30초 안에 처치', ok: r => !!r.solo && r.solo.time <= 210 },
-  { id: 'flash1', stage: 1, name: '섬광', cond: '혼자 2분 안에 처치', ok: r => !!r.solo && r.solo.time <= 120 },
+  { id: 'swift1', stage: 1, name: '질풍', cond: '혼자 5분 안에 처치', ok: r => !!r.solo && r.solo.time <= 300 },
+  { id: 'flash1', stage: 1, name: '섬광', cond: '혼자 3분 30초 안에 처치', ok: r => !!r.solo && r.solo.time <= 210 },
   { id: 'nohit1', stage: 1, name: '흠집 하나 없이', cond: '혼자 한 대도 안 맞고 처치', ok: r => !!r.solo && r.solo.hits === 0 },
   { id: 'lone1', stage: 1, name: '고독한 사냥꾼', cond: '혼자 처치', ok: r => !!r.solo },
   { id: 'abyss1', stage: 1, name: '심연을 꿰뚫은 자', cond: '위 칭호 일곱 개 모두', all: true },
