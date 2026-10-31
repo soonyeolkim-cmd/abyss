@@ -443,13 +443,25 @@ const World = (() => {
     for (const q of rps) { actor = q; q.sp = q.maxSp; updatePlayer(q, dt, lv, true); actor = null; }  // 손님 몸: 기력은 손님 쪽에서 셈
     // 몹마다 노릴 사람 = 가까운 살아 있는 사람(파티면 나 · 손님들 중)
     const all = [p, ...rps];
+    // 암살자 그림자 숨기(2026-10-31 사용자 너프 — data.js charge.hide): heat = 숨은 시간을 쌓은 것(다시 숨어도 이어지고 드러나 있으면 천천히 준다) →
+    //   정예 · 고유 · 보스는 heat 가 notice 를 넘으면 알아챔. 보통 몹은 near px 안에 nearT 초 붙어 있으면(e.sus) 알아채고, 멀어지면 1초쯤 뒤 다시 놓친다
+    for (const t of all) { const H = t.cls.charge.hide; if (H) t.hideHeat = t.hidden ? (t.hideHeat || 0) + dt : Math.max(0, (t.hideHeat || 0) - H.heatDecay * dt); }
+    const sees = (e, t) => { const H = t.cls.charge.hide; return e.rank !== 'normal' ? t.hideHeat >= H.notice : (e.sus || 0) >= H.nearT; };
     const near = e => {
-      let best = null, bd = Infinity;
+      let best = null, bd = Infinity, close = false;
       for (const t of all) {
         if (t.dead || (lv.roomMaps && roomOf(t) !== e.ri)) continue;
-        if (t.hidden && !(e.def.boss && t.hidden.t >= t.cls.charge.hide.notice)) continue;  // 암살자 그림자 숨기: 몹이 놓침
-        const d = Math.hypot(t.x - e.x, t.y - e.y); if (d < bd) { bd = d; best = t; }
+        const d = Math.hypot(t.x - e.x, t.y - e.y);
+        if (t.hidden) {
+          if (d <= t.cls.charge.hide.near) close = true;
+          if (!sees(e, t)) continue;  // 아직 못 알아챔: 놓친다
+        }
+        if (d < bd) { bd = d; best = t; }
       }
+      const H = CLASSES.assassin.charge.hide;
+      e.sus = close ? Math.min(H.nearT + 1, (e.sus || 0) + dt) : Math.max(0, (e.sus || 0) - dt);
+      if (best && best.hidden && e.spot !== best && e.state !== 'dead') World.text(e.x, e.y, (e.h || 16) + 14, '!', '#ff6a5a');  // 숨은 나를 알아챘다
+      e.spot = best && best.hidden ? best : null;
       return best || (lv.roomMaps || all.some(t => t.hidden) ? null : p);
     };
     for (const e of enemies) e.tgt = near(e);

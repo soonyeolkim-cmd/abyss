@@ -10,7 +10,7 @@ function createPlayer(prof) {
     state: 'idle', t: 0, act: null, walkT: 0,
     buffer: null, bufferT: 0,
     iframes: 0, dodgeCd: 0, dodgeV: { x: 0, y: 1 }, dashAtkT: 0,
-    specialCd: 0, potionCd: 0, flash: 0, dead: false, deadT: 0,
+    specialCd: 0, hideCd: 0, potionCd: 0, flash: 0, dead: false, deadT: 0,
     holdT: 0, charge: 0,
   };
 }
@@ -68,6 +68,8 @@ function costOf(prof, which) {
   return wk.specialCost !== undefined ? wk.specialCost : C.special.cost;
 }
 const specialCdOf = p => { const wk = wkOf(p); return wk.specialCd !== undefined ? wk.specialCd : p.cls.special.cd; };
+// 그림자 숨기 다시 쓰기까지(2026-10-31 사용자 너프): 카타르 hideCd · 그 밖은 직업 기본
+const hideCdOf = p => { const wk = wkOf(p); return wk.hideCd !== undefined ? wk.hideCd : (p.cls.charge.hide || {}).cd || 0; };
 // 콤보 목록: 검(경량)은 4연타(combo4, 2026-10-30) · 그 밖은 직업 기본
 const comboOf = (C, wk) => (wk && wk.combo4 && C.combo4) || C.combo;
 // 콤보 idx 번 기술: 마지막 타는 무기 특성 finisher 로 바뀔 수 있다(망치 = 내려찍기)
@@ -108,6 +110,7 @@ function startHide(p) {
 function endHide(p, why) {
   if (!p.hidden) return;
   p.hidden = null;
+  p.hideCd = hideCdOf(p);  // 드러난 순간부터 다시 숨기까지 대기
   if (why) World.text(p.x, p.y, 34, why, '#b9a0ff');
 }
 function updateHide(p, dt) {
@@ -171,11 +174,12 @@ function startRush(p) {
 function updatePlayer(p, dt, room, gates) {
   const C = p.cls;
   p.specialCd = Math.max(0, p.specialCd - dt);
+  p.hideCd = Math.max(0, (p.hideCd || 0) - dt);
   p.rushChainT = Math.max(0, (p.rushChainT || 0) - dt);
   p.wardT = Math.max(0, (p.wardT || 0) - dt);  // 스태프 수호 파동 보호막
   p.spWarnT -= dt;
   p.spDelay -= dt;
-  if (p.spDelay <= 0 && !p.dead) p.sp = Math.min(p.maxSp, p.sp + C.stamina.regen * (1 + p.stats.spRegen / 100) * dt);  // 기력 회복(갑옷 '기력 회복 속도'만큼 빠르게)
+  if (p.spDelay <= 0 && !p.dead && !p.hidden) p.sp = Math.min(p.maxSp, p.sp + C.stamina.regen * (1 + p.stats.spRegen / 100) * dt);  // 기력 회복(갑옷 '기력 회복 속도'만큼 빠르게) · 그림자 숨기 동안은 안 참(2026-10-31 사용자)
   p.dodgeCd = Math.max(0, p.dodgeCd - dt);
   p.dashAtkT = Math.max(0, p.dashAtkT - dt);
   p.potionCd = Math.max(0, p.potionCd - dt);
@@ -264,6 +268,7 @@ function tryStart(p, b) {
   }
   if (b === 'charge' && C.charge.hide && !wkOf(p).chargeDef) {  // (싸이는 숨기 대신 칼날 폭풍 — 아래 일반 차지)  // 암살자: 숨기 → 다시 누르면 바로 옆 적에게 백스탭, 없으면 표창(기력은 숨을 때만)
     if (p.hidden) return hiddenStrike(p);
+    if (p.hideCd > 0) { if (p.spWarnT <= 0) { World.text(p.x, p.y, 52, '숨기 대기 ' + p.hideCd.toFixed(1) + '초', '#b9a0ff'); p.spWarnT = 0.6; } return false; }
     if (!spend(p, costOf(p.prof, 'charge'))) return false;
     startHide(p);
     return true;

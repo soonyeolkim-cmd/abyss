@@ -75,7 +75,7 @@ const Touch = (() => {
   for (const [code, slot, deg, dist, size] of BTNS) {
     const px = Math.max(2, Math.round(size * 0.5 / ICON)) * ICON;  // 도트가 고르게 커지게 18 의 배수
     const a = deg * Math.PI / 180, cx = BC + Math.cos(a) * dist, cy = BC + Math.sin(a) * dist;  // 오른쪽 · 아래에서 잰 가운데
-    const b = makeBtn(code, '<canvas width="' + ICON + '" height="' + ICON + '" style="width:' + px + 'px;height:' + px + 'px"></canvas><small></small>' + (slot === 'wave' ? '<i class="cd"></i>' : ''),
+    const b = makeBtn(code, '<canvas width="' + ICON + '" height="' + ICON + '" style="width:' + px + 'px;height:' + px + 'px"></canvas><small></small>' + (slot === 'wave' || slot === 'charge' ? '<i class="cd"></i>' : ''),
       { right: Math.round(cx - size / 2) + 'px', bottom: Math.round(cy - size / 2) + 'px' }, size, size, slot === 'basic' ? 'play big' : 'play fight');  // fight = 던전에서만
     els[slot] = b;
   }
@@ -141,16 +141,20 @@ const Touch = (() => {
     Object.assign(potion.style, { left: Math.round(r.left + 66 * k - 27) + 'px', top: Math.round(r.top + 356 * k - 27) + 'px' });
   }
   setInterval(refresh, 500);
-  // 특수기 쿨타임: 버튼이 어두워졌다가 12시부터 시계 방향으로 밝아진다(HUD 기술 칸과 같게)
-  const cdEl = els.wave.querySelector('.cd');
-  let cdOn = false;
+  // 특수기 쿨타임 · 그림자 숨기 대기(2026-10-31): 버튼이 어두워졌다가 12시부터 시계 방향으로 밝아진다(HUD 기술 칸과 같게)
+  const cds = [
+    { el: els.wave.querySelector('.cd'), on: false, k: p => (p.cls.special.cd && p.specialCd > 0 ? p.specialCd / specialCdOf(p) : 0) },
+    { el: els.charge.querySelector('.cd'), on: false, k: p => (p.hideCd > 0 ? p.hideCd / hideCdOf(p) : 0) },
+  ];
   function cdTick() {
-    const p = typeof Game !== 'undefined' && Game.scene === 'run' ? World.player : null, C = p && p.cls;
-    const k = p && C.special.cd && p.specialCd > 0 ? Math.min(1, p.specialCd / specialCdOf(p)) : 0;
-    if (k > 0) {
-      cdEl.style.background = 'conic-gradient(transparent 0 ' + Math.round((1 - k) * 360) + 'deg, rgba(0, 0, 0, 0.55) 0 360deg)';
-      if (!cdOn) { cdOn = true; cdEl.style.display = 'block'; }
-    } else if (cdOn) { cdOn = false; cdEl.style.display = 'none'; }
+    const p = typeof Game !== 'undefined' && Game.scene === 'run' ? World.player : null;
+    for (const c of cds) {
+      const k = p ? Math.min(1, c.k(p)) : 0;
+      if (k > 0) {
+        c.el.style.background = 'conic-gradient(transparent 0 ' + Math.round((1 - k) * 360) + 'deg, rgba(0, 0, 0, 0.55) 0 360deg)';
+        if (!c.on) { c.on = true; c.el.style.display = 'block'; }
+      } else if (c.on) { c.on = false; c.el.style.display = 'none'; }
+    }
     requestAnimationFrame(cdTick);
   }
   requestAnimationFrame(cdTick);

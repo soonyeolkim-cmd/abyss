@@ -1775,7 +1775,7 @@ const UI = (() => {
       if (Input.touchMode()) {
         const CC = clsOf(Game.prof), S = CC.slotShort, y0 = 290;
         const rows = [['이동', '왼쪽 화면을 누르고 끌기 (누른 자리가 가운데)'], ['공격 (연타 ' + CC.combo.length + '타)', '[' + S.basic + '] 버튼 — 오른쪽 아래 큰 버튼'],
-          CC.charge.hide ? ['그림자 숨기 (기력 ' + costOf(Game.prof, 'charge') + ')', '[' + S.charge + '] → 숨은 중 [' + S.basic + '] · [' + S.charge + '] = ' + CC.stab.name + ' · 표창']
+          CC.charge.hide ? ['그림자 숨기 (기력 ' + costOf(Game.prof, 'charge') + ' · 대기 ' + hideCdText(Game.prof) + '초)', '[' + S.charge + '] → 숨은 중 [' + S.basic + '] · [' + S.charge + '] = ' + CC.stab.name + ' · 표창']
             : [chargeDefOf(CC, WEAPON_KINDS[weaponKindOf(Game.prof)]).name + ' (기력 ' + costOf(Game.prof, 'charge') + ')', '[' + S.charge + '] 버튼'],
           ['대시 (무적, 기력 ' + CC.dodge.cost + ')', '[' + S.dash + '] 버튼'], [CC.dashAttack.name, '[' + S.dash + '] → [' + S.basic + ']'],
           ['특수기 · ' + specialDefOf(CC, WEAPON_KINDS[weaponKindOf(Game.prof)]).name + ' (기력 ' + costOf(Game.prof, 'special') + ')', '[' + S.wave + '] 버튼'], ['물약', '체력 구슬 위 물약 병'],
@@ -1791,7 +1791,7 @@ const UI = (() => {
       // 조작표: 지금 키보드 방식 + 패드
       const K = a => Input.labelFor('kb', a), P = a => Input.labelFor('pad', a), CC = clsOf(Game.prof);  // 직업마다 기술 이름
       const rows = [['이동', K('move'), P('move') + ' · 십자키'], ['공격 (연타 ' + CC.combo.length + '타)', K('attack'), P('attack')],
-        [CC.charge.hide ? '그림자 숨기 (기력 ' + costOf(Game.prof, 'charge') + ') → ' + K('attack') + ' · ' + K('charge') + ' = ' + CC.stab.name + ' · 표창'
+        [CC.charge.hide ? '그림자 숨기 (기력 ' + costOf(Game.prof, 'charge') + ' · 대기 ' + hideCdText(Game.prof) + '초) → ' + K('attack') + ' · ' + K('charge') + ' = ' + CC.stab.name + ' · 표창'
           : CC.charge.def.name + ' (누르면 바로, 기력 ' + costOf(Game.prof, 'charge') + ')', K('charge'), P('charge')],
         ['대시 (무적, 기력 ' + CC.dodge.cost + ')', K('dodge'), P('dodge')], [CC.dashAttack.name, K('dodge') + ' → ' + K('attack'), P('dodge') + ' → ' + P('attack')],
         ['특수기 · ' + specialDefOf(CC, WEAPON_KINDS[weaponKindOf(Game.prof)]).name + ' (기력 ' + costOf(Game.prof, 'special') + ')', K('special'), P('special')],
@@ -1813,6 +1813,8 @@ const UI = (() => {
   // o.hold = 초(2026-10-25 사용자: 캐릭터 지우기는 2초 누르고 있어야) — '예'는 확인 버튼(X · 패드 A)이나 손가락을 그만큼 누르고 있어야 함, 떼면 처음부터
   const CONFIRM_LOCK = 24;
   const YES_BOX = [325, 282, 150, 44];
+  // 그림자 숨기 다시 쓰기까지(초) — 조작표 글(2026-10-31)
+  const hideCdText = prof => { const wk = WEAPON_KINDS[weaponKindOf(prof)] || {}; return wk.hideCd !== undefined ? wk.hideCd : clsOf(prof).charge.hide.cd; };
   const confirm = {
     sel: 1,
     update(o) {

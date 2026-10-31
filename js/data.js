@@ -98,7 +98,10 @@ const CLASSES = {
     // 표창 던지기(2026-10-25 사용자: 달빛 베기가 Z 돌진 베기와 겹쳐서 바꿈): 보는 쪽(누른 쪽 · 가까운 적)으로 단검 n 개를 spread° 씩 벌려 던진다.
     // 단검마다 처음 닿은 적에서 사라진다(붙은 적은 여럿 맞음). 차지 칸 속성석 폭발은 처음 맞은 자리에서 한 번
     // ready = 숨은 뒤 이만큼(초) 지나야 백스탭 · 표창이 나간다(2026-10-30 사용자: V 연타만으로 딜이 잘 나와서 — 숨었다가 노리는 맛). 그 전에 누르면 무시, 준비되면 보랏빛 반짝
-    charge: { cost: 15, hide: { max: 3, drain: 0, move: 0.85, notice: 1.5, ready: 0.4 },  // drain 6 → 0(2026-10-25 사용자: 숨는 동안 기력이 안 빠지게)
+    // 너프(2026-10-31 사용자 "레이드에서도 잔몹이 못 알아채 거의 무적"): cd = 드러난 뒤 다시 숨기까지(초, 카타르는 hideCd) · 숨은 동안 기력 회복 없음(player.js) ·
+    //   잔몹(보통 몹)은 near px 안에 nearT 초 붙어 있으면 알아챔 · 정예 · 고유 · 보스는 숨은 시간을 쌓은 heat 가 notice 초를 넘으면 알아챔 —
+    //   heat 는 다시 숨어도 0 으로 안 돌아가고 드러나 있는 동안 초당 heatDecay 씩만 준다(world.js)
+    charge: { cost: 15, hide: { max: 3, drain: 0, move: 0.85, notice: 1.5, ready: 0.4, cd: 4, near: 40, nearT: 1, heatDecay: 0.5 },  // drain 6 → 0(2026-10-25 사용자: 숨는 동안 기력이 안 빠지게)
       def: { name: '표창 던지기', slot: 'charge', startup: 0.05, active: 0.05, recovery: 0.22, mult: 1.2, knock: 60, stun: 0.3, thrust: true,
         knives: { n: 3, spread: 12, speed: 340, range: 200, r: 5 } } },
     // 백스탭(숨은 중 X · V, 2026-10-25 사용자: 라그나로크 로그 백스탭) — blink px 안(벽 너머 제외) 가장 가까운 적의 등 뒤로 준비(startup) 동안 돌아 들어가서 넓고 크게 휘두른다(무적).
@@ -179,7 +182,7 @@ const WEAPON_KINDS = {
     circleTwice: { delay: 0.45, mult: 0.6 }, orb: { speed: 130 }, orbBurst: { r: 34, mult: 1.0 }, meteor: true, dashDef: 'wardPulse', blinkDodge: 64 },  // 대시 = 롯드와 같은 순간이동(2026-10-30 사용자)
   // 암살자(2026-10-25): 카타르 = 빠름(검과 같은 속도), 싸이 = 묵직(조금 느리고 공격력 ×1.2 · 돌진 베기 피해 +20%)
   katar: { name: '경량', speed: 1.15, reach: 0, dmg: 1, knock: 0.9, arc: 1,
-    trait: ['암습', '숨기 기력 10 · 숨은 동안 빠름 · 숨은 뒤 첫 공격은 반드시 치명타 · 백스탭 +30% · 치명타 +10%'], hideCost: 10, ambush: true,
+    trait: ['암습', '숨기 기력 10 · 대기 3초 · 숨은 동안 빠름 · 숨은 뒤 첫 공격은 반드시 치명타 · 백스탭 +30% · 치명타 +10%'], hideCost: 10, hideCd: 3, ambush: true,
     hideMove: 1.25, stabMul: 1.3, critAdd: 10 },
   sai: { name: '묵직', speed: 0.95, reach: 0, dmg: 1, knock: 1.1, arc: 1, rush: 0.2,
     trait: ['제압', '찌를 때마다 출혈 · 칼날 폭풍 · 연속 돌진 · 무장해제'], disarm: { t: 3, cut: 0.3 },
