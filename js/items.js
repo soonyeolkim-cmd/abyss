@@ -240,7 +240,7 @@ const Items = (() => {
     return out;
   }
 
-  // 일괄 착용 · 일괄 판매용 점수: 능력치를 한 줄로 합친 값(무기는 무기 종류의 피해 배율까지)
+  // 일괄 판매 · 자동 판매용 점수(일괄 교체는 baseScore): 능력치를 한 줄로 합친 값(무기는 무기 종류의 피해 배율까지)
   const EMPTY_SOCKET = 6;  // 빈 보석 칸 하나의 값(가장 작은 보석쯤) — 같은 착용 레벨이면 칸 많은 장비가 이기게
   const SCORE_W = { atk: 3, def: 2, hp: 0.25, crit: 1.5, critDmg: 0.3, dmg: 1.5, stamina: 0.3, spRegen: 0.3, aspd: 1, move: 0.5, gold: 0.1, life: 1, dashCost: 0.5 };
   function score(item) {
@@ -256,19 +256,61 @@ const Items = (() => {
   }
   // a 가 b 보다 나은가: 능력치 점수(색 배율 · 보석 · 빈 칸 · 유니크 효과 포함)로만. 착용 레벨은 낄 수 있는지만 본다(2026-10-24 사용자)
   const better = (a, b) => !b ? !!a : !!a && score(a) > score(b);
-  // 칸마다 낀 것 + 가방에서 가장 나은 것을 낀다. 바뀐 칸 수를 돌려준다
+  // 일괄 교체 점수(2026-10-31 사용자 "장비의 기본 능력치만으로"): 착용 레벨 · 등급으로 정해지는 it.stats(단계 능력치 + 등급 고정 옵션)와
+  // 무기 종류 배율만 본다 — 강화 · 보석 · 빈 칸 · 유니크 효과 · 예전 랜덤 옵션은 뺀다
+  function statScore(item, t) {
+    let v = 0;
+    const ref = POWER(typeof Game !== 'undefined' && Game.prof ? Game.prof.lv : item.ilvl);
+    for (const k in t) v += (SCORE_W[k] || 0) * t[k] / (k === 'atk' || k === 'def' || k === 'hp' ? ref : 1);
+    if (item.slot === 'weapon') { const wk = WEAPON_KINDS[byId[item.base].kind]; v += (t.atk || 0) * 3 * (wk.dmg * wk.speed - 1); }
+    return v;
+  }
+  const baseScore = item => item ? statScore(item, item.stats) : -1;
+  // 강화까지 더한 점수(보석 · 유니크 효과는 빼고): 바꿔 끼면 실제로 약해지는지 보는 데만 쓴다
+  function realScore(item) {
+    if (!item) return -1;
+    const s = Object.assign({}, item.stats);
+    for (const a of item.affixes || []) s[a.k] = (s[a.k] || 0) + a.v;
+    for (const k in item.ench || {}) s[k] = (s[k] || 0) + item.ench[k];
+    return statScore(item, s);
+  }
+  // 가방 장비 표시(2026-10-31 사용자 "더 높은 레벨 장비는 표시해 줘야 판단"): 'up' = 기본 능력치가 낀 것보다 좋음(초록 ▲),
+  // 'ench' = 기본 능력치는 좋지만 낀 것의 강화 때문에 바꾸면 약해짐(노랑 ▲ — 계승 주문서로 강화를 옮긴 뒤 바꿔 끼기), null = 없음
+  function upgradeKind(prof, it) {
+    if (!it || !canWear(prof, it)) return null;
+    const cur = prof.equip[it.slot];
+    if (baseScore(it) <= baseScore(cur)) return null;
+    return cur && realScore(it) < realScore(cur) ? 'ench' : 'up';
+  }
+  // 칸마다 낀 것 + 가방에서 기본 능력치가 가장 나은 것을 낀다. 단 강화 때문에 바꾸면 실제로 약해지는 칸은 건너뛴다.
+  // { swaps: [{ slot, from(벗은 것 · 없으면 null), to }], skipped: [건너뛴 부위] }
   function equipBest(prof) {
-    let n = 0;
+    const swaps = [], skipped = [];
     for (const slot of SLOTS) {
-      let best = -1;
-      prof.bag.forEach((it, i) => { if (it && it.slot === slot && canWear(prof, it) && better(it, best < 0 ? prof.equip[slot] : prof.bag[best])) best = i; });
+      let best = -1, bs = baseScore(prof.equip[slot]);
+      prof.bag.forEach((it, i) => { if (it && it.slot === slot && canWear(prof, it) && baseScore(it) > bs) { best = i; bs = baseScore(it); } });
       if (best < 0) continue;
-      const it = prof.bag[best];
-      prof.bag[best] = prof.equip[slot];
+      const it = prof.bag[best], from = prof.equip[slot];
+      if (upgradeKind(prof, it) === 'ench') { skipped.push(slot); continue; }
+      prof.bag[best] = from;
       prof.equip[slot] = it;
-      n++;
+      swaps.push({ slot, from, to: it });
     }
-    return n;
+    return { swaps, skipped };
+  }
+  // 바꿔 낄 때 보석 옮기기: from 의 보석을 to 의 빈 칸으로. 빈 칸이 없으면 to 에 낀 보석을 주머니로 빼고 그 칸에,
+  // to 에 칸이 아예 없으면(일반) 주머니로. { moved, pouch(주머니로 간 수) }
+  function moveGems(prof, from, to) {
+    let moved = 0, pouch = 0;
+    (from.gems || []).forEach((g, i) => {
+      if (!g) return;
+      from.gems[i] = null;
+      const tg = to.gems || [];
+      let j = gemFits(g, to.slot) ? tg.indexOf(null) : -1;
+      if (j < 0 && tg.length && gemFits(g, to.slot)) { j = tg.length - 1; Elements.add(prof, tg[j]); pouch++; }  // 새 장비에 낀 것은 주머니로
+      if (j >= 0) { tg[j] = g; moved++; } else { Elements.add(prof, g); pouch++; }
+    });
+    return { moved, pouch };
   }
   // 일괄 판매 · 자동 판매 대상: 낀 것보다 낫지 않은 장비
   // 레벨이 모자라 아직 못 끼는 장비는 남긴다(레벨이 오르면 낄 장비)
@@ -292,5 +334,5 @@ const Items = (() => {
 
   function setNextUid(n) { nextUid = Math.max(nextUid, n); }
 
-  return { classOk, normalize, migrate, rescale, refix, make, makeUnique, total, playerStats, describe, compare, base, setNextUid, score, better, req, canWear, equipBest, isJunk, junk, sellable, sellAll, nameOf, canEnchant, enchant, canTransfer, transfer, removeHidden, addScroll, takeScroll, scrollStacks };
+  return { classOk, normalize, migrate, rescale, refix, make, makeUnique, total, playerStats, describe, compare, base, setNextUid, score, better, baseScore, realScore, upgradeKind, req, canWear, equipBest, moveGems, isJunk, junk, sellable, sellAll, nameOf, canEnchant, enchant, canTransfer, transfer, removeHidden, addScroll, takeScroll, scrollStacks };
 })();

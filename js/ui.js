@@ -387,26 +387,53 @@ const UI = (() => {
     }
     return best;
   }
-  // 가방 위 버튼: 일괄 착용(가방 · 상점) · 일괄 판매(상점). 가방 맨 윗줄에서 위로 가면 고를 수 있다
+  // 가방 위 버튼: 일괄 교체(가방 · 상점) · 일괄 판매(상점). 가방 맨 윗줄에서 위로 가면 고를 수 있다
   const INV_BTNS = {
-    equip: [{ label: '좋은 것 일괄 착용', go: prof => bulkEquip(prof) }],
-    shop: [{ label: '좋은 것 일괄 착용', go: prof => bulkEquip(prof) }],  // 상점 '사기'(2026-10-24 사용자: 사기 · 팔기 나눔) — 파는 건 '팔기'(sell)에서
+    equip: [{ label: '장비 일괄 교체', go: prof => bulkEquip(prof) }],
+    shop: [{ label: '장비 일괄 교체', go: prof => bulkEquip(prof) }],  // 상점 '사기'(2026-10-24 사용자: 사기 · 팔기 나눔) — 파는 건 '팔기'(sell)에서
     // 대장장이 '장비 팔기'(2026-10-24 사용자): 왼쪽은 낀 장비, 가방 장비를 고르면 판다
-    sell: [{ label: '좋은 것 일괄 착용', go: prof => bulkEquip(prof) }, { label: '장비 일괄 판매', sell: true, go: prof => bulkSell(prof) }],
+    sell: [{ label: '장비 일괄 교체', go: prof => bulkEquip(prof) }, { label: '장비 일괄 판매', sell: true, go: prof => bulkSell(prof) }],
     // 대장장이 '장비 분해'(2026-10-25 사용자: 심연 정수) — 태초 흰 · 파랑 · 노랑 장비 → 정수 가루
-    scrap: [{ label: '좋은 것 일괄 착용', go: prof => bulkEquip(prof) }, { label: '장비 일괄 분해', scrap: true, go: prof => bulkScrap(prof) }],
+    scrap: [{ label: '장비 일괄 교체', go: prof => bulkEquip(prof) }, { label: '장비 일괄 분해', scrap: true, go: prof => bulkScrap(prof) }],
   };
-  // 장비를 벗을 때 낀 보석도 뺄지 묻는다(2026-10-24 사용자) — 예 = 주머니로, 아니요 = 장비에 그대로
+  // 장비를 벗을 때 낀 보석도 해제할지 묻는다(2026-10-24 · 10-31 사용자) — 예 = 보석 주머니로, 아니요 = 장비에 그대로
   function askGemsOff(prof, item) {
     const gs = (item.gems || []).filter(Boolean);
     if (!gs.length) return;
-    Game.overlay({ type: 'confirm', defaultYes: true, text: '벗은 ' + item.name + '에 낀 보석도 뺄까요?', sub: '뺀 보석은 주머니로 돌아가요: ' + gs.map(stoneName).join(' · '),
-      yes: () => { item.gems.forEach((g, i) => { if (g) { Elements.add(prof, g); item.gems[i] = null; } }); Game.toast('보석을 주머니로 뺐어요'); Game.changed(); } });
+    Game.overlay({ type: 'confirm', defaultYes: true, text: '벗은 ' + item.name + '의 보석도 해제할까요?', sub: '해제한 보석은 보석 주머니로 돌아가요: ' + gs.map(stoneName).join(' · '),
+      yes: () => { item.gems.forEach((g, i) => { if (g) { Elements.add(prof, g); item.gems[i] = null; } }); Game.toast('보석을 해제해 주머니로 넣었어요'); Game.changed(); } });
   }
+  // 바꿔 낄 때 벗은 장비의 보석을 새 장비로 옮길지 묻는다(2026-10-31 사용자) — swaps = [{ from, to }], 예 = 옮김, 아니요 = 벗은 장비에 그대로
+  function askGemsMove(prof, swaps) {
+    swaps = swaps.filter(s => s.from && (s.from.gems || []).some(Boolean));
+    if (!swaps.length) return;
+    const gs = [].concat(...swaps.map(s => s.from.gems.filter(Boolean)));
+    const noSock = swaps.filter(s => !(s.to.gems || []).length).length, full = swaps.filter(s => (s.to.gems || []).length && !s.to.gems.includes(null)).length;
+    const one = swaps.length === 1 ? swaps[0] : null;
+    const text = one ? (noSock ? '새 ' + one.to.name + '엔 보석 칸이 없어요 — 보석을 해제할까요?' : '보석도 새 ' + one.to.name + '(으)로 옮길까요?')
+      : '바꿔 낀 ' + swaps.length + '곳의 보석도 새 장비로 옮길까요?';
+    // 아래 줄은 한 줄(확인창 너비)에 들어가게: 한 곳이면 보석 이름, 여러 곳이면 개수
+    const notes = [one ? gs.map(stoneName).join(' · ') : '보석 ' + gs.length + '개'];
+    if (noSock) notes.push(one ? '보석 주머니로 돌아가요' : '칸 없는 일반 장비 ' + noSock + '곳은 주머니로');
+    if (full) notes.push('새 장비에 낀 보석은 주머니로');
+    if (notes.length < 3) notes.push('아니요 = 벗은 장비에 그대로');
+    Game.overlay({ type: 'confirm', defaultYes: true, text, sub: notes.join(' · '),
+      yes: () => {
+        let moved = 0, pouch = 0;
+        for (const s of swaps) { const r = Items.moveGems(prof, s.from, s.to); moved += r.moved; pouch += r.pouch; }
+        Game.toast((moved ? '보석 ' + moved + '개를 옮겼어요' : '') + (moved && pouch ? ' · ' : '') + (pouch ? '보석 ' + pouch + '개는 주머니로' : ''));
+        Game.changed();
+      } });
+  }
+  // 일괄 교체(2026-10-31 사용자): 기본 능력치만 비교해 칸마다 바꿔 끼고, 벗은 장비에 보석이 있으면 옮길지 한 번에 묻는다
+  //   강화 때문에 바꾸면 실제로 약해지는 칸은 건너뛰고 알려 준다(가방에 노랑 ▲)
   function bulkEquip(prof) {
-    const n = Items.equipBest(prof);
-    Game.toast(n ? '더 좋은 장비 ' + n + '개로 바꿔 꼈어요' : '이미 가장 좋은 장비를 끼고 있어요');
-    if (n) Game.changed();
+    const { swaps, skipped } = Items.equipBest(prof);
+    const skip = skipped.length ? '강화된 ' + skipped.map(s => SLOT_NAMES[s]).join(' · ') + ' 칸은 건너뜀 (강화를 옮긴 뒤 끼기)' : '';
+    Game.toast(swaps.length ? '더 좋은 장비 ' + swaps.length + '개로 바꿔 꼈어요' + (skip ? ' · ' + skip : '') : skip || '이미 기본 능력치가 가장 좋은 장비를 끼고 있어요');
+    if (!swaps.length) return;
+    Game.changed();
+    askGemsMove(prof, swaps);
   }
   // 분해: 가방 칸 idx 들을 정수 가루로(낀 보석은 주머니로)
   function scrapAll(prof, idxs) {
@@ -545,7 +572,7 @@ const UI = (() => {
     },
     update(o, prof) {
       if (Input.wasPressed('back') || Input.wasPressed('inv')) { Game.closeOverlay(); return; }
-      if (Input.wasPressed('special')) { bulkEquip(prof); return; }  // 단축키: 특수기 버튼 = 일괄 착용
+      if (Input.wasPressed('special')) { bulkEquip(prof); return; }  // 단축키: 특수기 버튼 = 일괄 교체
       this.navigate(o.mode);
       if (!Input.wasPressed('ok')) return;
       if (this.zone === 'btn') { INV_BTNS[o.mode][this.btn].go(prof); return; }
@@ -616,7 +643,7 @@ const UI = (() => {
         prof.bag[this.idx] = old;
         Game.toast(it.name + ' 장착');
         Game.changed();
-        if (old) askGemsOff(prof, old);  // 바꿔 끼워 벗겨진 장비에 보석이 있으면 뺄지 묻는다
+        if (old) askGemsMove(prof, [{ from: old, to: it }]);  // 바꿔 끼워 벗겨진 장비에 보석이 있으면 새 장비로 옮길지 묻는다
         return;
       } else {
         const empty = prof.bag.indexOf(null);
@@ -720,10 +747,13 @@ const UI = (() => {
           wrapText(ctx, '◆ ' + sb.name + ' — ' + sb.desc, 46, 332, 12, 296, 2, 15, '#ffd36a');
         }
         // 장비 칸: 끼는 자리대로
+        const marks = prof.bag.map(it => it ? Items.upgradeKind(prof, it) : null);  // 가방 ▲(초록 = 더 좋음 · 노랑 = 강화부터 옮기기)
         for (const slot of SLOTS) {
           const [x, y] = EQUIP_POS[slot];
           zone(x, y, EQ_S, EQ_S, { on: () => this.zone === 'equip' && this.eslot === slot, pick: () => { this.zone = 'equip'; this.eslot = slot; } });
-          cell(ctx, x, y, EQ_S, prof.equip[slot], this.zone === 'equip' && this.eslot === slot, SLOT_NAMES[slot], prof.lv);
+          // 부위 칸에도 ▲: 가방에 그 부위 초록이 있으면 초록, 노랑만 있으면 노랑
+          const ms = marks.filter((m, i) => m && prof.bag[i].slot === slot), mk = ms.includes('up') ? 'up' : ms.length ? 'ench' : null;
+          cell(ctx, x, y, EQ_S, prof.equip[slot], this.zone === 'equip' && this.eslot === slot, SLOT_NAMES[slot], prof.lv, mk);
         }
         const s = Items.playerStats(prof);
         const rows = [['체력', s.hp], [statName('atk', prof), s.atk], ['방어력', s.def], ['최대 기력', s.sp], ['기력 회복', '+' + s.spRegen + '%'], ['치명타', s.crit + '%'], ['치명 피해', '+' + s.critDmg + '%'],
@@ -750,9 +780,16 @@ const UI = (() => {
       for (let i = 0; i < BAG_SIZE; i++) {
         const x = 400 + (i % BAG_COLS) * 44, y = 80 + Math.floor(i / BAG_COLS) * 46;
         zone(x - 2, y - 3, 44, 46, { on: () => this.zone === 'bag' && this.idx === i, pick: () => { this.zone = 'bag'; this.idx = i; } });
-        cell(ctx, x, y, 40, prof.bag[i], this.zone === 'bag' && this.idx === i, null, prof.lv);
+        cell(ctx, x, y, 40, prof.bag[i], this.zone === 'bag' && this.idx === i, null, prof.lv, prof.bag[i] && Items.upgradeKind(prof, prof.bag[i]));
       }
-      T_(ctx, '가방이 가득 차면 낀 것보다 못한 장비는 주울 때 골드로 바뀌어요', 400, 300, 12, '#7a7078');
+      // ▲ 뜻(2026-10-31 사용자)
+      let lx = 400;
+      for (const [mk, t] of [['up', '기본 능력치가 낀 것보다 좋음'], ['ench', '강화를 옮긴 뒤 끼면 좋음 (지금 끼면 약해짐)']]) {
+        upMark(ctx, lx, 274, 9, mk);
+        T_(ctx, t, lx + 13, 283, 12, '#9a8e96');
+        lx += 13 + ctx.measureText(t).width + 16;
+      }
+      T_(ctx, '가방이 가득 차면 낀 것보다 못한 장비는 주울 때 골드로 바뀌어요', 400, 304, 12, '#7a7078');
       // 오른쪽 아래: 설명 + 비교
       Gfx.panel(ctx, 380, 334, 556, 160, B);
       if (SELL && sel.from === 'bag' && sel.item) T_(ctx, noSell(sel.item) ? '판매 안 됨' : '판매 가격 +' + sel.item.value + 'G', 916, 364, 16, noSell(sel.item) ? '#8a7e88' : '#ffd34d', 'right');
@@ -793,18 +830,26 @@ const UI = (() => {
           T_(ctx, '태초는 낀 것보다 약한 흰 · 파랑만 · 유니크 · 강화된 것은 남겨요', 400, 394, 13, '#9a8e96');
           const D = ESSENCE.dust, M = ENDLESS.dust100;  // 태초(Lv.90대) / Lv.100
           T_(ctx, '가루: 흰 ' + D[0] + '/' + D[0] * M + ' · 파랑 ' + D[1] + '/' + D[1] * M + ' · 노랑 ' + D[2] + '/' + D[2] * M + ' (태초/Lv.100) — 가루 ' + ESSENCE.dustPer + '개 = 정수 1', 400, 418, 13, ESSENCE_COLOR);
-        } else T_(ctx, sell ? '가방 장비를 유니크만 빼고 한꺼번에 팔아요' : '칸마다 가방과 낀 것 중 가장 좋은 장비를 껴요', 400, 370, 14, '#c8b8a0');
-        if (!scrap) T_(ctx, sell ? '강화된 것 · 보석 낀 것은 등급 상관없이 남겨요 (낀 장비는 그대로)' : '지금 낄 수 있는 것 중 능력치 점수가 가장 높은 것 (색 · 보석 칸 · 유니크 효과 포함)', 400, 394, 13, '#9a8e96');
+        } else T_(ctx, sell ? '가방 장비를 유니크만 빼고 한꺼번에 팔아요' : '칸마다 기본 능력치(착용 레벨 · 등급)가 가장 좋은 장비로 바꿔 껴요', 400, 370, 14, '#c8b8a0');
+        if (!scrap) T_(ctx, sell ? '강화된 것 · 보석 낀 것은 등급 상관없이 남겨요 (낀 장비는 그대로)' : '보석 · 유니크 효과는 안 봐요 · 벗은 장비의 보석은 옮길지 물어봐요', 400, 394, 13, '#9a8e96');
+        if (!scrap && !sell) T_(ctx, '낀 것의 강화 때문에 바꾸면 약해지는 칸(노랑 ▲)은 건너뛰어요', 400, 418, 13, '#ffd23a');
       } else {  // 고른 칸이 비었을 때: 이 판이 무엇인지 알려 준다(2026-10-24 사용자 '빈칸은 무슨 의미?')
         T_(ctx, '아이템 설명', 400, 370, 15, '#8a7e88');
         T_(ctx, '가방이나 장비 칸에서 아이템을 고르면 능력치 · 보석 · 낀 것과 비교가 여기에 나와요', 400, 396, 13, '#6a6068');
       }
       const hint = this.zone === 'btn' ? '누르기 ' + L('ok') : o.mode === 'shop' ? (sel.from === 'shop' ? '구매 ' : '보기만 · 구매는 왼쪽 ') + L('ok') : o.mode === 'sell' && sel.from === 'bag' ? '판매 ' + L('ok') : SCRAP && sel.from === 'bag' ? '분해 ' + L('ok') : (sel.from === 'equip' ? '벗기 ' : '끼기 ') + L('ok');
-      hintBar(ctx, hint + ' · 일괄 착용 ' + L('special') + ' · 맨 윗줄에서 ↑ = 버튼 · 닫기 ' + L('back') + ' / ' + L('inv'));
+      hintBar(ctx, hint + ' · 일괄 교체 ' + L('special') + ' · 맨 윗줄에서 ↑ = 버튼 · 닫기 ' + L('back') + ' / ' + L('inv'));
     },
   };
   let sellView = false;  // 장비 팔기 창을 그리는 중(가방 칸에 판매가 · 붉은 고름 테두리)
-  function cell(ctx, x, y, s, item, on, label, plv) {
+  // ▲ 표시: 'up' 초록 · 'ench' 노랑, (x, y) = 왼쪽 위, s = 크기
+  function upMark(ctx, x, y, s, mk) {
+    ctx.beginPath(); ctx.moveTo(x + s / 2, y); ctx.lineTo(x + s, y + s); ctx.lineTo(x, y + s); ctx.closePath();
+    ctx.fillStyle = mk === 'up' ? '#5aff6e' : '#ffd23a'; ctx.fill();
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+  // mark = 'up' | 'ench' | null: 가방은 왼쪽 위(강화 +N 이 있으면 그 아래), 장비 칸은 왼쪽 위
+  function cell(ctx, x, y, s, item, on, label, plv, mark) {
     ctx.fillStyle = 'rgba(40,30,36,0.95)'; ctx.fillRect(x, y, s, s);
     ctx.strokeStyle = item ? RARITY[item.rarity].color : '#3a2e36';
     ctx.lineWidth = item && item.rarity ? 2 : 1;
@@ -833,6 +878,7 @@ const UI = (() => {
     // 강화 단계(왼쪽 위)
     // 장비 칸(EQ_S 48, 낀 것 = 늘 착용 레벨이 됨)은 위가 좁아 부위 이름과 겹쳐서 왼쪽 아래로
     if (item && item.ups) { if (s === EQ_S) T_(ctx, '+' + item.ups, x + 4, y + s - 4, 11, '#ffd36a'); else T_(ctx, '+' + item.ups, x + 4, y + 13, 11, '#ffd36a'); }
+    if (mark) upMark(ctx, x + 4, y + (s !== EQ_S && item && item.ups ? 16 : 4), 9, mark);
     // 보석 칸: 오른쪽 아래 작은 네모(낀 보석 색)
     if (item && item.gems) item.gems.forEach((g, i) => {
       const q = Math.max(5, Math.round(s / 10)), gx = x + s - 4 - (i + 1) * (q + 2), gy = y + s - 4 - q;
