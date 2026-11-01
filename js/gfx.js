@@ -9,7 +9,7 @@ const Gfx = (() => {
   // mage = 마법사(검사 몸 + 파란 로브 · 금빛 띠 · 끝이 꺾인 뾰족 모자, 2026-10-25 사용자 고름 B)
   const SHEETS = {}, HERO = {};
   // 검사 몸 + 의상 시트(16x28 × 9칸): 직업 hero · mage, 마을 NPC kael(파수꾼 카엘) · miner(늙은 광부) · gambler(도박꾼 단지) — tools/npc-outfit.js 로 구움
-  for (const id of ['hero', 'mage', 'assassin', 'summoner', 'paladin', 'kael', 'miner', 'gambler']) {  // paladin = 성기사(2026-10-31, tools/class-outfit.js PAL1)  // assassin = 암살자(2026-10-25) · summoner = 소환사(2026-10-31, tools/class-outfit.js SUMM1)
+  for (const id of ['hero', 'mage', 'assassin', 'summoner', 'paladin', 'kael', 'miner', 'gambler']) {  // paladin = 성기사(2026-10-31, 2026-11-01 열린 투구 · 금 십자 겉옷 · 파란 망토로 바꿈 = tools/class-outfit.js PAL_A)  // assassin = 암살자(2026-10-25) · summoner = 소환사(2026-10-31, tools/class-outfit.js SUMM1)
     const img = new Image();
     img.src = 'assets/dt/' + id + '.png';
     ['idle_anim_f0', 'idle_anim_f1', 'idle_anim_f2', 'idle_anim_f3', 'run_anim_f0', 'run_anim_f1', 'run_anim_f2', 'run_anim_f3', 'hit_anim_f0']
