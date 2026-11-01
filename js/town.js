@@ -10,6 +10,7 @@ const Town = (() => {
   const VAULT = [43, 6];  // 보물방 가운데 상자(창고)
   // 의뢰 게시판: 분수 바로 위 광장 가운데(2026-10-27 사용자: 카엘과 자리 바꿈 — 카엘은 분수 왼쪽). 두 칸 폭 그림이라 두 칸을 막음
   const BOARD = { x: B(15) * T, y: 7 * T + 12, tiles: [[B(14), 7], [B(15), 7]] };
+  const MAILBOX = [B(18), 10];  // 우체통 칸(분수 오른쪽 — 왼쪽 카엘과 마주 봄)
   const CORE = ['##############################', '##############################', '###......####....####......###', '###......####....####......###'];
   const W = 48, H = 17;
   const MAP = CORE.map(r => '#'.repeat(OX) + r + '#'.repeat(W - OX - r.length));
@@ -77,6 +78,8 @@ const Town = (() => {
     { id: 'dummy', name: '허수아비', role: '연습장 · 딜 측정', prop: 'dummy_anim_f0', ...px(43, 12), go: () => Practice.menu(prof) },  // 오른쪽 아래 방(연습장)
     // 의뢰 게시판(2026-10-27 사용자: 일일 1 · 주간 2 — 자리만 먼저, 의뢰는 아직): 광장 분수 바로 위(카엘과 자리 바꿈)
     { id: 'board', name: '의뢰 게시판', role: '일일 1 · 주간 2 의뢰', prop: 'board_anim_f0', x: BOARD.x, y: BOARD.y, go: () => Game.overlay({ type: 'quests' }) },
+    // 우체통(2026-11-01 사용자: 운영자 공지 · 선물 — js/mail.js): 광장 분수 오른쪽(카엘 맞은편)
+    { id: 'mail', name: '우체통', role: '공지 · 선물 받기', prop: 'mailbox_anim_f0', ...px(MAILBOX[0], MAILBOX[1]), go: () => Game.overlay({ type: 'mail' }) },
     // 파수꾼 카엘(2026-10-25 사용자: 카엘이 마을에 있었으면) — 광장 분수 바로 위(사용자: 우물 위쪽으로). 몸 = 검사 몸 + 갈색 두건 · 흰 수염 · 망토(assets/dt/kael.png)
     { id: 'kael', name: '파수꾼 카엘', role: '조언 · 이야기 다시 보기', sprite: 'kael', ...px(B(11), 10), flip: false,  // 분수 왼쪽(2026-10-27 게시판과 자리 바꿈) — 분수 쪽을 봄
       go: () => Game.overlay({ type: 'choice', title: '파수꾼 카엘', items: [
@@ -240,7 +243,7 @@ const Town = (() => {
     for (const x of GATE_POLES) block([x, 14]);
     for (const c of FOUNTAIN.tiles) block(c);
     block([B(7), 2]);
-    block(GEM_STAND); block(GEODE); block(CART); block(GEM_TABLE); BOARD.tiles.forEach(block);
+    block(GEM_STAND); block(GEODE); block(CART); block(GEM_TABLE); BOARD.tiles.forEach(block); block(MAILBOX);
     for (const c of [...TRAIN.pells, ...TRAIN.targets, ...TRAIN.hay, TRAIN.rack]) block(c);
     m.canvas = Dungeon.paint(m);
     m.painted = Gfx.ready();  // 그림 파일이 아직 안 읽혔으면 그릴 때 다시
@@ -255,6 +258,7 @@ const Town = (() => {
     spawn();
     const nt = Records.check(prof);  // 기록 · 칭호를 만들기 전에 깬 레이드 횟수로 얻는 칭호(2026-10-27)
     if (nt.length) { Save.write(prof); Game.toast('칭호 획득! ★ ' + nt.join(' · ') + ' — 메뉴 → 기록 · 칭호'); }
+    else if (!fromGate && Mail.count(prof)) Game.toast('우체통에 새 우편이 ' + Mail.count(prof) + '통 있어요');  // 켤 때만(던전에서 돌아올 때마다 말하지 않게)
     if (backTo) { if (fromGate) spawnBeside(backTo); backTo = null; }
     if (prof.story && prof.story.openingAgain) { delete prof.story.openingAgain; Save.write(prof); Story.replay(); }  // 예전 캐릭터: 오프닝 한 번
     else Story.townArrive();  // 보스를 쓰러뜨리고 돌아왔으면 카엘이 한마디 · 엔딩 · 진엔딩(켤 때도 — 못 본 엔딩이 있으면)
@@ -425,13 +429,14 @@ const Town = (() => {
       // 말 걸 곳의 '말 걸기' · 설명이 옆 이름표를 덮지 않게, 가까운 이웃 이름표는 그동안 숨김(벨록 광차 ↔ 오르반)
       if (near && !on && Math.abs(sx(s.x) - sx(near.x)) < 130 && Math.abs(hy - labelY(near)) < 60) continue;
       const ready = s.id === 'board' && Quests.pending(prof);  // 받을 의뢰 보상이 있으면 게시판 이름표에 표시
-      const nm = ready ? s.name + ' ★ 보상 ' + ready : s.name, fs = on ? 15 : 12;
+      const mailN = s.id === 'mail' && Mail.count(prof);  // 새 우편 · 안 받은 선물(js/mail.js)
+      const nm = ready ? s.name + ' ★ 보상 ' + ready : mailN ? s.name + ' ✉ ' + mailN : s.name, fs = on ? 15 : 12;
       if (where === 'silvane') {  // 땅 위 밝은 바닥(풀 · 모래 · 지붕)에서는 글자가 묻혀서 반투명 어두운 띠를 깐다(2026-10-27)
         ctx.font = 'bold ' + fs + 'px ' + Gfx.FONT;
         const tw = ctx.measureText(nm).width + 10;
         ctx.fillStyle = 'rgba(20,14,10,0.5)'; ctx.fillRect(Math.round(sx(s.x) - tw / 2), hy - fs + 1, Math.round(tw), fs + 5);
       }
-      Gfx.text(ctx, nm, sx(s.x), hy, fs, on ? '#ffd36a' : ready ? '#7dff8a' : '#e8dcc0', 'center');
+      Gfx.text(ctx, nm, sx(s.x), hy, fs, on ? '#ffd36a' : ready || mailN ? '#7dff8a' : '#e8dcc0', 'center');
       if (Unlocks.isNew(prof, s.id, where)) {  // 새로 열린 콘텐츠(2026-10-29): 이름 오른쪽 위 통통 뛰는 NEW
         ctx.font = 'bold ' + fs + 'px ' + Gfx.FONT;
         const bx = Math.round(sx(s.x) + ctx.measureText(nm).width / 2 + 4), by = Math.round(hy - fs - 4 + Math.sin(time * 5) * 2);

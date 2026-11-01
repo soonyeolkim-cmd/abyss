@@ -16,7 +16,7 @@ const Raid = (() => {
   const NAMES = { warden: { shell: '껍질', crystal: '수정 보호막', orb: '공허 구슬' }, king: { shell: '해일', crystal: '밀물', orb: '삼지창' } };
   const HINTS = {
     warden: { shell: () => '껍질이 단단하다 — 날아드는 내려찍기를 대시로 ' + R.slams + '번 피하거나 기둥에 부딪히게 해 심장을 노려라', crystal: () => '수정 보호막 — 네 귀퉁이 공허 수정을 모두 부숴라', orb: () => '공허 구슬 — 쳐서 되돌려라!' },
-    king: { shell: () => '해일 — 왕이 삼지창을 들면 고리가 밀려온다, 대시로 ' + R.slams + '번 넘겨라', crystal: () => '밀물 — 물이 차오른다! 수문을 번호 순서대로(1 → 4) 부숴라 — 순서가 틀리면 모두 다친다', orb: () => '삼지창 — 바닥에 박힌 삼지창을 쳐서 왕에게 돌려보내라!' },
+    king: { shell: () => '해일 — 왕이 삼지창을 들면 고리가 밀려온다, 대시로 ' + R.slams + '번 넘겨라', crystal: () => '밀물 — 물이 차오른다! 수문을 번호 순서대로(1 → 4) 부숴라 — 순서가 틀리면 밀물 실패, 모두 크게 다친다', orb: () => '삼지창 — 바닥에 박힌 삼지창을 쳐서 왕에게 돌려보내라!' },
   };
   const NAME = new Proxy({}, { get: (o, k) => NAMES[KING ? 'king' : 'warden'][k] });
   const HINT = new Proxy({}, { get: (o, k) => HINTS[KING ? 'king' : 'warden'][k]() });
@@ -239,6 +239,10 @@ const Raid = (() => {
         if (e.chunkDone) chunkNext(e);
         else if (e.t <= 0) { e.state = 'move'; e.atkCd = 0.8; next(e); }
         break;
+      case 'sluiceFail':  // 수문 순서 틀림(backflow): 실패 알림이 보이게 잠깐 멈췄다가 다음 패턴(바로 넘어가면 다음 패턴 안내가 덮어씀)
+        e.t -= dt; e.kx = 0; e.ky = 0;
+        if (e.t <= 0) { e.state = 'move'; e.atkCd = 1; next(e); }
+        break;
       case 'phaseShift':
         e.t -= dt;
         if (e.t <= 0) { e.state = 'move'; e.atkCd = 1; }
@@ -379,7 +383,7 @@ const Raid = (() => {
     const b = bossOf();
     if (KING && b && b.mech === 'crystal' && b.state !== 'phaseShift') {  // 수문 순서: 남은 수문 중 더 작은 번호가 있으면 틀림 → 역류(모두에게 최대 체력 sluiceWrong)
       const me = ordOf(e), rest = parts('crystal').map(ordOf), want = Math.min(me, ...rest);
-      if (me > want) backflow(b, e, want);
+      if (me > want) { backflow(b, e, want); return; }  // 틀림 = 이번 밀물 실패(남은 수문 닫힘 · 노출 없음)
       else if (rest.length) World.text(e.x, e.y, 30, me + '번 열림 — 다음 ' + Math.min(...rest) + '번', TEAL, true);
     }
     if (b && b.mech === 'crystal' && !parts('crystal').length && b.state !== 'phaseShift') expose(b, R.crystalExpose, KING ? '물이 빠졌다 —' : '보호막이 꺼졌다 —');
@@ -392,8 +396,11 @@ const Raid = (() => {
     if (!b || !b.sOrd) return 0;
     return b.sOrd[(c.x > (r.x + r.w / 2) * T ? 1 : 0) + (c.y > (r.y + r.h / 2) * T ? 2 : 0)];
   }
-  // 순서가 틀린 수문을 부숨: 물이 거꾸로 쏟아져 모두에게(방어 · 대시 무적 무시) — 부서진 수문은 그대로, 남은 수문을 계속 순서대로
+  // 순서가 틀린 수문을 부숨: 물이 거꾸로 쏟아져 모두에게 최대 체력 sluiceWrong(방어 · 대시 무적 무시, 남은 수문 수와 상관없이 한 번) →
+  // 이번 밀물 패턴 실패 — 남은 수문이 닫혀 사라지고 심장은 안 드러난 채 다음 패턴(2026-11-01 사용자: 예전엔 25% 맞고 남은 수문을 계속 부쉈음)
   function backflow(b, c, want) {
+    b.crystalAt = 0;
+    for (const o of parts('crystal')) { World.fx({ type: 'shock', x: o.x, y: o.y, r: 18, t: 0, life: 0.4 }); pop(o); }
     World.fx({ type: 'shock', x: c.x, y: c.y, r: 22, t: 0, life: 0.45 });
     for (const t of [World.player, ...World.remotes]) {
       if (!t || t.dead) continue;
@@ -402,7 +409,8 @@ const Raid = (() => {
       hurtPlayer(t, { x: c.x, y: c.y, pct: R.sluiceWrong, unavoid: true }, 0, 140);
     }
     World.shake(7); Sfx.blast();
-    say(b, '순서가 틀렸다 — 역류! (' + want + '번부터)', '#ff6a5a');
+    say(b, '순서가 틀렸다 — 역류! (' + want + '번부터였다) 밀물 실패', '#ff6a5a');
+    b.state = 'sluiceFail'; b.t = 1.6; b.kx = 0; b.ky = 0;  // 1.6초 뒤 다음 패턴(state 'sluiceFail')
   }
 
   // ── 피해(combat.js hitEnemy · elements.js damage) ──

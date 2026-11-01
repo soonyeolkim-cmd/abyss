@@ -514,10 +514,10 @@ const RAID_RULE = { hpMul: 7.2, time: 600, shellCut: 0, exposedMul: 2, slams: 3,
 //   ③ 해일(껍질 자리): 왕이 삼지창을 들어 해일 고리를 보냄 — 대시로 넘으면 '넘김', slams 번 넘기면 지쳐 노출(기둥 박기는 없음)
 // 체력 hpMul: 5층 기사(mid.hp 배율 전) × 5.5 — 레벨 곡선으로 따지면 파수꾼의 약 1.2배(2026-11-01 계산, 손맛 보고 다시). 보상 = 심해 진주 pearls(핵 대신) · 정수 essence
 // 2026-11-01 사용자 '수문은 부수는 순서대로 안 하면 전체에 대미지': 수문 넷에 1~4 번호(섞음) — 다음 번호가 아닌 수문을 부수면 모두에게 최대 체력 sluiceWrong 피해(방어 · 대시 무적 무시).
-//   틀리게 부순 수문도 부서진 채(남은 것 중 가장 작은 번호가 다음), 다 부수면 그대로 노출
+//   → 같은 날 사용자 '틀리면 패턴 실패로 최대 체력 40% 즉시 — 남은 수와 상관없이': 틀리면 모두에게 sluiceWrong(0.4) 한 번 · 남은 수문이 닫혀 사라지고 노출 없이 다음 패턴(raid.js backflow)
 // 2026-11-01 사용자 '해일을 규칙적으로 쏘니 너무 쉽다 — 변칙적으로': 해일 한 번 = 준비 wind 초(사이 무작위) 뒤 고리 n 개(무게 nOdds — 1 · 2 · 3개)를 gap 초(사이 무작위) 간격으로,
 //   속도는 그 번마다 기본 × speed(사이 무작위 — 한 번 안의 고리는 같은 속도라 간격 = 닿는 간격, 대시 0.28초 + 여유로 늘 피할 수 있음). 고리 하나 넘길 때마다 1(slams 번이면 지침)
-const KING_RULE = { hpMul: 5.5, essence: 12, cores: 0, pearls: 1, orbSpeed: 170, rallyMax: 2, waveGap: 0.9, sluiceWrong: 0.25,
+const KING_RULE = { hpMul: 5.5, essence: 12, cores: 0, pearls: 1, orbSpeed: 170, rallyMax: 2, waveGap: 0.9, sluiceWrong: 0.4,
   surge: { wind: [0.45, 1.15], nOdds: [0.4, 0.35, 0.25], gap: [0.42, 0.95], speed: [0.75, 1.35] } };
 const raidRule = stage => (stage === 2 ? Object.assign({}, RAID_RULE, KING_RULE) : RAID_RULE);
 const PEARL_COLOR = '#bcd8ff';  // 심해 진주(2단계 레이드 보상, Lv.110 업그레이드에만 — 사용자: 재료는 그 단계 재료로)
@@ -1097,6 +1097,8 @@ const SCROLL_ORDER = ['any', 'inherit'];
 const ENCHANT_RATE = [50, 42, 35, 29, 24, 20, 17, 14, 12, 10];
 const BLESS_BONUS = 3;
 const enchantRate = (s, ups) => ENCHANT_RATE[Math.min(ups || 0, ENCHANT_RATE.length - 1)] + (s.r === 0 ? BLESS_BONUS : 0);
+// 한 번 바를 때 드는 주문서 장 수(같은 주문서로): +10 → +11 시도부터 2장(2026-11-01 사용자 '11시도부터는 2장씩'). 성공 · 실패 모두 그만큼 사라짐
+const enchantCost = ups => ((ups || 0) >= ENCHANT_MAX ? 2 : 1);
 const SCROLL_NAMES = ['축복받은 강화 주문서', '강화 주문서'];
 const SCROLL_COLORS = ['#ffe08a', '#7dff8a'];
 const SCROLL_DROP = [0.65, 0.35];  // 떨어질 때 축복받은 · 보통 비율
@@ -1113,7 +1115,7 @@ const scrollColor = s => s.g === 'inherit' ? '#ff8ae0' : SCROLL_COLORS[s.r];
 const enchGain = (slot, ilvl) => Math.max(1, Math.round(SCROLL_GROUPS[scrollGroupOf(slot)].gain * POWER(ilvl)));
 const scrollGain = (s, slot, ilvl) => STATS[SCROLL_GROUPS[scrollGroupOf(slot)].stat].name + ' +' + enchGain(slot, ilvl || 1);
 const scrollText = (s, slot, ilvl, ups) => s.g === 'inherit' ? '강화(+N)를 같은 부위 새 장비로 옮길 때 1장 쓴다 (대장장이에서 Z)'
-  : slot ? '+' + (ups || 0) + ' → +' + ((ups || 0) + 1) + ' 성공 ' + enchantRate(s, ups) + '% · ' + SLOT_NAMES[slot] + '에 바르면 ' + scrollGain(s, slot, ilvl)
+  : slot ? '+' + (ups || 0) + ' → +' + ((ups || 0) + 1) + ' 성공 ' + enchantRate(s, ups) + '%' + (enchantCost(ups) > 1 ? ' · 주문서 ' + enchantCost(ups) + '장' : '') + ' · ' + SLOT_NAMES[slot] + '에 바르면 ' + scrollGain(s, slot, ilvl)
   : '성공 ' + enchantRate(s, 0) + '%(+0) ~ ' + enchantRate(s, ENCHANT_MAX - 1) + '%(+' + (ENCHANT_MAX - 1) + ') · ' + Object.values(SCROLL_GROUPS).map(g => g.name + ' ' + STATS[g.stat].name).join(' · ');
 
 

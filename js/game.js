@@ -45,6 +45,7 @@ const Game = (() => {
     if (o.type === 'jar') Jar.open(prof);
     if (o.type === 'craft') Craft.open(prof, o);
     if (o.type === 'quests') Quests.open(prof);
+    if (o.type === 'mail') Mail.open(prof);
     if (o.type === 'records') Records.open(prof);
     if (o.type === 'imprint') Imprint.open(prof);
     overlays.push(o);
@@ -89,6 +90,7 @@ const Game = (() => {
       else if (top.type === 'jar') Jar.update(top, prof);
       else if (top.type === 'craft') Craft.update(top, prof);
       else if (top.type === 'quests') Quests.update(top, prof);
+      else if (top.type === 'mail') Mail.update(top, prof);
       else if (top.type === 'records') Records.update(top, prof);
       else if (top.type === 'imprint') Imprint.update(top, prof);
       else if (top.type === 'ride') Town.rideUpdate(top);  // 광차 타는 장면
@@ -149,6 +151,7 @@ const Game = (() => {
       else if (o.type === 'jar') Jar.draw(ctx, o, prof);
       else if (o.type === 'craft') Craft.draw(ctx, o, prof);
       else if (o.type === 'quests') Quests.draw(ctx, o, prof);
+      else if (o.type === 'mail') Mail.draw(ctx, o, prof);
       else if (o.type === 'records') Records.draw(ctx, o, prof);
       else if (o.type === 'imprint') Imprint.draw(ctx, o, prof);
       else if (o.type === 'ride') Town.rideDraw(ctx, o);

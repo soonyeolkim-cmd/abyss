@@ -1304,7 +1304,9 @@ const UI = (() => {
       const it = rows[this.sel].item, s = list[this.pick];
       const why = Items.canEnchant(it, s);
       if (why) { Game.toast(why); return; }
-      Items.takeScroll(prof, s);
+      const cost = enchantCost(it.ups), have = prof.scrolls[scrollKey(s)] || 0;  // +10 → +11 부터 2장(같은 주문서로)
+      if (have < cost) { Sfx.deny(); Game.toast(scrollName(s) + '이 ' + cost + '장 필요해요 (지금 ' + have + '장) — +' + ENCHANT_MAX + '부터는 한 번에 ' + cost + '장씩'); return; }
+      for (let k = 0; k < cost; k++) Items.takeScroll(prof, s);
       const stat = SCROLL_GROUPS[scrollGroupOf(it.slot)].stat, had = (it.ench || {})[stat] || 0;
       const before = it.ups || 0, res = Items.enchant(it, s);
       Quests.on('enchant');  // 의뢰: 강화 시도(성공 · 실패 모두)

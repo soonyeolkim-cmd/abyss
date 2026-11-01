@@ -41,7 +41,7 @@ const NPC_TALK = {
   smith: () => [
     ['smith', '어서 와! 장비를 단단하게 하고 싶으면 강화 주문서를 가져와. 던전의 몹 · 상자 · 보스가 가끔 떨어뜨리지.'],
     ['smith', '주문서를 바를 때마다 장비가 +1씩 올라. 무기 · 목걸이 · 반지는 공격력, 투구 · 갑옷 · 장갑 · 신발은 방어력이 오르지.'],
-    ['smith', '+0에서 +1은 ' + ENCHANT_RATE[0] + '%로 쉽지만, 올라갈수록 어려워져서 +9에서 +10은 ' + ENCHANT_RATE[ENCHANT_MAX - 1] + '%야. Lv.100 장비까지는 +' + ENCHANT_MAX + '이 끝이고, Lv.110 장비는 +' + (ENCHANT_MAX + 1) + '까지 올릴 수 있어(+' + ENCHANT_MAX + '에서 +' + (ENCHANT_MAX + 1) + '도 ' + ENCHANT_RATE[ENCHANT_MAX - 1] + '%)!'],
+    ['smith', '+0에서 +1은 ' + ENCHANT_RATE[0] + '%로 쉽지만, 올라갈수록 어려워져서 +9에서 +10은 ' + ENCHANT_RATE[ENCHANT_MAX - 1] + '%야. Lv.100 장비까지는 +' + ENCHANT_MAX + '이 끝이고, Lv.110 장비는 +' + (ENCHANT_MAX + 1) + '까지 올릴 수 있어(+' + ENCHANT_MAX + '에서 +' + (ENCHANT_MAX + 1) + '도 ' + ENCHANT_RATE[ENCHANT_MAX - 1] + '%). 대신 +' + ENCHANT_MAX + '부터는 같은 주문서가 한 번에 ' + enchantCost(ENCHANT_MAX) + '장씩 들어!'],
     ['smith', '실패해도 걱정 마. 주문서만 사라지고 장비는 그대로니까. 축복받은 주문서는 성공률이 ' + BLESS_BONUS + '% 더 높아.'],
     ['smith', '새 장비로 갈아탈 땐 계승 주문서로 강화를 옮겨 줄게. 같은 부위끼리만 돼. 계승 주문서는 상인 엘린이 팔고, 던전에서도 가끔 나와.'],
     ['smith', '무기 · 목걸이 · 반지를 모두 +' + ENCHANT_MAX + ' 하면 공격력이 네 배쯤 된다고! 안 쓰는 장비는 나한테 팔아도 돼.'],

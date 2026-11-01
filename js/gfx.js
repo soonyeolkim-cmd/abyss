@@ -71,6 +71,9 @@ const Gfx = (() => {
     dummy: ['.....ooooo.....', '....oSSSSSo....', '...oSSSSSSSo...', '...oSoSSSoSo...', '...oSSSSSSSo...', '...oSSoooSSo...', '....oSSSSSo....', '......oNo......',
       'ooooooooooooooo', 'SNNosssssssoNNS', 'oooosscccssoooo', '...oscgggcso...', '...oscgcgcso...', '...oscgggcso...', '...osscccsso...', '...osSsSsSso...',
       '...ooooooooo...', '......oNo......', '......oNo......', '......oNo......', '......oNo......', '......oNo......', '......oNo......', '....ooooooo....', '...ooooooooo...'],
+    // 우체통(2026-11-01, js/mail.js): 둥근 머리 빨간 통 · 편지 꽂힌 투입구 · 금빛 표 · 나무 기둥
+    mailbox: ['...oooooo...', '..ohccccco..', '.ohccccccco.', '.ohccccccco.', '.oooooooooo.', '.ocwwwwkkco.', '.okkkkkkkko.', '.ohccccccco.', '.ohcccyccco.', '.ohccyyycco.',
+      '.ohcccyccco.', '.ohccccccco.', '.ohccccccco.', '.ommmmmmmmo.', '.oooooooooo.', '....oNNo....', '....oNNo....', '....oNNo....', '...ooNNoo...', '..oooooooo..'],
     // 의뢰 게시판(2026-10-27, 마을 던전 입구 옆): 작은 지붕 · 나무 판에 붙은 의뢰 종이 셋(붉은 압정) · 다리 둘
     board: ['..oooooooooooooooo..', '.oNNNNNNNNNNNNNNNNo.', 'oNNNNNNNNNNNNNNNNNNo', 'oooooooooooooooooooo',
       ...['ssssssssssssssss', 'sgggcggsssggcgss', 'sgkkkkgsssgkkgss', 'sggggggsssggggss', 'sgkkkggsssgkkgss', 'sggggggsssggggss',
@@ -85,7 +88,7 @@ const Gfx = (() => {
     return c;
   };
   // 몹 이름_anim_f0~3(art.js 가 8 프레임/초로 돌림 — 두 장이면 0 0 1 1 로 느리게 맥동) + 상태 그림 몇 장
-  const MOB_FRAMES = { splitter: ['splitA', 'splitA', 'splitB', 'splitB'], splitling: ['splitling'], shieldbearer: ['shieldbearer'], blinker: ['blinker'], tentacle: ['tentacleUp'], warder: ['warder'], dummy: ['dummy'], board: ['board'] };
+  const MOB_FRAMES = { splitter: ['splitA', 'splitA', 'splitB', 'splitB'], splitling: ['splitling'], shieldbearer: ['shieldbearer'], blinker: ['blinker'], tentacle: ['tentacleUp'], warder: ['warder'], dummy: ['dummy'], board: ['board'], mailbox: ['mailbox'] };
   const mpixC = {};
   for (const k in MPIX) mpixC[k] = mpix(MPIX[k]);
   const putFrame = (name, k) => { SHEETS[name] = mpixC[k]; FRAMES[name] = [0, 0, mpixC[k].width, mpixC[k].height]; };
