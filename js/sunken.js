@@ -455,6 +455,24 @@ const Sunken = (() => {
     if (e.def.sweep) e.sweepCd = Math.max(e.sweepCd || 0, SUNKEN.pillarStun + 1.5);  // 세렌 · 오필: 기절이 풀리자마자 후려치지 않게(풀린 뒤 1.5초)
     World.text(e.x, e.y, e.h + 6, '쿵 — 기절!', TEAL, true);
   }
+  // 중간 보스방 기둥 다시 솟기(2026-11-01 사용자 '기둥 다 부서졌는데 리필 안 됨' — 1 · 2단계 모두): 넷 다 무너지면 SUNKEN.pillarRefill 초 뒤 다시 넷.
+  // 누가(몹 · 사람) 서 있는 자리는 비켜날 때까지 기다렸다가 솟음(끼임 방지). 파티 손님에게는 snap 의 기둥 목록(pc)으로 같이 감
+  function pillars(dt, lv) {
+    const r = lv.boss;
+    if (!r || !r.pillars0 || World.mirror) return;  // 파티 손님은 방장 기둥 목록을 받기만
+    const has = c => lv.columns.some(o => o[0] === c[0] && o[1] === c[1]);
+    if (r.pillarT === undefined) { if (!r.pillars0.some(has)) r.pillarT = SUNKEN.pillarRefill; return; }
+    if ((r.pillarT -= dt) > 0) return;
+    const busy = [...World.enemies().filter(live), ...peopleOf()];
+    let up = 0;
+    for (const c of r.pillars0) {
+      const x = c[0] * T + 8, y = c[1] * T + 12;
+      if (has(c) || busy.some(o => Math.hypot(o.x - x, o.y - y) < (o.r || 6) + 16)) continue;
+      lv.columns.push(c.slice()); World.dust(x, y, 12); up++;
+    }
+    if (up && !r.pillarSaid) { r.pillarSaid = true; World.text(r.cx * T + 8, r.cy * T, 30, '기둥이 다시 솟았다!', '#ffd36a', true); World.shake(3); Sfx.stone(); }
+    if (r.pillars0.every(has)) { r.pillarT = undefined; r.pillarSaid = false; }
+  }
   // 길게 찌르기 띠 안인지(판정 = 그림): 기사 발에서 chargeV 쪽 0 ~ len, 옆으로 w 안(몸 반지름만큼 여유)
   function inThrust(e, t) {
     const T2 = e.def.thrust, v = e.chargeV, dx = t.x - e.x, dy = t.y - e.y, along = dx * v.x + dy * v.y, side = Math.abs(dx * v.y - dy * v.x);
@@ -960,5 +978,5 @@ const Sunken = (() => {
   const snap = () => { const lv = World.level, t = lv && tideOf(lv); return t ? Math.round(t.tideA * 100) / 100 : undefined; };
   const unsnap = a => { if (World.level) World.level.tideShow = a; };
 
-  return { jailOf, mash, mashFrom, sweep, chargeBlocked, think, state, windupEnd, whirlTick, drawWhirl, cut, onHit, onKill, part, partDied, update, lightMul, light, drawMob, spriteOf, drawOver, ground, paintSea, drawSea, snap, unsnap };
+  return { jailOf, mash, mashFrom, pillars, sweep, chargeBlocked, think, state, windupEnd, whirlTick, drawWhirl, cut, onHit, onKill, part, partDied, update, lightMul, light, drawMob, spriteOf, drawOver, ground, paintSea, drawSea, snap, unsnap };
 })();

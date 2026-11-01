@@ -496,6 +496,7 @@ const World = (() => {
     updateChests(dt);
     if (lv.roomMaps) updateRooms();
     if (lv.def.stage === 2) Sunken.update(dt, lv);  // 조류 물살 · 산호 빛 · 산호 다시 솟기
+    if (lv.def.endless) Sunken.pillars(dt, lv);  // 끝없는 심연 중간 보스방(1 · 2단계): 기둥 넷이 다 무너지면 다시 솟음
     }
     fadeT = Math.max(0, fadeT - dt);
 

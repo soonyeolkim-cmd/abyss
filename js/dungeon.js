@@ -172,13 +172,14 @@ const Dungeon = (() => {
     const lane = (r, x, y) => Math.abs(x - r.cx) < 3 || Math.abs(y - r.cy) < 3;
     for (const r of rooms) {
       if (r === lv.start) continue;
-      const cs = [], kind = r.boss ? (def.endless ? 5 : 1) : rnd(0, 4);  // 5 = 끝없는 심연 중간 보스방(1 · 2단계): 돌진을 박게 할 기둥 넷(가운데 둘레 — 부서지면 끝)
+      const cs = [], kind = r.boss ? (def.endless ? 5 : 1) : rnd(0, 4);  // 5 = 끝없는 심연 중간 보스방(1 · 2단계): 돌진을 박게 할 기둥 넷(가운데 둘레 — 넷 다 무너지면 다시 솟음, sunken.js pillars)
       if (kind === 1) for (const c of [[r.x + 4, r.y + 3], [r.x + r.w - 5, r.y + 3], [r.x + 4, r.y + r.h - 3], [r.x + r.w - 5, r.y + r.h - 3]]) cs.push(c);
       if (kind === 2) for (let x = r.x + 5; x < r.x + r.w - 4; x += 5) { cs.push([x, r.y + 4]); cs.push([x, r.y + r.h - 4]); }
       if (kind === 3) for (const [dx, dy] of [[-5, -4], [5, -4], [-5, 4], [5, 4]]) cs.push([r.cx + dx, r.cy + dy]);
       if (kind === 5) for (const [dx, dy] of [[-8, -4], [8, -4], [-8, 4], [8, 4]]) cs.push([r.cx + dx, r.cy + dy]);
       if (kind === 4) for (let k = 0; k < 6; k++) cs.push([rnd(r.x + 3, r.x + r.w - 4), rnd(r.y + 3, r.y + r.h - 3)]);
       for (const c of cs) if (!lane(r, c[0], c[1]) && !lv.columns.some(o => Math.abs(o[0] - c[0]) < 2 && Math.abs(o[1] - c[1]) < 2)) lv.columns.push(c);
+      if (kind === 5) r.pillars0 = cs.filter(c => lv.columns.includes(c)).map(c => c.slice());  // 처음 기둥 자리(다시 솟을 때)
     }
     lv.crates = new Set();
     for (const r of rooms) {
