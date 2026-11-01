@@ -275,7 +275,8 @@ const World = (() => {
         // 보물 상자: 샛길 방(막다른 방)마다 하나 + 큰길 방 하나
     const mains = lv.rooms.filter(r => r.main && r !== lv.start && !r.boss);
     const chestRooms = [...lv.rooms.filter(r => r.branch), mains[rnd(0, mains.length - 1)]].filter(Boolean);
-    for (const r of chestRooms) {
+    const L = lootOf();  // 가라앉은 심연: 잔몹방에 작은 상자 여럿(SUNKEN.loot.chests)
+    for (const r of chestRooms) for (let n = r.main && L ? L.chests : 1; n > 0; n--) {
       let s = Dungeon.spotIn(lv, r);
       for (let k = 0; k < 30 && chestHidden(s.x, s.y, false); k++) s = Dungeon.spotIn(lv, r);
       s = clearChestSpot(s.x, s.y, false);
@@ -840,10 +841,10 @@ const World = (() => {
   }
 
   function goldRoll(range, mul = 1) {
-    return Math.round(rnd(range[0], range[1]) * mul * GOLD_MUL * DIFFS[RUN.diff].gold * (lv.def.gainMul || 1) * GOLD_CURVE(dlv()) * (1 + p.stats.gold / 100));  // gainMul = 끝없는 심연 층 보너스, GOLD_CURVE = 던전 레벨 곡선(볼록)
+    return Math.round(rnd(range[0], range[1]) * mul * ((lootOf() || {}).gold || 1) * GOLD_MUL * DIFFS[RUN.diff].gold * (lv.def.gainMul || 1) * GOLD_CURVE(dlv()) * (1 + p.stats.gold / 100));  // gainMul = 끝없는 심연 층 보너스, GOLD_CURVE = 던전 레벨 곡선(볼록)
   }
   const ilvl = () => rnd(lv.ilvlR[0], lv.ilvlR[1]);
-  const mk = (il, o) => Items.make(il, Object.assign({ rare: DIFFS[RUN.diff].rare }, o));  // 난이도만큼 좋은 등급이 잘 나온다
+  const mk = (il, o) => Items.make(il, Object.assign({ rare: DIFFS[RUN.diff].rare }, o, { boost: (o.boost || 0) + ((lootOf() || {}).boost || 0) }));  // 난이도만큼 좋은 등급이 잘 나온다 · 가라앉은 심연은 boost 더함
 
   function updateDrops(dt) {
     for (const d of lv.drops) {
@@ -914,6 +915,8 @@ const World = (() => {
         const items = [];
         // 장비 수 줄임(2026-10-24 사용자): 보물 상자 1개(좋은 등급 잘 나옴) · 작은 상자 60% 확률로 1개
         if (c.big || Math.random() < 0.6 * gearMul()) items.push(mk(c.big ? lv.ilvlR[1] : ilvl(), { boost: c.big ? 0.8 : 0.4 }));
+        const L = lootOf();
+        if (c.big && L) for (let k = 1; k < L.bigItems; k++) items.push(mk(lv.ilvlR[1], { boost: 0.8 }));  // 가라앉은 심연 기사 보물 상자: 장비 bigItems 개
         const stones = c.big ? [rollStone(STONE_BOSS_BOOST)] : Math.random() < 0.5 ? [rollStone()] : [];
         const scrolls = c.big || Math.random() < SCROLL_DROP_RATE.chest ? [rollScroll()] : [];
         loot(c.x, c.y - 4, { gold: goldRoll(c.big ? [40, 70] : [15, 30]), items, stones, scrolls });
@@ -923,7 +926,8 @@ const World = (() => {
     }
   }
 
-  const gearMul = () => (lv.def.endless ? ENDLESS.gear : 1);  // 끝없는 심연: 장비 드롭 1/3(보스 확정 1개는 그대로) · 분해 가루 ×3(data.js scrapDust)
+  const lootOf = () => (lv.def.endless && (STAGE_DEFS[lv.def.stage] || {}).loot) || null;  // 단계마다 보상 배율(가라앉은 심연 SUNKEN.loot — 1단계는 없음)
+  const gearMul = () => (lv.def.endless ? (lootOf() || ENDLESS).gear : 1);  // 끝없는 심연: 장비 드롭 1/3(보스 확정 1개는 그대로) · 분해 가루 ×3(data.js scrapDust) — 2단계는 SUNKEN.loot.gear
   // ── 몹이 쓰러짐 ──
   function onKill(e) {
     if (Sunken.onKill(e)) return;  // 익사한 병사: 거품 속에서 다시 일어남(아직 안 쓰러짐) — js/sunken.js
