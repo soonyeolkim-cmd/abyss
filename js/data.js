@@ -515,7 +515,10 @@ const RAID_RULE = { hpMul: 7.2, time: 600, shellCut: 0, exposedMul: 2, slams: 3,
 // 체력 hpMul: 5층 기사(mid.hp 배율 전) × 5.5 — 레벨 곡선으로 따지면 파수꾼의 약 1.2배(2026-11-01 계산, 손맛 보고 다시). 보상 = 심해 진주 pearls(핵 대신) · 정수 essence
 // 2026-11-01 사용자 '수문은 부수는 순서대로 안 하면 전체에 대미지': 수문 넷에 1~4 번호(섞음) — 다음 번호가 아닌 수문을 부수면 모두에게 최대 체력 sluiceWrong 피해(방어 · 대시 무적 무시).
 //   틀리게 부순 수문도 부서진 채(남은 것 중 가장 작은 번호가 다음), 다 부수면 그대로 노출
-const KING_RULE = { hpMul: 5.5, essence: 12, cores: 0, pearls: 1, orbSpeed: 170, rallyMax: 2, waveGap: 0.9, sluiceWrong: 0.25 };
+// 2026-11-01 사용자 '해일을 규칙적으로 쏘니 너무 쉽다 — 변칙적으로': 해일 한 번 = 준비 wind 초(사이 무작위) 뒤 고리 n 개(무게 nOdds — 1 · 2 · 3개)를 gap 초(사이 무작위) 간격으로,
+//   속도는 그 번마다 기본 × speed(사이 무작위 — 한 번 안의 고리는 같은 속도라 간격 = 닿는 간격, 대시 0.28초 + 여유로 늘 피할 수 있음). 고리 하나 넘길 때마다 1(slams 번이면 지침)
+const KING_RULE = { hpMul: 5.5, essence: 12, cores: 0, pearls: 1, orbSpeed: 170, rallyMax: 2, waveGap: 0.9, sluiceWrong: 0.25,
+  surge: { wind: [0.45, 1.15], nOdds: [0.4, 0.35, 0.25], gap: [0.42, 0.95], speed: [0.75, 1.35] } };
 const raidRule = stage => (stage === 2 ? Object.assign({}, RAID_RULE, KING_RULE) : RAID_RULE);
 const PEARL_COLOR = '#bcd8ff';  // 심해 진주(2단계 레이드 보상, Lv.110 업그레이드에만 — 사용자: 재료는 그 단계 재료로)
 // 레이드 칭호(2026-10-27 사용자 — js/records.js): 레이드 단계(stage)마다 여덟 개. 꾸미기만(능력치 없음).

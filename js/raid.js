@@ -179,7 +179,12 @@ const Raid = (() => {
   function kingAttack(e, lv, p, pd, r, near, slam, rage) {
     if (e.mech === 'shell') {
       if (near && r < 0.35) { e.state = 'windup'; e.t = e.windupT = e.def.atk.windup; }
-      else { e.state = 'waveWind'; e.t = e.windupT = 0.8; }
+      else {  // 해일: 준비 시간 · 고리 수 · 간격 · 속도를 그때마다 다르게(R.surge — 2026-11-01 사용자 '변칙적으로')
+        const S = R.surge, rr = ([a, b]) => a + Math.random() * (b - a);
+        let n = 1;
+        for (let u = Math.random(); n < S.nOdds.length && (u -= S.nOdds[n - 1]) > 0;) n++;
+        e.state = 'waveWind'; e.t = e.windupT = rr(S.wind); e.waveN = n; e.waveSp = rr(S.speed);
+      }
       e.atkCd = (1.5 + Math.random() * 0.6) * rage;
     } else if (e.mech === 'crystal') {
       if (r < 0.4) puddles(e, p);
@@ -246,12 +251,14 @@ const Raid = (() => {
         e.t -= dt;
         if (e.t <= 0) { ring(e); Sfx.blast(); e.state = 'recover'; e.t = 0.7; }
         break;
-      case 'waveWind':  // 왕: 삼지창을 들어 해일 고리(대시로 넘으면 '넘김' — world.js 가 셈)
-        e.t -= dt;
+      case 'waveWind':  // 왕: 삼지창을 들어 해일 고리(대시로 넘으면 '넘김' — world.js 가 셈). waveN 개를 들쭉날쭉한 간격으로(그사이 삼지창은 든 채 — 예고 그림 그대로)
+        e.t -= dt; e.kx = 0; e.ky = 0;
         if (e.t <= 0) {
-          const W = R.wave;
-          World.field({ wave: true, count: true, x: e.x, y: e.y, delay: 0.15, speed: W.speed, w: W.w, pct: W.pct, tick: 99, life: 0.15 + W.maxR / W.speed });
-          World.shake(4); Sfx.roar(); e.state = 'recover'; e.t = R.waveGap;
+          const W = R.wave, sp = W.speed * (e.waveSp || 1);
+          World.field({ wave: true, count: true, x: e.x, y: e.y, delay: 0.15, speed: sp, w: W.w, pct: W.pct, tick: 99, life: 0.15 + W.maxR / sp });
+          World.shake(4); Sfx.roar();
+          if (--e.waveN > 0) { const G = R.surge.gap; e.t = e.windupT = G[0] + Math.random() * (G[1] - G[0]); }  // 다음 고리
+          else { e.state = 'recover'; e.t = R.waveGap; }
         }
         break;
       case 'leapWind':  // 예고가 노리는 사람 발밑을 따라다님 → 끝나면 그 자리로 날아오름
