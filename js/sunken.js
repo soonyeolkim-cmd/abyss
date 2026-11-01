@@ -260,7 +260,7 @@ const Sunken = (() => {
         return { m: 0, s: '반사!', armor: true };
       }
       if (dot < -G.cone) {
-        e.state = 'kDown'; e.t = G.back;
+        e.state = 'kDown'; e.t = G.back; e.sigCd = Math.max(e.sigCd || 0, G.cd);  // 다음 기믹 대기는 깨진 때부터(오래 버틴 뒤 바로 또 거울을 들지 않게)
         World.text(e.x, e.y, e.h + 10, '거울이 깨졌다 — 휘청!', TEAL, true); World.shake(4); Sfx.chest();
         World.sparks(e.x + e.fv.x * 14, e.y, e.h * 0.5, 16, FOAM, true);
         return { m: G.mul, s: '' };
@@ -372,7 +372,7 @@ const Sunken = (() => {
     if (k === 'anchor' && d.spin && e.anchorCd > 1.5) { e.state = 'spinWind'; e.t = e.windupT = d.spin.wind; e.sigCd = d.spin.cd; World.text(e.x, e.y, e.h + 8, '닻 휘돌리기!', '#ffd36a'); }
     else if (k === 'tide' && d.rush) { e.sigCd = d.rush.cd; e.rushN = d.rush.n; rushStart(e, p, d.rush.wind); World.text(e.x, e.y, e.h + 8, '해류 돌진!', '#ffd36a'); }
     else if (k === 'bubble' && d.jail && d.jail.cd) { e.state = 'jailWind'; e.t = e.windupT = d.jail.wind; e.sigCd = d.jail.cd; e.lx = p.x; e.ly = p.y; faceTo(e, p); World.text(e.x, e.y, e.h + 8, '거품 감옥!', '#ffd36a'); Sfx.spell(); }
-    else if (k === 'mirror' && d.guard) { e.state = 'mirrorGuard'; e.t = e.windupT = d.guard.t; e.sigCd = d.guard.cd; faceTo(e, p); World.text(e.x, e.y, e.h + 8, '거울 반사!', FOAM, true); Sfx.spell(); }
+    else if (k === 'mirror' && d.guard) { e.state = 'mirrorGuard'; e.t = e.windupT = 1; e.sigCd = d.guard.cd; faceTo(e, p); World.text(e.x, e.y, e.h + 8, '거울 반사!', FOAM, true); Sfx.spell(); }
     else return false;
     if (!e.sigSeen) { e.sigSeen = 1; World.say(SIG_HINT[k], 3); }
     return true;
@@ -597,7 +597,8 @@ const Sunken = (() => {
           const a = cur + Math.max(-step, Math.min(step, da));
           e.fv = { x: Math.cos(a), y: Math.sin(a) };
         }
-        if (e.t <= 0) { e.state = 'move'; e.atkCd = 0.4; }
+        // 시간으로는 안 끝남(2026-11-01 사용자 '시간 끌면 거울을 내려놓아 재미없음 — 등 뒤를 맞을 때까지 계속 돌게'): cut 에서 등 뒤를 맞으면 kDown. 노리던 사람이 쓰러지면만 그침
+        if (p.dead) { e.state = 'move'; e.atkCd = 0.4; }
         break;
       }
       case 'anchorWind': {  // 예고 앞 follow 몫은 노리는 사람을 따라가다 멈춤 → 그 뒤 박힐 자리로 빨아들임(대시 중이면 안 끌림)

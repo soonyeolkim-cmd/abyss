@@ -583,7 +583,7 @@ Object.assign(ENEMIES, {
   //   jail 거품 감옥(오필): wind 초 노리는 사람 발밑 예고(r, 앞 60% 동안 따라옴) → 안에 있으면 거품에 갇힘(대시 무적이면 피함). 거품(부품, hits 대)을 t 초 안에 못 터뜨리면 최대 체력 pct(못 피함)
   //        갇힌 사람도 칠 수 있음(제자리 연타) · 파티원이 쳐 줘도 됨
   //   그림자 기습(루멘): 처음엔 등불을 끌 때 세 번 → 지금은 어두운 동안 늘 기습(knight_lamp.lamp 줄) — 발밑 거품 자국으로 짐작, 산호를 치면 멈추고 휘청
-  //   guard 거울 반사(에코): t 초 물거울을 앞에 세움 — 앞(보는 쪽 · cone)에서 친 공격은 피해 0 · 친 사람에게 공격 × reflect 되돌림(0.4초에 한 번),
+  //   guard 거울 반사(에코): 물거울을 앞에 세움(시간으로는 안 끝남 — 등 뒤를 맞을 때까지 노리는 사람 쪽으로 계속 돎, 2026-11-01 사용자) — 앞(보는 쪽 · cone)에서 친 공격은 피해 0 · 친 사람에게 공격 × reflect 되돌림(0.4초에 한 번),
   //        등 뒤(-cone)에서 치면 거울이 깨져 back 초 휘청(×mul). 세우는 동안 노리는 사람 쪽으로 초당 turn 라디안 돎(빙 돌아 등을 노리기)
   knight_anchor: { name: '닻의 기사 브란', sprite: 'knight_anchor', pix: true, idle: false, boss: true, knight: 'anchor', scale: 1.25, speed: 34, range: 26, superArmor: true, launchMul: 0.2, r: 12,
     heave: ['anchorHold', 'kDown', 'tired'], dmgK: 1.5,  // 2026-11-01 사용자 '기둥에 박았는데 스턴이 안 걸려': noStun 뺌 — 기둥에 박으면 다른 기사처럼 기둥이 무너지며 3초 기절(tired = 맞음). 아래 '스턴 삭제'는 휘돌리기 뒤 어지러움만  // heave = 닻을 내려 맞는 상태(그 밖엔 피해 0) — 2026-11-01 사용자 '닻 회수를 더 빨리, 회수되면 딜 타임 종료 · 회전 공격과 스턴 삭제':
@@ -617,7 +617,7 @@ Object.assign(ENEMIES, {
   knight_mirror: { name: '물거울의 기사 에코', sprite: 'knight_mirror', pix: true, idle: false, boss: true, knight: 'mirror', scale: 1.25, speed: 40, range: 22, superArmor: true, launchMul: 0.15, r: 12,
     // 2026-11-01 사용자 '거울 기사는 잔상을 다 없애야 보스를 때릴 수 있게': 분신이 하나라도 있으면 진짜는 피해 0('잔상이 지킨다'), 진짜를 쳐도 분신이 안 터짐(예전엔 진짜를 치면 분신이 다 터짐)
     // mirror.reflect = 분신이 있을 때 진짜를 치면 친 사람이 받는 피해(기사 공격 ×, 0.4초에 한 번 — 2026-11-01 사용자)
-    mirror: { n: 3, cd: 11, splash: 30, reflect: 0.4 }, guard: { cd: 9, t: 3, cone: 0.3, turn: 1.4, reflect: 0.6, back: 2.5, mul: 1.5 },
+    mirror: { n: 3, cd: 11, splash: 30, reflect: 0.4 }, guard: { cd: 9, cone: 0.3, turn: 1.4, reflect: 0.6, back: 2.5, mul: 1.5 },
     atk: { windup: 0.5, active: 0.12, recovery: 0.6, knock: 185, reach: [0, 28], arc: 90, lunge: 165 },
     slam: { windup: 0.75, radius: 50 }, charge: { windup: 0.5, speed: 260, time: 0.6 }, fan: { windup: 0.6, count: 11, speed: 125, color: '#bcd8ff' }, summon: 'tidecaller' },
   // 물거울 분신: 기사 그림 그대로(그림자 없음), 한 대에 터짐 — 경험치 · 전리품 없음(minion)
