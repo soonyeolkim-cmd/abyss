@@ -119,6 +119,7 @@ const Sfx = (() => {
     // 정예 · 고유 몹 · 보스 졸개가 쓰러질 때 짧은 신음(보통 몹은 너무 많아서 빼고)
     grunt: () => smp('grunt', { vol: 0.5, rate: 0.85 }),
     hurt: () => { smp('hurt', { vol: 0.75 }); tone({ type: 'square', f: 180, f2: 90, dur: 0.1, vol: 0.08 }); },
+    blub: () => tone({ type: 'sine', f: 280 + Math.random() * 160, f2: 720, dur: 0.06, vol: 0.12 }),  // 거품 감옥 연타: 뽀글
     dash: () => { noise({ dur: 0.15, vol: 0.1, freq: 800, sweep: 2400, q: 0.5 }); smp('cloth', { vol: 0.35, rate: 1.3 }); },
     gold: () => smp('coins', { vol: 0.55, rate: 1.1 }),
     // 아이템이 바닥에 떨어질 때: 가죽 떨어지는 소리, 레어 이상은 종소리

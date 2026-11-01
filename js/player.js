@@ -41,8 +41,8 @@ function spend(p, n) {
 
 // p = 누구의 입력인가: 파티 방장 쪽 손님 몸(remote)은 손님이 보낸 스틱 값, 내 몸은 키보드 · 패드 · 터치(창이 열려 있으면 없음)
 function moveInput(p) {
-  if (p && p.remote) return p.rmove || null;
-  if (World.inputLock) return null;
+  if (p && p.remote) return Sunken.jailOf(p) ? null : p.rmove || null;
+  if (World.inputLock || Sunken.jailOf(p)) return null;  // 거품 감옥: 방향은 연타에만(제자리 걷는 그림 안 나오게)
   const m = Input.move();
   if (!m.x && !m.y) return null;
   const l = Math.hypot(m.x, m.y);
@@ -52,11 +52,12 @@ function moveInput(p) {
 
 // 입력은 화면 프레임마다 받아 둔다(경직 · 히트스톱 중에도 다음 동작이 씹히지 않게)
 function bufferPlayerInput(p) {
+  if (Input.wasPressed('potion')) p.potionReq = 0.2;  // 물약은 동작과 따로: 공격 · 대시 · 경직 중에도 바로 마신다
+  if (Sunken.mash(p)) { p.buffer = null; return; }  // 거품 감옥에 갇힌 동안: 방향 · 공격 = 연타로 탈출(공격 · 대시 · 기술은 안 나감)
   for (const a of ['attack', 'dodge', 'charge', 'special']) {
     if (a === 'attack' && Coop.canRevive()) continue;  // 파티: 쓰러진 친구 옆에서는 공격 버튼 = 살리기(누르고 있기)
     if (Input.wasPressed(a)) { p.buffer = a; p.bufferT = 0.2; }
   }
-  if (Input.wasPressed('potion')) p.potionReq = 0.2;  // 물약은 동작과 따로: 공격 · 대시 · 경직 중에도 바로 마신다
 }
 // 무기 특성(2026-10-26 사용자: 직업마다 무기 2종 차별화) — data.js WEAPON_KINDS 의 trait · 고친 값. 없으면 직업 기본값
 const weaponKindOf = prof => (prof && prof.equip && prof.equip.weapon ? Items.base(prof.equip.weapon).kind : 'none');

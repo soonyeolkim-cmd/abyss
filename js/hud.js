@@ -627,15 +627,17 @@ const Hud = (() => {
     const c = World.comboInfo;
     if (c) { ctx.globalAlpha = Math.min(1, c.t / 0.5); T_(ctx, c.n + ' 콤보', 930, 236, 26, '#ffd36a', 'right'); ctx.globalAlpha = 1; }
     const jl = lv.def.stage === 2 && Sunken.jailOf(p);
-    if (jl) {  // 거품 감옥 알림판(2026-11-01 사용자: 갇힌 줄 모름) — 화면 가장자리 물빛 테두리 + 가운데 큰 글 · 남은 대수 · 남은 초
+    if (jl) {  // 거품 감옥 알림판(2026-11-01 사용자: 갇힌 줄 모름) — 화면 가장자리 물빛 테두리 + 가운데 큰 글 + 방향 · 공격 연타 그림(남은 수 · 초는 안 보임, 2026-11-01 사용자)
       const now = performance.now() / 1000, k = 0.5 + 0.5 * Math.sin(now * 10), left = Math.max(0, jl.t);
       ctx.save();
       ctx.strokeStyle = 'rgba(95,224,208,' + (0.35 + 0.35 * k) + ')'; ctx.lineWidth = 14; ctx.strokeRect(7, 7, 946, (VIEW_H - HUD_H) * SCALE - 14);
-      ctx.fillStyle = 'rgba(8,16,32,0.82)'; ctx.fillRect(250, 168, 460, 92);
-      ctx.strokeStyle = left < 0.8 && k > 0.5 ? '#ff5a7a' : '#5fe0d0'; ctx.lineWidth = 3; ctx.strokeRect(250.5, 168.5, 459, 91);
+      // 알림판 자리: 갇힌 내 몸 · 거품(연타하면 출렁)을 가리지 않게 — 위에 자리가 있으면(보스 체력 막대 아래) 위, 없으면 아래
+      const PH = 132, sy = (p.y - World.cam.y) * SCALE, top = sy - 70 - PH >= 62 ? sy - 70 - PH : Math.min(sy + 24, (VIEW_H - HUD_H) * SCALE - PH - 8);
+      ctx.fillStyle = 'rgba(8,16,32,0.82)'; ctx.fillRect(250, top, 460, PH);
+      ctx.strokeStyle = left < 0.8 && k > 0.5 ? '#ff5a7a' : '#5fe0d0'; ctx.lineWidth = 3; ctx.strokeRect(250.5, top + 0.5, 459, PH - 1);
       ctx.restore();
-      T_(ctx, '거품에 갇혔다!', 480, 208, 34, '#5fe0d0', 'center');
-      T_(ctx, Input.label('attack') + ' 연타로 터뜨려라 — 남은 ' + Math.max(1, Math.ceil(jl.hp)) + '대 · ' + left.toFixed(1) + '초', 480, 244, 18, left < 0.8 ? '#ff8a8a' : '#f0e0b8', 'center');
+      T_(ctx, '거품에 갇혔다!', 480, top + 36, 30, '#5fe0d0', 'center');
+      mashPic(ctx, now, top + 86);
     }
     const m = World.msg;
     if (m && !jl) {  // 긴 글(레이드 공략 알림 등)은 화면 폭에 맞게 줄을 나눈다(2026-10-29 — 폰에서 잘림)
@@ -644,6 +646,56 @@ const Hud = (() => {
       lines.forEach((l, i) => T_(ctx, l, 480, 130 + i * (fs + 8), fs, '#f0e0b8', 'center'));
       ctx.globalAlpha = 1;
     }
+  }
+
+  // 거품 감옥 연타 그림(알림판 아래쪽): 방향(키보드 = 방향키 넷이 번갈아 눌림, 패드 · 폰 = 스틱이 이리저리) + 공격 버튼이 쿵쿵 + '연타!'
+  function keycap(ctx, x, y, w, on, glyph) {
+    const dy = on ? 3 : 0;
+    ctx.save();
+    if (on) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35; ctx.fillStyle = '#5fe0d0'; ctx.fillRect(x - w / 2 - 5, y - w / 2 - 2, w + 10, w + 10); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; }
+    ctx.fillStyle = '#5a5468'; ctx.fillRect(x - w / 2, y - w / 2 + 4, w, w);  // 옆면(눌리면 가려짐)
+    ctx.fillStyle = on ? '#5fe0d0' : '#e8e0d0'; ctx.fillRect(x - w / 2, y - w / 2 + dy, w, w);
+    ctx.strokeStyle = '#1a1418'; ctx.lineWidth = 2; ctx.strokeRect(x - w / 2, y - w / 2 + dy, w, w);
+    ctx.fillStyle = '#2a2030'; glyph(x, y + dy);
+    ctx.restore();
+  }
+  const DIRV = { left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1] };
+  function tri(ctx, x, y, v, s) {  // 방향 세모(v 쪽이 뾰족)
+    const px = -v[1], py = v[0];
+    ctx.beginPath(); ctx.moveTo(x + v[0] * s, y + v[1] * s); ctx.lineTo(x - v[0] * s * 0.6 + px * s, y - v[1] * s * 0.6 + py * s); ctx.lineTo(x - v[0] * s * 0.6 - px * s, y - v[1] * s * 0.6 - py * s); ctx.closePath(); ctx.fill();
+  }
+  function mashPic(ctx, now, Y) {
+    const arrowGlyph = d => (x, y) => tri(ctx, x, y, DIRV[d], 7);
+    const SEQ = ['left', 'right', 'up', 'right', 'left', 'down'], step = Math.floor(now * 10), cur = SEQ[step % SEQ.length], hit = step % 2 === 0;
+    const dev = Input.device, DX = 372, AX = 548;
+    if (dev === 'key') {  // 방향키 넷(뒤집힌 T)
+      keycap(ctx, DX, Y - 17, 28, cur === 'up', arrowGlyph('up'));
+      [['left', -31], ['down', 0], ['right', 31]].forEach(([d, ox]) => keycap(ctx, DX + ox, Y + 15, 28, cur === d, arrowGlyph(d)));
+    } else {  // 스틱: 받침 + 이리저리 흔들리는 손잡이
+      const v = DIRV[cur];
+      ctx.save();
+      ctx.fillStyle = '#2a3448'; ctx.beginPath(); ctx.arc(DX, Y, 26, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#8a9ab0'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = 'rgba(95,224,208,0.5)'; tri(ctx, DX + v[0] * 34, Y + v[1] * 34, v, 6);  // 기운 쪽 화살
+      ctx.fillStyle = '#e8e0d0'; ctx.beginPath(); ctx.arc(DX + v[0] * 13, Y + v[1] * 13, 13, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#1a1418'; ctx.stroke();
+      ctx.restore();
+    }
+    T_(ctx, '+', 460, Y + 10, 28, '#f0e0b8', 'center');
+    const lab = dev === 'touch' ? '공격' : Input.label('attack');
+    if (dev === 'key') keycap(ctx, AX, Y, 40, hit, (x, y) => { T_(ctx, lab, x, y + 8, 22, '#2a2030', 'center'); });
+    else {  // 패드 · 폰: 둥근 공격 버튼
+      const dy = hit ? 3 : 0;
+      ctx.save();
+      if (hit) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35; ctx.fillStyle = '#5fe0d0'; ctx.beginPath(); ctx.arc(AX, Y + 2, 29, 0, Math.PI * 2); ctx.fill(); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; }
+      ctx.fillStyle = '#5a5468'; ctx.beginPath(); ctx.arc(AX, Y + 4, 22, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = hit ? '#5fe0d0' : '#e8e0d0'; ctx.beginPath(); ctx.arc(AX, Y + dy, 22, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#1a1418'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.restore();
+      T_(ctx, lab, AX, Y + dy + (dev === 'touch' ? 5 : 8), dev === 'touch' ? 14 : 22, '#2a2030', 'center');
+    }
+    const b = Math.abs(Math.sin(now * 18)) * 4;
+    T_(ctx, '연타!', 650, Y + 10 - b, 30, '#ffd36a', 'center');
   }
 
   // 방 하나 = 맵 하나(끝없는 심연): 던파식 방 지도 — 네모 칸 = 방, 줄 = 문. 지금 방(금빛 깜빡) · 깬 방(보라) · 안 깬 방(붉게).

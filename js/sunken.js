@@ -377,6 +377,36 @@ const Sunken = (() => {
   function jailOf(t) {
     return World.enemies().find(m => m.def.part === 'jail' && live(m) && (m.hold === t || (World.mirror && Math.hypot(m.x - t.x, m.y - t.y) < 8))) || null;
   }
+  // 거품 감옥 연타(2026-11-01 사용자 '방향키랑 공격 버튼 막 눌러야 풀리게 — 몇 번 눌렸고 남았는지는 안 보이게'): 갇힌 사람이 공격 · 방향을 누를 때마다 1,
+  // jail.mash 번이면 터짐. 친구가 거품을 hits 대 쳐서 터뜨리는 것은 그대로. 내 몸 = game.js 화면 프레임(bufferPlayerInput 대신), 파티 손님 = 방장에게 mash 소식
+  let stickDir = '';
+  function mash(p) {
+    const j = jailOf(p);
+    if (!j) { stickDir = ''; return false; }
+    const DIRS = ['left', 'right', 'up', 'down'];
+    let n = Input.wasPressed('attack') ? 1 : 0;
+    for (const a of DIRS) if (Input.wasPressed(a)) n++;  // 방향키 · 십자키
+    // 스틱(패드 · 폰): 크게 기울인 쪽이 바뀔 때마다 1
+    const m = Input.move(), keys = DIRS.some(a => Input.isDown(a));
+    const dir = keys || Math.max(Math.abs(m.x), Math.abs(m.y)) < 0.6 ? '' : Math.abs(m.x) >= Math.abs(m.y) ? (m.x > 0 ? 'r' : 'l') : (m.y > 0 ? 'd' : 'u');
+    if (dir && dir !== stickDir) n++;
+    stickDir = dir;
+    if (!n) return true;
+    j.flash = 0.08; j.wobT = performance.now() / 1000;  // 누를 때마다 거품이 출렁(남은 수는 안 보임)
+    World.sparks(j.x, j.y, 14, 3, FOAM, true); Sfx.blub();
+    if (World.mirror) Net.send({ t: 'mash', n }); else addMash(j, n);
+    return true;
+  }
+  function addMash(j, n) {
+    if (!live(j) || (j.mash = (j.mash || 0) + n) < ENEMIES.knight_bubble.jail.mash) return;
+    j.hp = 0; j.dying = true; j.state = 'dead'; j.t = 0.6;
+    World.onKill(j);  // → partDied: '탈출!'
+  }
+  // 파티 방장: 손님이 보낸 연타(coop.js mash 소식) — 그 손님 몸을 가둔 거품에
+  function mashFrom(pid, n) {
+    const q = World.remotes.find(r => r.pid === pid), j = q && jailOf(q);
+    if (j) addMash(j, n);
+  }
   // 오필 거품 갑옷 시간(update — 어떤 상태든 흐름): 드러남(exposeT)이 끝나면 방 안 모두를 강제로 거품 감옥에(대시로도 못 피함) → regrow 초 뒤 갑옷 다시
   function bubbleTick(e, dt) {
     const d = e.def, B = d.bubble;
@@ -718,7 +748,8 @@ const Sunken = (() => {
     }
     if (d.part === 'jail') {  // 갇힌 사람을 감싼 큰 거품 + 터지기까지 남은 시간 호(파티 손님도 e.t 로)
       if (e.state === 'dead') return true;
-      const k = Math.max(0, Math.min(1, e.t / ENEMIES.knight_bubble.jail.t)), r = 11 + Math.sin(time * 6) * 0.8, cy = y - 7;
+      const wob = Math.max(0, 1 - (performance.now() / 1000 - (e.wobT || 0)) / 0.15);  // 연타할 때마다 잠깐 부풀었다 돌아옴
+      const k = Math.max(0, Math.min(1, e.t / ENEMIES.knight_bubble.jail.t)), r = 11 + Math.sin(time * 6) * 0.8 + wob * 2, cy = y - 7;
       ctx.save();
       ctx.fillStyle = 'rgba(106,154,216,' + (0.18 + (e.flash > 0 ? 0.3 : 0)) + ')'; ctx.beginPath(); ctx.arc(x, cy, r, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = 'rgba(196,226,255,0.85)'; ctx.lineWidth = 1; ctx.stroke();
@@ -929,5 +960,5 @@ const Sunken = (() => {
   const snap = () => { const lv = World.level, t = lv && tideOf(lv); return t ? Math.round(t.tideA * 100) / 100 : undefined; };
   const unsnap = a => { if (World.level) World.level.tideShow = a; };
 
-  return { jailOf, sweep, chargeBlocked, think, state, windupEnd, whirlTick, drawWhirl, cut, onHit, onKill, part, partDied, update, lightMul, light, drawMob, spriteOf, drawOver, ground, paintSea, drawSea, snap, unsnap };
+  return { jailOf, mash, mashFrom, sweep, chargeBlocked, think, state, windupEnd, whirlTick, drawWhirl, cut, onHit, onKill, part, partDied, update, lightMul, light, drawMob, spriteOf, drawOver, ground, paintSea, drawSea, snap, unsnap };
 })();
