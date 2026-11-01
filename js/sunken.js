@@ -165,7 +165,11 @@ const Sunken = (() => {
         return true;
       case 'shell':  // 소라게: 껍데기 속 → 나오자마자 집게
         e.t -= dt; e.kx = 0; e.ky = 0;
-        if (e.t <= 0) { faceTo(e, p); e.state = 'windup'; e.t = e.windupT = d.atk.windup; }
+        if (e.t <= 0) {
+          faceTo(e, p); e.state = 'windup'; e.t = e.windupT = d.atk.windup;
+          // 틈: 나와서 집게를 휘두르고 쉬는 동안(+ gap 초)은 맞아도 다시 안 숨음(2026-11-01 사용자 '너무 단단해' — 예전엔 휘두르기 전에 맞으면 움찔(hurt) → 바로 다시 숨어서 틈이 없었음)
+          e.gapT = World.time + d.atk.windup + d.atk.active + d.atk.recovery + d.shell.gap;
+        }
         return true;
       case 'lureWind':  // 아귀 덥석 예고
         e.t -= dt;
@@ -232,7 +236,17 @@ const Sunken = (() => {
   // ── 피해 배율(combat.js hitEnemy · elements.js · paladin.js · 출혈) ── { m 배율, s 알림 글, armor 경직 · 밀림 없음 } 또는 null
   function cut(e, src) {
     const d = e.def;
-    if (d.knight === 'mirror' && World.enemies().some(c => c.def.clone && live(c) && c.ri === e.ri)) return { m: 0, s: '잔상이 지킨다', armor: true };  // 에코: 잔상(물 분신)이 하나라도 남아 있으면 안 맞음(2026-11-01 사용자)
+    if (d.knight === 'mirror' && World.enemies().some(c => c.def.clone && live(c) && c.ri === e.ri)) {  // 에코: 잔상(물 분신)이 하나라도 남아 있으면 안 맞음(2026-11-01 사용자)
+      // 그때 진짜를 치면 일부를 되돌림(2026-11-01 사용자 '분신 나왔을 때 본체 때리면 대미지 일부 반사'): 기사 공격 × mirror.reflect, 한 사람에게 0.4초에 한 번(거울 반사와 같은 식 — 내 공격력에 비례하면 한 방에 쓰러져서)
+      if (src && !(src.reflT > World.time)) {
+        src.reflT = World.time + 0.4;
+        World.fx({ type: 'shock', x: src.x, y: src.y, r: 12, t: 0, life: 0.3 });  // 맞는 사람 발밑(판정 = 그 사람)
+        World.sparks(src.x, src.y, 14, 8, FOAM, true);
+        hurtPlayer(src, e, d.atk.dmg * e.dmgMul * d.mirror.reflect, 100);
+        return { m: 0, s: '잔상이 되돌린다!', armor: true };
+      }
+      return { m: 0, s: '잔상이 지킨다', armor: true };
+    }
     if (d.heave && !d.heave.includes(e.state) && !(e.spawnT > 0)) return { m: 0, s: '닻에 막힘', armor: true };  // 브란: 닻을 든 동안 면역
     if (d.guard && e.state === 'mirrorGuard' && src) {  // 거울 반사: 앞에서 치면 되돌림 · 등 뒤에서 치면 거울이 깨짐(속성 · 지속 피해는 src 없이 그대로)
       const G = d.guard, tp = unit(src.x - e.x, src.y - e.y, e.fv), dot = e.fv.x * tp.x + e.fv.y * tp.y;
@@ -265,7 +279,7 @@ const Sunken = (() => {
   // 맞은 뒤(살아 있으면): 소라게 숨기 · 거품 한 겹 · 물거울 분신 흔들림
   function onHit(e, src) {
     const d = e.def;
-    if (d.shell && (e.state === 'move' || e.state === 'hurt')) { e.state = 'shell'; e.t = d.shell.t; e.kx = 0; e.ky = 0; Sfx.stone(); }
+    if (d.shell && (e.state === 'move' || e.state === 'hurt') && !(e.gapT > World.time)) { e.state = 'shell'; e.t = d.shell.t; e.kx = 0; e.ky = 0; Sfx.stone(); }
     if (d.bubble && e.bubbles > 0 && !(e.popT > World.time) && src !== 'dot') {
       e.popT = World.time + 0.15; e.bubbles--;
       World.sparks(e.x, e.y, e.h * 0.6, 8, FOAM, true);
@@ -713,12 +727,16 @@ const Sunken = (() => {
     const tide = knightIn(lv, 'tide');
     if (tide && tide.kInit) {
       const D = tide.def.tide;
+      // 세렌이 기절한 동안(기둥에 박힘 — tired)은 물살이 멈춤(2026-11-01 사용자) — 바뀌기까지 남은 시간도 멈춤
+      if (calm(tide) !== !!tide.calmed) { tide.calmed = calm(tide); World.say(tide.calmed ? '세렌이 기절했다 — 물살이 멈췄다!' : '물살이 다시 흐른다!', 1.4); }
+      if (tide.calmed) return;
       if ((tide.tideT -= dt) <= 0) { tide.tideT = D.every; tide.tideA += Math.PI * (0.5 + Math.random()); World.say('물살이 바뀌었다!', 1.4); Sfx.spell(); }
       const vx = Math.cos(tide.tideA) * D.speed, vy = Math.sin(tide.tideA) * D.speed * 0.7;
       for (const t of peopleOf()) if (World.roomOf(t) === tide.ri && t.state !== 'dodge') Dungeon.move(lv, t, vx * dt, vy * dt, BODY_R);
     }
   }
   const tideOf = lv => { const t = knightIn(lv, 'tide'); return t && t.kInit ? t : null; };
+  const calm = t => t.state === 'tired';  // 세렌 기절 = 물살 멈춤(물결 줄도 안 그림, 파티 손님에게는 방향 대신 없음)
   // 빛 반경 배율: 등불의 기사 방(깨어남 · 산호 빛이 꺼져 있음)
   function lightMul(lv, p) {
     const o = knightIn(lv, 'lamp');
@@ -913,7 +931,7 @@ const Sunken = (() => {
     }
     const tide = lv.tideShow;  // 손님은 방장 소식(tideA), 방장은 기사에서
     const t = tideOf(lv);
-    const a = t ? t.tideA : tide;
+    const a = t ? (calm(t) ? null : t.tideA) : tide;
     if (a === undefined || a === null) return;
     const r = lv.rooms[ri];
     if (!r || !lv.rooms[ri].boss) return;
@@ -975,7 +993,7 @@ const Sunken = (() => {
   }
 
   // 파티 손님에게: 조류 방향(방장 → 손님 snap)
-  const snap = () => { const lv = World.level, t = lv && tideOf(lv); return t ? Math.round(t.tideA * 100) / 100 : undefined; };
+  const snap = () => { const lv = World.level, t = lv && tideOf(lv); return t && !calm(t) ? Math.round(t.tideA * 100) / 100 : undefined; };
   const unsnap = a => { if (World.level) World.level.tideShow = a; };
 
   return { jailOf, mash, mashFrom, pillars, sweep, chargeBlocked, think, state, windupEnd, whirlTick, drawWhirl, cut, onHit, onKill, part, partDied, update, lightMul, light, drawMob, spriteOf, drawOver, ground, paintSea, drawSea, snap, unsnap };

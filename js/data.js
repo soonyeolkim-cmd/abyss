@@ -559,7 +559,7 @@ Object.assign(ENEMIES, {
     atk: { windup: 0.5, active: 0.1, recovery: 0.6, knock: 130, reach: [0, 22], arc: 60, lunge: 140 } },
   jelly: { name: '발광 해파리', sprite: 'jelly', pix: true, idle: false, speed: 30, range: 12, poise: 2, float: true, shockHit: true, deathZap: { r: 26, delay: 0.8 }, r: 6,
     atk: { windup: 0.75, active: 0.1, recovery: 0.9, knock: 60, radius: 18, reach: [0, 18], arc: 180, lunge: 0 } },
-  crab: { name: '소라 껍데기 게', sprite: 'crab', pix: true, idle: false, speed: 34, range: 18, poise: 99, shell: { cut: 0.1, t: 1.6 }, solo: 2, r: 8,
+  crab: { name: '소라 껍데기 게', sprite: 'crab', pix: true, idle: false, speed: 34, range: 18, poise: 99, shell: { cut: 0.1, t: 1.6, gap: 0.8 }, solo: 2, r: 8,  // gap = 껍데기에서 나와 집게 휘두르기 · 쉬기가 끝난 뒤에도 이만큼 더 안 숨음(그동안 제대로 맞음)
     atk: { windup: 0.45, active: 0.12, recovery: 1.0, knock: 160, reach: [0, 21], arc: 90, lunge: 90 } },
   angler: { name: '심해 아귀', sprite: 'angler', pix: true, idle: false, speed: 30, range: 20, poise: 9, rooted: true, lure: { r: 22, trig: 30, wind: 0.75, daze: 1.8, cd: 2.5 }, solo: 1, r: 8,
     atk: { windup: 0.75, active: 0.1, recovery: 0.6, knock: 180, reach: [0, 22], arc: 180, lunge: 0 } },
@@ -616,7 +616,8 @@ Object.assign(ENEMIES, {
     slam: { windup: 0.8, radius: 48 }, charge: { windup: 0.55, speed: 250, time: 0.6 }, fan: { windup: 0.65, count: 9, speed: 115, color: '#ffe066' }, summon: 'angler' },
   knight_mirror: { name: '물거울의 기사 에코', sprite: 'knight_mirror', pix: true, idle: false, boss: true, knight: 'mirror', scale: 1.25, speed: 40, range: 22, superArmor: true, launchMul: 0.15, r: 12,
     // 2026-11-01 사용자 '거울 기사는 잔상을 다 없애야 보스를 때릴 수 있게': 분신이 하나라도 있으면 진짜는 피해 0('잔상이 지킨다'), 진짜를 쳐도 분신이 안 터짐(예전엔 진짜를 치면 분신이 다 터짐)
-    mirror: { n: 3, cd: 11, splash: 30 }, guard: { cd: 9, t: 3, cone: 0.3, turn: 1.4, reflect: 0.6, back: 2.5, mul: 1.5 },
+    // mirror.reflect = 분신이 있을 때 진짜를 치면 친 사람이 받는 피해(기사 공격 ×, 0.4초에 한 번 — 2026-11-01 사용자)
+    mirror: { n: 3, cd: 11, splash: 30, reflect: 0.4 }, guard: { cd: 9, t: 3, cone: 0.3, turn: 1.4, reflect: 0.6, back: 2.5, mul: 1.5 },
     atk: { windup: 0.5, active: 0.12, recovery: 0.6, knock: 185, reach: [0, 28], arc: 90, lunge: 165 },
     slam: { windup: 0.75, radius: 50 }, charge: { windup: 0.5, speed: 260, time: 0.6 }, fan: { windup: 0.6, count: 11, speed: 125, color: '#bcd8ff' }, summon: 'tidecaller' },
   // 물거울 분신: 기사 그림 그대로(그림자 없음), 한 대에 터짐 — 경험치 · 전리품 없음(minion)
@@ -669,6 +670,8 @@ for (const k in ENEMY_ROLE) {
   const d = ENEMIES[k], r = ROLES[ENEMY_ROLE[k]];
   d.role = ENEMY_ROLE[k]; d.hp = r.hp; d.atk.dmg = r.dmg; d.exp = r.exp; d.gold = r.gold;
 }
+// 소라 껍데기 게: 껍데기(피해 ×0.1)가 이미 단단해서 체력은 졸개만큼(2026-11-01 사용자 '너무 단단해' — 단단한 역할 체력 70 + 껍데기면 병사의 4배쯤 걸림). 공격 · 보상은 단단한 그대로
+ENEMIES.crab.hp = ROLES.grunt.hp;
 // 보스도 같은 바탕 + 던전 레벨 곡선(예전엔 보스마다 체력 · 공격력이 따로였다)
 for (const k in ENEMIES) {
   const d = ENEMIES[k];
