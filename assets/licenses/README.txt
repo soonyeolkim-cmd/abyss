@@ -7,7 +7,7 @@ CC0 = 상업적 사용 · 고쳐 쓰기 · 다시 배포 모두 허락, 출처 �
 All third-party art, music and sound effects in this game are CC0 (public domain dedication).
 Credits (not required by CC0, given with thanks):
   Art:   16x16 DungeonTileset II by 0x72 (Robert)
-  Music: Juhani Junkala (SubspaceAudio)
+  Music: Juhani Junkala (SubspaceAudio), cynicmusic
   Sound effects: Kenney (kenney.nl), JaggedStone, Ogrebane
 
 
@@ -36,6 +36,11 @@ INFO.txt 에 작곡가가 직접: "These music tracks have been released under C
   crypt = Catacombs · ice = Tha'el Mines · fort = Military Base · hell = Apocalypse · plague = Sneaking Around · order = Army Approaching ·
   temple = Encounter With The Witches · abyss = Ancient Evil Awakens · boss = Preparing For Battle · lord = Epic Boss Battle ·
   ending = A Place I Call Home · trueEnding = Innocence
+
+2-2. 음악 — cynicmusic (2026-11-01 추가)
+| Aquaria | https://opengameart.org/content/aquaria | 페이지 License(s): CC0 (wav 하나라 글 파일 없음 — 페이지 사본 _downloads/sound/aquaria/pages/aquaria.html) |
+페이지 표기: "Copyright/Attribution Notice: http://cynicmusic.com http://pixelsphere.org" (CC0 라 의무는 아님, 감사 표기로 위 Credits 에 이름을 넣음)
+게임 안: assets/music/sunken.mp3 (TylerSong3_Normal.wav → 96kbps, 소리 크기 ×0.68) = 가라앉은 심연 1 · 2층
 
 
 3. 효과음

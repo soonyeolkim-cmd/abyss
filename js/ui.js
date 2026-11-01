@@ -1953,7 +1953,7 @@ const UI = (() => {
       ['chapel', '1. ' + dn('chapel'), 'Whispers From Beyond'], ['swamp', '2. ' + dn('swamp'), "Witch's Lair"], ['crypt', '3. ' + dn('crypt'), 'Catacombs'],
       ['ice', '4. ' + dn('ice') + ' · 끝없는 심연 2층', "Tha'el Mines"], ['fort', '5. ' + dn('fort'), 'Military Base'], ['hell', '6. ' + dn('hell') + ' · 끝없는 심연 1층', 'Apocalypse'],
       ['plague', '7. ' + dn('plague'), 'Sneaking Around'], ['order', '8. ' + dn('order') + ' · 끝없는 심연 3층', 'Army Approaching'], ['temple', '9. ' + dn('temple'), 'Encounter With The Witches'],
-      ['abyss', '10. ' + dn('abyss'), 'Ancient Evil Awakens'], ['boss', '보스와 싸우는 동안', 'Preparing For Battle'], ['lord', '심연의 군주 · 끝없는 심연 중간 보스', 'Epic Boss Battle'],
+      ['abyss', '10. ' + dn('abyss'), 'Ancient Evil Awakens'], ['sunken', '가라앉은 심연 1 · 2층', 'Aquaria (cynicmusic)'], ['boss', '보스와 싸우는 동안', 'Preparing For Battle'], ['lord', '심연의 군주 · 끝없는 심연 중간 보스', 'Epic Boss Battle'],
       ['ending', '엔딩', 'A Place I Call Home'], ['trueEnding', '진엔딩', 'Innocence']],
     sfx: [['때리기', () => Sfx.hit(false)], ['치명타', () => Sfx.hit(true)], ['휘두르기', () => Sfx.swing()], ['무거운 휘두르기', () => Sfx.heavySwing()], ['대시', () => Sfx.dash()],
       ['마력탄 (마법사)', () => Sfx.cast()], ['마법진 터짐 (마법사)', () => { Sfx.blast(); Sfx.spell(); }], ['처치', () => Sfx.kill()], ['정예 · 고유 몹 쓰러짐', () => { Sfx.kill(); Sfx.grunt(); }],
@@ -2006,7 +2006,7 @@ const UI = (() => {
       if (this.top + ROWS < list.length) T_(ctx, '▼', 480, y0 + ROWS * RH + 6, 12, '#9a8e96', 'center');
       const lv = this.tab === 'music' ? Input.settings.music ?? 6 : Input.settings.sfx ?? 8;
       if (!lv || Input.settings.sound === false) T_(ctx, (this.tab === 'music' ? '음악' : '효과음') + ' 크기가 0(끄기)이라 안 들려요 — 설정에서 올려 주세요', 480, 500, 13, '#ff8a6a', 'center');
-      else T_(ctx, (Input.touchMode() ? '' : '고르기 ↑↓ · 틀기 ' + L('ok') + ' · 음악/효과음 ←→ · 닫기 ' + L('back')) + (this.tab === 'music' ? '  (음악 출처: Juhani Junkala, CC0)' : '  (출처: Kenney 외, CC0)'), 480, 500, 13, '#8a7e88', 'center');
+      else T_(ctx, (Input.touchMode() ? '' : '고르기 ↑↓ · 틀기 ' + L('ok') + ' · 음악/효과음 ←→ · 닫기 ' + L('back')) + (this.tab === 'music' ? '  (음악 출처: Juhani Junkala · cynicmusic, CC0)' : '  (출처: Kenney 외, CC0)'), 480, 500, 13, '#8a7e88', 'center');
     },
   };
 

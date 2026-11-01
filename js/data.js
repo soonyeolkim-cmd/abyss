@@ -816,8 +816,8 @@ const SUNKEN = { stage: 2, max: 5, diff: 2, lv: 110, entry: 105, ilvl: [100, 104
   pillarStun: 3,  // 2026-11-01 사용자 '중간 보스 모두 돌진 벽꿍은 없애고 기둥에만 — 대신 기둥은 없어져야'(그 뒤 '1단계도 똑같이'): 끝없는 심연 중간 보스(1단계 · 2단계 기사) 돌진이 벽이면 그냥 멈춤, 기둥에 박으면 기둥이 무너지며 이만큼 기절(세렌은 후려치기). 중간 보스방 기둥 넷(가운데 둘레)  // 2026-11-01 사용자 '잔몹은 5층 기준으로 — 다음 층이 더 어려운 구조가 아니게': 잔몹 세기는 모든 층이 5층 값(기사만 층마다 ×hp · ×dmg)
   floors: [
     // 2026-11-01 사용자 '브란이 제일 어렵다 — 중간 보스 자리 바꾸자: 브란 5 · 조류 4 · 거울 3, 나머지 둘은 제안': 1층 거품(오필) · 2층 등불(루멘)
-    { pool: ['drowned'], boss: 'knight_lamp', music: 'temple' },  // 2026-11-01 사용자 '1층 빛 · 2층 방울로 바꾸자'
-    { pool: ['drowned', 'drowned', 'jelly'], boss: 'knight_bubble', music: 'temple' },
+    { pool: ['drowned'], boss: 'knight_lamp', music: 'sunken' },  // 곡 sunken = Aquaria(cynicmusic, CC0 — 2026-11-01 사용자: 예전 temple 곡은 다른 게임에서 들은 곡이라 분위기가 딴판)  // 2026-11-01 사용자 '1층 빛 · 2층 방울로 바꾸자'
+    { pool: ['drowned', 'drowned', 'jelly'], boss: 'knight_bubble', music: 'sunken' },
     { pool: ['drowned', 'jelly', 'crab'], boss: 'knight_mirror', music: 'ice' },
     { pool: ['drowned', 'jelly', 'crab', 'angler'], boss: 'knight_tide', music: 'ice' },
     { pool: ['drowned', 'jelly', 'crab', 'angler', 'tidecaller'], boss: 'knight_anchor', music: 'order' },
