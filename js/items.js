@@ -124,7 +124,8 @@ const Items = (() => {
   function playerStats(prof) {
     const C = clsOf(prof);
     // 캐릭터 기본 능력치도 레벨 곡선(공격력 4 · 체력 100 × POWER)
-    const s = { atk: Math.round(C.baseAtk * POWER(prof.lv)), def: 0, hp: Math.round(C.baseHp * POWER(prof.lv)),
+    const baseHp = Math.round(C.baseHp * POWER(prof.lv));
+    const s = { atk: Math.round(C.baseAtk * POWER(prof.lv)), def: 0, hp: baseHp,
       crit: 5, critDmg: 50, aspd: 0, move: 0, gold: 0, life: 0, stamina: 0, spRegen: 0, dmg: 0, dashCost: 0 };
     for (const slot of SLOTS) {
       const it = prof.equip[slot];
@@ -133,9 +134,8 @@ const Items = (() => {
       for (const k in t) s[k] = (s[k] || 0) + t[k];
     }
     const cb = collectSteps(prof);  // 도감 보상: 창고 컬렉션 착용 레벨 단계 하나를 다 채울 때마다 체력 · 공격력 +1%
-    if (cb) { s.atk = Math.round(s.atk * (1 + cb * COLLECT.atk / 100)); s.hp = Math.round(s.hp * (1 + cb * COLLECT.hp / 100)); }
-    s.petHp = s.hp;  // 소환수 체력 기준(직업 배율 전)
-    s.hp = Math.round(s.hp * (C.hpMul || 1));  // 직업 체력 배율(data.js CLASSES hpMul) — 장비를 좋게 껴도 직업 차이가 같은 비율로 남게
+    s.petHp = s.hp - baseHp + Math.round(100 * POWER(prof.lv));  // 소환수 체력 기준: 기본 체력 100 으로 친 최대 체력(소환사 기본 체력이 낮아도 소환수는 그대로)
+    if (cb) { s.atk = Math.round(s.atk * (1 + cb * COLLECT.atk / 100)); s.hp = Math.round(s.hp * (1 + cb * COLLECT.hp / 100)); s.petHp = Math.round(s.petHp * (1 + cb * COLLECT.hp / 100)); }
     s.aspd = Math.min(STATS.aspd.cap, s.aspd);
     s.move = Math.min(STATS.move.cap, s.move);
     s.sp = C.stamina.base + s.stamina;  // 최대 기력
