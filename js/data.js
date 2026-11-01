@@ -25,7 +25,7 @@ const CLASSES = {
     icons: { basic: 'slash', charge: 'spin', wave: 'wave', dash: 'dash' },
     baseHp: 100, baseAtk: 4,  // × POWER(레벨) — 레벨 곡선
     // 직업 체력 순위(2026-11-02 사용자 '마법사 < 암살자 < 검사 < 성기사, 소환사는 마법사와 같게 · 차등 폭을 크게'): 기본 체력(레벨이 오를 때 붙는 몫)만 다르게 —
-    //   마법사 · 소환사 80 · 암살자 90 · 검사 100 · 성기사 120. 장비 · 보석 · 강화 몫은 어느 직업이나 같다(사용자 '최대 체력에 배율을 곱하면 장비 효과가 왜곡')
+    //   마법사 · 소환사 75 · 암살자 85 · 검사 100 · 성기사 120(80 · 90 에서 폭을 벌림). 장비 · 보석 · 강화 몫은 어느 직업이나 같다(사용자 '최대 체력에 배율을 곱하면 장비 효과가 왜곡')
     speed: 82,
     // 기력(파란 구슬): 대시 · 특수기 · 차지 회전베기에 쓴다. 시간이 지나면 차오르고(쓴 직후 delay 초는 멈춤), 기본 공격을 맞히면 몹마다 onHit 만큼 찬다
     stamina: { base: 100, regen: 9, delay: 0.6, onHit: 4 },
@@ -77,7 +77,7 @@ const CLASSES = {
     slotNames: { basic: '기본 공격', charge: '그림자 숨기', wave: '돌진 베기', dash: '대시' },
     slotShort: { basic: '기본', charge: '그림자', wave: '돌진', dash: '대시' },
     icons: { basic: 'katar', charge: 'shadow', wave: 'rush', dash: 'dash' },
-    baseHp: 90, baseAtk: 4, speed: 82,
+    baseHp: 85, baseAtk: 4, speed: 82,
     stamina: { base: 100, regen: 9, delay: 0.6, onHit: 4 },
     dodge: { time: 0.28, speed: 230, iframes: 0.24, cd: 0, attackWindow: 0.18, cost: 8 },
     potion: { heal: 0.4, cd: 1.0, max: 5 },
@@ -131,7 +131,7 @@ const CLASSES = {
     slotNames: { basic: '기본 공격', charge: '마법진', wave: '마력탄', dash: '대시' },
     slotShort: { basic: '기본', charge: '마법진', wave: '마력탄', dash: '대시' },
     icons: { basic: 'spark', charge: 'circle', wave: 'orb', dash: 'dash' },
-    baseHp: 80, baseAtk: 4, speed: 82,
+    baseHp: 75, baseAtk: 4, speed: 82,
     // 기술로 싸우는 직업이라 기력이 넉넉하다(2026-10-24 사용자: 기력이 모자라다) — 최대 100 → 140, 회복 9 → 12
     stamina: { base: 140, regen: 12, delay: 0.6, onHit: 4 },
     dodge: { time: 0.28, speed: 230, iframes: 0.24, cd: 0, attackWindow: 0.18, cost: 8 },  // 대시 기력 15 → 10 → 8(2026-10-25 사용자)
@@ -168,7 +168,7 @@ const CLASSES = {
     slotNames: { basic: '기본 공격', charge: '소환', wave: '합체 · 사슬', dash: '대시' },  // 특수 칸: 방울 = 솜뿔이 합체 · 계약서 = 사슬 계약
     slotShort: { basic: '기본', charge: '소환', wave: '사슬', dash: '대시' },
     icons: { basic: 'bell', charge: 'summon', wave: 'chain', dash: 'dash' },
-    baseHp: 80, baseAtk: 4, speed: 82,  // 소환수 체력은 기본 체력 100 으로 셈(items.js petHp — 약해지지 않게)
+    baseHp: 75, baseAtk: 4, speed: 82,  // 소환수 체력은 기본 체력 100 으로 셈(items.js petHp — 약해지지 않게)
     stamina: { base: 140, regen: 12, delay: 0.6, onHit: 1 },  // 마법사처럼 기술로 싸워서 넉넉하게 · onHit 4 → 1(멀리서 쉽게 맞히는 영혼탄이 광폭화 기력을 다 채워 버려서, 2026-10-31)
     dodge: { time: 0.28, speed: 230, iframes: 0.24, cd: 0, attackWindow: 0.18, cost: 8 },
     potion: { heal: 0.4, cd: 1.0, max: 5 },
