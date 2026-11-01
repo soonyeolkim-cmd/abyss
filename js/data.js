@@ -9,6 +9,7 @@ const WAKE_R = 130;                            // 몹이 깨어나는 거리(시
 const GRAVITY = 900;
 const MAX_ATTACKERS = 3;  // 한꺼번에 덤비는 몹 수(2026-10-24 사용자 '너무 쉽다' → 2에서 3)
 const BODY_R = 5;
+const STILL_REGEN = 2;  // 가만히 서 있을 때(걷기 · 공격 · 대시 · 모으기 없음) 기력 회복 배율(2026-11-01 사용자, player.js)
 const BAG_SIZE = 48;  // 2026-10-24 사용자: 32 → 48칸 (가로 12 × 세로 4)
 const BAG_COLS = 12;
 

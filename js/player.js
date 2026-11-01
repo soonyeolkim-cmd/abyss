@@ -188,7 +188,8 @@ function updatePlayer(p, dt, room, gates) {
   p.wardT = Math.max(0, (p.wardT || 0) - dt);  // 스태프 수호 파동 보호막
   p.spWarnT -= dt;
   p.spDelay -= dt;
-  if (p.spDelay <= 0 && !p.dead && !p.hidden) p.sp = Math.min(p.maxSp, p.sp + C.stamina.regen * (1 + p.stats.spRegen / 100) * dt);  // 기력 회복(갑옷 '기력 회복 속도'만큼 빠르게) · 그림자 숨기 동안은 안 참(2026-10-31 사용자)
+  const still = p.state === 'idle' && !(p.charge > 0) ? STILL_REGEN : 1;  // 2026-11-01 사용자 '기력이 차는 조건에서 가만히 있을 때는 회복 2배'(걷지도 공격하지도 않을 때)
+  if (p.spDelay <= 0 && !p.dead && !p.hidden) p.sp = Math.min(p.maxSp, p.sp + C.stamina.regen * (1 + p.stats.spRegen / 100) * still * dt);  // 기력 회복(갑옷 '기력 회복 속도'만큼 빠르게) · 그림자 숨기 동안은 안 참(2026-10-31 사용자)
   p.dodgeCd = Math.max(0, p.dodgeCd - dt);
   p.dashAtkT = Math.max(0, p.dashAtkT - dt);
   p.potionCd = Math.max(0, p.potionCd - dt);
