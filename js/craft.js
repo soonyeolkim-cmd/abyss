@@ -3,12 +3,13 @@
 // 왼쪽 = 만들 유니크 줄(내 직업 무기 두 종류 + 투구 · 갑옷 · 장갑 · 신발 · 목걸이 · 반지), 오른쪽 = 고른 유니크(그림 · 이름 · 효과 · 기본 능력치)
 // · 재료(가진 수 / 필요 수 — 모자라면 붉게) · 제작 버튼. 만들기 전에 예 / 아니요를 묻고, 만든 장비는 가방으로(가득 차면 못 만듦).
 // 장비 기본 능력치는 늘 같다(절대 규칙) — 같은 부위 Lv.100 유니크는 누가 만들어도 같은 수치.
-// Lv.110 업그레이드 탭(2026-11-01 사용자, 2단계 '가라앉은 심연'이 열리면 보임): 내가 가진 Lv.100 제작 유니크(가방 · 낀 것)를 골라
-// 그 장비를 그대로 Lv.110 으로(Items.upgrade — 강화 +N · 보석 이어짐). 재료 = data.js CRAFT2(심해 진주 · 정수 · 축복 주문서 · 전설 보석 · 골드), 착용 Lv.110 부터.
+// 유니크 업그레이드 = 따로 메뉴(2026-11-01 사용자 '레벨 제한은 계속 넓혀 갈 거라 한 칸에서는 못 함' — 고른 '유니크 업그레이드', overlay { type: 'craft', mode: 'up' }).
+// 위 탭 = 업그레이드 사다리 한 칸씩(data.js CRAFT_UPS — 지금 Lv.100 → 110, 열린 칸만). 내가 가진 그 칸 from 레벨 제작 유니크(가방 · 낀 것)를 골라
+// 그 장비를 그대로 lv 로(Items.upgrade — 강화 +N · 보석 이어짐). 재료 = 그 칸 값(심해 진주 · 정수 · 축복 주문서 · 전설 보석 · 골드), 착용 lv 부터.
 const Craft = (() => {
   const T_ = Gfx.text;
   const L = a => Input.label(a);
-  let sel = 0, glowT = 0, made = null, last = performance.now(), tab = 0, usel = 0;
+  let sel = 0, glowT = 0, made = null, last = performance.now(), mode = 'make', ti = 0, usel = 0;
   const cache = {};  // 미리 보기 장비(줄마다 한 번만 만들어 둠)
 
   const uniqOf = slot => Object.keys(UNIQUES).find(u => UNIQUES[u].slot === slot);
@@ -33,29 +34,32 @@ const Craft = (() => {
       { name: '골드', icon: 'gold', have: prof.gold, need: CRAFT.gold },
     ];
   }
-  function needs2(prof, slot) {
+  // 업그레이드 칸 U(data.js CRAFT_UPS 한 칸)의 재료 — 그 칸에 있는 재료만
+  function upNeeds(prof, slot, U) {
     const el = gemEl(slot);
     return [
-      { name: '심해 진주', icon: 'pearl', have: prof.pearls || 0, need: CRAFT2.pearls },
-      { name: '심연 정수', icon: 'essence', have: prof.essence || 0, need: CRAFT2.essence },
-      { name: SCROLL_NAMES[BLESSED.r], icon: 'scroll', have: scrollHave(prof), need: CRAFT2.scrolls },
-      { name: STONE_SIZES[CRAFT2.gemSize].name + ' ' + GEMS[el].stone, icon: 'gem', el, size: CRAFT2.gemSize, have: gemHave(prof, el, CRAFT2.gemSize), need: CRAFT2.gems },
-      { name: '골드', icon: 'gold', have: prof.gold, need: CRAFT2.gold },
-    ];
+      U.pearls && { name: '심해 진주', icon: 'pearl', have: prof.pearls || 0, need: U.pearls },
+      U.essence && { name: '심연 정수', icon: 'essence', have: prof.essence || 0, need: U.essence },
+      U.scrolls && { name: SCROLL_NAMES[BLESSED.r], icon: 'scroll', have: scrollHave(prof), need: U.scrolls },
+      U.gems && { name: STONE_SIZES[U.gemSize].name + ' ' + GEMS[el].stone, icon: 'gem', el, size: U.gemSize, have: gemHave(prof, el, U.gemSize), need: U.gems },
+      U.gold && { name: '골드', icon: 'gold', have: prof.gold, need: U.gold },
+    ].filter(Boolean);
   }
   // 이미 가진 Lv.100 같은 유니크(무기는 같은 종류) — 가방 · 낀 것
   function owned(prof, r) {
     const u = uniqOf(r.slot), same = it => it && it.uniq === u && it.ilvl >= CRAFT.lv && (r.slot !== 'weapon' || Items.base(it).kind === r.kind);
     return prof.bag.some(same) || same(prof.equip[r.slot]);
   }
-  // 업그레이드할 수 있는 장비: 착용 Lv.100 제작 유니크(낀 것 먼저, 그다음 가방) — { it, where }
-  function ups(prof) {
-    const ok = it => it && it.uniq && Items.req(it) === CRAFT2.from;
+  // 업그레이드할 수 있는 장비: 착용 U.from 제작 유니크(낀 것 먼저, 그다음 가방) — { it, where }
+  function ups(prof, U) {
+    const ok = it => it && it.uniq && Items.req(it) === U.from;
     return [...SLOTS.filter(s => ok(prof.equip[s])).map(s => ({ it: prof.equip[s], where: '착용 중' })), ...prof.bag.filter(ok).map(it => ({ it, where: '가방' }))];
   }
-  const upOpen = prof => sunkenOpen(prof);  // 2단계가 열리면 탭이 보임(재료 · 착용 레벨은 따로 검사)
+  const tiers = prof => CRAFT_UPS.filter(U => U.isOpen(prof));  // 열린 업그레이드 칸(재료 · 착용 레벨은 따로 검사)
+  const tierOfUp = prof => { const ts = tiers(prof); ti = Math.min(ti, Math.max(0, ts.length - 1)); return ts[ti]; };
 
-  function open(prof) { sel = 0; usel = 0; tab = 0; glowT = 0; made = null; last = performance.now(); }
+  // o.mode: 'make' = 유니크 제작, 'up' = 유니크 업그레이드(고른 메뉴가 따로). 업그레이드는 가장 높은 열린 칸부터
+  function open(prof, o) { mode = (o && o.mode) || 'make'; sel = 0; usel = 0; ti = Math.max(0, tiers(prof).length - 1); glowT = 0; made = null; last = performance.now(); }
 
   // 만들기: 재료 · 가방 확인 → 예 / 아니요 → 재료를 쓰고 가방에
   function tryCraft(prof) {
@@ -83,25 +87,26 @@ const Craft = (() => {
     Sfx.forgeStart(); Sfx.unique();
     Coop.brag({ kind: 'craft', item: made });  // 파티면 머리 위 말풍선 '유니크 제작!' · 친구 화면 알림
   }
-  // 업그레이드: 착용 레벨 · 재료 확인 → 예 / 아니요 → 재료를 쓰고 그 장비를 그대로 Lv.110 으로
+  // 업그레이드: 착용 레벨 · 재료 확인 → 예 / 아니요 → 재료를 쓰고 그 장비를 그대로 U.lv 로
   function tryUp(prof) {
-    const u = ups(prof)[usel];
-    if (!u) { Sfx.deny(); Game.toast('Lv.' + CRAFT2.from + ' 제작 유니크가 없어요 — 먼저 Lv.' + CRAFT2.from + ' 유니크를 만들어 주세요'); return; }
-    if (prof.lv < CRAFT2.lv) { Sfx.deny(); Game.toast('Lv.' + CRAFT2.lv + '부터 업그레이드할 수 있어요 (지금 Lv.' + prof.lv + ')'); return; }
-    const need = needs2(prof, u.it.slot), short = need.filter(n => n.have < n.need);
+    const U = tierOfUp(prof), u = U && ups(prof, U)[usel];
+    if (!U) return;
+    if (!u) { Sfx.deny(); Game.toast('Lv.' + U.from + ' 제작 유니크가 없어요 — 먼저 Lv.' + U.from + ' 유니크를 ' + (U.from === CRAFT.lv ? '만들어' : '업그레이드해') + ' 주세요'); return; }
+    if (prof.lv < U.lv) { Sfx.deny(); Game.toast('Lv.' + U.lv + '부터 업그레이드할 수 있어요 (지금 Lv.' + prof.lv + ')'); return; }
+    const need = upNeeds(prof, u.it.slot, U), short = need.filter(n => n.have < n.need);
     if (short.length) { Sfx.deny(); Game.toast('재료가 모자라요: ' + short.map(n => n.name).join(' · ')); return; }
-    Game.overlay({ type: 'confirm', text: Items.nameOf(u.it) + '을(를) Lv.' + CRAFT2.lv + '로 업그레이드할까요?',
-      sub: '진주 ' + CRAFT2.pearls + ' · 정수 ' + CRAFT2.essence + ' · 축복 주문서 ' + CRAFT2.scrolls + ' · ' + STONE_SIZES[CRAFT2.gemSize].name + ' 보석 ' + CRAFT2.gems + ' · ' + CRAFT2.gold + 'G 를 써요 — 강화 · 보석은 그대로',
-      defaultYes: true, yes: () => upgrade(prof, u.it) });
+    Game.overlay({ type: 'confirm', text: Items.nameOf(u.it) + '을(를) Lv.' + U.lv + '로 업그레이드할까요?',
+      sub: '오른쪽 재료를 모두 써요 — 강화 · 보석 · 유니크 효과는 그대로',  // 재료 줄은 창 오른쪽에(칸마다 재료가 달라질 수 있어 글로 늘어놓지 않음 — 예전엔 확인 창 밖으로 삐져나옴)
+      defaultYes: true, yes: () => upgrade(prof, u.it, U) });
   }
-  function upgrade(prof, it) {
+  function upgrade(prof, it, U) {
     const el = gemEl(it.slot);
-    prof.pearls -= CRAFT2.pearls;
-    prof.essence -= CRAFT2.essence;
-    for (let n = 0; n < CRAFT2.scrolls; n++) Items.takeScroll(prof, BLESSED);
-    for (let n = 0; n < CRAFT2.gems; n++) Elements.take(prof, { el, size: CRAFT2.gemSize });
-    prof.gold -= CRAFT2.gold;
-    Items.upgrade(it, CRAFT2.lv);
+    prof.pearls -= U.pearls || 0;
+    prof.essence -= U.essence || 0;
+    for (let n = 0; n < (U.scrolls || 0); n++) Items.takeScroll(prof, BLESSED);
+    for (let n = 0; n < (U.gems || 0); n++) Elements.take(prof, { el, size: U.gemSize });
+    prof.gold -= U.gold || 0;
+    Items.upgrade(it, U.lv);
     made = it; glowT = 2.2;
     Game.changed();
     Sfx.forgeStart(); Sfx.unique();
@@ -112,9 +117,11 @@ const Craft = (() => {
     const now = performance.now(), dt = Math.min(0.1, (now - last) / 1000);
     last = now; glowT = Math.max(0, glowT - dt);
     if (Input.wasPressed('back') || Input.wasPressed('pause')) { Game.closeOverlay(); return; }
-    if (upOpen(prof) && (Input.nav('left') || Input.nav('right'))) { tab = 1 - tab; made = null; }
-    if (tab === 1) {
-      const n = Math.max(1, ups(prof).length);
+    if (mode === 'up') {
+      const ts = tiers(prof), U = tierOfUp(prof);
+      if (!U) { Game.closeOverlay(); return; }
+      if (ts.length > 1 && (Input.nav('left') || Input.nav('right'))) { ti = (ti + (Input.nav('left') ? ts.length - 1 : 1)) % ts.length; usel = 0; made = null; }
+      const n = Math.max(1, ups(prof, U).length);
       if (Input.nav('up')) { usel = (usel + n - 1) % n; made = null; }
       if (Input.nav('down')) { usel = (usel + 1) % n; made = null; }
       if (Input.wasPressed('ok')) tryUp(prof);
@@ -154,14 +161,14 @@ const Craft = (() => {
     });
     return need.every(m => m.have >= m.need);
   }
-  // 위 탭: Lv.100 제작 / Lv.110 업그레이드(2단계가 열리면)
+  // 업그레이드 창 위 탭: 사다리 칸마다(Lv.100 → 110, 다음 Lv.110 → 120 …) — 열린 칸만, 많아지면 칸 폭을 줄임
   function tabs(ctx, prof) {
-    if (!upOpen(prof)) return;
-    [['Lv.' + CRAFT.lv + ' 제작', 0], ['Lv.' + CRAFT2.lv + ' 업그레이드', 1]].forEach(([s, k]) => {
-      const x = 196 + k * 124, on = tab === k;
-      UI.zone(x, 40, 114, 28, { on: () => tab === k, pick: () => { if (tab !== k) made = null; tab = k; }, now: true });
-      Gfx.panel(ctx, x, 40, 114, 28, { border: on ? '#ffd36a' : '#3a2e36', bg: on ? '#2a1a28' : '#1d151b' });
-      T_(ctx, s, x + 57, 59, 12, on ? '#ffd36a' : '#9a8e96', 'center');
+    const ts = tiers(prof), w = Math.min(130, Math.floor(404 / Math.max(1, ts.length)) - 6);
+    ts.forEach((U, k) => {
+      const x = 44 + k * (w + 6), on = ti === k;
+      UI.zone(x, 72, w, 28, { on: () => ti === k, pick: () => { if (ti !== k) { made = null; usel = 0; } ti = k; }, now: true });
+      Gfx.panel(ctx, x, 72, w, 28, { border: on ? '#ffd36a' : '#2a3040', bg: on ? '#1a2234' : '#151a24' });
+      T_(ctx, 'Lv.' + U.from + ' → ' + U.lv, x + w / 2, 91, 12, on ? '#ffd36a' : '#9aa4b8', 'center');
     });
   }
 
@@ -171,13 +178,12 @@ const Craft = (() => {
     ctx.fillStyle = 'rgba(0,0,0,0.96)'; ctx.fillRect(0, 0, 960, 540);
     UI.zone(0, 0, 960, 540, { key: null });
     ctx.imageSmoothingEnabled = false;
-    if (tab === 1 && upOpen(prof)) { drawUp(ctx, prof); return; }
+    if (mode === 'up') { drawUp(ctx, prof); return; }
     const rs = rows(prof), r = rs[sel], it = preview(r);
     // ── 왼쪽: 만들 유니크 고르기 ──
     Gfx.panel(ctx, 24, 24, 440, 470, { border: '#c06aff' });
     T_(ctx, '유니크 제작', 44, 62, 22, '#e8c8ff');
-    tabs(ctx, prof);
-    if (!upOpen(prof)) T_(ctx, '착용 Lv.' + CRAFT.lv + ' · 혈석', 444, 62, 14, GEAR_TIERS[tierOf(CRAFT.lv)].tint, 'right');
+    T_(ctx, '착용 Lv.' + CRAFT.lv + ' · 혈석', 444, 62, 14, GEAR_TIERS[tierOf(CRAFT.lv)].tint, 'right');
     rs.forEach((row, i) => {
       const y = 78 + i * 44, on = sel === i, pv = preview(row);
       UI.zone(40, y, 408, 40, { on: () => sel === i, pick: () => { if (sel !== i) made = null; sel = i; } });
@@ -221,45 +227,48 @@ const Craft = (() => {
   function hint(ctx, prof, s) {
     if (Input.touchMode()) return;
     ctx.fillStyle = '#000'; ctx.fillRect(0, 496, 960, 44);
-    T_(ctx, s + L('ok') + (upOpen(prof) ? ' · 탭 ←→' : '') + ' · 닫기 ' + L('back'), 480, 522, 13, '#8a7e88', 'center');
+    T_(ctx, s + L('ok') + (mode === 'up' && tiers(prof).length > 1 ? ' · 탭 ←→' : '') + ' · 닫기 ' + L('back'), 480, 522, 13, '#8a7e88', 'center');
   }
-  // ── 업그레이드 탭 ──
+  // ── 유니크 업그레이드 창 ──
   function drawUp(ctx, prof) {
-    const list = ups(prof);
+    const U = tierOfUp(prof);
+    if (!U) return;
+    const list = ups(prof, U);
     usel = Math.min(usel, Math.max(0, list.length - 1));
     Gfx.panel(ctx, 24, 24, 440, 470, { border: '#3e7ad8' });
-    T_(ctx, '유니크 제작', 44, 62, 22, '#c8dcff');
+    T_(ctx, '유니크 업그레이드', 44, 62, 22, '#c8dcff');
+    T_(ctx, '착용 Lv.' + U.lv + ' · ' + GEAR_TIERS[tierOf(U.lv)].mat, 444, 62, 14, GEAR_TIERS[tierOf(U.lv)].tint, 'right');
     tabs(ctx, prof);
     if (!list.length) {
-      T_(ctx, 'Lv.' + CRAFT2.from + ' 제작 유니크가 없어요', 244, 200, 15, '#9a8e96', 'center');
-      T_(ctx, '먼저 Lv.' + CRAFT2.from + ' 제작 탭에서 만들어 주세요', 244, 224, 12, '#6a6068', 'center');
+      T_(ctx, 'Lv.' + U.from + ' 제작 유니크가 없어요', 244, 220, 15, '#9a8e96', 'center');
+      T_(ctx, U.from === CRAFT.lv ? "먼저 '유니크 제작'에서 만들어 주세요" : '먼저 Lv.' + U.from + '로 업그레이드해 주세요', 244, 244, 12, '#6a6068', 'center');
     }
-    list.slice(0, 8).forEach((u, i) => {
-      const y = 78 + i * 44, on = usel === i;
+    list.slice(0, 7).forEach((u, i) => {
+      const y = 110 + i * 44, on = usel === i;
       UI.zone(40, y, 408, 40, { on: () => usel === i, pick: () => { if (usel !== i) made = null; usel = i; } });
       Gfx.panel(ctx, 40, y, 408, 40, { border: on ? '#3e7ad8' : '#2a3040', bg: '#151a24' });
       Gfx.icon(ctx, u.it, 64, y + 20, 26);
       T_(ctx, Items.nameOf(u.it), 88, y + 18, 14, on ? '#ffd36a' : RARITY[3].color);
       T_(ctx, SLOT_NAMES[u.it.slot] + ' · ' + u.where + ' · 착용 Lv.' + Items.req(u.it), 88, y + 33, 11, '#9aa4b8');
     });
-    T_(ctx, '고른 장비가 그대로 Lv.' + CRAFT2.lv + '(' + GEAR_TIERS[tierOf(CRAFT2.lv)].mat + ')이 돼요', 44, 452, 12, '#9aa4b8');
+    T_(ctx, '고른 장비가 그대로 Lv.' + U.lv + '(' + GEAR_TIERS[tierOf(U.lv)].mat + ')이 돼요', 44, 452, 12, '#9aa4b8');
     T_(ctx, '강화(+N) · 낀 보석 · 유니크 효과는 그대로 · 판매 · 분해는 안 돼요', 44, 474, 12, '#9aa4b8');
 
     Gfx.panel(ctx, 488, 24, 448, 470, { border: '#3e7ad8', bg: '#0e1420' });
     glow(ctx);
     const u = made ? { it: made } : list[usel];  // 방금 업그레이드한 장비는 목록에서 빠져도 그대로 보여 줌
     if (!u) { hint(ctx, prof, '업그레이드 '); return; }
-    const after = made === u.it ? u.it : Items.upgrade(JSON.parse(JSON.stringify(u.it)), CRAFT2.lv);  // 미리 보기(복사본)
+    const after = made === u.it ? u.it : Items.upgrade(JSON.parse(JSON.stringify(u.it)), U.lv);  // 미리 보기(복사본)
     const time = performance.now() / 1000;
     Gfx.icon(ctx, after, CX, 104 + Math.sin(time * 2.5) * 3, 72);
-    T_(ctx, made === u.it ? '업그레이드했다! — Lv.' + CRAFT2.lv : Items.nameOf(after), CX, 172, made === u.it ? 16 : 20, made === u.it ? '#7dff8a' : RARITY[3].color, 'center');
+    T_(ctx, made === u.it ? '업그레이드했다! — Lv.' + Items.req(u.it) : Items.nameOf(after), CX, 172, made === u.it ? 16 : 20, made === u.it ? '#7dff8a' : RARITY[3].color, 'center');
     T_(ctx, (made === u.it ? '착용 Lv.' + Items.req(after) : '착용 Lv.' + Items.req(u.it) + ' → Lv.' + Items.req(after)) + (u.it.ups ? ' · 강화 +' + u.it.ups + ' 그대로' : ''), CX, 194, 12, '#c8dcff', 'center');
     if (made !== u.it) {  // 기본 능력치 바뀜(지금 → 업그레이드 뒤)
       const st = Object.keys(after.stats).filter(k => !(RARITY_FIXED[after.slot] || {})[k]).slice(0, 2);
       st.forEach((k, i) => T_(ctx, STATS[k].name + ' ' + u.it.stats[k] + ' → ' + after.stats[k], CX, 216 + i * 18, 13, '#7dff8a', 'center'));
-      if (prof.lv < CRAFT2.lv) T_(ctx, 'Lv.' + CRAFT2.lv + '부터 업그레이드할 수 있어요 (지금 Lv.' + prof.lv + ')', CX, 260, 12, '#ff9a8a', 'center');
+      if (prof.lv < U.lv) T_(ctx, 'Lv.' + U.lv + '부터 업그레이드할 수 있어요 (지금 Lv.' + prof.lv + ')', CX, 260, 12, '#ff9a8a', 'center');
     }
-    button(ctx, matRows(ctx, needs2(prof, u.it.slot)) && prof.lv >= CRAFT2.lv, '업그레이드 ');
+    button(ctx, matRows(ctx, upNeeds(prof, u.it.slot, U)) && prof.lv >= U.lv, '업그레이드 ');
     hint(ctx, prof, '고르기 ↑↓ · 업그레이드 ');
   }
 

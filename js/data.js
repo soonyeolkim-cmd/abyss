@@ -1326,7 +1326,10 @@ const CRAFT = { lv: UNIQUE_CRAFT_LV, cores: 1, essence: 60, scrolls: 20, gems: 1
 // Lv.110 업그레이드(2026-11-01 사용자 '조금 무겁게'): 같은 부위 Lv.100 제작 유니크(무기는 같은 종류, 낀 것도 됨)가 그대로 Lv.110 이 된다 —
 // 기본 능력치는 Lv.110 수치로, 강화(+N)는 그대로(오른 양은 레벨 곡선으로 늘림 — 계승 주문서와 같은 식), 낀 보석도 그대로. 판매 · 분해 안 됨(규칙).
 // 재료(한 가지씩, 규칙) = 심해 진주 pearls(2단계 레이드에서만) · 심연 정수 · 축복받은 강화 주문서 · 전설 보석 · 골드
-const CRAFT2 = { from: UNIQUE_CRAFT_LV, lv: 110, pearls: 1, essence: 80, scrolls: 25, gems: 2, gemSize: 5, gold: 300000 };
+const CRAFT2 = { from: UNIQUE_CRAFT_LV, lv: 110, pearls: 1, essence: 80, scrolls: 25, gems: 2, gemSize: 5, gold: 300000, isOpen: prof => sunkenOpen(prof) };
+// 유니크 업그레이드 사다리(2026-11-01 사용자 '레벨 제한은 계속 넓혀 갈 거라 제작과 메뉴를 나눔'): 한 칸 = from → lv, isOpen 이면 업그레이드 창에 그 칸 탭이 보임.
+// 다음 단계(Lv.110 → 120 …)는 여기에 한 칸 더(재료 칸 이름은 CRAFT2 와 같게 — craft.js upNeeds)
+const CRAFT_UPS = [CRAFT2];
 // 원소 각인(2026-10-26 사용자: 속성석 소진처 — 네 속성을 다 받으니 어떤 속성을 끼든 같이 세지는 공통 효과로): 끝없는 심연이 열리면 세공사 미라 '원소 각인'.
 // 전설(size) 화염석 · 빙결석 · 뇌전석 · 맹독석 하나씩 + 골드 gold(다음 ★) → ★ +1(캐릭터마다, 최대 max). ★마다 낀 속성석 세기(power) +step —
 // 칸 능력 · 폭발 · 상태이상 · 패시브 피해가 모두 커지고, 범위는 돌 크기로 따로 정해져서 그대로(이펙트 범위 = 판정 범위). 보석은 안 받음.

@@ -39,6 +39,8 @@ const Town = (() => {
     { id: 'artisan', only: 'silvane', name: '심연 장인 고른', role: 'Lv.100 유니크 제작 · 장비 분해', sprite: 'dwarf_m', ...px(1, 1),
       go: () => Game.overlay({ type: 'choice', title: '심연 장인 고른', items: [
         { label: '유니크 제작 (Lv.100)', go: () => prof.lv >= 100 ? Game.overlay({ type: 'craft' }) : Game.toast('Lv.100부터 만들 수 있어요') },  // 콘텐츠 해금(2026-10-29): Lv.100 부터
+        // 유니크 업그레이드(2026-11-01 사용자: 제작과 메뉴를 나눔 — 사다리가 길어질 것): 업그레이드 칸이 하나라도 열리면 보임
+        ...(CRAFT_UPS.some(U => U.isOpen(prof)) ? [{ label: '유니크 업그레이드 (Lv.' + CRAFT_UPS.filter(U => U.isOpen(prof)).pop().lv + ')', go: () => Game.overlay({ type: 'craft', mode: 'up' }) }] : []),
         { label: '장비 분해 (심연 정수)', go: () => Game.overlay({ type: 'inv', mode: 'scrap' }) },  // 2026-10-25 사용자: 태초 장비 → 정수 가루
         EQUIP_ITEM,
         { label: '제작 이야기 듣기', go: () => Story.talkNpc('artisan') },

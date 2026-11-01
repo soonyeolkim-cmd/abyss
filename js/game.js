@@ -43,7 +43,7 @@ const Game = (() => {
     if (o.type === 'newchar') UI.newchar.open();
     if (o.type === 'coop') Coop.open();
     if (o.type === 'jar') Jar.open(prof);
-    if (o.type === 'craft') Craft.open(prof);
+    if (o.type === 'craft') Craft.open(prof, o);
     if (o.type === 'quests') Quests.open(prof);
     if (o.type === 'records') Records.open(prof);
     if (o.type === 'imprint') Imprint.open(prof);
