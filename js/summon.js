@@ -45,7 +45,7 @@ const Summon = (() => {
       const ang = Math.atan2(p.fv.y, p.fv.x) + a, tx = x0 + Math.cos(ang) * d, ty = y0 + Math.sin(ang) * d * 0.8;
       if (Dungeon.walkable(lv, tx, ty, C.r)) { x = tx; y = ty; break; }
     }
-    const hp = Math.round(p.maxHp * C.hp);
+    const hp = Math.round((p.stats.petHp || p.maxHp) * C.hp);
     const q = { pet: true, id: ++uid, kind, x, y, z: 0, fv: { x: p.fv.x, y: p.fv.y }, r: C.r, h: C.h, hp, maxHp: hp, state: 'idle', t: 0,
       atkCd: 0.35, tgt: null, thinkT: 0, kx: 0, ky: 0, flash: 0, dead: false, walkT: Math.random() * 3, appear: 0.35, slot: pets.length };
     pets.push(q);
@@ -218,7 +218,7 @@ const Summon = (() => {
       vanish(q);
     }
     pets = pets.filter(q => !q.gone);
-    const hp = Math.round(p.maxHp * C.hp) * n;
+    const hp = Math.round((p.stats.petHp || p.maxHp) * C.hp) * n;
     pets.push({ pet: true, id: ++uid, kind: 'puff', giant: n, scale, M, mergeT: M.t, hopT: 0.25, air: 0, z: 0, vx: 0, vy: 0, x, y, fv: { x: p.fv.x, y: p.fv.y },
       r, h: Math.round(C.h * scale), hp, maxHp: hp, state: 'idle', t: 0, atkCd: 0, tgt: null, thinkT: 0, kx: 0, ky: 0, flash: 0, dead: false, walkT: 0, appear: 0.25 });
     World.fx({ type: 'pulse', x, y, r: r + 12, t: 0, life: 0.4, col: '#e8d8ff' });
