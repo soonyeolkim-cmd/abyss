@@ -240,6 +240,9 @@ function autoPause() {
 document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
 window.addEventListener('pagehide', autoPause);
 window.addEventListener('blur', autoPause);
+// 패드를 연결 · 해제하면 가운데 아래 알림(2026-11-01 사용자, 봉인의 숲처럼). 브라우저는 패드 버튼을 한 번 눌러야 연결을 알려 준다
+window.addEventListener('gamepadconnected', () => Game.toast('🎮 게임패드 연결됨'));
+window.addEventListener('gamepaddisconnected', () => Game.toast('🎮 게임패드 연결이 끊겼어요'));
 fit();
 Input.attachMouse(canvas);
 Game.init();
