@@ -1097,8 +1097,9 @@ const SCROLL_ORDER = ['any', 'inherit'];
 const ENCHANT_RATE = [50, 42, 35, 29, 24, 20, 17, 14, 12, 10];
 const BLESS_BONUS = 3;
 const enchantRate = (s, ups) => ENCHANT_RATE[Math.min(ups || 0, ENCHANT_RATE.length - 1)] + (s.r === 0 ? BLESS_BONUS : 0);
-// 한 번 바를 때 드는 주문서 장 수(같은 주문서로): +10 → +11 시도부터 2장(2026-11-01 사용자 '11시도부터는 2장씩'). 성공 · 실패 모두 그만큼 사라짐
-const enchantCost = ups => ((ups || 0) >= ENCHANT_MAX ? 2 : 1);
+// 한 번 바를 때 드는 주문서 장 수(같은 주문서로): +10 까지 1장, 그 뒤로 한 단계마다 1장씩 늘어남 — +11 시도 2장 · +12 3장 · +13 4장 …
+// (2026-11-01 사용자 '11시도부터는 2장씩' → '+12 는 3장 +13 은 4장 이런 식'). 성공 · 실패 모두 그만큼 사라짐
+const enchantCost = ups => Math.max(1, (ups || 0) - ENCHANT_MAX + 2);
 const SCROLL_NAMES = ['축복받은 강화 주문서', '강화 주문서'];
 const SCROLL_COLORS = ['#ffe08a', '#7dff8a'];
 const SCROLL_DROP = [0.65, 0.35];  // 떨어질 때 축복받은 · 보통 비율
