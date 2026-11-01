@@ -607,7 +607,7 @@ Object.assign(ENEMIES, {
     thrust: { len: 120, w: 9, wind: 0.65, active: 0.15, dmg: 1.2, knock: 240, cd: 3, rec: 0.7 },
     // 2026-11-01 사용자 '거품 기사는 너무 쉽다 — 거품 다 터뜨리고 딜 타임에 딜하고, 딜 타임 끝나면 강제로 거품에 가두는 패턴': trapAfter = 드러남(expose 4초)이 끝나는 순간 방 안 모두를 거품 감옥에(대시로도 못 피함)
     // 2026-11-01 사용자 '몸에 달린 방울을 몇 초 안에 다 못 없애면 갇히는 패턴': limit = 갑옷이 있는 동안 흐르는 제한 시간(초, 머리 위 숫자), 다 지나면 방 안 모두 거품 감옥 → 다시 limit 초
-    bubble: { n: 5, cut: 0.1, expose: 4, regrow: 2.5, mul: 1.5, trapAfter: true, limit: 8 }, jail: { cd: 0, wind: 0.9, r: 16, hits: 4, mash: 12, t: 2, pct: 0.3 },  // mash = 갇힌 사람이 방향 · 공격을 이만큼 누르면 탈출(2026-11-01 사용자 '막 눌러야 풀리게' — 남은 수는 안 보임), hits = 친구가 거품을 칠 대수  // cd 0 = 발밑 원 보통 감옥 없음(2026-11-01 사용자 '보통 감옥은 빼기' — 딜 타임 끝 강제 감옥만, hits · t · pct 는 그대로 씀)  // 2026-11-01 사용자 '거품 패턴 더 자주 · 스턴 시간은 줄이고': 감옥 12 → 7초마다, 갇히는 시간 3 → 2초(터뜨릴 대수 5 → 4)
+    bubble: { n: 5, cut: 0.1, expose: 4, regrow: 2.5, mul: 1.5, trapAfter: true, limit: 8 }, jail: { cd: 0, wind: 0.9, r: 16, hits: 4, mash: 16, t: 2, pct: 0.3 },  // mash = 갇힌 사람이 방향 · 공격을 이만큼 누르면 탈출(2026-11-01 사용자 '막 눌러야 풀리게' — 남은 수는 안 보임, 12 → 16 같은 날 사용자), hits = 친구가 거품을 칠 대수  // cd 0 = 발밑 원 보통 감옥 없음(2026-11-01 사용자 '보통 감옥은 빼기' — 딜 타임 끝 강제 감옥만, hits · t · pct 는 그대로 씀)  // 2026-11-01 사용자 '거품 패턴 더 자주 · 스턴 시간은 줄이고': 감옥 12 → 7초마다, 갇히는 시간 3 → 2초(터뜨릴 대수 5 → 4)
     atk: { windup: 0.55, active: 0.12, recovery: 0.7, knock: 175, reach: [0, 27], arc: 85, lunge: 150 },
     slam: { windup: 0.8, radius: 48 }, charge: { windup: 0.55, speed: 245, time: 0.6 }, fan: { windup: 0.65, count: 9, speed: 115, color: '#bcd8ff' }, summon: 'crab' },
   knight_lamp: { name: '등불의 기사 루멘', sprite: 'knight_lamp', pix: true, idle: false, boss: true, knight: 'lamp', scale: 1.25, speed: 38, range: 22, superArmor: true, launchMul: 0.2, r: 12,
