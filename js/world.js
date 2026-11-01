@@ -275,7 +275,7 @@ const World = (() => {
         // 보물 상자: 샛길 방(막다른 방)마다 하나 + 큰길 방 하나
     const mains = lv.rooms.filter(r => r.main && r !== lv.start && !r.boss);
     const chestRooms = [...lv.rooms.filter(r => r.branch), mains[rnd(0, mains.length - 1)]].filter(Boolean);
-    const L = lootOf();  // 가라앉은 심연: 잔몹방에 작은 상자 여럿(SUNKEN.loot.chests)
+    const L = lootOf();  // 가라앉은 심연: 잔몹방 작은 상자 수(SUNKEN.loot.chests)
     for (const r of chestRooms) for (let n = r.main && L ? L.chests : 1; n > 0; n--) {
       let s = Dungeon.spotIn(lv, r);
       for (let k = 0; k < 30 && chestHidden(s.x, s.y, false); k++) s = Dungeon.spotIn(lv, r);
@@ -919,7 +919,7 @@ const World = (() => {
         if (c.big && L) for (let k = 1; k < L.bigItems; k++) items.push(mk(lv.ilvlR[1], { boost: 0.8 }));  // 가라앉은 심연 기사 보물 상자: 장비 bigItems 개
         const stones = c.big ? [rollStone(STONE_BOSS_BOOST)] : Math.random() < 0.5 ? [rollStone()] : [];
         const scrolls = c.big || Math.random() < SCROLL_DROP_RATE.chest ? [rollScroll()] : [];
-        loot(c.x, c.y - 4, { gold: goldRoll(c.big ? [40, 70] : [15, 30]), items, stones, scrolls });
+        loot(c.x, c.y - 4, { gold: goldRoll(c.big ? [40, 70] : [15, 30], c.big && L && L.bigGold || 1), items, stones, scrolls });
         text(c.x, c.y, 24, c.big ? '보물 상자!' : '상자', '#ffd36a');
       }
       if (c.open) c.t += dt;
