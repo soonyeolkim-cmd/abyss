@@ -110,13 +110,16 @@ const Items = (() => {
     return make(ilvl, { slot: UNIQUES[u].slot, rarity: 3, uniq: u });
   }
 
-  // 아이템 하나의 능력치 합(기본 + 낀 보석)
-  function total(item) {
+  // 방어구 체력 직업 배율(data.js CLASSES armorHp — 투구 기본 체력 · 방어 보석). 목걸이 · 반지 체력은 그대로
+  const armorHpMul = (prof, slot) => (prof && SCROLL_GROUPS.armor.slots.includes(slot) && clsOf(prof).armorHp) || 1;
+  // 아이템 하나의 능력치 합(기본 + 낀 보석). prof 를 주면 방어구 체력에 직업 배율
+  function total(item, prof) {
     const s = Object.assign({}, item.stats);
     for (const a of item.affixes || []) s[a.k] = (s[a.k] || 0) + a.v;  // 예전 저장의 랜덤 옵션
     for (const k in item.ench || {}) s[k] = (s[k] || 0) + item.ench[k];  // 주문서로 오른 만큼
     // 보석: 방어력 · 체력은 장비 레벨 곡선을 곱한다(%능력치 · 기력은 그대로)
     for (const g of item.gems || []) if (g) { const gs = gemStats(g); for (const k in gs) s[k] = (s[k] || 0) + (k === 'def' || k === 'hp' ? Math.round(gs[k] * POWER(item.ilvl)) : gs[k]); }
+    if (s.hp && armorHpMul(prof, item.slot) !== 1) s.hp = Math.round(s.hp * armorHpMul(prof, item.slot));
     return s;
   }
 
@@ -127,14 +130,16 @@ const Items = (() => {
     const baseHp = Math.round(C.baseHp * POWER(prof.lv));
     const s = { atk: Math.round(C.baseAtk * POWER(prof.lv)), def: 0, hp: baseHp,
       crit: 5, critDmg: 50, aspd: 0, move: 0, gold: 0, life: 0, stamina: 0, spRegen: 0, dmg: 0, dashCost: 0 };
+    let petAdd = 0;  // 소환수 기준 체력은 방어구 배율 전 값으로
     for (const slot of SLOTS) {
       const it = prof.equip[slot];
       if (!it) continue;
-      const t = total(it);
+      const t = total(it, prof);
       for (const k in t) s[k] = (s[k] || 0) + t[k];
+      if (t.hp) petAdd += (total(it).hp || 0) - t.hp;
     }
     const cb = collectSteps(prof);  // 도감 보상: 창고 컬렉션 착용 레벨 단계 하나를 다 채울 때마다 체력 · 공격력 +1%
-    s.petHp = s.hp - baseHp + Math.round(100 * POWER(prof.lv));  // 소환수 체력 기준: 기본 체력 100 으로 친 최대 체력(소환사 기본 체력이 낮아도 소환수는 그대로)
+    s.petHp = s.hp - baseHp + Math.round(100 * POWER(prof.lv)) + petAdd;  // 소환수 체력 기준: 기본 체력 100 으로 친 최대 체력(소환사 기본 체력이 낮아도 소환수는 그대로)
     if (cb) { s.atk = Math.round(s.atk * (1 + cb * COLLECT.atk / 100)); s.hp = Math.round(s.hp * (1 + cb * COLLECT.hp / 100)); s.petHp = Math.round(s.petHp * (1 + cb * COLLECT.hp / 100)); }
     s.aspd = Math.min(STATS.aspd.cap, s.aspd);
     s.move = Math.min(STATS.move.cap, s.move);
@@ -168,10 +173,11 @@ const Items = (() => {
     // 능력치는 한 줄로(유니크 효과 줄까지 7줄에 들어가게)
     // 단계 능력치 한 줄 + 등급 고정 옵션 한 줄(길어서 비교 칸을 넘지 않게)
     const fixed = RARITY_FIXED[item.slot] || {};
-    const parts = Object.keys(item.stats).filter(k => !(k in fixed)).map(k => STATS[k].fmt(item.stats[k] + (ench[k] || 0)) + (ench[k] ? '(강화 +' + ench[k] + ')' : ''));
+    const hm = armorHpMul(prof, item.slot), sv = k => k === 'hp' ? Math.round(item.stats[k] * hm) : item.stats[k];  // 방어구 체력은 그 직업 기준으로 보여 줌
+    const parts = Object.keys(item.stats).filter(k => !(k in fixed)).map(k => STATS[k].fmt(sv(k) + (ench[k] || 0)) + (ench[k] ? '(강화 +' + ench[k] + ')' : ''));
     for (const k in ench) if (!(k in item.stats)) parts.push(STATS[k].fmt(ench[k]) + '(강화)');
     if (parts.length) lines.push({ t: parts.join(' · '), c: '#f0e8dc' });
-    const fparts = Object.keys(item.stats).filter(k => k in fixed).map(k => STATS[k].fmt(item.stats[k]));
+    const fparts = Object.keys(item.stats).filter(k => k in fixed).map(k => STATS[k].fmt(sv(k)));
     if (fparts.length) lines.push({ t: fparts.join(' · '), c: '#c8dcff' });
     if (b.slot === 'weapon' && WEAPON_KINDS[b.kind].trait) { const tr = WEAPON_KINDS[b.kind].trait; lines.push({ t: '무기 특성 ' + tr[0] + ' — ' + tr[1], c: '#ffd36a' }); }  // 2026-10-26 무기 2종 차별화
     if (item.uniq) { const u = UNIQUES[item.uniq]; lines.push({ t: '★ ' + u.fx + ' — ' + u.desc, c: RARITY[3].color }); }
@@ -244,8 +250,8 @@ const Items = (() => {
   }
 
   // 낀 것과 비교: 바뀌는 능력치 [{ k, d }]
-  function compare(item, equipped) {
-    const a = total(item), b = equipped ? total(equipped) : {};
+  function compare(item, equipped, prof) {
+    const a = total(item, prof), b = equipped ? total(equipped, prof) : {};
     const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
     const out = [];
     for (const k of keys) {

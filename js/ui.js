@@ -825,7 +825,7 @@ const UI = (() => {
         });
         if (cmp) {  // 낀 것과 비교(사기 · 팔기 창에서도 무엇을 팔아도 되는지 보이게) — 오른쪽 좁은 칸
           const cur = prof.equip[sel.item.slot];
-          const diff = Items.compare(sel.item, cur);
+          const diff = Items.compare(sel.item, cur, prof);
           T_(ctx, cur ? '낀 것과 비교' : '빈 칸에 낀다', CMP_X, 362, 13, '#c8b8a0');
           diff.slice(0, 7).forEach(({ k, d }, i) => {
             const t = (d > 0 ? '▲ ' : '▼ ') + statName(k, prof) + ' ' + (d > 0 ? '+' : '') + d + (STATS[k].pct ? '%' : '');
