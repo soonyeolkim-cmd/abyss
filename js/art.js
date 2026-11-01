@@ -456,6 +456,19 @@ const Art = (() => {
       Gfx.essenceIcon(ctx, d.x, y - 5 + Math.sin(time * 3 + d.x) * 1, 10);
       return;
     }
+    if (d.kind === 'pearl') {  // 심해 진주(2단계 레이드 보상): 물빛 테 · 흰 진주 · 일렁이는 빛(2026-11-01 — 그림이 없어서 아래 장비 그리기로 넘어가 오류 → 진주를 줍기까지 화면이 멈췄음)
+      const cy = Math.round(y - 6 + Math.sin(time * 3 + d.x) * 1), cx = Math.round(d.x);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 10);
+      g.addColorStop(0, 'rgba(188,216,255,' + (0.45 + 0.25 * Math.sin(time * 6)) + ')'); g.addColorStop(1, 'rgba(188,216,255,0)');
+      ctx.fillStyle = g; ctx.fillRect(cx - 10, cy - 10, 20, 20); ctx.restore();
+      ctx.fillStyle = '#2a4274'; ctx.beginPath(); ctx.arc(cx, cy, 4.5, 0, Math.PI * 2); ctx.fill();
+      const pg = ctx.createRadialGradient(cx - 1.2, cy - 1.2, 0.5, cx, cy, 3.5);
+      pg.addColorStop(0, '#ffffff'); pg.addColorStop(0.5, PEARL_COLOR); pg.addColorStop(1, '#6a9ad8');
+      ctx.fillStyle = pg; ctx.beginPath(); ctx.arc(cx, cy, 3.5, 0, Math.PI * 2); ctx.fill();
+      return;
+    }
+    if (!d.item) return;  // 그림이 없는 새 종류가 생겨도 화면이 멈추지 않게
     const it = d.item, col = RARITY[it.rarity].color;
     if (it.rarity > 0) {
       ctx.save();

@@ -355,7 +355,7 @@ const UI = (() => {
         Gfx.spr(ctx, Gfx.anim(idleAnim(boss), time, 6), 112, y + 60, { scale: bs, alpha: lockWhy ? 0.3 : 1, tint: boss.tint, tintAlpha: boss.tintAlpha });
         T_(ctx, st.stage + '단계 · ' + st.name, 160, y + 28, 20, lockWhy ? '#5a5058' : on ? '#ffd36a' : '#f0d0ff');
         T_(ctx, '입장 Lv.' + st.entry + ' · 몹 Lv.' + st.lv + ' · 나오는 장비 ' + st.mat + ' Lv.' + st.gear + '(유니크는 제작으로만)', 880, y + 28, 13, lockWhy ? '#5a5058' : '#c8b8a0', 'right');
-        const route = st.floors > 3 ? '1층 → … → ' + st.floors + '층(층마다 빈방 · 잔몹방 · 기사)' : Array.from({ length: st.floors }, (v, k) => (k + 1) + '층').join(' → ');
+        const route = st.floors > 3 ? '1층 → … → ' + st.floors + '층' : Array.from({ length: st.floors }, (v, k) => (k + 1) + '층').join(' → ');  // 층 안 방 구조(빈방 · 잔몹방 · 기사)는 안 적음(2026-11-01 사용자)
         T_(ctx, lockWhy ? '잠김 — ' + lockWhy : route + ' → 최종 보스 ' + boss.name, 162, y + 52, 13, lockWhy ? '#8a6060' : '#9a8e96');
         const raids = raidClears(prof, st.stage);  // 최종 보스를 깬 횟수(파티 포함)
         if (!lockWhy || st.stage === 1) T_(ctx, (best ? '최고 ' + best + '층' : '아직 안 깸') + (raids ? ' · ' + st.raidName + ' 처치 ' + raids + '번' : ''), 880, y + 52, 13, raids ? '#5fe0d0' : best ? '#ffd36a' : '#9a8e96', 'right');
