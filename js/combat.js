@@ -21,7 +21,7 @@ function inHitbox(o, face, def, t, tr) {
   const along = dx * face.x + dy * face.y;
   if (along < def.reach[0] - tr || along > def.reach[1] + tr) return false;
   // noBody(대시 찌르기): 칼날 줄 — 앞으로 reach 만큼, 칼날 줄에서 몸 반지름 + 5px 안쪽만
-  if (def.noBody) return Math.abs(dx * face.y - dy * face.x) <= tr + 5;
+  if (def.noBody) return Math.abs(dx * face.y - dy * face.x) <= tr + (def.band || 5);  // band = 옆 폭(암살자 돌진 베기는 속성석 크기만큼 넓어짐 — player.js startRush)
   if (dist < tr + 4) return true;
   return along / dist >= Math.cos(def.arc * Math.PI / 180);
 }
@@ -67,19 +67,21 @@ function hitEnemy(e, def, p, w) {
     World.text(e.x, e.y, e.h + 8, blocked ? '팅!' : '보호막', blocked ? '#ece0cc' : '#5fe0d0');
   }
   // 레이드 보스: 껍질 '팅'(×0) · 보호막 · 단계 바뀌는 중(0) · 심장이 드러나면 더 크게(js/raid.js cut)
+  const sc = Sunken.cut(e, p);  // 가라앉은 심연: 소라게 껍데기 · 거품 갑옷 · 넘어진 기사 · 부품 · 거울 반사(친 사람 p — js/sunken.js)
+  if (sc) { dmg *= sc.m; if (sc.s && !(e.tingT > World.time)) { e.tingT = World.time + 0.5; World.text(e.x, e.y, e.h + 8, sc.s, '#bcd8ff'); } }
   const rc = ed.raid ? Raid.cut(e) : null;
   if (rc) {
     dmg *= rc[0];
     if (rc[1] && !(e.tingT > World.time)) { e.tingT = World.time + 0.5; World.text(e.x, e.y, e.h + 8, rc[1], '#ece0cc'); }
   }
-  dmg = rc && !rc[0] ? 0 : Math.max(1, Math.round(dmg));
+  dmg = (rc && !rc[0]) || (sc && sc.m === 0) ? 0 : Math.max(1, Math.round(dmg));  // 피해 0 = 레이드 껍질 · 보호막 / 브란 닻 · 에코 거울 반사
   e.hp -= dmg;
   if (ed.raid) Raid.clamp(e);  // 한 번에 다음 단계를 건너뛰지 않게
   if (ed.dummy) Practice.add(dmg, def.slot || def.name, crit);  // 연습장 딜 측정(기술 칸, 칸이 없는 속성석 탄은 이름 — 화염구 등)
   e.flash = 0.1;
-  const knock = def.knock * wk.knock * (ed.boss ? 0.25 : ed.rooted ? 0 : blocked ? 0.3 : 1) * (e.bindT > 0 ? 0.15 : 1);  // 촉수는 밀리지 않음 · 사슬에 묶인 적은 거의 안 밀림
+  const knock = def.knock * wk.knock * (ed.boss ? 0.25 : ed.rooted || (sc && sc.armor) ? 0 : blocked ? 0.3 : 1) * (e.bindT > 0 ? 0.15 : 1);  // 촉수는 밀리지 않음 · 사슬에 묶인 적은 거의 안 밀림
   const heavy = !blocked && (def.heavy || crit || wk.crush);  // 망치(분쇄): 모든 공격이 준비 중인 적도 끊는다(방패에 막히면 못 끊음)
-  const armored = blocked || e.state === 'frozen' ||  // 얼어 있으면 맞아도 그대로(띄우기만 깬다)
+  const armored = blocked || e.state === 'frozen' || (sc && sc.armor) ||  // 얼어 있으면 맞아도 그대로(띄우기만 깬다)
     (!heavy && ((ed.superArmor && (e.state === 'windup' || e.state === 'attack' || e.state === 'charge')) || e.armorT > 0 || committed(e)));
 
   if (ed.rooted) {
@@ -118,6 +120,7 @@ function hitEnemy(e, def, p, w) {
     else { e.state = 'air'; e.vz = Math.max(e.vz, 130); e.kx = dir.x * Math.max(90, knock); e.ky = dir.y * Math.max(90, knock); }
     World.onKill(e);
   }
+  if (!e.dying) Sunken.onHit(e);  // 소라게 숨기 · 거품 한 겹 · 물거울 분신
   // 검사 검기: 베인 상처(2026-10-25) — 4초 동안 받는 피해 +25%
   if (def.id === 'wave' || def.id === 'quake') { if (!(e.cutT > 0) && !e.dying) World.text(e.x, e.y, e.h + 10, '베인 상처', '#ff8a7a'); e.cutT = WAVE_CUT.t; }
   if (!blocked && !def.noEl) Elements.onHit(e, def, p);  // 그 기술 칸에 끼운 속성석 효과(방패에 막히면 안 터짐) · noEl = 검기 두 줄 · 롯드 세 발의 덤(속성은 한 발만)
@@ -156,7 +159,8 @@ function bleedTick(e, dt) {
   if (b.tick <= 0) {
     b.tick += 0.5;
     const rc = e.def.raid ? (e.state === 'exposed' ? Raid.cut(e)[0] : 0) : 1;
-    const d = Math.round(b.n * b.per * 0.5 * (1 - (e.armorCut || 0)) * Elements.vuln(e) * rc);
+    const sc = Sunken.cut(e);
+    const d = Math.round(b.n * b.per * 0.5 * (1 - (e.armorCut || 0)) * Elements.vuln(e) * rc * (sc ? Math.max(sc.m, 0) : 1));
     if (d > 0) {
       e.hp -= d;
       if (e.def.raid) Raid.clamp(e);

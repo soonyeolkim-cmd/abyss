@@ -7,7 +7,8 @@ const Records = (() => {
   const T_ = Gfx.text;
   const L = a => Input.label(a);
   const VIS = 10;  // 칭호 목록에 한 번에 보이는 줄
-  let sel = 0, top = 0, others = [];
+  let sel = 0, top = 0, others = [], stg = 0;  // stg = 왼쪽 레이드 기록 단계(ABYSS_STAGES 칸, 2단계가 열리면 ←→)
+  const stages = prof => ABYSS_STAGES.filter(st => st.stage === 1 || stageOpen(prof, st.stage));
 
   function rec(prof, stage = 1) {
     const all = prof.raidRec || (prof.raidRec = {});
@@ -61,7 +62,7 @@ const Records = (() => {
 
   // ── 기록 · 칭호 창 ──
   function open(prof) {
-    sel = 0; top = 0;
+    sel = 0; top = 0; stg = 0;
     if (check(prof).length) Game.changed();  // 예전에 깬 횟수로 이미 얻은 칭호(기록 전 처치 · 10번 등)
     // 내 캐릭터끼리: 지금 캐릭터는 지금 기록, 다른 칸은 저장된 것
     others = [];
@@ -71,6 +72,9 @@ const Records = (() => {
   }
   function update(o, prof) {
     if (Input.wasPressed('back') || Input.wasPressed('pause')) { Game.closeOverlay(); return; }
+    const ns = stages(prof).length;
+    if (ns > 1 && Input.nav('left')) stg = (stg + ns - 1) % ns;
+    if (ns > 1 && Input.nav('right')) stg = (stg + 1) % ns;
     const rows = list(prof), n = rows.length + 1;  // 0 = 칭호 달지 않기
     if (Input.nav('up')) sel = (sel + n - 1) % n;
     if (Input.nav('down')) sel = (sel + 1) % n;
@@ -93,21 +97,22 @@ const Records = (() => {
     T_(ctx, '기록 · 칭호', 54, 62, 24, '#f0e0b8');
     T_(ctx, '서버가 없어 내 캐릭터끼리만 견줘요', 906, 62, 12, '#8a7e88', 'right');
     // 왼쪽: 레이드 기록
-    const st = ABYSS_STAGES[0], r = rec(prof, st.stage);
-    T_(ctx, '심연의 파수꾼 — ' + st.name, 54, 100, 16, '#5fe0d0');
+    const sts = stages(prof), st = sts[Math.min(stg, sts.length - 1)], r = rec(prof, st.stage), bossName = ENEMIES[st.boss].name.replace(' 트리에르', '');
+    T_(ctx, bossName + ' — ' + st.name, 54, 100, 16, '#5fe0d0');
+    if (sts.length > 1) { T_(ctx, '◀ ' + (stg + 1) + '/' + sts.length + ' ▶', 430, 100, 12, '#c8b8a0', 'right'); UI.zone(360, 84, 80, 24, { pick: () => { stg = (stg + 1) % sts.length; }, key: null, now: true }); }
     T_(ctx, '처치 ' + r.clears + '번 / 도전 ' + r.tries + '번', 54, 126, 14, '#e8dcc0');
     const head = (y, s) => T_(ctx, s, 54, y, 13, '#c8a0ff');
     const line = (y, k, v) => { T_(ctx, k, 70, y, 13, '#9a8e96'); T_(ctx, v, 430, y, 13, '#f0e8dc', 'right'); };
     head(158, '혼자'); line(180, '가장 빠른 처치', tm(r.solo)); line(200, '가장 적게 맞은 처치', hitTxt(r.solo));
     head(230, '파티'); line(252, '가장 빠른 처치', tm(r.party)); line(272, '가장 적게 맞은 처치', hitTxt(r.party));
-    T_(ctx, '시간은 파수꾼이 깨어난 뒤부터 재요', 54, 296, 11, '#6a6068');
+    T_(ctx, '시간은 최종 보스가 깨어난 뒤부터 재요', 54, 296, 11, '#6a6068');
     // 내 캐릭터끼리
     T_(ctx, '내 캐릭터끼리', 54, 330, 15, '#ffd36a');
     T_(ctx, '처치', 300, 330, 11, '#8a7e88', 'right'); T_(ctx, '혼자 최고', 430, 330, 11, '#8a7e88', 'right');
     for (let n = 0; n < Save.SLOTS_N; n++) {
       const pr = n === Save.slot ? prof : others[n], y = 356 + n * 22, me = n === Save.slot;  // 줄 간격 22: 칸 6개(2026-10-31)도 판 안에
       if (!pr) { T_(ctx, (n + 1) + '. 빈 칸', 70, y, 13, '#5a5058'); continue; }
-      const rr = pr.raidRec && pr.raidRec[st.stage], clears = rr ? rr.clears : (pr.endless && pr.endless.raid) || 0;
+      const rr = pr.raidRec && pr.raidRec[st.stage], clears = rr ? rr.clears : st.stage === 1 ? (pr.endless && pr.endless.raid) || 0 : 0;
       T_(ctx, (n + 1) + '. ' + clsOf(pr).name + ' Lv.' + pr.lv + (me ? ' (지금)' : ''), 70, y, 13, me ? '#ffd36a' : '#e8dcc0');
       T_(ctx, clears + '번', 300, y, 13, '#f0e8dc', 'right');
       T_(ctx, tm(rr && rr.solo), 430, y, 13, '#f0e8dc', 'right');
@@ -134,7 +139,7 @@ const Records = (() => {
     if (top + VIS < n) T_(ctx, '▼', x0 + w / 2, 112 + VIS * (h + 2) + 6, 11, '#8a7e88', 'center');
     if (Input.touchMode()) return;
     ctx.fillStyle = '#000'; ctx.fillRect(0, 500, 960, 40);
-    T_(ctx, '고르기 ↑↓ · 칭호 달기 ' + L('ok') + ' · 닫기 ' + L('back'), 480, 524, 13, '#8a7e88', 'center');
+    T_(ctx, '고르기 ↑↓ · 칭호 달기 ' + L('ok') + (stages(prof).length > 1 ? ' · 레이드 단계 ←→' : '') + ' · 닫기 ' + L('back'), 480, 524, 13, '#8a7e88', 'center');
   }
   return { rec, tried, cleared, check, list, titleOf, open, update, draw };
 })();

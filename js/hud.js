@@ -626,8 +626,19 @@ const Hud = (() => {
     if (lv.def.practice) Practice.hud(ctx, prof);  // 연습장: 왼쪽 위 딜 측정판
     const c = World.comboInfo;
     if (c) { ctx.globalAlpha = Math.min(1, c.t / 0.5); T_(ctx, c.n + ' 콤보', 930, 236, 26, '#ffd36a', 'right'); ctx.globalAlpha = 1; }
+    const jl = lv.def.stage === 2 && Sunken.jailOf(p);
+    if (jl) {  // 거품 감옥 알림판(2026-11-01 사용자: 갇힌 줄 모름) — 화면 가장자리 물빛 테두리 + 가운데 큰 글 · 남은 대수 · 남은 초
+      const now = performance.now() / 1000, k = 0.5 + 0.5 * Math.sin(now * 10), left = Math.max(0, jl.t);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(95,224,208,' + (0.35 + 0.35 * k) + ')'; ctx.lineWidth = 14; ctx.strokeRect(7, 7, 946, (VIEW_H - HUD_H) * SCALE - 14);
+      ctx.fillStyle = 'rgba(8,16,32,0.82)'; ctx.fillRect(250, 168, 460, 92);
+      ctx.strokeStyle = left < 0.8 && k > 0.5 ? '#ff5a7a' : '#5fe0d0'; ctx.lineWidth = 3; ctx.strokeRect(250.5, 168.5, 459, 91);
+      ctx.restore();
+      T_(ctx, '거품에 갇혔다!', 480, 208, 34, '#5fe0d0', 'center');
+      T_(ctx, Input.label('attack') + ' 연타로 터뜨려라 — 남은 ' + Math.max(1, Math.ceil(jl.hp)) + '대 · ' + left.toFixed(1) + '초', 480, 244, 18, left < 0.8 ? '#ff8a8a' : '#f0e0b8', 'center');
+    }
     const m = World.msg;
-    if (m) {  // 긴 글(레이드 공략 알림 등)은 화면 폭에 맞게 줄을 나눈다(2026-10-29 — 폰에서 잘림)
+    if (m && !jl) {  // 긴 글(레이드 공략 알림 등)은 화면 폭에 맞게 줄을 나눈다(2026-10-29 — 폰에서 잘림)
       ctx.globalAlpha = Math.min(1, m.t / 0.4);
       const lines = wrapMsg(ctx, m.s, 28, 720), fs = lines.length > 1 ? 22 : 28;
       lines.forEach((l, i) => T_(ctx, l, 480, 130 + i * (fs + 8), fs, '#f0e0b8', 'center'));
@@ -720,7 +731,7 @@ const Hud = (() => {
   function mapInfo(ctx, lv, by) {
     const df = DIFFS[RUN.diff], run = World.run, prof = World.prof;
     T_(ctx, lv.def.name, 950, by, 12, '#9a8e96', 'right');
-    if (lv.def.endless) T_(ctx, '최고 ' + endlessBest(prof) + '층', 950, by + 16, 12, '#d8b0ff', 'right');  // 끝없는 심연은 난이도 대신 최고 층
+    if (lv.def.endless) T_(ctx, '최고 ' + endlessBest(prof, lv.def.stage) + '층', 950, by + 16, 12, '#d8b0ff', 'right');  // 끝없는 심연은 난이도 대신 최고 층
     else if (!lv.def.practice) T_(ctx, df.name, 950, by + 16, 12, df.color, 'right');  // 난이도(2026-10-24 사용자) — 연습장은 없음
     // 타임어택: 보스를 쓰러뜨리면 그 시간에서 멈추고 새 기록이면 금색
     const done = run && run.clearTime !== undefined, t = done ? run.clearTime : World.time;

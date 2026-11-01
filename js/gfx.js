@@ -451,5 +451,7 @@ const Gfx = (() => {
     ctx.fillStyle = fg; ctx.fillRect(x, y, Math.round(w * Math.max(0, Math.min(1, k))), h);
   }
 
-  return { WEAPON_TINT, FONT, mix, clear, ready, spr, anim, icon, stoneIcon, aurora, scrollIcon, essenceIcon, coreIcon, text, panel, bar };
+  // 코드로 그린 그림을 이름으로 등록(js/sunken.js — 가라앉은 심연 몹 · 기사 · 왕)
+  const put = (name, c) => { SHEETS[name] = c; FRAMES[name] = [0, 0, c.width, c.height]; };
+  return { WEAPON_TINT, FONT, mix, clear, ready, spr, anim, icon, stoneIcon, aurora, scrollIcon, essenceIcon, coreIcon, text, panel, bar, put };
 })();

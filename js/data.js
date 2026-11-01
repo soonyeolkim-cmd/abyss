@@ -93,7 +93,8 @@ const CLASSES = {
     special: { id: 'rush', name: '돌진 베기', short: '돌진', slot: 'wave', cd: 0.6, cost: 10, rush: true,
       startup: 0.03, active: 0.14, recovery: 0.3, mult: 2.5, knock: 60, stun: 0.8,  // 밀어내기는 작게(적을 지나 등 뒤에 서게)
       reach: [0, 42], arc: 160, swing: [-120, 120], noBody: true,  // 백스탭처럼 넓게 휘두르며 지나간다(2026-10-25 사용자: 거리 30 · 각도 70 찌르기 → 넓은 범위)
-      dash: 90, past: 30, min: 50, max: 150, safe: 0.35, crit: true, heavy: true, iframes: true },
+      dash: 90, past: 30, min: 50, max: 150, safe: 0.35, crit: true, heavy: true, iframes: true,
+      band: 5, bandPer: 4 },  // 2026-11-01 사용자 '돌진은 공격 범위를 가로로 속성석 레벨에 따라 넓게': 칼날 줄 옆 폭 = band + bandPer × (돌진 칸 속성석 크기 + 1) — 없음 5 · 조각 9 · 보통 17 · 완전한 25 · 태초 33(+ 맞는 쪽 몸)
     // 그림자 숨기(V): cost 를 쓰고 숨는다 — 최대 max 초, 초당 drain 기력, 걷기 move 배, 보스는 notice 초 뒤 알아챔
     // 숨은 중 X 나 V(2026-10-25 사용자: 아무거나 눌러도): stab.blink px 안에 적이 있으면 백스탭, 없으면 표창 던지기 — 기력은 안 듦
     // 표창 던지기(2026-10-25 사용자: 달빛 베기가 Z 돌진 베기와 겹쳐서 바꿈): 보는 쪽(누른 쪽 · 가까운 적)으로 단검 n 개를 spread° 씩 벌려 던진다.
@@ -102,7 +103,7 @@ const CLASSES = {
     // 너프(2026-10-31 사용자 "레이드에서도 잔몹이 못 알아채 거의 무적"): cd = 드러난 뒤 다시 숨기까지(초, 카타르는 hideCd) · 숨은 동안 기력 회복 없음(player.js) ·
     //   잔몹(보통 몹)은 near px 안에 nearT 초 붙어 있으면 알아챔 · 정예 · 고유 · 보스는 숨은 시간을 쌓은 heat 가 notice 초를 넘으면 알아챔 —
     //   heat 는 다시 숨어도 0 으로 안 돌아가고 드러나 있는 동안 초당 heatDecay 씩만 준다(world.js) · 숨은 중에 맞으면 피해 × hitMul(combat.js)
-    charge: { cost: 15, hide: { max: 3, drain: 0, move: 0.85, notice: 1.5, ready: 0.4, cd: 4, near: 40, nearT: 1, heatDecay: 0.5, hitMul: 1.5 },  // drain 6 → 0(2026-10-25 사용자: 숨는 동안 기력이 안 빠지게)
+    charge: { cost: 15, hide: { max: 3, drain: 0, move: 0.85, notice: 1.5, ready: 0.4, cd: 2, near: 40, nearT: 1, heatDecay: 0.5, hitMul: 1.5 },  // drain 6 → 0(2026-10-25 사용자: 숨는 동안 기력이 안 빠지게)
       def: { name: '표창 던지기', slot: 'charge', startup: 0.05, active: 0.05, recovery: 0.22, mult: 1.2, knock: 60, stun: 0.3, thrust: true,
         knives: { n: 3, spread: 12, speed: 340, range: 200, r: 5 } } },
     // 백스탭(숨은 중 X · V, 2026-10-25 사용자: 라그나로크 로그 백스탭) — blink px 안(벽 너머 제외) 가장 가까운 적의 등 뒤로 준비(startup) 동안 돌아 들어가서 넓고 크게 휘두른다(무적).
@@ -271,7 +272,7 @@ const WEAPON_KINDS = {
     circleTwice: { delay: 0.45, mult: 0.6 }, orb: { speed: 130 }, orbBurst: { r: 34, mult: 1.0 }, meteor: true, dashDef: 'wardPulse', blinkDodge: 64 },  // 대시 = 롯드와 같은 순간이동(2026-10-30 사용자)
   // 암살자(2026-10-25): 카타르 = 빠름(검과 같은 속도), 싸이 = 묵직(조금 느리고 공격력 ×1.2 · 돌진 베기 피해 +20%)
   katar: { name: '경량', speed: 1.15, reach: 0, dmg: 1, knock: 0.9, arc: 1,
-    trait: ['암습', '숨기 기력 10 · 대기 3초 · 숨은 동안 빠름 · 숨은 뒤 첫 공격은 반드시 치명타 · 백스탭 +30% · 치명타 +10%'], hideCost: 10, hideCd: 3, ambush: true,
+    trait: ['암습', '숨기 기력 10 · 대기 1.5초 · 숨은 동안 빠름 · 숨은 뒤 첫 공격은 반드시 치명타 · 백스탭 +30% · 치명타 +10%'], hideCost: 10, hideCd: 1.5, ambush: true,  // 2026-11-01 사용자 '백스탭 쿨타임 지금 절반': 숨기 대기(백스탭은 숨어야 나감) 카타르 3 → 1.5 · 싸이(직업 기본 hide.cd) 4 → 2
     hideMove: 1.25, stabMul: 1.3, critAdd: 10 },
   sai: { name: '묵직', speed: 0.95, reach: 0, dmg: 1, knock: 1.1, arc: 1, rush: 0.2,
     trait: ['제압', '찌를 때마다 출혈 · 칼날 폭풍 · 연속 돌진 · 무장해제'], disarm: { t: 3, cut: 0.3 },
@@ -506,6 +507,16 @@ const RAID_RULE = { hpMul: 7.2, time: 600, shellCut: 0, exposedMul: 2, slams: 3,
   stun: 1.5, orbPct: 0.25, markT: 5, markMul: 1.3, wave: { delay: 0.5, speed: 240, w: 12, pct: 0.15, maxR: 560 },
   orbExpose: 5, orbSpeed: 150, orbBack: 1.15, rallyMax: 3, rallyChance: 0.5, essence: 10, cores: 1,
   stoneSize: 4 };  // 2026-10-29 사용자: 레이드를 깨면 '완전한' 속성석 1개 확정(속성 무작위) — 원소 각인 · 공명에 속성석이 모자라서
+// 2단계 최종 보스 '삼지창의 왕'(2026-11-01 사용자 — js/raid.js 의 같은 틀, 패턴 이름만 다름): 수치는 파수꾼 것에 이것만 덮어씀
+//   ① 밀물(수정 자리): 방에 물이 차오름 — 네 귀퉁이 수문(sluice)을 crystalTime 초 안에 다 부수면 물이 빠지며 진주가 갈라짐, 늦으면 해일(남은 수문마다 crystalPct)
+//   ② 삼지창(구슬 자리): 왕이 삼지창을 던져 바닥에 박음(날아오는 동안 맞으면 orbPct) → 박힌 삼지창을 아무 공격으로 치면 왕에게 날아가 꽂힘 → 노출. 왕이 rallyChance 로 받아 다시 던짐(rallyMax 번)
+//   ③ 해일(껍질 자리): 왕이 삼지창을 들어 해일 고리를 보냄 — 대시로 넘으면 '넘김', slams 번 넘기면 지쳐 노출(기둥 박기는 없음)
+// 체력 hpMul: 5층 기사(mid.hp 배율 전) × 5.5 — 레벨 곡선으로 따지면 파수꾼의 약 1.2배(2026-11-01 계산, 손맛 보고 다시). 보상 = 심해 진주 pearls(핵 대신) · 정수 essence
+// 2026-11-01 사용자 '수문은 부수는 순서대로 안 하면 전체에 대미지': 수문 넷에 1~4 번호(섞음) — 다음 번호가 아닌 수문을 부수면 모두에게 최대 체력 sluiceWrong 피해(방어 · 대시 무적 무시).
+//   틀리게 부순 수문도 부서진 채(남은 것 중 가장 작은 번호가 다음), 다 부수면 그대로 노출
+const KING_RULE = { hpMul: 5.5, essence: 12, cores: 0, pearls: 1, orbSpeed: 170, rallyMax: 2, waveGap: 0.9, sluiceWrong: 0.25 };
+const raidRule = stage => (stage === 2 ? Object.assign({}, RAID_RULE, KING_RULE) : RAID_RULE);
+const PEARL_COLOR = '#bcd8ff';  // 심해 진주(2단계 레이드 보상, Lv.110 업그레이드에만 — 사용자: 재료는 그 단계 재료로)
 // 레이드 칭호(2026-10-27 사용자 — js/records.js): 레이드 단계(stage)마다 여덟 개. 꾸미기만(능력치 없음).
 // 처치 횟수는 파티로 깬 것도 셈, 질풍 · 섬광 · 흠집 하나 없이 · 고독한 사냥꾼은 혼자 깬 것만. 시간 = 파수꾼이 깨어난 뒤부터(초) — 210 · 120 은 손맛 보고 다시
 // ok(r) = 그 단계 기록 r(Records.rec)로 얻었는지, all = 같은 단계의 다른 칭호를 모두 얻으면. 한 번 얻으면 prof.titles 에 남는다
@@ -518,6 +529,14 @@ const RAID_TITLES = [
   { id: 'nohit1', stage: 1, name: '흠집 하나 없이', cond: '혼자 한 대도 안 맞고 처치', ok: r => !!r.solo && r.solo.hits === 0 },
   { id: 'lone1', stage: 1, name: '고독한 사냥꾼', cond: '혼자 처치', ok: r => !!r.solo },
   { id: 'abyss1', stage: 1, name: '심연을 꿰뚫은 자', cond: '위 칭호 일곱 개 모두', all: true },
+  // 2단계 '삼지창의 왕'(2026-11-01) — 같은 틀
+  { id: 'raid2_1', stage: 2, name: '왕을 쓰러뜨린 자', cond: '삼지창의 왕 처음 처치', ok: r => r.clears >= 1 },
+  { id: 'raid2_10', stage: 2, name: '심해의 사냥꾼', cond: '삼지창의 왕 10번 처치 (파티 포함)', ok: r => r.clears >= 10 },
+  { id: 'raid2_50', stage: 2, name: '가라앉은 왕국의 주인', cond: '삼지창의 왕 50번 처치 (파티 포함)', ok: r => r.clears >= 50 },
+  { id: 'swift2', stage: 2, name: '해류', cond: '혼자 5분 안에 처치', ok: r => !!r.solo && r.solo.time <= 300 },
+  { id: 'nohit2', stage: 2, name: '물 한 방울 안 묻히고', cond: '혼자 한 대도 안 맞고 처치', ok: r => !!r.solo && r.solo.hits === 0 },
+  { id: 'lone2', stage: 2, name: '고독한 잠수부', cond: '혼자 처치', ok: r => !!r.solo },
+  { id: 'abyss2', stage: 2, name: '심해를 꿰뚫은 자', cond: '위 2단계 칭호 여섯 개 모두', all: true },
 ];
 Object.assign(ENEMIES, {
   abyss_raid: { name: '심연의 파수꾼', sprite: 'raid_warden', pix: true, idle: false, boss: true, raid: true, speed: 34, range: 30, superArmor: true, launchMul: 0, r: 16,
@@ -527,6 +546,96 @@ Object.assign(ENEMIES, {
   void_crystal: { name: '공허 수정', sprite: 'void_crystal', pix: true, idle: false, part: 'crystal', rooted: true, hp: 12, exp: 0, gold: [0, 0], speed: 0, range: 0, poise: 99, r: 6,
     atk: { windup: 9, active: 0, recovery: 0, dmg: 0, knock: 0, reach: [0, 0], arc: 0, lunge: 0 } },
   void_orb: { name: '공허 구슬', sprite: 'void_orb', pix: true, idle: false, part: 'orb', hp: 1, exp: 0, gold: [0, 0], speed: 0, range: 0, poise: 99, r: 7,
+    atk: { windup: 9, active: 0, recovery: 0, dmg: 0, knock: 0, reach: [0, 0], arc: 0, lunge: 0 } },
+});
+// ── 끝없는 심연 2단계 '가라앉은 심연' 몹 · 기사 · 왕(2026-11-01 사용자 시안 그대로 — tools/sunken-sketch.js, 그림 · 행동 = js/sunken.js) ──
+// 층마다 하나씩 배우게: 1층 익사한 병사 → 2층 + 발광 해파리 → 3층 + 소라 껍데기 게 → 4층 + 심해 아귀 → 5층 + 물의 사제
+// revive = 쓰러지면 거품 속에 t 초 누웠다가 체력 hp 로 한 번 다시 일어남(거품을 치면 그대로 쓰러짐) · atk.radius = 몸 둘레 감전(바닥 타원 = 판정) · shockHit = 맞으면 잠깐 느려짐
+// deathZap = 쓰러지면 delay 초 뒤 둘레 r 전기 폭발(예고 원 = 판정) · shell = 맞으면 껍데기 속으로 t 초(피해 ×cut, 그동안 안 밀림) — 집게를 휘두른 뒤가 틈
+// lure = 땅속에 숨어 빛 미끼만(안 맞음), 사람이 trig 안이면 wind 초 바닥 예고(r) 뒤 덥석 → daze 초 휘청(맞음) → 다시 숨음 · whirl = 쏘는 대신 노리는 사람 발밑에 소용돌이(r, delay 뒤 t 초 끌어당김 pull px/초 · 0.5초마다 공격 × dmg)
+Object.assign(ENEMIES, {
+  drowned: { name: '익사한 병사', sprite: 'drowned', pix: true, idle: false, speed: 40, range: 18, poise: 4, revive: { t: 3, hp: 0.4 }, r: 7,
+    atk: { windup: 0.5, active: 0.1, recovery: 0.6, knock: 130, reach: [0, 22], arc: 60, lunge: 140 } },
+  jelly: { name: '발광 해파리', sprite: 'jelly', pix: true, idle: false, speed: 30, range: 12, poise: 2, float: true, shockHit: true, deathZap: { r: 26, delay: 0.8 }, r: 6,
+    atk: { windup: 0.75, active: 0.1, recovery: 0.9, knock: 60, radius: 18, reach: [0, 18], arc: 180, lunge: 0 } },
+  crab: { name: '소라 껍데기 게', sprite: 'crab', pix: true, idle: false, speed: 34, range: 18, poise: 99, shell: { cut: 0.1, t: 1.6 }, solo: 2, r: 8,
+    atk: { windup: 0.45, active: 0.12, recovery: 1.0, knock: 160, reach: [0, 21], arc: 90, lunge: 90 } },
+  angler: { name: '심해 아귀', sprite: 'angler', pix: true, idle: false, speed: 30, range: 20, poise: 9, rooted: true, lure: { r: 22, trig: 30, wind: 0.75, daze: 1.8, cd: 2.5 }, solo: 1, r: 8,
+    atk: { windup: 0.75, active: 0.1, recovery: 0.6, knock: 180, reach: [0, 22], arc: 180, lunge: 0 } },
+  tidecaller: { name: '물의 사제', sprite: 'tidecaller', pix: true, idle: false, speed: 30, range: 100, poise: 3, ranged: true, solo: 1, odds: 0.5, r: 7,
+    whirl: { r: 30, delay: 0.7, t: 2.4, pull: 62, dmg: 0.45 },
+    atk: { windup: 0.9, active: 0.05, recovery: 1.8, knock: 60, shot: 100, color: '#6a9ad8' } },
+  // 기사 다섯(층 끝 중간 보스 — 같은 기사단 갑옷, 기사마다 기믹 knight). 바탕 패턴(휘두르기 · 내려찍기 · 돌진 · 탄)은 다른 보스와 같고 기믹이 덧붙는다(js/sunken.js)
+  //   anchor 닻: cd 초마다 노리는 사람 발밑에 닻을 던져 박음(wind 초 예고 r = 판정) → reel 초 뒤 사슬로 그 자리까지 날아듦(지나는 길 = 돌진 판정). 박힌 닻(부품, 2대)을 부수면 넘어져 down 초 휘청(피해 ×mul)
+  //   tide 조류: 기사방 바닥 물살이 사람을 speed px/초로 밀고 every 초마다 방향이 바뀜 · 돌진하다 벽에 부딪히면 tired 초 기절
+  //   bubble 거품: n 겹 — 겹이 있으면 피해 ×cut(속성 지속 피해도), 맞을 때마다(0.15초에 한 번) 한 겹 터짐 → 다 터지면 expose 초 드러남(×mul), regrow 초 뒤 다시 n 겹
+  //   lamp 등불: 방이 어두움(빛 반경 × dark) · 기사 등불만 빛남. (어두운 동안 안 맞고 늘 숨어 기습 — lamp 줄) 방 귀퉁이 발광 산호(부품 넷, 한 대) 중 하나를 치면
+  //        lit 초 방이 밝아지고 숨어 있던 기사는 드러나 stun 초 휘청(×mul)
+  //   mirror 물거울: cd 초마다 물 분신 n(한 대에 터지며 둘레에 물 튀김 — 느려짐), 진짜만 바닥 그림자 · 진짜를 치면 분신이 흔들림
+  // 2026-11-01 사용자 손맛 2차: 브란 = 닻을 든 동안 피해 면역(heave — 닻을 던져 박았을 때 · 넘어짐 · 휘돌리기 뒤 어지러움만 맞음), 범위 넓게 · 한 방 세게(dmgK ×1.5)
+  //   세렌 = 벽에 박아도 기절 없이 반대쪽(온 쪽)으로 크게 후려치기(sweep), 물살 38 → 80px/초(×2.1 — 걷기 82 라 거슬러 걷기 힘듦, 대시는 안 밀림), 가까이 오면(sweep.r) 크게 후려치기
+  //   오필 = 거품 갑옷 다시 차는 데 6 → 2.5초
+  // 기사 고유 패턴(2026-11-01 사용자 "중간 보스가 개성이 없다" → 제안 A안 다섯):
+  //   spin 닻 휘돌리기(브란): wind 초 예고 뒤 t 초 동안 닻을 돌림 — 기사 둘레 고리(rIn ~ rOut, 바닥 타원 = 판정)에 있으면 every 초마다 내려찍기 × dmg. 안쪽은 안전(품으로 파고들기),
+  //        돌면서 노리는 사람 쪽으로 speed × move 로 다가옴, 끝나면 dizzy 초 어지러움(tired)
+  //   rush 해류 삼연 돌진(세렌): n 번 이어 돌진(첫 예고 wind · 다음 wind2, 판정 = 예고 줄을 지나는 몸), 벽이면 그 돌진만 멈추고 다음 돌진 · 기둥에 박으면 기둥이 무너지며 후려치기(SUNKEN.pillarStun 참고)
+  //   jail 거품 감옥(오필): wind 초 노리는 사람 발밑 예고(r, 앞 60% 동안 따라옴) → 안에 있으면 거품에 갇힘(대시 무적이면 피함). 거품(부품, hits 대)을 t 초 안에 못 터뜨리면 최대 체력 pct(못 피함)
+  //        갇힌 사람도 칠 수 있음(제자리 연타) · 파티원이 쳐 줘도 됨
+  //   그림자 기습(루멘): 처음엔 등불을 끌 때 세 번 → 지금은 어두운 동안 늘 기습(knight_lamp.lamp 줄) — 발밑 거품 자국으로 짐작, 산호를 치면 멈추고 휘청
+  //   guard 거울 반사(에코): t 초 물거울을 앞에 세움 — 앞(보는 쪽 · cone)에서 친 공격은 피해 0 · 친 사람에게 공격 × reflect 되돌림(0.4초에 한 번),
+  //        등 뒤(-cone)에서 치면 거울이 깨져 back 초 휘청(×mul). 세우는 동안 노리는 사람 쪽으로 초당 turn 라디안 돎(빙 돌아 등을 노리기)
+  knight_anchor: { name: '닻의 기사 브란', sprite: 'knight_anchor', pix: true, idle: false, boss: true, knight: 'anchor', scale: 1.25, speed: 34, range: 26, superArmor: true, launchMul: 0.2, r: 12,
+    heave: ['anchorHold', 'kDown', 'tired'], dmgK: 1.5,  // 2026-11-01 사용자 '기둥에 박았는데 스턴이 안 걸려': noStun 뺌 — 기둥에 박으면 다른 기사처럼 기둥이 무너지며 3초 기절(tired = 맞음). 아래 '스턴 삭제'는 휘돌리기 뒤 어지러움만  // heave = 닻을 내려 맞는 상태(그 밖엔 피해 0) — 2026-11-01 사용자 '닻 회수를 더 빨리, 회수되면 딜 타임 종료 · 회전 공격과 스턴 삭제':
+    //   맞는 때 = 닻이 박혀 있는 동안(reel 1.6 → 1.0초) · 닻을 부숴 넘어진 동안만(회수 reel · 어지러움 tired 빠짐). 닻 휘돌리기(spin) 없앰
+    // 2026-11-01 사용자 '닻을 던질 때 빨아들이는 힘 — 순간적으로 반응해야 피하게, 맞으면 바로 닻을 회수해 딜 타임이 안 나오게':
+    //   예고 앞 follow 몫만 노리는 사람을 따라가다 멈추고, 그 뒤 박힐 자리 둘레 pullR 안 사람을 pull px/초로 끌어당김(걷기 82 — 대시로 빠져나와야). 맞으면 닻을 바로 회수(anchorBack, 넘어뜨릴 기회 없음)
+    // 2026-11-01 사용자 '닻 던지기 너무 빠르다 — 그래도 반응할 시간은 있어야': 예고 0.5 → 1.0초(0.3초 따라오고 멈춘 뒤 0.7초 끌어당김 — 그 사이 대시)
+    // 2026-11-01 사용자 '닻을 자기 바로 앞에는 던지지 말자 — 무한 칼질하다 보면 닻이 부서지고 자동 딜 타임': 떨어질 자리는 기사에게서 minD(화면 거리) 밖(sunken.js anchorSpot) — 붙어 있으면 그 바깥으로 끌려감
+    anchor: { cd: 5, wind: 1.0, follow: 0.3, r: 30, minD: 90, pullR: 90, pull: 75, reel: 1.0, back: 0.45, down: 2.5, mul: 1.5 },  // 2026-11-01 사용자 '닻을 빨리 던지고 깨졌을 때 딜 타임 줄여': 닻 예고 0.8 → 0.5초 · 넘어짐 4 → 2.5초
+    atk: { windup: 0.6, active: 0.12, recovery: 0.75, knock: 220, reach: [0, 40], arc: 120, lunge: 150 },
+    slam: { windup: 0.85, radius: 64 }, charge: { windup: 0.6, speed: 260, time: 0.5 }, summon: 'drowned' },
+  knight_tide: { name: '조류의 기사 세렌', sprite: 'knight_tide', pix: true, idle: false, boss: true, knight: 'tide', scale: 1.25, speed: 40, range: 24, superArmor: true, launchMul: 0.2, r: 12,
+    tide: { speed: 65, every: 6 }, rush: { cd: 10, n: 3, wind: 0.65, wind2: 0.4, speed: 300, time: 0.5 },  // 2026-11-01 사용자 '조류 힘을 조금만 약하게': 물살 80 → 65(걷기 82 — 거슬러 걸으면 초당 약 17px 나아감)
+    sweep: { r: 64, arc: 220, wind: 0.55, active: 0.18, dmg: 1.6, knock: 260, cd: 3.5, rec: 0.9 },  // 후려치기: 앞 arc 도 부채꼴(바닥 타원 r = 판정). 2026-11-01 사용자 '벽꿍으로 기절일 때는 넓게 베기를 못 해야': 기둥에 박으면 다른 기사처럼 기둥이 무너지며 기절(예전 wall = 기절 대신 후려치기는 뺌)
+    atk: { windup: 0.5, active: 0.12, recovery: 0.7, knock: 175, reach: [0, 32], arc: 60, lunge: 170 },
+    slam: { windup: 0.8, radius: 44 }, charge: { windup: 0.55, speed: 300, time: 1.2 }, fan: { windup: 0.7, count: 7, speed: 120, color: '#6a9ad8' }, summon: 'jelly' },
+  knight_bubble: { name: '거품 갑옷의 기사 오필', sprite: 'knight_bubble', pix: true, idle: false, boss: true, knight: 'bubble', scale: 1.25, speed: 34, range: 22, superArmor: true, launchMul: 0.2, r: 12,
+    // 2026-11-01 사용자 '3층 보스도 전방 후려치기나 길게 찌르기 — 돌진만 너무 자주 나와 단조로워': 붙으면 앞 후려치기(sweep, 세렌보다 좁고 약하게), 조금 떨어지면 길게 찌르기(thrust)
+    //   thrust = 노린 쪽으로 길이 len · 반폭 w 의 곧은 띠(예고 띠 = 판정), wind 초 뒤 한 번. 이 둘이 가까운 · 중간 거리를 맡아 돌진은 멀 때만 나옴
+    sweep: { r: 54, arc: 160, wind: 0.6, active: 0.18, dmg: 1.3, knock: 220, cd: 4, rec: 0.8 },
+    thrust: { len: 120, w: 9, wind: 0.65, active: 0.15, dmg: 1.2, knock: 240, cd: 3, rec: 0.7 },
+    // 2026-11-01 사용자 '거품 기사는 너무 쉽다 — 거품 다 터뜨리고 딜 타임에 딜하고, 딜 타임 끝나면 강제로 거품에 가두는 패턴': trapAfter = 드러남(expose 4초)이 끝나는 순간 방 안 모두를 거품 감옥에(대시로도 못 피함)
+    // 2026-11-01 사용자 '몸에 달린 방울을 몇 초 안에 다 못 없애면 갇히는 패턴': limit = 갑옷이 있는 동안 흐르는 제한 시간(초, 머리 위 숫자), 다 지나면 방 안 모두 거품 감옥 → 다시 limit 초
+    bubble: { n: 5, cut: 0.1, expose: 4, regrow: 2.5, mul: 1.5, trapAfter: true, limit: 8 }, jail: { cd: 0, wind: 0.9, r: 16, hits: 4, t: 2, pct: 0.3 },  // cd 0 = 발밑 원 보통 감옥 없음(2026-11-01 사용자 '보통 감옥은 빼기' — 딜 타임 끝 강제 감옥만, hits · t · pct 는 그대로 씀)  // 2026-11-01 사용자 '거품 패턴 더 자주 · 스턴 시간은 줄이고': 감옥 12 → 7초마다, 갇히는 시간 3 → 2초(터뜨릴 대수 5 → 4)
+    atk: { windup: 0.55, active: 0.12, recovery: 0.7, knock: 175, reach: [0, 27], arc: 85, lunge: 150 },
+    slam: { windup: 0.8, radius: 48 }, charge: { windup: 0.55, speed: 245, time: 0.6 }, fan: { windup: 0.65, count: 9, speed: 115, color: '#bcd8ff' }, summon: 'crab' },
+  knight_lamp: { name: '등불의 기사 루멘', sprite: 'knight_lamp', pix: true, idle: false, boss: true, knight: 'lamp', scale: 1.25, speed: 38, range: 22, superArmor: true, launchMul: 0.2, r: 12,
+    lamp: { dark: 0.5, stun: 3.5, lit: 8, mul: 1.5, gap: 1.4 },  // 2026-11-01 사용자 '빛이 없을 때는 공격당하지 않게 하고 기습하게': 방이 어두우면(산호 빛 lit 초가 꺼짐) 피해 0 · 늘 숨어서 기습(사라짐 gap 초 → 등 뒤에서 내려침 → 다시 사라짐). 산호를 치면 lit 초 동안 보이고 맞음(숨어 있었으면 stun 초 휘청 ×mul)
+    atk: { windup: 0.5, active: 0.12, recovery: 0.7, knock: 175, reach: [0, 28], arc: 90, lunge: 160 },
+    slam: { windup: 0.8, radius: 48 }, charge: { windup: 0.55, speed: 250, time: 0.6 }, fan: { windup: 0.65, count: 9, speed: 115, color: '#ffe066' }, summon: 'angler' },
+  knight_mirror: { name: '물거울의 기사 에코', sprite: 'knight_mirror', pix: true, idle: false, boss: true, knight: 'mirror', scale: 1.25, speed: 40, range: 22, superArmor: true, launchMul: 0.15, r: 12,
+    // 2026-11-01 사용자 '거울 기사는 잔상을 다 없애야 보스를 때릴 수 있게': 분신이 하나라도 있으면 진짜는 피해 0('잔상이 지킨다'), 진짜를 쳐도 분신이 안 터짐(예전엔 진짜를 치면 분신이 다 터짐)
+    mirror: { n: 3, cd: 11, splash: 30 }, guard: { cd: 9, t: 3, cone: 0.3, turn: 1.4, reflect: 0.6, back: 2.5, mul: 1.5 },
+    atk: { windup: 0.5, active: 0.12, recovery: 0.6, knock: 185, reach: [0, 28], arc: 90, lunge: 165 },
+    slam: { windup: 0.75, radius: 50 }, charge: { windup: 0.5, speed: 260, time: 0.6 }, fan: { windup: 0.6, count: 11, speed: 125, color: '#bcd8ff' }, summon: 'tidecaller' },
+  // 물거울 분신: 기사 그림 그대로(그림자 없음), 한 대에 터짐 — 경험치 · 전리품 없음(minion)
+  knight_clone: { name: '물거울의 기사 에코', sprite: 'knight_mirror', pix: true, idle: false, clone: true, scale: 1.25, speed: 40, range: 22, poise: 99, superArmor: true, r: 12, hp: 1, exp: 0, gold: [0, 0],
+    atk: { windup: 0.6, active: 0.12, recovery: 0.8, dmg: 12, knock: 120, reach: [0, 28], arc: 90, lunge: 140 } },
+  // 기사 부품(knightPart): 닻 · 발광 산호 — 몹처럼 맞지만 경험치 · 전리품 없음
+  sunk_anchor: { name: '박힌 닻', sprite: 'sunk_anchor', pix: true, idle: false, part: 'anchor', knightPart: true, rooted: true, hp: 2,  // 2026-11-01 사용자 '닻을 한 대만 덜 때리게 — 너무 어렵다': 3 → 2대
+    exp: 0, gold: [0, 0], speed: 0, range: 0, poise: 99, r: 6,
+    atk: { windup: 9, active: 0, recovery: 0, dmg: 0, knock: 0, reach: [0, 0], arc: 0, lunge: 0 } },
+  bubble_jail: { name: '거품 감옥', sprite: 'bubble_jail', pix: true, idle: false, part: 'jail', knightPart: true, rooted: true, hp: 5, exp: 0, gold: [0, 0], speed: 0, range: 0, poise: 99, r: 8,
+    atk: { windup: 9, active: 0, recovery: 0, dmg: 0, knock: 0, reach: [0, 0], arc: 0, lunge: 0 } },
+  coral_lamp: { name: '발광 산호', sprite: 'coral_lamp', pix: true, idle: false, part: 'lamp', knightPart: true, rooted: true, hp: 1, exp: 0, gold: [0, 0], speed: 0, range: 0, poise: 99, r: 6,
+    atk: { windup: 9, active: 0, recovery: 0, dmg: 0, knock: 0, reach: [0, 0], arc: 0, lunge: 0 } },
+  // 최종 보스 '삼지창의 왕 트리에르'(js/raid.js — 패턴 밀물 · 삼지창 던지기 · 해일, 수치 KING_RULE). 수문 = 수정 자리 · 삼지창 = 구슬 자리(박힌 것을 치면 왕에게 돌아감)
+  sunken_king: { name: '삼지창의 왕 트리에르', sprite: 'sunken_king', openSprite: 'sunken_king_open', pix: true, idle: false, boss: true, raid: true, speed: 34, range: 34, superArmor: true, launchMul: 0, r: 18,
+    atk: { windup: 0.6, active: 0.14, recovery: 0.7, knock: 210, reach: [0, 44], arc: 70, lunge: 130 },
+    slam: { windup: 0.9, radius: 60 }, charge: { windup: 0.75, speed: 270, time: 0.9 }, fan: { windup: 0.6, count: 11, speed: 120, color: '#6a9ad8' }, summon: 'drowned' },
+  sluice: { name: '수문', sprite: 'sluice', pix: true, idle: false, part: 'crystal', rooted: true, hp: 12, exp: 0, gold: [0, 0], speed: 0, range: 0, poise: 99, r: 7,
+    atk: { windup: 9, active: 0, recovery: 0, dmg: 0, knock: 0, reach: [0, 0], arc: 0, lunge: 0 } },
+  trident: { name: '삼지창', sprite: 'trident_part', pix: true, idle: false, part: 'orb', stick: true, hp: 1, exp: 0, gold: [0, 0], speed: 0, range: 0, poise: 99, r: 7,
     atk: { windup: 9, active: 0, recovery: 0, dmg: 0, knock: 0, reach: [0, 0], arc: 0, lunge: 0 } },
 });
 // 몹 서 있는 그림 이름(0x72 몸은 _idle_anim, 코드 도트 몸은 _anim) — 고르기 줄 · 이야기 창처럼 몹 그림만 따로 그릴 때
@@ -553,6 +662,7 @@ const ENEMY_ROLE = {
   temple_guard: 'tank', abyss_chort: 'fast', void_imp: 'ranged',
   ghoul: 'tank', ogre_grunt: 'tank', chain_ogre: 'tank', fiend: 'tank', void_fiend: 'tank',
   splitter: 'grunt', shieldbearer: 'tank', blinker: 'grunt', tentacle: 'grunt', warder: 'caster',  // 분열체 새끼는 따로(splitling)
+  drowned: 'grunt', jelly: 'fast', crab: 'tank', angler: 'tank', tidecaller: 'caster',  // 가라앉은 심연(분신 · 부품은 따로)
 };
 for (const k in ENEMY_ROLE) {
   const d = ENEMIES[k], r = ROLES[ENEMY_ROLE[k]];
@@ -675,33 +785,81 @@ const ENDLESS = { max: 3, diff: 2, lv: 100, entry: 95, ilvl: [100, 104], gear: 1
   ] };
 for (const F of ENDLESS.floors) Object.assign(ENEMIES[F.boss], { cdMul: ENDLESS.mid.cd, recMul: ENDLESS.mid.rec });// 풍경 '살아 있는 심연': 0x72 벽돌에 검보라를 곱하고(tint) 바닥에 핏빛 혈관(veins — dungeon.js paint, 맥박은 world.js drawVeins)
 const LIVING = { tint: '#7a4a86', vein: '#5a1430', veinLit: '#c8306a' };
+// ── 끝없는 심연 2단계 '가라앉은 심연'(2026-11-01 사용자 '110 렙제 준비' — 메모/abyss-stage2-plan.md) ──
+// 심연에 가라앉은 옛 왕국의 유적. 던파 '왕의 유적' 컨셉(기사들 → 거대한 왕)만 빌림. 5층, 층마다 방 셋 일직선: 빈방 → 잔몹방(골드 · 장비 · 속성석 파밍) → 기사방(중간 보스).
+// 5층 기사 다음 = 최종 보스 레이드 '삼지창의 왕'(js/raid.js). 몹 Lv.110 · 입장 Lv.105 · 떨어지는 장비는 늘 Lv.100(규칙) — Lv.110 장비는 업그레이드로만(craft.js).
+// 세기(2026-11-01 계산, 실제 손맛은 다시): 몹만 세지는 곡선까지 Lv.100 → 110 이 체력 ×2.5 · 공격 ×2.19 라서 그만큼 나눈다 —
+//   잔몹 = 1단계 3층 몹 체력 ×1.25 · 공격 ×1.15(stepHp · stepDmg), 기사 = 1단계 3층 중간 보스 체력 ×1.25 · 공격 ×1.15(bossHp × mid.hp), 층마다 ×hp · ×dmg
+// line = 일직선 방 셋(dungeon.js generateLine) · mobRoom = 잔몹방 크기 · packs = 잔몹방 무리 수
+// 2026-11-01 사용자 '전체적으로 너무 쉽다 — 몹 · 중간 보스 체력과 공격력 20% 넘게': 잔몹 stepHp · stepDmg ×1.3, 기사 mid.hp 3 → 3.9 · mid.dmg 1.25 → 1.625(×1.3).
+//   왕(raidDef)은 mid 배율을 나눠 빼므로 그대로 — 왕은 수문 순서(KING_RULE.sluiceWrong)로 어렵게
+const SUNKEN = { stage: 2, max: 5, diff: 2, lv: 110, entry: 105, ilvl: [100, 104], stepHp: 0.6104, stepDmg: 0.6755, bossHp: 0.24, bossDmg: 0.364, hp: 1.06, dmg: 1.04, reward: 0.05,
+  packs: 1, packAdd: 7, mid: { hp: 3.9, dmg: 1.625, cd: 0.6, rec: 0.6 }, unlock: 10,
+  // 2026-11-01 사용자 '잔몹 공격력만 1단계 2배로 맞춤': 잰 값 체력은 이미 1단계 3층의 약 2배(79.8만 / 39만), 공격은 1.75배 → stepDmg 0.59 → 0.6755(1단계 3층 졸개 한 방 5.0만 → 2단계 10.0만)
+  // 2026-11-01 사용자 '잔몹 지금 상태에서 2배 — 너무 녹인다': 체력 stepHp 0.218 → 0.436(병사 79.8만 → 약 160만 — 1단계 3층의 약 4배), 이어서 '공격력도 2배' stepDmg 0.6755 → 1.351(병사 한 방 10만 → 20만)
+  // 2026-11-01 사용자 '잔몹 지금 상태에서 체력 2배 더': stepHp 0.436 → 0.872(병사 약 160만 → 약 320만)
+  // 2026-11-01 사용자 '잔몹 다시 넣고 체력만 30% 줄여 70% 수준': stepHp 0.872 → 0.6104(병사 약 319만 → 약 223만), 공격은 그대로
+  // 2026-11-01 사용자 '잔몹방 크기 줄이고 몹 수 절반 이하 — 한 무리만, 한 무리 수는 조금 늘려': 무리 4 → 1, 무리 크기 6~8 → 10~12(packAdd 3 → 7), 잔몹방 34×18 → 24×13(dungeon.js)
+  // 2026-11-01 사용자 '잔몹 공격력 70% 수준': stepDmg 1.351 → 0.9457(병사 한 방 20만 → 14만)
+  // 2026-11-01 사용자 '2단계 잔몹 대미지는 1단계의 2배 정도로 — 너무 어렵다': stepDmg 0.9457 → 0.6755(병사 한 방 14만 → 10만 = 1단계 3층 5.0만의 2배)
+  flatMobs: true,
+  testNoMobs: false,  // ★ 시험용 임시(2026-11-01 사용자 '테스트를 위해 잔몹방 없이'): true 면 층마다 빈방 → 기사방 둘만(잔몹방 없음). 시험이 끝나면 false 로 — 올리기 전에 꼭 확인
+  pillarStun: 3,  // 2026-11-01 사용자 '중간 보스 모두 돌진 벽꿍은 없애고 기둥에만 — 대신 기둥은 없어져야'(그 뒤 '1단계도 똑같이'): 끝없는 심연 중간 보스(1단계 · 2단계 기사) 돌진이 벽이면 그냥 멈춤, 기둥에 박으면 기둥이 무너지며 이만큼 기절(세렌은 후려치기). 중간 보스방 기둥 넷(가운데 둘레)  // 2026-11-01 사용자 '잔몹은 5층 기준으로 — 다음 층이 더 어려운 구조가 아니게': 잔몹 세기는 모든 층이 5층 값(기사만 층마다 ×hp · ×dmg)
+  floors: [
+    // 2026-11-01 사용자 '브란이 제일 어렵다 — 중간 보스 자리 바꾸자: 브란 5 · 조류 4 · 거울 3, 나머지 둘은 제안': 1층 거품(오필) · 2층 등불(루멘)
+    { pool: ['drowned'], boss: 'knight_lamp', music: 'temple' },  // 2026-11-01 사용자 '1층 빛 · 2층 방울로 바꾸자'
+    { pool: ['drowned', 'drowned', 'jelly'], boss: 'knight_bubble', music: 'temple' },
+    { pool: ['drowned', 'jelly', 'crab'], boss: 'knight_mirror', music: 'ice' },
+    { pool: ['drowned', 'jelly', 'crab', 'angler'], boss: 'knight_tide', music: 'ice' },
+    { pool: ['drowned', 'jelly', 'crab', 'angler', 'tidecaller'], boss: 'knight_anchor', music: 'order' },
+  ] };
+// 풍경 '가라앉은 심연': 0x72 벽돌에 남색을 곱하고(tint) 바닥에 해초 · 산호 · 물결 빛(sea — dungeon.js paintSea, 물결 · 거품은 world.js drawSea). 함정 = 깊은 물웅덩이(느려짐)
+const SEA = { tint: '#5a7ac8', weed: '#2e6a4a', weedLit: '#4a9a5a', coral: '#c8503a', glow: '#bcd8ff' };
+HAZARDS.deep = { name: '깊은 물웅덩이', color: '#2a5ad8', pool: true, slow: true };
+for (const F of SUNKEN.floors) Object.assign(ENEMIES[F.boss], { cdMul: SUNKEN.mid.cd, recMul: SUNKEN.mid.rec, summon: F.pool[F.pool.length - 1] });  // 기사가 부르는 졸개 = 그 층에서 새로 나오는 몹(층을 바꿔도 아직 안 나온 몹을 부르지 않게)
+const STAGE_DEFS = { 1: ENDLESS, 2: SUNKEN };
 // 끝없는 심연 단계(2026-10-26 사용자): 광산 도시 실베인 던전 고르기에 줄로 하나씩(벨록 던전 줄 모양). 만렙을 10씩 풀 때마다 한 단계씩 늘린다(1단계 = Lv.100 '살아 있는 심연')
-// boss = 줄 왼쪽에 서 있는 그 단계 최종 보스(레이드)
+// boss = 줄 왼쪽에 서 있는 그 단계 최종 보스(레이드), gear = 떨어지는 장비 착용 레벨(늘 Lv.100 — 규칙), raidName = 처치 횟수 줄에 쓰는 이름
 const ABYSS_STAGES = [
-  { stage: 1, name: '살아 있는 심연', lv: ENDLESS.lv, entry: ENDLESS.entry, mat: '혈석', tint: '#c8306a', boss: 'abyss_raid' },  // 줄 아이콘 = 그 단계 최종 보스(사용자)
+  { stage: 1, name: '살아 있는 심연', lv: ENDLESS.lv, entry: ENDLESS.entry, mat: '혈석', gear: 100, tint: '#c8306a', glow: '200,48,106', boss: 'abyss_raid', raidName: '파수꾼', floors: ENDLESS.max },  // 줄 아이콘 = 그 단계 최종 보스(사용자)
+  { stage: 2, name: '가라앉은 심연', lv: SUNKEN.lv, entry: SUNKEN.entry, mat: '혈석', gear: 100, tint: '#3e7ad8', glow: '62,122,216', boss: 'sunken_king', raidName: '왕', floors: SUNKEN.max },
 ];
-const endlessBest = prof => (prof.endless && prof.endless.best) || 0;
+// 최고 층(단계마다: 1단계 = prof.endless.best, 2단계 = prof.endless.best2)
+const endlessBest = (prof, stage = 1) => (prof.endless && prof.endless[stage === 1 ? 'best' : 'best' + stage]) || 0;
 const endlessOpen = prof => !!(prof.story && prof.story.trueEnding);
+// 레이드 처치 횟수(파티 포함 — js/records.js 기록, 기록 전 1단계는 prof.endless.raid)
+const raidClears = (prof, stage = 1) => (prof.raidRec && prof.raidRec[stage] ? prof.raidRec[stage].clears : stage === 1 ? (prof.endless && prof.endless.raid) || 0 : 0);
+// 2단계 해금(2026-11-01 사용자): 심연의 파수꾼 SUNKEN.unlock(10)번 처치 → 만렙 119 · 가라앉은 심연
+const sunkenOpen = prof => endlessOpen(prof) && raidClears(prof, 1) >= SUNKEN.unlock;
+const stageOpen = (prof, stage) => (stage === 1 ? endlessOpen(prof) : stage === 2 ? sunkenOpen(prof) : false);
+const stageLockWhy = (prof, st) => (!endlessOpen(prof) ? '심연의 문을 영웅으로 깨면 열려요'
+  : st.stage === 2 && !sunkenOpen(prof) ? '심연의 파수꾼을 ' + SUNKEN.unlock + '번 쓰러뜨리면 열려요 (지금 ' + raidClears(prof, 1) + '번)'
+  : prof.lv < st.entry ? 'Lv.' + st.entry + '부터 들어갈 수 있어요 (지금 Lv.' + prof.lv + ')' : '');
 const mixColor = (a, b, k) => '#' + [1, 3, 5].map(i => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - k) + parseInt(b.slice(i, i + 2), 16) * k).toString(16).padStart(2, '0')).join('');
-function endlessDef(floor) {
-  if (floor > ENDLESS.max) return raidDef();  // 3층 다음 = 최종 보스 레이드(계단 '최종 보스 도전')
-  const F = ENDLESS.floors[(floor - 1) % ENDLESS.floors.length], A = DUNGEONS.find(d => d.id === 'abyss').ease;
-  const gh = Math.pow(ENDLESS.hp, floor - 1), gd = Math.pow(ENDLESS.dmg, floor - 1);  // 영웅 배율은 난이도(ENDLESS.diff)가 곱한다
-  const fh = ENDLESS.stepHp * gh, fd = ENDLESS.stepDmg * gd, bh = ENDLESS.bossHp * gh, bd = ENDLESS.bossDmg * gd;
-  return {
-    id: 'endless', endless: true, floor, timeId: 'endless' + floor, name: '끝없는 심연 ' + floor + '층',
-    lv: ENDLESS.lv, entry: ENDLESS.entry, ilvl: ENDLESS.ilvl, rooms: ENDLESS.rooms, packs: ENDLESS.packs, roomMaps: true, needs: null,
-    pool: F.pool, boss: F.boss, music: F.music, hazard: 'void', tint: LIVING.tint, veins: true,
-    banner: 'wall_banner_red', wall: ['wall_goo', 'wall_hole_2'], cols: 0.3, skulls: 0,
-    ease: { hp: A.hp * fh, dmg: A.dmg * fd, bhp: A.bhp * bh * ENDLESS.mid.hp, bdmg: A.bdmg * bd * ENDLESS.mid.dmg }, packAdd: ENDLESS.packAdd, gainMul: 1 + ENDLESS.reward * (floor - 1),
-    desc: '살아 숨 쉬는 심연의 틈.',
+// 그 단계 그 층 던전. stage 2 = 가라앉은 심연(일직선 방 셋 · 기사)
+function endlessDef(floor, stage = 1) {
+  const S = STAGE_DEFS[stage] || ENDLESS;
+  if (floor > S.max) return raidDef(stage);  // 마지막 층 다음 = 최종 보스 레이드(계단 '최종 보스 도전')
+  const F = S.floors[(floor - 1) % S.floors.length], A = DUNGEONS.find(d => d.id === 'abyss').ease;
+  const gh = Math.pow(S.hp, floor - 1), gd = Math.pow(S.dmg, floor - 1);  // 영웅 배율은 난이도(S.diff)가 곱한다
+  const mh = S.flatMobs ? Math.pow(S.hp, S.max - 1) : gh, md = S.flatMobs ? Math.pow(S.dmg, S.max - 1) : gd;  // flatMobs = 잔몹은 늘 마지막 층 세기
+  const fh = S.stepHp * mh, fd = S.stepDmg * md, bh = S.bossHp * gh, bd = S.bossDmg * gd;
+  const base = {
+    id: 'endless', endless: true, stage, maxFloor: S.max, floor, lv: S.lv, entry: S.entry, ilvl: S.ilvl, roomMaps: true, needs: null, pool: F.pool, boss: F.boss, music: F.music,
+    ease: { hp: A.hp * fh, dmg: A.dmg * fd, bhp: A.bhp * bh * S.mid.hp, bdmg: A.bdmg * bd * S.mid.dmg }, packAdd: S.packAdd, gainMul: 1 + S.reward * (floor - 1), skulls: 0,
   };
+  if (stage === 2) return Object.assign(base, { timeId: 'sunken' + floor, name: '가라앉은 심연 ' + floor + '층', line: true, noMobRoom: !!S.testNoMobs, packs: S.packs, hazard: 'deep', tint: SEA.tint, sea: true,
+    banner: 'wall_banner_blue', wall: ['wall_fountain_mid_blue_anim_f0', 'wall_hole_1'], cols: 0.5, doorCol: '60,110,220', desc: '심연에 가라앉은 옛 왕국의 유적.' });
+  return Object.assign(base, { timeId: 'endless' + floor, name: '끝없는 심연 ' + floor + '층', rooms: S.rooms, packs: S.packs, hazard: 'void', tint: LIVING.tint, veins: true,
+    banner: 'wall_banner_red', wall: ['wall_goo', 'wall_hole_2'], cols: 0.3, desc: '살아 숨 쉬는 심연의 틈.' });
 }
-// 최종 보스 레이드 던전: 3층 세기 그대로 + 보스 체력 = 3층 중간 보스(mid.hp 배율 전) × hpMul, 공격 = mid.dmg 배율 전. 방 하나(js/raid.js level), 몹 무리 · 함정 없음
-function raidDef() {
-  const d3 = endlessDef(ENDLESS.max);
-  return Object.assign({}, d3, { raid: true, stage: 1, floor: ENDLESS.max + 1, timeId: 'endlessRaid', name: '최종 보스 — 심연의 파수꾼', boss: 'abyss_raid', pool: [], hazard: null, music: 'order',
-    ease: Object.assign({}, d3.ease, { bhp: d3.ease.bhp / ENDLESS.mid.hp * RAID_RULE.hpMul, bdmg: d3.ease.bdmg / ENDLESS.mid.dmg }), desc: '심연의 밑바닥을 지키는 파수꾼.' });
+// 최종 보스 레이드 던전: 마지막 층 세기 그대로 + 보스 체력 = 마지막 층 중간 보스(mid.hp 배율 전) × hpMul, 공격 = mid.dmg 배율 전. 방 하나(js/raid.js level), 몹 무리 · 함정 없음
+function raidDef(stage = 1) {
+  const S = STAGE_DEFS[stage] || ENDLESS, R = raidRule(stage), dl = endlessDef(S.max, stage);
+  const two = stage === 2;
+  return Object.assign({}, dl, { raid: true, stage, floor: S.max + 1, timeId: two ? 'sunkenRaid' : 'endlessRaid', name: '최종 보스 — ' + (two ? '삼지창의 왕' : '심연의 파수꾼'),
+    boss: two ? 'sunken_king' : 'abyss_raid', pool: [], hazard: null, music: two ? 'lord' : 'order', line: false, sea: two, veins: false,
+    ease: Object.assign({}, dl.ease, { bhp: dl.ease.bhp / S.mid.hp * R.hpMul, bdmg: dl.ease.bdmg / S.mid.dmg }), desc: two ? '가라앉은 왕국의 마지막 왕.' : '심연의 밑바닥을 지키는 파수꾼.' });
 }
 
 // ── 아이템 ──
@@ -725,28 +883,28 @@ const UNIQUES = {
   breath: { slot: 'amulet', name: '끝없는 숨결', fx: '끝없는 숨결', desc: '기력 회복 속도 +40%' },  // 2026-10-24 사용자: 두 번째 기회 대신
   vamp: { slot: 'ring', name: '피의 서약', fx: '흡혈 칼날', desc: '처치할 때마다 체력 2% 회복' },
 };
-// 유니크 고유 이름: 착용 레벨 단계(재질 0 낡은 … 9 태초)마다 다른 이름(2026-10-25 사용자). 효과(fx)는 같고 이름만 바뀐다.
+// 유니크 고유 이름: 착용 레벨 단계(재질 0 낡은 … 9 태초)마다 다른 이름(2026-10-25 사용자). 효과(fx)는 같고 이름만 바뀐다. 맨 끝 = Lv.110 심해석(업그레이드로만, 2026-11-01)
 // 무기는 무기 종류마다(검 · 망치 · 롯드 · 스태프) 따로
 const UNIQUE_NAMES_BY_TIER = {
   echo: {
     // 맨 끝 = Lv.100 혈석(제작으로만, 2026-10-26)
-    light: ['메아리', '되울림', '잔향의 검', '룬 메아리', '용울음', '심연 반향', '검은 잔영', '성화 울림검', '별의 메아리', '태초의 울림', '혈맥 메아리검'],
-    heavy: ['쿵쿵이', '되치기 망치', '천둥 메아리', '룬 울림망치', '용골 분쇄자', '심연 공명', '흑요 진동', '성화 낙진', '별부수개', '태초의 고동', '심장 고동망치'],
-    wand: ['속삭임', '메아리 막대', '잔향 롯드', '룬 속삭임', '용의 숨결봉', '심연의 목소리', '흑요 메아리', '성화 지휘봉', '별빛 속삭임', '태초의 말씀', '핏줄 속삭임'],
-    staff: ['울림 지팡이', '되뇌는 지팡이', '잔향 지팡이', '룬 공명장', '용의 포효', '심연 합창', '흑요 공명', '성화 성가', '별의 합창', '태초의 노래', '혈맥 합창'],
-    katar: ['메아리 발톱', '되찌르기', '잔향 카타르', '룬 발톱', '용송곳니', '심연 송곳', '흑요 발톱', '성화 송곳니', '별빛 발톱', '태초의 송곳니', '혈석 송곳니'],
-    sai: ['받아침', '되받는 싸이', '잔향 싸이', '룬 받침칼', '용뿔 싸이', '심연 갈퀴', '흑요 받침', '성화 삼지창', '별빛 받침', '태초의 받침', '혈석 갈퀴'],
-    bell: ['딸랑이', '메아리 방울', '잔향 방울', '룬 방울', '용의 방울', '심연의 종', '흑요 방울', '성화 종소리', '별빛 방울', '태초의 종', '혈석 방울'],
-    pact: ['낡은 계약서', '되새김 계약', '잔향 계약서', '룬 계약서', '용의 맹약', '심연 계약', '흑요 서약서', '성화 계약', '별의 계약', '태초의 계약', '핏빛 계약서'],
-    mace: ['순례자 메이스', '되울림 철퇴', '잔향 메이스', '룬 메이스', '용의 철퇴', '심연 철퇴', '흑요 메이스', '성화 철퇴', '별빛 메이스', '태초의 철퇴', '혈석 메이스'],
-    warhammer: ['수련 성망치', '맹세의 망치', '잔향 성망치', '룬 성망치', '용의 심판', '심연 응징자', '흑요 성망치', '성화 천벌', '별의 심판', '태초의 응징', '혈석 성망치'],
+    light: ['메아리', '되울림', '잔향의 검', '룬 메아리', '용울음', '심연 반향', '검은 잔영', '성화 울림검', '별의 메아리', '태초의 울림', '혈맥 메아리검', '심해 메아리검'],
+    heavy: ['쿵쿵이', '되치기 망치', '천둥 메아리', '룬 울림망치', '용골 분쇄자', '심연 공명', '흑요 진동', '성화 낙진', '별부수개', '태초의 고동', '심장 고동망치', '해구 고동망치'],
+    wand: ['속삭임', '메아리 막대', '잔향 롯드', '룬 속삭임', '용의 숨결봉', '심연의 목소리', '흑요 메아리', '성화 지휘봉', '별빛 속삭임', '태초의 말씀', '핏줄 속삭임', '심해 속삭임'],
+    staff: ['울림 지팡이', '되뇌는 지팡이', '잔향 지팡이', '룬 공명장', '용의 포효', '심연 합창', '흑요 공명', '성화 성가', '별의 합창', '태초의 노래', '혈맥 합창', '심해 합창'],
+    katar: ['메아리 발톱', '되찌르기', '잔향 카타르', '룬 발톱', '용송곳니', '심연 송곳', '흑요 발톱', '성화 송곳니', '별빛 발톱', '태초의 송곳니', '혈석 송곳니', '심해 송곳니'],
+    sai: ['받아침', '되받는 싸이', '잔향 싸이', '룬 받침칼', '용뿔 싸이', '심연 갈퀴', '흑요 받침', '성화 삼지창', '별빛 받침', '태초의 받침', '혈석 갈퀴', '심해 갈퀴'],
+    bell: ['딸랑이', '메아리 방울', '잔향 방울', '룬 방울', '용의 방울', '심연의 종', '흑요 방울', '성화 종소리', '별빛 방울', '태초의 종', '혈석 방울', '심해 방울'],
+    pact: ['낡은 계약서', '되새김 계약', '잔향 계약서', '룬 계약서', '용의 맹약', '심연 계약', '흑요 서약서', '성화 계약', '별의 계약', '태초의 계약', '핏빛 계약서', '심해 계약서'],
+    mace: ['순례자 메이스', '되울림 철퇴', '잔향 메이스', '룬 메이스', '용의 철퇴', '심연 철퇴', '흑요 메이스', '성화 철퇴', '별빛 메이스', '태초의 철퇴', '혈석 메이스', '심해 메이스'],
+    warhammer: ['수련 성망치', '맹세의 망치', '잔향 성망치', '룬 성망치', '용의 심판', '심연 응징자', '흑요 성망치', '성화 천벌', '별의 심판', '태초의 응징', '혈석 성망치', '심해 성망치'],
   },
-  skin: ['돌거북 투구', '바위 껍질', '강철 등딱지', '룬 거북 투구', '용비늘 관', '심연 거북관', '흑요 껍데기', '성화 수호관', '별거북 투구', '태초의 등껍질', '혈석 등껍질'],
-  leaf: ['숲지기의 갑주', '떡갈나무 갑옷', '강철 잎새 갑주', '룬 덩굴 갑주', '용림 갑주', '심연 가시나무', '흑요 수풀', '성화 세계수', '별잎 갑주', '태초의 숲', '핏줄 덩굴 갑주'],
-  ambush: ['그림자 손', '쥐도둑 장갑', '어스름 손', '룬 그림자 손', '용발톱 손', '심연의 손', '흑요 그림자', '성화 암살자 손', '별그림자 손', '태초의 어둠', '핏빛 그림자 손'],
-  dashguard: ['바람걸음', '산들 장화', '돌풍 장화', '룬 바람걸음', '용날개 장화', '심연 질풍', '흑요 회오리', '성화 열풍', '별바람 걸음', '태초의 바람', '혈풍 장화'],
-  breath: ['끝없는 숨결', '깊은 숨 목걸이', '고요한 들숨', '룬 숨결', '용의 숨', '심연의 호흡', '흑요 고동', '성화 숨결', '별의 숨결', '태초의 호흡', '심장의 숨결'],
-  vamp: ['피의 서약', '핏방울 반지', '붉은 맹세', '룬 혈약', '용피 반지', '심연 혈맹', '흑요 피', '성화 피의 맹세', '별피 서약', '태초의 피', '혈석 맹약'],
+  skin: ['돌거북 투구', '바위 껍질', '강철 등딱지', '룬 거북 투구', '용비늘 관', '심연 거북관', '흑요 껍데기', '성화 수호관', '별거북 투구', '태초의 등껍질', '혈석 등껍질', '심해 등껍질'],
+  leaf: ['숲지기의 갑주', '떡갈나무 갑옷', '강철 잎새 갑주', '룬 덩굴 갑주', '용림 갑주', '심연 가시나무', '흑요 수풀', '성화 세계수', '별잎 갑주', '태초의 숲', '핏줄 덩굴 갑주', '산호 덩굴 갑주'],
+  ambush: ['그림자 손', '쥐도둑 장갑', '어스름 손', '룬 그림자 손', '용발톱 손', '심연의 손', '흑요 그림자', '성화 암살자 손', '별그림자 손', '태초의 어둠', '핏빛 그림자 손', '심해 그림자 손'],
+  dashguard: ['바람걸음', '산들 장화', '돌풍 장화', '룬 바람걸음', '용날개 장화', '심연 질풍', '흑요 회오리', '성화 열풍', '별바람 걸음', '태초의 바람', '혈풍 장화', '해류 장화'],
+  breath: ['끝없는 숨결', '깊은 숨 목걸이', '고요한 들숨', '룬 숨결', '용의 숨', '심연의 호흡', '흑요 고동', '성화 숨결', '별의 숨결', '태초의 호흡', '심장의 숨결', '심해의 숨결'],
+  vamp: ['피의 서약', '핏방울 반지', '붉은 맹세', '룬 혈약', '용피 반지', '심연 혈맹', '흑요 피', '성화 피의 맹세', '별피 서약', '태초의 피', '혈석 맹약', '심해 맹약'],
 };
 // u = UNIQUES 키, kind = 무기 종류(무기만), tier = 재질 단계
 const uniqueName = (u, kind, tier) => {
@@ -845,6 +1003,7 @@ const GEAR_TIERS = [
   { mat: '별빛', tint: '#f4f6ff' },    // Lv.80~89 흰빛
   { mat: '태초', tint: '#ffc018' },    // Lv.90~99 금색
   { mat: '혈석', tint: '#d0306a' },    // Lv.100~ 핏빛 자홍(2026-10-26 사용자: 끝없는 심연 Lv.100 장비, '살아 있는 심연' 혈관 색)
+  { mat: '심해석', tint: '#3e7ad8' },  // Lv.110~ 깊은 바다 파랑(2026-11-01 사용자: 2단계 '가라앉은 심연' — Lv.100 제작 유니크 업그레이드로만)
 ];
 // 롯드 그림: 마법 지팡이 그림의 윗부분(머리 + 짧은 자루)만 잘라 쓴다 — 스태프와 같은 머리, 길이만 짧게
 FRAMES.weapon_rod = [FRAMES.weapon_red_magic_staff[0], FRAMES.weapon_red_magic_staff[1], 8, 18];
@@ -1154,13 +1313,18 @@ const STONE_BOSS_BOOST = 0.8;  // 보스 · 큰 상자: 큰 쪽이 더 잘 나�
 const LV_MAX = 99;  // 만렙(2026-10-25 사용자: 일단 99)
 // 끝없는 심연에 갈 수 있게 되면(진엔딩) 만렙이 109 로 풀린다(2026-10-26 사용자 — 10씩 풀기, endgame-plan.md)
 const LV_MAX_ABYSS = 109;
-const lvMax = prof => (endlessOpen(prof) ? LV_MAX_ABYSS : LV_MAX);
+const LV_MAX_SUNKEN = 119;  // 2단계 '가라앉은 심연'이 열리면(파수꾼 10번 처치, 2026-11-01 사용자) 119
+const lvMax = prof => (sunkenOpen(prof) ? LV_MAX_SUNKEN : endlessOpen(prof) ? LV_MAX_ABYSS : LV_MAX);
 // Lv.100 이상 유니크는 떨어지지 않는다 — 제작으로만(레이드 '심연의 핵', endgame-plan.md ⑤). 항아리도 이 단계부터 유니크 대신 레어
 const UNIQUE_CRAFT_LV = 100;
 // Lv.100 유니크 제작(2026-10-26 사용자, 실베인 '심연 장인 고른' — js/craft.js): 부위(무기는 내 직업 무기 종류)를 고르면 그 부위 유니크 확정.
 // 재료 하나 = 심연의 핵 cores(Lv.100 제작에만 — 다른 곳에는 안 씀, 사용자) + 심연 정수 essence(20 → 60, 사용자: 한 바퀴 약 45개라 남아돎) + 축복받은 강화 주문서 scrolls 장(2026-10-26 사용자: 보통은 안 받음 — 재료는 한 가지로만) +
 //   전설 보석 gems 개(무기 · 장신구 = 공격, 방어구 = 방어 — 전설만, 태초는 안 받음, 사용자: 완전한 2개 대신 전설 1개) + 골드 gold
 const CRAFT = { lv: UNIQUE_CRAFT_LV, cores: 1, essence: 60, scrolls: 20, gems: 1, gemSize: 5, gold: 200000 };
+// Lv.110 업그레이드(2026-11-01 사용자 '조금 무겁게'): 같은 부위 Lv.100 제작 유니크(무기는 같은 종류, 낀 것도 됨)가 그대로 Lv.110 이 된다 —
+// 기본 능력치는 Lv.110 수치로, 강화(+N)는 그대로(오른 양은 레벨 곡선으로 늘림 — 계승 주문서와 같은 식), 낀 보석도 그대로. 판매 · 분해 안 됨(규칙).
+// 재료(한 가지씩, 규칙) = 심해 진주 pearls(2단계 레이드에서만) · 심연 정수 · 축복받은 강화 주문서 · 전설 보석 · 골드
+const CRAFT2 = { from: UNIQUE_CRAFT_LV, lv: 110, pearls: 1, essence: 80, scrolls: 25, gems: 2, gemSize: 5, gold: 300000 };
 // 원소 각인(2026-10-26 사용자: 속성석 소진처 — 네 속성을 다 받으니 어떤 속성을 끼든 같이 세지는 공통 효과로): 끝없는 심연이 열리면 세공사 미라 '원소 각인'.
 // 전설(size) 화염석 · 빙결석 · 뇌전석 · 맹독석 하나씩 + 골드 gold(다음 ★) → ★ +1(캐릭터마다, 최대 max). ★마다 낀 속성석 세기(power) +step —
 // 칸 능력 · 폭발 · 상태이상 · 패시브 피해가 모두 커지고, 범위는 돌 크기로 따로 정해져서 그대로(이펙트 범위 = 판정 범위). 보석은 안 받음.

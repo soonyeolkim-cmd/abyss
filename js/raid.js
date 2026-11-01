@@ -1,21 +1,30 @@
-// 끝없는 심연 최종 보스 레이드 '심연의 파수꾼'(2026-10-26 사용자) — 규칙 · 수치는 data.js RAID_RULE.
+// 끝없는 심연 최종 보스 레이드 '심연의 파수꾼'(2026-10-26 사용자) — 규칙 · 수치는 data.js RAID_RULE(2단계 왕은 raidRule(2) = KING_RULE 덮어씀).
 // 3층 중간 보스를 깨고 계단에서 '최종 보스 도전' → 넓은 방 하나(level). 패턴 셋: 껍질 · 수정 보호막 · 되받아치기.
 // 2026-10-26 사용자 '한 번 파훼에 1/3 씩 빠지지 말고 패턴마다 2~3번씩 섞어서': 패턴마다 R.repeat 번씩 섞은 순서(deal)대로 나오고,
 //   심장이 한 번 드러날 때마다(exposed) 다음 패턴으로. 한 번 드러날 때 깎이는 체력 = 최대 체력 / 순서 길이(clamp — 다 깎으면 바로 다음 패턴).
 // 약점(청록 심장)이 드러난 동안만 제대로 맞는다 — 어느 쪽 · 어떤 공격이든(혼자 · 어떤 직업이든 깰 수 있게).
 // 공허 수정 · 공허 구슬은 몹처럼 다룬다(def.part — 파티 소식 · 맞히기를 그대로 씀, 경험치 · 전리품은 없음).
 // 방장 · 혼자가 계산하고(think · state · part), 파티 손님은 몹 소식으로 따라 그린다(drawPart · drawBoss).
+// 2단계 '삼지창의 왕'(2026-11-01 사용자)도 같은 틀: 껍질 → 해일(대시로 고리 넘기기) · 수정 보호막 → 밀물(수문 부수기) · 공허 구슬 → 삼지창(박힌 것을 쳐서 돌려보내기). KING = 지금 레이드가 왕인지
 const Raid = (() => {
-  const R = RAID_RULE, TEAL = '#5fe0d0', VOID = '#c06aff';
+  let R = RAID_RULE, KING = false;
+  const TEAL = '#5fe0d0', VOID = '#c06aff', WATER = '#6a9ad8';
   const live = e => !e.dying && e.state !== 'dead';
   const parts = kind => World.enemies().filter(e => e.def.part === kind && live(e));
   const bossOf = () => World.enemies().find(e => e.def.raid && live(e));
   const MECHS = ['shell', 'crystal', 'orb'];
-  const NAME = { shell: '껍질', crystal: '수정 보호막', orb: '공허 구슬' };
-  const HINT = { shell: '껍질이 단단하다 — 날아드는 내려찍기를 대시로 ' + R.slams + '번 피하거나 기둥에 부딪히게 해 심장을 노려라', crystal: '수정 보호막 — 네 귀퉁이 공허 수정을 모두 부숴라', orb: '공허 구슬 — 쳐서 되돌려라!' };
+  const NAMES = { warden: { shell: '껍질', crystal: '수정 보호막', orb: '공허 구슬' }, king: { shell: '해일', crystal: '밀물', orb: '삼지창' } };
+  const HINTS = {
+    warden: { shell: () => '껍질이 단단하다 — 날아드는 내려찍기를 대시로 ' + R.slams + '번 피하거나 기둥에 부딪히게 해 심장을 노려라', crystal: () => '수정 보호막 — 네 귀퉁이 공허 수정을 모두 부숴라', orb: () => '공허 구슬 — 쳐서 되돌려라!' },
+    king: { shell: () => '해일 — 왕이 삼지창을 들면 고리가 밀려온다, 대시로 ' + R.slams + '번 넘겨라', crystal: () => '밀물 — 물이 차오른다! 수문을 번호 순서대로(1 → 4) 부숴라 — 순서가 틀리면 모두 다친다', orb: () => '삼지창 — 바닥에 박힌 삼지창을 쳐서 왕에게 돌려보내라!' },
+  };
+  const NAME = new Proxy({}, { get: (o, k) => NAMES[KING ? 'king' : 'warden'][k] });
+  const HINT = new Proxy({}, { get: (o, k) => HINTS[KING ? 'king' : 'warden'][k]() });
+  const crystalSpr = () => (KING ? 'sluice_anim_f0' : 'void_crystal_anim_f0');
 
   // ── 방: 넓은 방 하나 + 기둥 넷(1단계: 돌진을 기둥에 부딪히게 하면 기둥이 깨지며 심장이 드러남) ──
   function level(def) {
+    R = raidRule(def.stage || 1); KING = def.boss === 'sunken_king';
     const RW = 40, RH = 24, G = 4, W = RW + G * 2, H = RH + G * 2;
     const tiles = new Uint8Array(W * H);
     const at = (x, y) => (x < 0 || y < 0 || x >= W || y >= H ? 0 : tiles[y * W + x]);
@@ -66,7 +75,7 @@ const Raid = (() => {
       World.field({ wave: true, x: e.x, y: e.y, delay: W.delay, speed: W.speed, w: W.w, pct: W.pct, tick: 99, life: W.delay + W.maxR / W.speed });
       if (!e.waveSeen) { e.waveSeen = 1; World.text(e.x, e.y, e.h + 26, '파동 — 대시로 넘어라!', VOID, true); }
     }
-    if (e.mech === 'shell') restorePillars(e);
+    if (e.mech === 'shell' && !KING) restorePillars(e);
     if (e.mech === 'crystal') { spawnCrystals(e); World.summon(e.def.summon, e, 3); }
     // 처음 나온 패턴만 공략 알림: 긴 설명은 화면 가운데(줄 나눔, hud.js), 보스 머리 위는 패턴 이름만(2026-10-29 사용자: 폰에서 설명이 길어 잘림)
     if (!e.seen[e.mech]) { e.seen[e.mech] = 1; World.text(e.x, e.y, e.h + 14, NAME[e.mech] + '!', TEAL, true); World.say(HINT[e.mech], 4.5); }
@@ -91,7 +100,14 @@ const Raid = (() => {
   function spawnCrystals(e) {
     if (parts('crystal').length) return;
     const r = World.level.boss;
-    for (const [x, y] of [[r.x + 3, r.y + 3], [r.x + r.w - 4, r.y + 3], [r.x + 3, r.y + r.h - 3], [r.x + r.w - 4, r.y + r.h - 3]]) World.spawn('void_crystal', x * T + 8, y * T + 8, { spawn: true });
+    // 왕: 수문 번호(귀퉁이 왼위 · 오른위 · 왼아래 · 오른아래 차례로 e.sOrd) — 섞은 1~4, 번호 순서대로 부숴야 함(partDied)
+    const ord = [1, 2, 3, 4];
+    for (let i = 3; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ord[i], ord[j]] = [ord[j], ord[i]]; }
+    e.sOrd = KING ? ord : null;
+    [[r.x + 3, r.y + 3], [r.x + r.w - 4, r.y + 3], [r.x + 3, r.y + r.h - 3], [r.x + r.w - 4, r.y + r.h - 3]].forEach(([x, y], i) => {
+      const c = World.spawn(KING ? 'sluice' : 'void_crystal', x * T + 8, y * T + 8, { spawn: true });
+      if (KING && c) c.ord = ord[i];
+    });
     e.crystalAt = World.time + R.shift + R.crystalTime;  // 이때까지 다 못 부수면 남은 수정이 터진다(detonate)
     Sfx.spell();
   }
@@ -109,14 +125,14 @@ const Raid = (() => {
       hurtPlayer(t, { x: b.x, y: b.y, pct: R.crystalPct * left.length, unavoid: true }, 0, 140);
     }
     World.shake(8); Sfx.blast();
-    say(b, '공허 수정 폭발! (남은 수정 ' + left.length + '개)', VOID);
+    say(b, KING ? '해일! (남은 수문 ' + left.length + '개)' : '공허 수정 폭발! (남은 수정 ' + left.length + '개)', KING ? WATER : VOID);
     b.state = 'move'; b.atkCd = 1;
     next(b);
   }
   function expose(b, sec, why) {
     b.state = 'exposed'; b.t = sec; b.windupT = sec; b.slams = 0; b.kx = 0; b.ky = 0;
     World.shake(4); World.sparks(b.x, b.y, b.h * 0.55, 18, TEAL, true);
-    World.text(b.x, b.y, b.h + 6, (why ? why + ' ' : '') + '심장이 드러났다!', TEAL, true);
+    World.text(b.x, b.y, b.h + 6, (why ? why + ' ' : '') + (KING ? '진주가 갈라졌다!' : '심장이 드러났다!'), TEAL, true);
     Sfx.chest();
   }
 
@@ -128,7 +144,8 @@ const Raid = (() => {
     if (p.dead) return;
     if (!e.mech) begin(e);
     if (e.chunkDone) { chunkNext(e); return; }  // 껍질 위로 조금씩 깎다 몫을 다 채운 경우도
-    if (e.mech === 'crystal' && !parts('crystal').length) { expose(e, R.crystalExpose, '보호막이 꺼졌다 —'); return; }  // 패턴이 바뀌는 사이에 수정을 다 부숴도
+    if (e.mech === 'crystal' && !parts('crystal').length) { expose(e, R.crystalExpose, KING ? '물이 빠졌다 —' : '보호막이 꺼졌다 —'); return; }  // 패턴이 바뀌는 사이에 수정을 다 부숴도
+    if (KING && e.mech === 'crystal' && tideK(e) > 0.5) for (const t of [p, ...World.remotes]) if (t && !t.dead) t.slowT = Math.max(t.slowT || 0, 0.15);  // 밀물이 반 넘게 차면 느려짐
     faceTo(e, p);
     e.atkCd -= dt;
     const pd = Math.hypot(p.x - e.x, p.y - e.y);
@@ -140,6 +157,7 @@ const Raid = (() => {
     const slam = () => { e.state = 'slam'; e.t = e.windupT = d.slam.windup; };
     const leap = () => { e.state = 'leapWind'; e.t = e.windupT = R.leap.wind; e.lx = p.x; e.ly = p.y; };
     const rage = 0.65 + 0.35 * e.hp / e.maxHp;  // 체력이 줄수록 공격 사이가 짧아짐(예전 단계가 오르던 맛)
+    if (KING) { kingAttack(e, lv, p, pd, r, near, slam, rage); return; }
     if (e.mech === 'shell') {  // 도약 내려찍기(대시로 R.slams 번 피하면 지침) · 휘두르기 · 멀면 돌진(기둥에 부딪히게)
       if (near) { if (r < 0.7) leap(); else { e.state = 'windup'; e.t = e.windupT = d.atk.windup; } }
       else if (r < 0.6) { e.state = 'chargeWind'; e.t = e.windupT = d.charge.windup; e.chargeV = unit(p.x - e.x, p.y - e.y, e.fv); }
@@ -157,11 +175,38 @@ const Raid = (() => {
       e.atkCd = (1.5 + Math.random() * 0.7) * rage;
     }
   }
-  // 공허 장판: 노리는 사람 발밑 + 둘레 둘에 예고(바닥 타원 = 판정) 뒤 터짐
+  // 삼지창의 왕: 해일(고리 — 대시로 넘기기) · 밀물(물기둥 · 탄 · 내려찍기) · 삼지창(던지기 — 박힌 것을 쳐서 돌려보냄)
+  function kingAttack(e, lv, p, pd, r, near, slam, rage) {
+    if (e.mech === 'shell') {
+      if (near && r < 0.35) { e.state = 'windup'; e.t = e.windupT = e.def.atk.windup; }
+      else { e.state = 'waveWind'; e.t = e.windupT = 0.8; }
+      e.atkCd = (1.5 + Math.random() * 0.6) * rage;
+    } else if (e.mech === 'crystal') {
+      if (r < 0.4) puddles(e, p);
+      else if (near) slam();
+      else { e.state = 'fan'; e.t = e.windupT = e.def.fan.windup; }
+      e.atkCd = (1.3 + Math.random() * 0.7) * rage;
+    } else {
+      if (!parts('orb').length && !e.bare && r < 0.75) { e.state = 'orbWind'; e.t = e.windupT = 0.8; }
+      else if (near && r < 0.85) slam();
+      else { e.state = 'ringWind'; e.t = e.windupT = 0.6; }
+      e.atkCd = (1.5 + Math.random() * 0.7) * rage;
+    }
+  }
+  // 밀물이 찬 정도(0 ~ 1) — 수문이 터지기까지 남은 시간으로
+  const tideK = b => (b && b.mech === 'crystal' && b.crystalAt ? Math.max(0, Math.min(1, 1 - (b.crystalAt - World.time) / (R.crystalTime + R.shift))) : 0);
+  // 해일 고리를 대시로 넘음(world.js updateFields — 파도 하나에 한 번): R.slams 번이면 지쳐 노출
+  function waveDodged(t) {
+    const b = bossOf();
+    World.text(t.x, t.y, 40, '넘김!', '#ffd36a');
+    if (!b || b.mech !== 'shell' || b.state === 'exposed' || b.state === 'phaseShift') return;
+    if (++b.slams >= R.slams) expose(b, R.slamExpose, '지쳤다 —');
+  }
+  // 공허 장판: 노리는 사람 발밑 + 둘레 둘에 예고(바닥 타원 = 판정) 뒤 터짐(왕 = 물기둥)
   function puddles(e, p) {
     for (let k = 0; k < 3; k++) {
       const a = Math.random() * Math.PI * 2, dd = k ? 26 + Math.random() * 14 : 0;
-      World.field({ blast: true, voidBlast: true, x: p.x + Math.cos(a) * dd, y: p.y + Math.sin(a) * dd * 0.6, r: 24, el: '', tick: 99, delay: 1.0 + k * 0.15, life: 1.4 + k * 0.15, dmg: e.def.slam.dmg * e.dmgMul * 0.8 });
+      World.field({ blast: true, voidBlast: !KING, seaBlast: KING, x: p.x + Math.cos(a) * dd, y: p.y + Math.sin(a) * dd * 0.6, r: 24, el: '', tick: 99, delay: 1.0 + k * 0.15, life: 1.4 + k * 0.15, dmg: e.def.slam.dmg * e.dmgMul * 0.8 });
     }
     e.state = 'recover'; e.t = 0.6;
     Sfx.spell();
@@ -170,13 +215,14 @@ const Raid = (() => {
     const n = 16, sp = e.def.fan.speed, off = Math.random() * Math.PI;
     for (let k = 0; k < n; k++) {
       const a = off + k / n * Math.PI * 2;
-      World.shoot({ x: e.x, y: e.y - e.h * 0.5, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, dmg: e.def.fan.dmg * e.dmgMul, knock: 90, color: VOID, life: 3, r: 3 });
+      World.shoot({ x: e.x, y: e.y - e.h * 0.5, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, dmg: e.def.fan.dmg * e.dmgMul, knock: 90, color: KING ? WATER : VOID, life: 3, r: 3 });
     }
   }
   function throwOrb(e, p) {
-    const o = World.spawn('void_orb', e.x + e.fv.x * 10, e.y + 2, {});
+    const o = World.spawn(KING ? 'trident' : 'void_orb', e.x + e.fv.x * 10, e.y + 2, {});
     const u = unit(p.x - o.x, p.y - o.y, e.fv);
     o.vx = u.x * R.orbSpeed; o.vy = u.y * R.orbSpeed; o.life = 8; o.rally = 0; o.h = 14; o.boss = e; o.state = 'move';
+    if (KING) { o.tx = p.x; o.ty = p.y; o.go = Math.hypot(p.x - o.x, p.y - o.y) + 10; e.bare = true; World.text(e.x, e.y, e.h + 8, '삼지창을 던졌다!', '#ffd36a'); }  // 노린 자리에 박힘
     Sfx.blast();
   }
 
@@ -199,6 +245,14 @@ const Raid = (() => {
       case 'ringWind':
         e.t -= dt;
         if (e.t <= 0) { ring(e); Sfx.blast(); e.state = 'recover'; e.t = 0.7; }
+        break;
+      case 'waveWind':  // 왕: 삼지창을 들어 해일 고리(대시로 넘으면 '넘김' — world.js 가 셈)
+        e.t -= dt;
+        if (e.t <= 0) {
+          const W = R.wave;
+          World.field({ wave: true, count: true, x: e.x, y: e.y, delay: 0.15, speed: W.speed, w: W.w, pct: W.pct, tick: 99, life: 0.15 + W.maxR / W.speed });
+          World.shake(4); Sfx.roar(); e.state = 'recover'; e.t = R.waveGap;
+        }
         break;
       case 'leapWind':  // 예고가 노리는 사람 발밑을 따라다님 → 끝나면 그 자리로 날아오름
         e.t -= dt; e.kx = 0; e.ky = 0;
@@ -227,16 +281,16 @@ const Raid = (() => {
     World.fx({ type: 'shock', x: e.x, y: e.y, r: d.slam.radius, t: 0, life: 0.3 });
     const hit = groundDist(p.x - e.x, p.y - e.y) <= d.slam.radius + BODY_R && hurtPlayer(p, e, d.slam.dmg * e.dmgMul, 200) !== 'miss';
     e.state = 'recover'; e.t = 0.8;
-    if (e.mech !== 'shell' || hit || !e.leapDash) return;  // 대시로 피한 것만 센다(멀리 있거나 맞으면 안 셈)
+    if (e.mech !== 'shell' || KING || hit || !e.leapDash) return;  // 대시로 피한 것만 센다(멀리 있거나 맞으면 안 셈)
     World.text(p.x, p.y, 40, '피함!', '#ffd36a');
     if (++e.slams >= R.slams) expose(e, R.slamExpose, '지쳤다 —');
   }
   // 껍질 패턴 지침(2026-10-26 사용자): 제자리 내려찍기를 맞든 안 맞든 세던 것 → 피한 것만 → 멀리 있으면 그냥 차서
   //   내 자리로 날아드는 도약 내려찍기(leapWind · leap · land)를 대시로 피한 것만 센다. 셈은 보스 머리 위 '피함 N/slams'(labels)
   // 돌진에 맞은 사람(enemy.js charge): 껍질 패턴이면 짓밟혀 R.stun 초 기절(2026-10-26 사용자 — 기둥으로 유도하라는 벌)
-  const chargeSrc = e => (e.mech === 'shell' ? Object.assign(Object.create(e), { stun: R.stun }) : e);
+  const chargeSrc = e => (e.mech === 'shell' && !KING ? Object.assign(Object.create(e), { stun: R.stun }) : e);
   function pillar(e, lv) {
-    if (e.mech !== 'shell') return false;
+    if (e.mech !== 'shell' || KING) return false;
     const i = lv.columns.findIndex(c => Math.hypot(c[0] * T + 8 - e.x, c[1] * T + 12 - e.y) < e.r + 18);
     if (i < 0) return false;
     const c = lv.columns.splice(i, 1)[0];
@@ -256,7 +310,8 @@ const Raid = (() => {
       return;
     }
     const b = (e.boss && live(e.boss) && e.boss) || bossOf();
-    if (!b || (e.life -= dt) <= 0) { pop(e); return; }
+    if (!b || (e.life -= dt) <= 0) { if (e.def.stick && b) World.text(e.x, e.y, 24, '삼지창이 돌아갔다', WATER); pop(e); return; }
+    if (e.state === 'stuck') return;  // 박힌 삼지창: 칠 때까지 그대로
     if (e.state === 'back') {  // 되돌아가는 구슬: 보스 심장 쪽으로 휘어 감
       const sp = Math.hypot(e.vx, e.vy), u = unit(b.x - e.x, b.y - e.y, { x: 0, y: -1 });
       e.vx = u.x * sp; e.vy = u.y * sp;
@@ -264,15 +319,23 @@ const Raid = (() => {
     } else {  // 못 쳐내고 맞으면 최대 체력 orbPct + 공허 표식(받는 피해 ×markMul, markT 초) — 대시 무적이면 지나감
       for (const t of [World.player, ...World.remotes]) {
         if (!t || t.dead || Math.hypot(t.x - e.x, t.y - e.y) >= e.r + BODY_R + 2) continue;
-        if (hurtPlayer(t, { x: e.x, y: e.y, pct: R.orbPct, mark: R.markT }, 0, 200) !== 'miss') { pop(e); return; }
+        if (hurtPlayer(t, { x: e.x, y: e.y, pct: R.orbPct, mark: R.markT }, 0, 200) !== 'miss') { if (e.def.stick) { stick(e); return; } pop(e); return; }
       }
     }
     e.x += e.vx * dt; e.y += e.vy * dt;
-    if (!Dungeon.walkable(lv, e.x, e.y, 2)) pop(e);
+    if (e.def.stick && e.state === 'move' && (e.go -= Math.hypot(e.vx, e.vy) * dt) <= 0) { stick(e); return; }  // 노린 자리에 박힘
+    if (!Dungeon.walkable(lv, e.x, e.y, 2)) { if (e.def.stick && e.state === 'move') { e.x -= e.vx * dt; e.y -= e.vy * dt; stick(e); } else pop(e); }
   }
-  // 플레이어 공격이 구슬에 맞음(combat.js hitEnemy) — 어떤 공격이든 보스 쪽으로 되돌린다
+  function stick(o) {  // 삼지창이 바닥에 박힘 → 칠 때까지(life 초) 그대로
+    o.state = 'stuck'; o.vx = 0; o.vy = 0; o.life = 9;
+    World.dust(o.x, o.y, 8); World.shake(2); Sfx.stone();
+    World.text(o.x, o.y, 30, '삼지창을 쳐라!', TEAL, true);
+  }
+  // 플레이어 공격이 구슬에 맞음(combat.js hitEnemy) — 어떤 공격이든 보스 쪽으로 되돌린다(삼지창은 박힌 것만)
   function reflect(o) {
-    if (o.state !== 'move') return false;
+    if (o.state !== (o.def.stick ? 'stuck' : 'move')) return false;
+    if (o.def.stick) { o.vx = 0; o.vy = -1; }  // 박힌 삼지창: 왕 쪽으로 날아감(속도는 던질 때만큼)
+    if (o.def.stick) { const b0 = (o.boss && live(o.boss) && o.boss) || bossOf(); if (b0) { const u0 = unit(b0.x - o.x, b0.y - o.y, { x: 0, y: -1 }); o.vx = u0.x * R.orbSpeed / R.orbBack; o.vy = u0.y * R.orbSpeed / R.orbBack; } }
     const b = (o.boss && live(o.boss) && o.boss) || bossOf();
     if (!b) return false;
     const sp = Math.hypot(o.vx, o.vy) * R.orbBack, u = unit(b.x - o.x, b.y - o.y, { x: 0, y: -1 });
@@ -288,7 +351,8 @@ const Raid = (() => {
       const t = b.tgt || World.player, sp = Math.hypot(o.vx, o.vy) * R.orbBack, u = unit(t.x - o.x, t.y - o.y, { x: 0, y: 1 });
       o.vx = u.x * sp; o.vy = u.y * sp; o.state = 'move'; o.rally++; o.life = 8;
       faceTo(b, t);
-      World.text(b.x, b.y, b.h + 8, '되받아쳤다! (' + o.rally + ')', VOID);
+      if (o.def.stick) { o.tx = t.x; o.ty = t.y; o.go = Math.hypot(t.x - o.x, t.y - o.y) + 10; }  // 왕이 받아 다시 던짐
+      World.text(b.x, b.y, b.h + 8, (KING ? '받아 던졌다! (' : '되받아쳤다! (') + o.rally + ')', KING ? WATER : VOID);
       World.sparks(o.x, o.y, 14, 10, VOID, true); Sfx.hit(false);
       return;
     }
@@ -297,6 +361,7 @@ const Raid = (() => {
   }
   function pop(o) {
     if (!live(o)) return;
+    if (o.def.stick && o.boss) o.boss.bare = false;  // 삼지창이 왕 손으로
     World.sparks(o.x, o.y, 14, 12, o.state === 'back' ? TEAL : VOID, true);
     o.dying = true; o.hp = 0; o.state = 'dead'; o.t = 0.9;  // 곧 사라짐(world.js 가 1.2초 넘은 쓰러진 몹을 지움)
   }
@@ -305,7 +370,32 @@ const Raid = (() => {
     if (e.def.part !== 'crystal') return;
     World.sparks(e.x, e.y, 10, 16, TEAL, true); Sfx.stone();
     const b = bossOf();
-    if (b && b.mech === 'crystal' && !parts('crystal').length && b.state !== 'phaseShift') expose(b, R.crystalExpose, '보호막이 꺼졌다 —');
+    if (KING && b && b.mech === 'crystal' && b.state !== 'phaseShift') {  // 수문 순서: 남은 수문 중 더 작은 번호가 있으면 틀림 → 역류(모두에게 최대 체력 sluiceWrong)
+      const me = ordOf(e), rest = parts('crystal').map(ordOf), want = Math.min(me, ...rest);
+      if (me > want) backflow(b, e, want);
+      else if (rest.length) World.text(e.x, e.y, 30, me + '번 열림 — 다음 ' + Math.min(...rest) + '번', TEAL, true);
+    }
+    if (b && b.mech === 'crystal' && !parts('crystal').length && b.state !== 'phaseShift') expose(b, R.crystalExpose, KING ? '물이 빠졌다 —' : '보호막이 꺼졌다 —');
+  }
+
+  // 수문 번호: 방장은 생길 때 붙인 c.ord, 파티 손님은 보스 소식 sOrd 와 귀퉁이 자리로
+  function ordOf(c) {
+    if (c.ord) return c.ord;
+    const b = bossOf(), r = World.level.boss;
+    if (!b || !b.sOrd) return 0;
+    return b.sOrd[(c.x > (r.x + r.w / 2) * T ? 1 : 0) + (c.y > (r.y + r.h / 2) * T ? 2 : 0)];
+  }
+  // 순서가 틀린 수문을 부숨: 물이 거꾸로 쏟아져 모두에게(방어 · 대시 무적 무시) — 부서진 수문은 그대로, 남은 수문을 계속 순서대로
+  function backflow(b, c, want) {
+    World.fx({ type: 'shock', x: c.x, y: c.y, r: 22, t: 0, life: 0.45 });
+    for (const t of [World.player, ...World.remotes]) {
+      if (!t || t.dead) continue;
+      World.fx({ type: 'shock', x: t.x, y: t.y, r: 16, t: 0, life: 0.35 });  // 맞는 사람 발밑(판정 = 그 사람)
+      World.sparks(t.x, t.y, 16, 14, WATER, true);
+      hurtPlayer(t, { x: c.x, y: c.y, pct: R.sluiceWrong, unavoid: true }, 0, 140);
+    }
+    World.shake(7); Sfx.blast();
+    say(b, '순서가 틀렸다 — 역류! (' + want + '번부터)', '#ff6a5a');
   }
 
   // ── 피해(combat.js hitEnemy · elements.js damage) ──
@@ -313,7 +403,7 @@ const Raid = (() => {
   function cut(e) {
     if (e.state === 'phaseShift' || e.spawnT > 0) return [0, '무적'];
     if (e.state === 'exposed') return [R.exposedMul, ''];
-    if (e.mech === 'crystal' && parts('crystal').length) return [0, '보호막'];
+    if (e.mech === 'crystal' && parts('crystal').length) return [0, KING ? '물의 장막' : '보호막'];
     return [R.shellCut, '팅!'];
   }
   // 한 번에 몫(최대 체력 / 순서 길이)보다 더 깎이지 않게: 문턱에서 멈추고 chunkDone → 다음 패턴. 마지막 몫은 끝까지
@@ -328,7 +418,7 @@ const Raid = (() => {
   function drawBoss(ctx, e, x, y, time) {
     if (e.state === 'dead') return;
     if (e.state === 'exposed') {
-      const hx = x, hy = y - e.h * 0.43, r = 9 + Math.sin(time * 10) * 2, g = ctx.createRadialGradient(hx, hy, 0, hx, hy, r);
+      const hx = x, hy = y - e.h * (KING ? 0.4 : 0.43), r = 9 + Math.sin(time * 10) * 2, g = ctx.createRadialGradient(hx, hy, 0, hx, hy, r);
       g.addColorStop(0, 'rgba(95,224,208,0.8)'); g.addColorStop(1, 'rgba(95,224,208,0)');
       ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.fillRect(hx - r, hy - r, r * 2, r * 2); ctx.restore();
     }
@@ -353,7 +443,7 @@ const Raid = (() => {
         ctx.restore();
       }
       const o = { flash: e.flash > 0 ? '#ffffff' : false, alpha: e.state === 'dead' ? Math.max(0, 1 - e.t / 0.6) : e.spawnT > 0 ? 1 - Math.min(1, e.spawnT / 0.7) : 1 };
-      Gfx.spr(ctx, 'void_crystal_anim_f0', x, y + (e.state === 'dead' ? Math.round(e.t * 8) : 0), o);
+      Gfx.spr(ctx, crystalSpr(), x, y + (e.state === 'dead' ? Math.round(e.t * 8) : 0), o);
       if (live(e)) {  // 위로 피어오르는 청록 빛
         ctx.fillStyle = TEAL;
         for (let i = 0; i < 2; i++) { const k = (time * 0.8 + i * 0.5 + x * 0.01) % 1; ctx.globalAlpha = 1 - k; ctx.fillRect(x - 2 + i * 4, Math.round(y - 14 - k * 10), 1, 1); }
@@ -366,6 +456,7 @@ const Raid = (() => {
     }
     // 공허 구슬: 떠 있는 보랏빛 공(되돌아가는 중 = 청록), 바닥엔 그림자
     if (e.state === 'dead') return true;
+    if (e.def.stick) { drawTrident(ctx, e, x, y, time); return true; }
     const back = e.state === 'back', col = back ? TEAL : VOID, cy = y - 14, k = 0.5 + 0.5 * Math.sin(time * 18);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
@@ -379,6 +470,22 @@ const Raid = (() => {
     ctx.fillStyle = '#ffffff'; ctx.fillRect(x - 3, cy - 4, 2, 1);
     return true;
   }
+  // 삼지창: 날아갈 때 = 날아가는 쪽으로 누운 그림(+ 물보라), 박힘 = 비스듬히 선 그림 + 발밑 청록 고리(칠 것), 돌아갈 때 = 청록 빛
+  function drawTrident(ctx, e, x, y, time) {
+    const fly = e.state !== 'stuck';
+    if (!fly) {
+      const k = 0.5 + 0.5 * Math.sin(time * 6);
+      ctx.save(); ctx.strokeStyle = 'rgba(95,224,208,' + (0.45 + 0.4 * k) + ')'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(x, y, 10 + k * 2, (10 + k * 2) * GROUND_Y, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+      Gfx.spr(ctx, 'trident_part_anim_f0', x, y + 2, { rot: 0.35, flash: e.flash > 0 ? '#ffffff' : false });
+      return;
+    }
+    const a = Math.atan2(e.vy, e.vx) + Math.PI / 2;
+    if (e.state === 'back') { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(95,224,208,0.35)'; ctx.beginPath(); ctx.arc(x, y - 10, 9, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+    Gfx.spr(ctx, 'trident_part_anim_f0', x, y - 10, { rot: a, center: true });
+    ctx.fillStyle = 'rgba(188,216,255,0.7)';
+    for (let i = 1; i < 4; i++) ctx.fillRect(Math.round(x - e.vx * 0.02 * i), Math.round(y - 10 - e.vy * 0.02 * i), 1, 1);
+  }
   // 수정이 터지기까지 남은 초(방장 = 보스 crystalAt, 파티 손님은 수정을 처음 본 때부터 셈)
   function crystalLeft(c) {
     if (c.seenAt === undefined) c.seenAt = World.time;
@@ -388,6 +495,7 @@ const Raid = (() => {
   // 바닥(world.js draw, 장판과 같은 층): 도약 내려찍기가 내려앉을 자리 — 노리는 사람 발밑, 판정 = 이 타원. 보스가 화면 밖이어도 그림
   function ground(ctx) {
     const b = bossOf();
+    if (KING && b) { tideDraw(ctx, b); return; }
     if (!b || (b.state !== 'leapWind' && b.state !== 'leap')) return;
     const R = b.def.slam.radius, k = b.state === 'leap' ? 1 : 1 - b.t / b.windupT;
     ctx.save();
@@ -397,6 +505,18 @@ const Raid = (() => {
     ctx.beginPath(); ctx.ellipse(b.lx, b.ly, R * k, R * GROUND_Y * k, 0, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
   }
+  // 밀물(왕): 방 바닥에 물이 차오름 — 찬 정도만큼 푸른 물빛 + 물결 줄(판정 없음, 반 넘게 차면 느려짐 — think)
+  function tideDraw(ctx, b) {
+    const k = b.mech === 'crystal' ? (b.crystalAt ? tideK(b) : (b.tideSeen = b.tideSeen || World.time, Math.min(1, (World.time - b.tideSeen) / (R.crystalTime + R.shift)))) : 0;
+    if (b.mech !== 'crystal') b.tideSeen = 0;
+    if (k <= 0) return;
+    const r = World.level.boss, x0 = r.x * T, y0 = r.y * T, w = r.w * T, h = r.h * T, t = World.time;
+    ctx.save();
+    ctx.fillStyle = 'rgba(42,90,200,' + (0.06 + 0.24 * k) + ')'; ctx.fillRect(x0, y0, w, h);
+    ctx.strokeStyle = 'rgba(188,216,255,' + (0.12 + 0.25 * k) + ')'; ctx.lineWidth = 1;
+    for (let i = 0; i < 9; i++) { const yy = y0 + ((i * 47 + t * 10) % h); ctx.beginPath(); for (let xx = 0; xx <= w; xx += 8) ctx.lineTo(x0 + xx, yy + Math.sin(xx * 0.08 + t * 2 + i) * 2); ctx.stroke(); }
+    ctx.restore();
+  }
   // 어둠 위(world.js draw, 2배 글): 수정 머리 위 남은 초 — 5초 아래면 붉게 깜빡. 방 귀퉁이 어둠 속에서도 보이게
   // 껍질 패턴: 보스 머리 위 내려찍기 피한 횟수
   function labels(ctx) {
@@ -404,11 +524,19 @@ const Raid = (() => {
     ctx.font = 'bold 8px ' + Gfx.FONT; ctx.textAlign = 'center';
     const b = bossOf();
     if (b && b.mech === 'shell' && b.state !== 'exposed' && b.state !== 'phaseShift' && !(b.spawnT > 0)) {
-      const s = '피함 ' + (b.slams || 0) + '/' + R.slams, y = b.y - (b.z || 0) - b.h - 6;
+      const s = (KING ? '넘김 ' : '피함 ') + (b.slams || 0) + '/' + R.slams, y = b.y - (b.z || 0) - b.h - 6;
       ctx.fillStyle = '#000'; ctx.fillText(s, b.x + 0.5, y + 0.5);
       ctx.fillStyle = '#ffd36a'; ctx.fillText(s, b.x, y);
     }
+    const ords = KING ? parts('crystal').map(ordOf).filter(n => n) : [], want = ords.length ? Math.min(...ords) : 0;
     for (const c of parts('crystal')) {
+      const n = KING ? ordOf(c) : 0;
+      if (n && !(c.spawnT > 0)) {  // 수문 번호 동그라미(머리 위 남은 초 위) — 지금 부술 번호만 청록으로 맥동
+        const now = n === want, cy = c.y - 40, rr = now ? 7 + (blink ? 1 : 0) : 6;
+        ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(c.x, cy, rr + 1, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = now ? TEAL : '#5a6a88'; ctx.beginPath(); ctx.arc(c.x, cy, rr, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = now ? '#0a0e18' : '#c4d0e0'; ctx.fillText(String(n), c.x, cy + 3);
+      }
       const left = crystalLeft(c);
       if (left <= 0 || left > R.crystalTime || c.spawnT > 0) continue;
       const s = String(Math.ceil(left)), hot = left <= 5;
@@ -422,8 +550,9 @@ const Raid = (() => {
     for (const c of parts('crystal')) {
       if (c.spawnT > 0) continue;
       const left = crystalLeft(c), hot = left <= 5;
-      edgeArrow(ctx, c.x, c.y - 8, hot ? '#ff5a7a' : TEAL, (ax, ay) => Gfx.spr(ctx, 'void_crystal_anim_f0', ax, ay + 8, { scale: 1.5 }),
-        left > 0 && left <= R.crystalTime ? '수정 ' + Math.ceil(left) + '초' : '수정');
+      const nm = KING ? '수문 ' + (ordOf(c) || '') + '번' : '수정';
+      edgeArrow(ctx, c.x, c.y - 8, hot ? '#ff5a7a' : TEAL, (ax, ay) => Gfx.spr(ctx, crystalSpr(), ax, ay + 8, { scale: 1.5 }),
+        left > 0 && left <= R.crystalTime ? nm + ' ' + Math.ceil(left) + '초' : nm);
     }
   }
   // HUD: 보스 막대 옆 남은 시간만(2026-10-26 사용자: 체력창 설명 지움 — 단계 금 · 단계 이름 · 할 일 없앰)
@@ -433,11 +562,11 @@ const Raid = (() => {
   }
 
   // 파티: 방장 → 손님(world.js snapshot rd) — 손님 화면에도 도약 예고 · '피함 N/slams'
-  function snap() { const b = bossOf(); return b ? [b.id, Math.round(b.lx || 0), Math.round(b.ly || 0), b.slams || 0, b.mech || ''] : undefined; }
+  function snap() { const b = bossOf(); return b ? [b.id, Math.round(b.lx || 0), Math.round(b.ly || 0), b.slams || 0, b.mech || '', b.bare ? 1 : 0, b.sOrd ? b.sOrd.join('') : ''] : undefined; }
   function unsnap(a) {
     const b = World.enemies().find(e => e.id === a[0]);
-    if (b) { b.lx = a[1]; b.ly = a[2]; b.slams = a[3]; b.mech = a[4]; }
+    if (b) { b.lx = a[1]; b.ly = a[2]; b.slams = a[3]; b.mech = a[4]; b.bare = !!a[5]; b.sOrd = a[6] ? [...a[6]].map(Number) : null; }  // sOrd = 수문 번호(귀퉁이 차례)
   }
 
-  return { level, bossSpot, think, state, chargeSrc, ground, snap, unsnap, pillar, part, reflect, partDied, cut, clamp, drawBoss, drawPart, labels, arrows, hud };
+  return { level, bossSpot, think, state, chargeSrc, ground, snap, unsnap, pillar, part, reflect, partDied, cut, clamp, drawBoss, drawPart, labels, arrows, hud, waveDodged, get king() { return KING; } };
 })();

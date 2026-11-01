@@ -90,8 +90,9 @@ const Paladin = (() => {
     if (e.ri !== undefined && World.roomOf(at) !== e.ri) return;
     if (!e.awake) World.wake(e);
     const st = p.stats, wk = WEAPON_KINDS[st.kind] || WEAPON_KINDS.none;
-    const rc = e.def.raid ? Raid.cut(e)[0] : 1;
-    const d = Math.round(st.atk * mult * wk.dmg * (1 + (st.dmg || 0) / 100) * Elements.vuln(e) * (1 - (e.armorCut || 0)) * (e.wardT > 0 ? WARD.cut : 1) * rc * (0.9 + Math.random() * 0.2));
+    const rc = e.def.raid ? Raid.cut(e)[0] : 1, sc = Sunken.cut(e);
+    if (sc && e.def.knightPart) return;
+    const d = Math.round((sc ? sc.m : 1) * st.atk * mult * wk.dmg * (1 + (st.dmg || 0) / 100) * Elements.vuln(e) * (1 - (e.armorCut || 0)) * (e.wardT > 0 ? WARD.cut : 1) * rc * (0.9 + Math.random() * 0.2));
     if (d <= 0) return;
     e.hp -= d; e.flash = 0.06;
     if (e.def.raid) Raid.clamp(e);

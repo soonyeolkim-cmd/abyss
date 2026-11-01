@@ -107,9 +107,10 @@ const Dungeon = (() => {
   // 방 = 화면 하나쯤 되는 네모 + 방마다 다른 기둥 배치. 시작 방은 작게, 수호자 방은 크게.
   const RGC = 5, RGR = 4, RGAP = 12, ROW = 3;
   const OPP = { r: 'l', l: 'r', u: 'd', d: 'u' };
+  // def.line(2단계 가라앉은 심연, 2026-11-01 사용자): 샛길 없이 왼쪽 → 오른쪽 일직선 방 셋 — 빈방(시작) → 잔몹방(넓게) → 기사방
   function generateRooms(def) {
-    const branches = 2, mainLen = Math.max(3, def.rooms - branches);
-    const { path, used } = walkPath(mainLen, RGC, RGR);
+    const branches = def.line ? 0 : 2, mainLen = def.line ? (def.noMobRoom ? 2 : 3) : Math.max(3, def.rooms - branches);  // noMobRoom = 시험용 임시(빈방 → 기사방)
+    const { path, used } = def.line ? { path: [[0, 0], [1, 0], [2, 0]].slice(0, mainLen), used: new Set(['0,0', '1,0', '2,0'].slice(0, mainLen)) } : walkPath(mainLen, RGC, RGR);
     const cells = path.map(([gx, gy], i) => ({ gx, gy, main: true, idx: i }));
     for (let b = 0, tries = 0; b < branches && tries < 200; tries++) {
       const parent = cells[rnd(1, mainLen - 2)];
@@ -123,8 +124,8 @@ const Dungeon = (() => {
     // 방 크기(2026-10-26 사용자 '방 하나가 너무 크다' → 약 절반: 30~40 × 17~22 → 24~30 × 12~15, 화면 하나쯤 · 수호자 40 × 23 → 32 × 17 · 시작 24 × 14 → 20 × 11)
     cells.forEach(c => {
       const boss = c.main && c.idx === mainLen - 1, start = c.main && c.idx === 0;
-      c.w = boss ? 32 : start ? 20 : rnd(24, 30);
-      c.h = boss ? 17 : start ? 11 : rnd(12, 15);
+      c.w = boss ? 32 : start ? 20 : def.line ? 24 : rnd(24, 30);  // 가라앉은 심연 잔몹방: 한 무리라 작게(2026-11-01 사용자, 예전 34 × 18 — 무리 넷)
+      c.h = boss ? 17 : start ? 11 : def.line ? 13 : rnd(12, 15);
       c.boss = boss;
     });
     // 실제 자리: ROW 개씩 줄로(줄 높이 = 그 줄 가장 큰 방), 섬 사이 RGAP 칸
@@ -171,10 +172,11 @@ const Dungeon = (() => {
     const lane = (r, x, y) => Math.abs(x - r.cx) < 3 || Math.abs(y - r.cy) < 3;
     for (const r of rooms) {
       if (r === lv.start) continue;
-      const cs = [], kind = r.boss ? 1 : rnd(0, 4);
+      const cs = [], kind = r.boss ? (def.endless ? 5 : 1) : rnd(0, 4);  // 5 = 끝없는 심연 중간 보스방(1 · 2단계): 돌진을 박게 할 기둥 넷(가운데 둘레 — 부서지면 끝)
       if (kind === 1) for (const c of [[r.x + 4, r.y + 3], [r.x + r.w - 5, r.y + 3], [r.x + 4, r.y + r.h - 3], [r.x + r.w - 5, r.y + r.h - 3]]) cs.push(c);
       if (kind === 2) for (let x = r.x + 5; x < r.x + r.w - 4; x += 5) { cs.push([x, r.y + 4]); cs.push([x, r.y + r.h - 4]); }
       if (kind === 3) for (const [dx, dy] of [[-5, -4], [5, -4], [-5, 4], [5, 4]]) cs.push([r.cx + dx, r.cy + dy]);
+      if (kind === 5) for (const [dx, dy] of [[-8, -4], [8, -4], [-8, 4], [8, 4]]) cs.push([r.cx + dx, r.cy + dy]);
       if (kind === 4) for (let k = 0; k < 6; k++) cs.push([rnd(r.x + 3, r.x + r.w - 4), rnd(r.y + 3, r.y + r.h - 3)]);
       for (const c of cs) if (!lane(r, c[0], c[1]) && !lv.columns.some(o => Math.abs(o[0] - c[0]) < 2 && Math.abs(o[1] - c[1]) < 2)) lv.columns.push(c);
     }
@@ -260,6 +262,7 @@ const Dungeon = (() => {
       g.globalCompositeOperation = 'source-over';
     }
     if (lv.def.veins) paintVeins(lv, g);
+    if (lv.def.sea) Sunken.paintSea(lv, g);  // 가라앉은 심연: 해초 · 산호 · 유적 돌 조각
     return c;
   }
   // 살아 있는 심연(끝없는 심연): 방마다 바닥을 기어가는 핏빛 혈관 — 1px 도트 줄(아래 그늘 한 줄) + 시작점 살덩이 마디.

@@ -91,6 +91,19 @@ const Items = (() => {
     applyFixed(it.stats, it.slot, it.rarity);
     it.v = 8;
   }
+  // 제작 유니크 업그레이드(2026-11-01 사용자 — craft.js): 같은 장비가 그대로 착용 Lv.lv 가 된다. 기본 능력치 = 그 레벨 수치(늘 같음),
+  // 강화(+N)는 그대로 · 오른 양은 레벨 곡선만큼(계승 주문서와 같은 식), 낀 보석 · 유니크 효과도 그대로. 이름은 그 단계 유니크 이름
+  function upgrade(it, lv) {
+    const old = it.ilvl, k0 = byId[it.base].kind, nl = bandLvl(lv), tier = tierOf(nl);
+    const b = BASES.find(x => x.slot === it.slot && x.tier === tier && x.kind === k0);
+    it.base = b.id; it.ilvl = nl;
+    for (const k in b.curve) it.stats[k] = Math.max(1, Math.round(b.curve[k](nl) * RARITY[it.rarity].mult));
+    applyFixed(it.stats, it.slot, it.rarity);
+    for (const k in it.ench || {}) it.ench[k] = Math.round(it.ench[k] * POWER(nl) / POWER(old));
+    it.value = Math.round(10 * POWER(nl) * (1 + it.rarity * 1.5));
+    it.name = it.uniq ? uniqueName(it.uniq, b.kind, b.tier) : itemName(b, it.rarity);
+    return it;
+  }
   // 유니크: 칸을 무작위로 골라 그 단계의 기본 아이템에 고정 이름 · 효과를 붙인다
   function makeUnique(ilvl) {
     const u = pick(Object.keys(UNIQUES));
@@ -346,5 +359,5 @@ const Items = (() => {
 
   function setNextUid(n) { nextUid = Math.max(nextUid, n); }
 
-  return { classOk, normalize, migrate, rescale, refix, make, makeUnique, total, playerStats, describe, compare, base, setNextUid, score, better, baseScore, realScore, upgradeKind, req, canWear, equipBest, moveGems, compactBag, sortBag, isJunk, junk, sellable, sellAll, nameOf, canEnchant, enchant, canTransfer, transfer, removeHidden, addScroll, takeScroll, scrollStacks };
+  return { classOk, normalize, migrate, rescale, refix, make, makeUnique, upgrade, total, playerStats, describe, compare, base, setNextUid, score, better, baseScore, realScore, upgradeKind, req, canWear, equipBest, moveGems, compactBag, sortBag, isJunk, junk, sellable, sellAll, nameOf, canEnchant, enchant, canTransfer, transfer, removeHidden, addScroll, takeScroll, scrollStacks };
 })();

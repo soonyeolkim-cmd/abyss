@@ -38,7 +38,7 @@ function createEnemy(type, x, y, lv, mods = {}) {
     r: (d.r || 6) * uScale, h: (f ? f[3] : 16) * scale,  // 몸 반지름은 정해 둔 값(r) 그대로, 키는 그림 배율만큼
     patCd: 2, summoned: 0, chargeV: null,
     // 끝없는 심연 몹: under = 땅속 촉수가 땅속에 있음(자는 동안에도), blinkCd = 순간이동 기다림, wardT = 보호막 사제의 보호막이 남은 시간
-    under: !!d.burrow, upT: 0, underT: 0, blinkCd: d.blink ? 1 + Math.random() * 2 : 0, wardT: 0,
+    under: !!(d.burrow || d.lure), upT: 0, underT: 0, blinkCd: d.blink ? 1 + Math.random() * 2 : 0, wardT: 0,
   };
 }
 
@@ -47,7 +47,7 @@ function updateEnemy(e, dt, room, p) {
   e.flash = Math.max(0, e.flash - dt);
   e.armorT = Math.max(0, e.armorT - dt);
   e.wardT = Math.max(0, (e.wardT || 0) - dt);
-  if (d.part && e.state !== 'dead') { Raid.part(e, dt, room, p); return; }  // 레이드 부품(공허 수정 · 구슬) — js/raid.js
+  if (d.part && e.state !== 'dead') { if (d.knightPart) Sunken.part(e, dt); else Raid.part(e, dt, room, p); return; }  // 레이드 부품(공허 수정 · 구슬) — js/raid.js, 기사 부품(닻 · 산호) — js/sunken.js
   Elements.tick(e, dt);  // 화상 · 독 · 감전 · 냉기
   if (d.rooted) { e.kx = 0; e.ky = 0; }  // 땅속 촉수는 안 밀림(속성 폭발 밀어내기도)
   if (d.burrow && !e.under && e.awake) e.upT += dt;  // 솟아 있는 시간(내리치는 동안도 센다)
@@ -84,23 +84,28 @@ function updateEnemy(e, dt, room, p) {
     case 'windup':
       e.t -= dt;
       if (e.t <= 0) {
-        if (d.ranged) {
+        if (Sunken.windupEnd(e, p)) {
+          // 물의 사제: 쏘는 대신 소용돌이(js/sunken.js)
+        } else if (d.ranged) {
           shootAt(e, p, atk, 1, 0);
           e.state = 'recover'; e.t = atk.recovery;
         } else {
           e.state = 'attack'; e.t = atk.active; e.hitDone = false;
           e.kx = e.fv.x * atk.lunge; e.ky = e.fv.y * atk.lunge;
-          World.fx({ type: 'swipe', x: e.x, y: e.y, fv: e.fv, r: atk.reach[1], t: 0, life: 0.15, enemy: true });
+          if (atk.radius) World.fx({ type: 'shock', x: e.x, y: e.y, r: atk.radius, t: 0, life: 0.25 });  // 몸 둘레 공격(해파리 감전): 판정 = 바닥 타원 radius
+          else World.fx({ type: 'swipe', x: e.x, y: e.y, fv: e.fv, r: atk.reach[1], t: 0, life: 0.15, enemy: true });
         }
       }
       break;
     case 'attack':
       if (!e.hitDone && inHitbox(e, e.fv, atk, p, BODY_R)) {
         e.hitDone = true;
-        if (hurtPlayer(p, e, atk.dmg * e.dmgMul, atk.knock) === 'hit' && (e.affixes.includes('frost') || d.chillHit)) {
+        const hr = hurtPlayer(p, e, atk.dmg * e.dmgMul, atk.knock);
+        if (hr === 'hit' && (e.affixes.includes('frost') || d.chillHit)) {
           p.slowT = 2;  // 냉기 강화: 맞으면 느려진다
           World.text(p.x, p.y, 40, '느려짐', '#9fe0ff');
         }
+        if (hr === 'hit' && d.shockHit) { p.slowT = Math.max(p.slowT || 0, 1); World.text(p.x, p.y, 40, '감전', '#ffe45a'); }  // 해파리
       }
       if (e.state === 'attack') {  // 맞는 동안 다른 상태(빙결 등)로 바뀌었으면 건너뛴다
         e.t -= dt;
@@ -139,8 +144,10 @@ function updateEnemy(e, dt, room, p) {
       }
       if (e.hitWall && d.raid && Raid.pillar(e, room)) {
         // 레이드 1단계: 기둥에 박으면 기둥이 부서지며 심장이 드러남(Raid.pillar 가 상태를 바꿈)
+      } else if (e.hitWall && !d.raid && (d.knight || room.def.endless)) {
+        Sunken.chargeBlocked(e, room);  // 끝없는 심연 중간 보스(1단계 · 2단계 기사): 벽이면 그냥 멈춤 · 기둥이면 기둥이 부서지며 기절(세렌은 후려치기) — js/sunken.js
       } else if (e.hitWall) {
-        e.state = 'tired'; e.t = 1.1;  // 벽에 박으면 멍해진다 — 때릴 기회
+        e.state = 'tired'; e.t = (d.tide && d.tide.tired) || 1.1;  // 벽에 박으면 멍해진다 — 때릴 기회(조류의 기사는 더 오래)
         World.shake(4); World.dust(e.x, e.y, 10);
         World.text(e.x, e.y, e.h + 6, '쿵!', '#ffd36a');
       } else if (e.t <= 0) { e.state = 'recover'; e.t = 0.5 * (d.recMul || 1); }
@@ -177,13 +184,14 @@ function updateEnemy(e, dt, room, p) {
     case 'move':
       if (d.dummy) { e.moving = false; break; }  // 연습장 허수아비: 가만히
       if (!e.awake) { e.moving = false; wakeCheck(e, room, p); break; }
-      if (d.raid) Raid.think(e, dt, room, p); else if (d.boss) bossThink(e, dt, room, p); else if (d.burrow) tentacleThink(e, dt, room, p); else aiMove(e, dt, room, p);
+      if (d.raid) Raid.think(e, dt, room, p); else if (Sunken.think(e, dt, room, p)) { /* 아귀 · 기사(js/sunken.js) */ } else if (d.boss) bossThink(e, dt, room, p); else if (d.burrow) tentacleThink(e, dt, room, p); else aiMove(e, dt, room, p);
       break;
     case 'dead':
       e.t += dt;
       break;
     default:
       if (d.raid) Raid.state(e, dt, room, p);  // 레이드 보스만의 상태(심장 노출 · 단계 바뀜 · 구슬 · 사방 탄)
+      else Sunken.state(e, dt, room, p);  // 가라앉은 심연 몹 · 기사(거품 · 껍데기 · 덥석 · 닻 · 등불)
   }
 }
 
@@ -357,7 +365,7 @@ function bossThink(e, dt, room, p) {
 
 // 매 프레임 역할 나누기: 가까운 순 두 마리가 front, 두 번째가 같은 쪽이면 반대편으로 돈다
 function assignRoles(list, p) {
-  const live = list.filter(e => e.awake && !e.dying && e.state !== 'dead' && !e.def.ranged && !e.def.boss && !e.def.burrow && Math.hypot(e.x - p.x, e.y - p.y) < 140);  // 땅속 촉수는 제자리라 자리를 안 차지
+  const live = list.filter(e => e.awake && !e.dying && e.state !== 'dead' && !e.def.ranged && !e.def.boss && !e.def.burrow && !e.def.lure && Math.hypot(e.x - p.x, e.y - p.y) < 140);  // 땅속 촉수는 제자리라 자리를 안 차지
   live.sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y));
   let fronts = 0, slot = 0, firstAng = null;
   for (const e of live) {

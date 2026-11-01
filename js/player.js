@@ -171,7 +171,8 @@ function startRush(p, R = p.cls.special, kind = 'special') {
   if (tgt) p.fv = unit(tgt.x - p.x, tgt.y - p.y, p.fv);
   else if (want) p.fv = want;
   const len = tgt ? Math.max(R.min, Math.min(R.max, Math.hypot(tgt.x - p.x, tgt.y - p.y) + tgt.r + R.past)) : R.dash;
-  const def = wk.rush ? Object.assign({}, R, { mult: R.mult * (1 + wk.rush) }) : R;  // 싸이: 돌진 베기 피해 +20%
+  let def = wk.rush ? Object.assign({}, R, { mult: R.mult * (1 + wk.rush) }) : R;  // 싸이: 돌진 베기 피해 +20%
+  if (R.bandPer) { const st = Elements.socket(p.prof, R.slot); if (st) def = Object.assign({}, def, { band: R.band + R.bandPer * (st.size + 1) }); }  // 돌진 칸 속성석이 클수록 옆으로 넓게
   startAct(p, def, kind, 0, { len, aimed: true });
   p.iframes = p.act.s + p.act.a + R.safe;
   World.sparks(p.x, p.y, 10, 14, '#ffffff', true);
@@ -466,7 +467,7 @@ function updateAct(p, dt, room) {
       const st = Elements.socket(p.prof, d.slot || 'none'), o = { follow: p, a: Math.atan2(p.fv.y, p.fv.x), R: a.hd.reach[1], t: 0,
         col: st ? ELEMENTS[st.el].color : a.kind === 'stab' ? '#b9a0ff' : '#dfe6ff', tier: Elements.tier(st), el: st ? st.el : '', ss: Elements.ss(st, p.prof) };
       if (a.kind === 'stab') World.fx(Object.assign(o, { type: 'sweep', arc: a.hd.arc, life: a.a + 0.16 }));
-      else World.fx(Object.assign(o, { type: 'thrust', arc: d.noBody ? 0 : a.hd.arc, band: d.noBody ? 10 : 0, life: a.a + 0.1 }));
+      else World.fx(Object.assign(o, { type: 'thrust', arc: d.noBody ? 0 : a.hd.arc, band: d.noBody ? (d.band || 5) + 5 : 0, life: a.a + 0.1 }));  // 띠 반폭 = 판정 옆 폭 + 몸
     }
     if (d.spin) {  // 그림 단계 · 속성: 그 칸 속성석(art.js fx 'ring')
       const st = Elements.socket(p.prof, d.slot || 'none');

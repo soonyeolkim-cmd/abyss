@@ -248,12 +248,13 @@ const Art = (() => {
     const flip = e.fv.x < 0;
     let x = e.x, y = e.y - e.z;
     const o = { flip, flash: e.flash > 0 ? '#ffffff' : false, scale: e.scale || 1, tint: d.tint, tintAlpha: d.tintAlpha };
-    if (d.part) { Raid.drawPart(ctx, e, time); return; }  // 레이드 공허 수정 · 구슬
-    if (d.raid && e.state === 'exposed') name = 'raid_warden_open';  // 갈비가 벌어져 심장이 드러남
+    if (d.part && !d.knightPart) { Raid.drawPart(ctx, e, time); return; }  // 레이드 공허 수정 · 구슬(기사 부품 — 닻 · 산호 · 거품 감옥 — 은 아래 도트 그림으로. 예전엔 공허 구슬로 그려졌음)
+    if (d.raid && e.state === 'exposed') name = d.openSprite || 'raid_warden_open';  // 갈비가 벌어져 심장이 드러남(삼지창의 왕 = 진주가 갈라짐)
+    name = Sunken.spriteOf(e, name);  // 삼지창을 던진 왕은 맨손
     if (d.raid && e.state === 'phaseShift' && Math.floor(time * 16) % 2) o.flash = '#ffffff';
-    if (d.pix && pixMob(ctx, e, time, o)) return;  // 끝없는 심연 도트 몹: 땅속 · 사라짐처럼 따로 그리는 때
+    if (d.pix && (Sunken.drawMob(ctx, e, time, o) || pixMob(ctx, e, time, o))) return;  // 가라앉은 심연: 땅속 아귀 · 숨은 게 · 거품 속 병사 · 숨은 등불 기사  // 끝없는 심연 도트 몹: 땅속 · 사라짐처럼 따로 그리는 때
     if (d.pix && e.state !== 'dead' && e.state !== 'air' && e.state !== 'down') {  // 한두 장 그림이라 걷기 · 떠 있기를 흔들림으로
-      if (d.blink) y -= 2 + Math.round(Math.sin(time * 3 + e.walkT) * 1.5);  // 다리 없는 망령: 늘 떠서 일렁임
+      if (d.blink || d.float) y -= 2 + Math.round(Math.sin(time * 3 + e.walkT) * 1.5);  // 다리 없는 망령 · 해파리: 늘 떠서 일렁임
       else if (e.moving) y -= Math.floor((time + e.walkT) * (d.r <= 4 ? 10 : 7)) % 2;
     }
     // 보스 예고
@@ -273,7 +274,7 @@ const Art = (() => {
       ctx.beginPath(); ctx.moveTo(e.x, e.y - 4); ctx.lineTo(e.x + e.chargeV.x * 160, e.y - 4 + e.chargeV.y * 160); ctx.stroke();
       ctx.restore();
     }
-    const tele = e.state === 'windup' && (committed(e) || d.superArmor) || ['slam', 'leapWind', 'chargeWind', 'fan', 'orbWind', 'ringWind'].includes(e.state);
+    const tele = e.state === 'windup' && (committed(e) || d.superArmor) || ['slam', 'leapWind', 'chargeWind', 'fan', 'orbWind', 'ringWind', 'anchorWind', 'waveWind', 'spinWind', 'rushWind', 'jailWind', 'sweepWind', 'thrustWind'].includes(e.state);
     if (tele && !o.flash && Math.floor(time * 14) % 2 === 0) o.flash = '#ff4030';
     if (d.shield && e.state === 'recover' && !o.flash && Math.floor(time * 6) % 3 === 0) o.flash = '#5fe0d0';  // 방패병 틈: 청록으로 깜빡
     if (d.shield && SHIELD_UP.includes(e.state) && e.state !== 'dead') {  // 방패가 막는 쪽(앞 ±약 72°)을 발밑 뼈빛 호로
@@ -310,6 +311,7 @@ const Art = (() => {
         break;
     }
     Gfx.spr(ctx, name, x, y, o);
+    Sunken.drawOver(ctx, e, x, y, time);  // 거품 겹 · 휘청 별 · 닻 사슬
     if (d.acc && e.state !== 'dead') bossAcc(ctx, d.acc, x, y, o.scale, flip, time);
     if (d.raid) Raid.drawBoss(ctx, e, x, y, time);
     if (e.wardT > 0 && e.state !== 'dead' && !e.dying) {  // 보호막 사제의 보호막: 몸을 감싼 청록 막(일렁임)
@@ -1050,7 +1052,7 @@ const Art = (() => {
       }
     }
   }
-  // 찌르는 빛(fx 'thrust', 2026-10-26 이펙트 범위 = 판정 범위): 판정 그대로 — 부채꼴(길이 R · 반각 arc) 또는 띠(band = 반폭, noBody).
+  // 찌르는 빛(fx 'thrust', 2026-10-26 이펙트 범위 = 판정 범위): 판정 그대로 — 부채꼴(길이 R · 반각 arc) 또는 띠(band = 반폭, noBody — 2026-11-01 끝까지 같은 폭: 돌진 베기가 속성석으로 넓어져도 끝이 좁아 보이지 않게).
   // 빠르게 뻗고 흐려진다. 안쪽 흰 줄기 · 끝 반짝. 그 칸 속성석 단계 1부터 속성 알갱이, 2부터 줄기 더, 3 오로라
   function thrustFx(ctx, f, k) {
     const o = f.follow || f, x0 = o.x, y0 = o.y - 6, e = 1 - k, ca = Math.cos(f.a), sa = Math.sin(f.a), T = f.tier || 0;
@@ -1063,7 +1065,7 @@ const Art = (() => {
     g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.55, f.col); g.addColorStop(1, light);
     ctx.globalAlpha = (0.45 + T * 0.06) * e; ctx.fillStyle = g;
     ctx.beginPath();
-    if (f.band) { const [ax, ay] = at(-4, -f.band), [bx, by] = at(L, -f.band * 0.6), [cx, cy] = at(L, f.band * 0.6), [dx, dy] = at(-4, f.band); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.lineTo(cx, cy); ctx.lineTo(dx, dy); }
+    if (f.band) { const [ax, ay] = at(-4, -f.band), [bx, by] = at(L, -f.band), [cx, cy] = at(L, f.band), [dx, dy] = at(-4, f.band); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.lineTo(cx, cy); ctx.lineTo(dx, dy); }
     else { ctx.moveTo(x0, y0); ctx.arc(x0, y0, L, f.a - h, f.a + h); }
     ctx.closePath(); ctx.fill();
     const n = 2 + (T >= 2 ? 2 : 0) + (f.band ? 1 : 0);
@@ -1317,12 +1319,13 @@ const Art = (() => {
     if (f.magic) { magicCircle(ctx, f, time); return; }
     if (f.wave) { voidWave(ctx, f, time); return; }
     if (f.holy) { Paladin.drawField(ctx, f, time); return; }  // 성기사 축성
+    if (f.whirl) { Sunken.drawWhirl(ctx, f, time); return; }  // 물의 사제 소용돌이
     if (f.blast) {
       // 화염 강화 몹의 죽음 폭발 예고: 붉은 원이 차오른다
       if (f.done) return;
       const k = Math.min(1, f.t / f.delay);
       ctx.save();
-      const c = f.voidBlast ? '192,106,255' : '255,90,40';  // 레이드 공허 장판 = 보랏빛
+      const c = f.voidBlast ? '192,106,255' : f.zap ? '255,228,90' : f.seaBlast ? '106,154,216' : '255,90,40';  // 레이드 공허 장판 = 보랏빛 · 해파리 전기 = 노랑 · 왕의 물기둥 = 물빛
       ctx.strokeStyle = 'rgba(' + c + ',' + (0.5 + 0.5 * Math.sin(time * 30)) + ')'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r, f.r * 0.6, 0, 0, Math.PI * 2); ctx.stroke();
       ctx.fillStyle = 'rgba(' + c + ',0.25)';

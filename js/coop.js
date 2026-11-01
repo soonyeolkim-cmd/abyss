@@ -374,12 +374,12 @@ const Coop = (() => {
   }
   function leaveTogether(k) { Net.send({ t: 'leave', k }); }  // k = 'time': 레이드 시간이 다 됨(손님도 실패로)
   // 끝없는 심연: 방장이 계단을 내려가면 같은 런의 손님도 같이 다음 층으로(쓰러져 있던 손님도 일어나서)
-  function descendTogether(f) { Net.send({ t: 'descend', f, r: World.partySeed }); }
+  function descendTogether(f, st = 1) { Net.send({ t: 'descend', f, st, r: World.partySeed }); }  // st = 끝없는 심연 단계
   Net.on('descend', m => {
     if (!World.mirror || Game.scene !== 'run' || m.r !== World.partySeed) return;
     snapQ = [];
-    Game.toast(m.f > ENDLESS.max ? '방장과 같이 최종 보스에게 가요' : '방장과 같이 ' + m.f + '층으로 내려가요');
-    World.descend(m.f);
+    Game.toast(m.f > (STAGE_DEFS[m.st || 1] || ENDLESS).max ? '방장과 같이 최종 보스에게 가요' : '방장과 같이 ' + m.f + '층으로 내려가요');
+    World.descend(m.f, m.st || 1);
   });
   Net.on('leave', m => {
     if (!World.mirror || Game.scene !== 'run') return;
@@ -554,7 +554,7 @@ const Coop = (() => {
   let invite = null;  // 방장: { def, diff, seed, t, st: 피어 → 상태, kits: 피어 → 장비 }
   let lastInvite = null;
   const diffName = (diff, def) => (diff && !(def && def.endless) ? ' · ' + DIFFS[diff].name : '');
-  const runDef = m => (m.f ? endlessDef(m.f) : DUNGEONS.find(d => d.id === m.id));  // 초대 · 출발 소식 → 던전
+  const runDef = m => (m.f ? endlessDef(m.f, m.st || 1) : DUNGEONS.find(d => d.id === m.id));  // 초대 · 출발 소식 → 던전
   function askSolo(text, sub) {
     const iv = lastInvite;
     if (!iv || Game.scene !== 'select') { Game.toast(text); return; }
@@ -576,7 +576,7 @@ const Coop = (() => {
       return true;
     }
     invite = { def, diff, seed: 1 + Math.floor(Math.random() * 2e9), t: INVITE_WAIT, st, kits: new Map() };
-    for (const pid of asks) Net.sendTo(pid, { t: 'invite', id: def.id, f: def.floor, diff, seed: invite.seed });
+    for (const pid of asks) Net.sendTo(pid, { t: 'invite', id: def.id, f: def.floor, st: def.stage, diff, seed: invite.seed });
     Game.overlay({ type: 'coopwait' });
     return true;
   }
@@ -599,7 +599,7 @@ const Coop = (() => {
     inviteEnd();
     runKits = new Map(yes.map(pid => [pid, iv.kits.get(pid)]));
     const size = 1 + yes.length;
-    for (const pid of yes) Net.sendTo(pid, { t: 'go', id: iv.def.id, f: iv.def.floor, diff: iv.diff, seed: iv.seed, size });
+    for (const pid of yes) Net.sendTo(pid, { t: 'go', id: iv.def.id, f: iv.def.floor, st: iv.def.stage, diff: iv.diff, seed: iv.seed, size });
     Game.startRun(iv.def, iv.diff, iv.seed, size);
   }
   // 방장이 기다리는 창: 파티원마다 대답 · 출발(예가 한 명이라도 있으면) · 취소
