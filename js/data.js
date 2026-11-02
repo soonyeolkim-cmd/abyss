@@ -1032,12 +1032,13 @@ const lightAtk = i => 6 * POWER(i);
 const GEAR_FORMS = {
   weapon: [
     // 2026-10-24 사용자: 아이콘 통일 — 경량은 검, 중량은 망치 하나씩(재질 색만 다르게, 방어구처럼)
+    // 2026-11-02 그림 = gfx.js WPIX 도트(금속만 재질 명암, 사용자 '검 · 망치 A안 · 다른 직업도 같은 스타일')
     // 그림은 캐릭터 키에 맞는 크기(2026-10-24 사용자 '무기 쥔 모습이 어색' → 기사검 29px · 큰 망치 37px 에서 21 · 24px 로)
-    { kind: 'light', noun: '검', icon: 'weapon_regular_sword', curve: { atk: lightAtk } },
-    { kind: 'heavy', noun: '망치', icon: 'weapon_hammer', curve: { atk: i => lightAtk(i) * 1.3 } },
+    { kind: 'light', noun: '검', icon: 'weapon_sword_a', curve: { atk: lightAtk } },
+    { kind: 'heavy', noun: '망치', icon: 'weapon_hammer_a', curve: { atk: i => lightAtk(i) * 1.3 } },
     // 마법사 무기(2026-10-24): 경량 롯드(짧은 막대) · 중량 스태프(긴 지팡이) — 색이 아니라 길이로 구분(사용자), 검 · 망치와 같은 세기
-    { kind: 'wand', noun: '롯드', icon: 'weapon_rod', curve: { atk: lightAtk } },
-    { kind: 'staff', noun: '스태프', icon: 'weapon_red_magic_staff', curve: { atk: i => lightAtk(i) * 1.3 } },
+    { kind: 'wand', noun: '롯드', icon: 'weapon_rod_a', curve: { atk: lightAtk } },
+    { kind: 'staff', noun: '스태프', icon: 'weapon_staff_a', curve: { atk: i => lightAtk(i) * 1.3 } },
     // 암살자 무기(2026-10-25, 그림은 gfx.js WPIX 도트 — 양손에 하나씩): 카타르 = 검과 같은 세기, 싸이 = 느린 만큼 ×1.2
     { kind: 'katar', noun: '카타르', icon: 'weapon_katar', curve: { atk: lightAtk } },
     { kind: 'sai', noun: '싸이', icon: 'weapon_sai', curve: { atk: i => lightAtk(i) * 1.2 } },

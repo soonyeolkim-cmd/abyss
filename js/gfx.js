@@ -15,30 +15,47 @@ const Gfx = (() => {
     ['idle_anim_f0', 'idle_anim_f1', 'idle_anim_f2', 'idle_anim_f3', 'run_anim_f0', 'run_anim_f1', 'run_anim_f2', 'run_anim_f3', 'hit_anim_f0']
       .forEach((k, i) => { HERO[id + '_' + k] = [i * 16, 0, 16, 28]; SHEETS[id + '_' + k] = img; });
   }
-  // 암살자 무기 도트(2026-10-25 사용자: 양손 무기 — 아틀라스에 카타르 · 싸이가 없어서 코드로 그려 둔다). 칼끝이 위, 손잡이가 아래(아틀라스 무기와 같은 방향)
-  // o 테두리 · w 날 빛 · a 강철 · d 어두운 강철 · g/G 금빛 날밑 · r/R 붉은 손잡이 감개
-  // p/P 양피지 · k 글씨(보라) · s 붉은 인장 — 소환사 계약서(2026-10-31)
-  const WPIX_PAL = { o: '#1a1418', w: '#f4f8ff', a: '#b8c4d4', d: '#6a7488', g: '#d8a840', G: '#8a5a20', r: '#a02830', R: '#5a1018', p: '#ecdcb4', P: '#b8986a', k: '#6a3a8a', s: '#d0304a' };
+  // 무기 도트(2026-11-02 사용자 '검 · 망치를 더 미려하게, 다른 직업도 같은 스타일 — 2D 느낌 그대로', 시안 tools/weapon-sketch.js 검 A · 망치 A).
+  // 예전엔 0x72 칼 · 망치 · 지팡이에 재질 색을 68% 통째로 덧칠해서 명암이 뭉갰다 → 금속 칸만 재질 색 명암 다섯 단으로 칠하고 금 · 가죽 · 나무 · 양피지는 제 색.
+  // 칼끝 · 머리가 위, 손잡이가 아래(아래에서 WEAPON_GRIP 칸 위를 쥠). 글자: o 테두리 · W L M D X 재질 명암(빛 → 가장 어두움) · c 재질 색 빛(보석 · 홈 · 룬)
+  //   y g G 금(밝음 · 가운데 · 어두움) · r R 가죽 감개 · N n 나무 자루 · p P 양피지 · k 글씨(보라)
+  const WPIX_PAL = { o: '#1a1418', y: '#ffe9a0', g: '#d8a840', G: '#8a5a20', r: '#8a4a2a', R: '#4a2214', N: '#a8743e', n: '#6a4422', p: '#ecdcb4', P: '#b8986a', k: '#6a3a8a' };
   const WPIX = {
-    // 카타르: 길고 곧은 세모 날 + 금빛 날밑 + 짧은 H 손잡이(양옆 막대 사이 가로 손잡이, 어둡게 — 크면 상자처럼 보임)
-    weapon_katar: ['...o...', '..owo..', '..owo..', '..owo..', '.owado.', '.owado.', '.owado.', '.owado.', '.owado.', '.oaado.', 'oggggGo', 'od.r.do', 'od.R.do', 'oo...oo'],
-    // 싸이: 가늘고 긴 가운데 날 + 양옆으로 휜 갈래(받아치는 데 쓰는 날) + 감은 손잡이
-    // 소환 방울(2026-10-31): 손잡이 위에 금빛 종 · 흰 반짝 · 아래로 늘어진 추
-    weapon_bell: ['....o....', '...oGo...', '..oggwo..', '.oggwggo.', '.ogggggo.', '.ogggggo.', 'oGGGGGGGo', '.oo.o.oo.', '....g....', '...oRo...', '...oro...', '...oRo...', '...oro...', '...oGo...', '....o....'],
-    // 계약서(2026-10-31): 위아래 말린 두루마리 · 보라 글씨 · 붉은 인장 · 아래 끈
-    weapon_pact: ['oooooooo', 'oGPPPPGo', '.oooooo.', '.opkkpo.', '.oppppo.', '.opkkko.', '.oppppo.', '.opkkpo.', '.opsspo.', '.oppppo.', '.oooooo.', 'oGPPPPGo', 'oooooooo', '...rr...', '...r.r..'],
-    // 성기사(2026-10-31): 메이스 = 금빛 테 두른 강철 머리(돌기) · 긴 손잡이 / 성망치 = 넓은 강철 머리 · 금 장식 · 가운데 빛 · 긴 자루
-    weapon_mace: ['..o.o.o..', '.oaoaoao.', 'oawaaawao', 'oaawaaaao', 'ogaaaaago', '.ogggggo.', '..oGGGo..', '...oGo...', '...oro...', '...oRo...', '...oro...', '...oRo...', '...oro...', '...oGo...', '....o....'],
-    weapon_warhammer: ['ooooooooooo', 'oaawaaaaago', 'oawwaggaaGo', 'oaaagwwgaGo', 'oaawaggaaGo', 'oaaaaaaaago', 'ooooogooooo', '....oGo....', '....oro....', '....oRo....', '....oro....', '....oRo....', '....oro....', '....oRo....', '....oro....', '....oGo....', '.....o.....'],
-    weapon_sai: ['....o....', '...owo...', '...owo...', '...owo...', '...oao...', '...oao...', '.o.oao.o.', 'oaooaooao', 'oaooaooao', '.oaoaoao.', '..oaaao..', '...ogo...', '...oro...', '...oRo...', '...oro...', '...oGo...', '....o....'],
+    // 검(경량): 기사 장검 — 넓고 곧은 날 · 날밑 가운데 재질 보석 / 망치(중량): 전투 망치 — 묵직한 네모 머리 · 가운데 띠 · 나무 자루 · 자루 고리
+    weapon_sword_a: ['....o....', '...oWo...', '..oWLDo..', '.oWLMDXo.', '.oWLMDXo.', '.oWLMDXo.', '.oWLMDXo.', '.oWLMDXo.', '.oWLMDXo.', '.oWLMDXo.', '.oWLMDXo.', '.oMMDXXo.', 'ooooooooo', 'oyggcggGo', 'ooooooooo', '...oro...', '...oRo...', '...oro...', '...oRo...', '..oygGo..', '...ooo...'],
+    weapon_hammer_a: ['.oooooooooo.', 'oWWLLLLLLMDo', 'oWLLLLLLMMDo', 'oLLMMMMMMMDo', 'oLLMMMMMMMDo', 'oDDDDDDDDDXo', 'oLMMMMMMMDXo', 'oMMMMMMMMDXo', 'oMMMMMMMDDXo', '.oDDDDDDDXo.', '..oooooooo..', '....oLDo....', '....oNno....', '....oNno....', '....oNno....', '....oMDo....', '....oNno....', '....oNno....', '....oNno....', '....orRo....', '....oRro....', '....orRo....', '....oLDo....', '....oooo....'],
+    // 마법사: 롯드 = 짧은 막대 끝 재질 수정 · 금 받침 / 스태프 = 같은 머리에 긴 자루(길이로 구분)
+    weapon_rod_a: ['...oo...', '..oWLo..', '.oWLcDo.', '.oLccDo.', '.oMcDXo.', '..oDXo..', '.oyoogo.', '.oygyGo.', '..oygo..', '..oNno..', '..oNno..', '..oNno..', '..oNno..', '..oNno..', '..orRo..', '..oRro..', '..oDXo..', '...oo...'],
+    weapon_staff_a: ['...oo...', '..oWLo..', '.oWLcDo.', '.oLccDo.', '.oLccDo.', '.oMcDXo.', '..oDXo..', '.oyoogo.', '.oygyGo.', '..oygo..', '..oNno..', '..oNno..', '..oNno..', '..oNno..', '..oNno..', '..oNno..', '..oNno..', '..oNno..', '..oNno..', '..oNno..', '..oNno..', '..oNno..', '..oNno..', '..oNno..', '..oMDo..', '..orRo..', '..oRro..', '..orRo..', '..oDXo..', '...oo...'],
+    // 암살자: 카타르 = 곧은 세모 날 + 금 날밑 + H 손잡이 / 싸이 = 가운데 날 + 양옆 갈래 + 감은 손잡이
+    weapon_katar: ['...o...', '..oWo..', '.oWLDo.', '.oWLDo.', '.oWLDo.', '.oWMDo.', '.oLMXo.', '.oLMXo.', '.oMDXo.', 'oyggcGo', 'oRo.oRo', 'oRrrrRo', 'oRo.oRo', 'oo...oo'],
+    weapon_sai: ['....o....', '...oWo...', '...oLo...', '...oLo...', '...oMo...', '...oMo...', '.o.oMo.o.', 'oWooMooDo', 'oLooMooXo', '.oLoMoXo.', '..oycGo..', '...oro...', '...oRo...', '...oro...', '...oRo...', '...oyo...', '....o....'],
+    // 소환사: 방울 = 재질 종 · 빛나는 추 · 손잡이 / 계약서 = 재질 축에 말린 양피지 · 글씨 · 재질 인장 · 끈
+    weapon_bell: ['....o....', '...oyo...', '..oWLMo..', '.oWLMMDo.', '.oLMMMDo.', '.oLMMDXo.', 'oLMMMMDXo', 'ooooooooo', '...oco...', '....o....', '...oro...', '...oRo...', '...oro...', '...oyo...', '....o....'],
+    weapon_pact: ['oooooooo', 'oWLMMMDo', '.oooooo.', '.opkkPo.', '.opppPo.', '.opkkko.', '.opppPo.', '.opkkPo.', '.opccPo.', '.opppPo.', '.oooooo.', 'oLMMMMDo', 'oooooooo', '...rR...', '...r.R..'],
+    // 성기사: 메이스 = 돌기 달린 머리 · 금 고리 / 성망치 = 넓은 머리 가운데 재질 빛 십자 · 금 고리 · 나무 자루
+    weapon_mace: ['..o.o.o..', '.oWoLoDo.', 'oWLLMMDXo', 'oLLMcMDXo', 'oLMMMMDXo', '.oMMMDXo.', '..oyygo..', '..ooooo..', '...oNo...', '...oNo...', '...oNo...', '...oro...', '...oRo...', '...oyo...', '....o....'],
+    weapon_warhammer: ['ooooooooooo', 'oWWLLLLLMDo', 'oLLMMcMMMDo', 'oLMMcccMMDo', 'oLMMMcMMDXo', 'oMMMMMMMDXo', 'ooooooooooo', '....oyGo...', '....oNno...', '....oNno...', '....oNno...', '....oNno...', '....oNno...', '....oNno...', '....orRo...', '....oRro...', '....oyGo...', '.....oo....'],
   };
-  for (const name in WPIX) {
-    const rows = WPIX[name], c = document.createElement('canvas');
+  // 재질 색 → 명암 다섯 단 + 빛 칸(아주 어두운 재질은 가운데를 살짝 띄워 모양이 보이게)
+  const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const mixHex = (a, b, k) => '#' + hexRgb(a).map((v, i) => Math.round(v + (hexRgb(b)[i] - v) * k).toString(16).padStart(2, '0')).join('');
+  const lumHex = h => { const [r, g, b] = hexRgb(h); return r * 0.3 + g * 0.59 + b * 0.11; };
+  const weaponRamp = tint => {
+    const M = lumHex(tint) < 60 ? mixHex(tint, '#ffffff', 0.18) : tint;
+    return { W: mixHex(M, '#ffffff', 0.78), L: mixHex(M, '#ffffff', 0.42), M, D: mixHex(M, '#000000', 0.4), X: mixHex(M, '#000000', 0.66), c: lumHex(tint) > 200 ? tint : mixHex(tint, '#ffffff', 0.28) };
+  };
+  const wpixCache = {};
+  const wpixCanvas = (name, tint) => {  // 재질마다 한 번 칠해 두고 다시 씀
+    const key = name + tint;
+    if (wpixCache[key]) return wpixCache[key];
+    const rows = WPIX[name], pal = Object.assign({}, WPIX_PAL, weaponRamp(tint)), c = document.createElement('canvas');
     c.width = rows[0].length; c.height = rows.length;
     const g = c.getContext('2d');
-    rows.forEach((row, y) => [...row].forEach((ch, x) => { if (WPIX_PAL[ch]) { g.fillStyle = WPIX_PAL[ch]; g.fillRect(x, y, 1, 1); } }));
-    SHEETS[name] = c; FRAMES[name] = [0, 0, c.width, c.height];
-  }
+    rows.forEach((row, y) => [...row].forEach((ch, x) => { if (pal[ch]) { g.fillStyle = pal[ch]; g.fillRect(x, y, 1, 1); } }));
+    return (wpixCache[key] = c);
+  };
+  for (const name in WPIX) { const c = wpixCanvas(name, '#8a929e'); SHEETS[name] = c; FRAMES[name] = [0, 0, c.width, c.height]; }  // 재질 없이 그릴 때(쇠 색) · 크기
   // 끝없는 심연 '살아 있는 심연' 몹 도트(2026-10-26 사용자 '대만족' 시안 그대로 — tools/mob-sketch.js). 바닥(아래 줄)이 발.
   // 글자 = 색: o 테두리 · k/p/P 검보라 몸 · m/M/h 핏빛 살 · t/T 청록(공략 표시 — 약점 · 보호막) · w/b 뼈 · y 눈 · r 핏빛 어둠
   // 연습장 허수아비(2026-10-27): N 나무 · s/S 삼베 · c 붉은 과녁 · g 흰 과녁
@@ -181,7 +198,8 @@ const Gfx = (() => {
     const [fx, fy, fw, fh] = f;
     let src = img, sx = fx, sy = fy;
     // 색 입히기(같은 몸으로 다른 몹 · 보스): 반쯤 덧칠 / 번쩍임: 한 색 실루엣
-    if (o.flash) { src = recolored(img, name, f, o.flash === true ? '#ffffff' : o.flash, 1, true); sx = 0; sy = 0; }
+    if (o.tint && !o.flash && WPIX[name]) { src = wpixCanvas(name, o.tint); sx = 0; sy = 0; }  // 무기 도트: 덧칠 대신 재질 명암으로 칠한 그림
+    else if (o.flash) { src = recolored(img, name, f, o.flash === true ? '#ffffff' : o.flash, 1, true); sx = 0; sy = 0; }
     else if (o.tint) { src = recolored(img, name, f, o.tint, o.tintAlpha || 0.5, false); sx = 0; sy = 0; }
     const s = o.scale || 1;
     ctx.save();
@@ -287,6 +305,7 @@ const Gfx = (() => {
   const WEAPON_TINT = 0.68;
   const tintCache = {};
   function tinted(name, tint) {
+    if (WPIX[name]) return wpixCanvas(name, tint);  // 무기 도트는 재질 명암으로 칠한 그림(덧칠 안 함)
     const key = name + tint;
     if (tintCache[key]) return tintCache[key];
     const [fx, fy, fw, fh] = FRAMES[name];
