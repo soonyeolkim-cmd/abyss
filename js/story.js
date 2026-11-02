@@ -145,6 +145,29 @@ const STORY = {
     hell: [['boss', '…불은 꺼지지 않아… 가장 깊은 어둠 속에서… 진짜 군주가… 기다린다…'], ['hero', '가장 깊은 어둠… 심연의 문, 가장 험한 길(영웅)에서 끝을 내야 해.']],
     abyss: [['boss', '…이 어둠 속에서까지… 나를… 이번엔… 문의 심장까지… 닫히는구나…'], ['hero', '얼음, 불, 피… 세 봉인의 빛이 문 깊은 곳으로 스며든다.']],
   },
+  // 끝없는 심연 조사(2026-11-02 사용자 '누가 세계를 무너뜨려 지하로 몰아냈나 조사하며 힘을 키움' — 메모/abyss-story-plan.md).
+  // 단계 레이드 보스를 처음 쓰러뜨리면 down(레이드 안, 혼자일 때) → 마을로 오면 town(세공사 미라가 단서를 풀고 카엘이 받음).
+  // 파티로만 깼거나 이 대사가 생기기 전에 깬 사람은 마을에서 down 까지 이어서 본다(깬 기록 raidClears 로).
+  raids: {
+    1: {
+      title: '심연 조사 1 — 파수꾼의 문장',
+      down: [['boss', '…문지기의… 맹세는… 끝났다… 왕이시여… 저는… 끝까지…'], ['hero', '왕? 이 괴물이 누군가를 섬기고 있었다고?'],
+        ['narr', '무너진 파수꾼의 가슴, 청록 심장 아래에 닳은 문장이 새겨져 있다. 왕관과 곡괭이 — 옛 왕국의 왕실 문장이다.'], ['hero', '옛 왕국이 이걸 만들었다… 무언가를 막으려고.']],
+      town: [['jewel', '왕관과 곡괭이… 왕의 갱도를 판 옛 왕국의 문장이 맞아. 파수꾼은 마물이 아니라, 왕국이 심연 밑바닥에 세운 문지기였던 거야.'],
+        ['jewel', '문지기가 막고 있던 건 위로 올라오는 것이었을까, 아래로 내려가는 것이었을까…'],
+        ['kael', '…옛 왕국의 문지기라. 그날 밤보다 훨씬 전부터 누군가 심연을 알고 있었다는 얘기군.'],
+        ['kael', '파수꾼 아래로 길이 더 이어져 있다면, 답도 그 아래에 있겠지. 힘을 길러라. 밑으로 갈수록 험해질 거다.']],
+    },
+    2: {
+      title: '심연 조사 2 — 위에서 내려온 자',
+      down: [['boss', '…나의 왕국은… 심연을 막으려… 스스로 바다 밑으로 가라앉았다…'], ['boss', '땅을 가른 것은… 우리가 아니다… 위에서… 내려온 자가… 봉인을 깨고… 힘을 가져갔다…'],
+        ['hero', '위에서 내려온 자? 그게 누구지?'], ['boss', '…그 자는… 너희의 문장을… 달고 있었다…'], ['hero', '우리의 문장… 무너진 왕국의 사람이라는 건가.']],
+      town: [['jewel', '심해 진주에 희미한 기억이 비쳐. 갑옷을 입은 사람이… 봉인석을 깨고 있어. 가슴에 왕국 기사단의 문장이 있어.'],
+        ['kael', '…기사단의 문장이라고?'],
+        ['kael', '그날 밤, 문을 막겠다며 먼저 떠난 동료들 가운데… 기사단 성채에도 없던 자가 하나 있었다.'],
+        ['kael', '…아니다. 아직은 아무것도 단정할 수 없다. 더 깊이 내려가 봐라. 그 자가 남긴 흔적이 더 깊은 곳에 있을 거다.']],
+    },
+  },
   dungeons: {
     chapel: {
       start: [['hero', '도시 바로 옆에 이런 성당이 묻혀 있었다니…'], ['hero', '해골과 좀비가 돌아다닌다. 죽은 자들까지 깨어난 건가.']],
@@ -228,6 +251,11 @@ const Story = (() => {
   function trigger(kind, def) {
     if (kind !== 'opening' && World.partySeed) return;  // 파티 던전에서는 대화창 없음(안 본 장면은 혼자 할 때 나온다)
     if (kind === 'opening') { once('opening', [...STORY.opening, ...STORY.welcome]); return; }
+    if (def && def.raid) {  // 끝없는 심연 레이드: 처음 쓰러뜨리면 조사 단서(마을에서 이어짐)
+      const R = STORY.raids[def.stage || 1], prof = Game.prof, st = prof.story || (prof.story = {}), k = 'raid' + (def.stage || 1);
+      if (kind === 'down' && R && !st[k + ':down']) { st[k + ':down'] = 1; Save.write(prof); play(R.down, ENEMIES[def.boss]); }
+      return;
+    }
     const S = STORY.dungeons[def.id];
     if (!S) return;
     const boss = ENEMIES[def.boss];
@@ -253,11 +281,16 @@ const Story = (() => {
     }
     if (diffCleared(prof, 'abyss') >= 0 && !st['abyss:town']) { st['abyss:town'] = 1; lines.push(...STORY.dungeons.abyss.town, ...STORY.ending); }
     if (diffCleared(prof, 'abyss') >= 2 && !st.trueEnding) { st.trueEnding = 1; lines.push(...STORY.trueEnding); }
+    for (const n in STORY.raids) {  // 심연 조사: 레이드를 깬 기록이 있으면(파티 · 예전에 깬 것 포함) 못 본 단서를 마을에서
+      const k = 'raid' + n;
+      if (raidClears(prof, +n) > 0 && !st[k + ':town']) { lines.push(...(st[k + ':down'] ? [] : STORY.raids[n].down), ...STORY.raids[n].town); st[k + ':down'] = st[k + ':town'] = 1; }
+    }
     if (lines.length) { Save.write(prof); play(lines); }
   }
   // 마을 메뉴 '이야기 다시 보기' · '진엔딩 다시 보기'
   function replay() { play([...STORY.opening, ...STORY.welcome]); }
   function replayTrue() { play([...STORY.trueEnding]); }
+  function replayRaid(n) { const R = STORY.raids[n]; play([...R.down, ...R.town]); }  // 마을 메뉴 '심연 조사 N 다시 보기'
   // 마을 NPC 말 걸기(town.js)
   const pick = a => a[Math.floor(Math.random() * a.length)];
   function talkNpc(id) {
@@ -364,8 +397,9 @@ const Story = (() => {
     else if (sp.sprite) Gfx.spr(ctx, Gfx.anim(sp.sprite + '_idle_anim', time, 6), cx - 6, cy + r * 1.2 + (sp.dy || 0), { scale: 5 });  // 마을 NPC: 그 몸 가슴 위로
     else if (who === 'boss' && o.boss) {
       const f = FRAMES[idleAnim(o.boss) + '_f0'], small = f[2] <= 16;  // 작은 몸을 키운 거인 보스는 더 크게, 머리끝을 원 위쪽에 맞춤
-      const sc = small ? 6.4 : 3.8, pad = { knight_f: 10, lizard_m: 10 }[o.boss.sprite] || 0;  // 기사 · 도마뱀 그림은 위쪽이 비어 있다
-      const by = small ? cy - r * 0.95 + (f[3] - pad) * sc : cy + r * 1.15;
+      const big = f[3] > 30;  // 레이드 보스(파수꾼 · 트리에르 — 큰 도트)는 몸 전체가 원에 들어오게(2026-11-02 심연 조사 대사)
+      const sc = big ? 2 * r * 1.1 / f[3] : small ? 6.4 : 3.8, pad = { knight_f: 10, lizard_m: 10 }[o.boss.sprite] || 0;  // 기사 · 도마뱀 그림은 위쪽이 비어 있다
+      const by = big ? cy + f[3] * sc * 0.5 + r * 0.1 : small ? cy - r * 0.95 + (f[3] - pad) * sc : cy + r * 1.15;
       Gfx.spr(ctx, Gfx.anim(idleAnim(o.boss), time, 6), cx, by, { scale: sc, tint: o.boss.tint, tintAlpha: o.boss.tintAlpha });
       if (o.boss.acc) Art.bossAcc(ctx, o.boss.acc, cx, by, sc, false, time);  // 왕관 · 뿔 · 눈빛
     }
@@ -405,5 +439,5 @@ const Story = (() => {
     if (!Input.touchMode()) T_(ctx, '넘기기 ' + L('ok') + ' · 건너뛰기 ' + L('back'), 950, 532, 11, '#6a6068', 'right');
   }
 
-  return { trigger, townArrive, replay, replayTrue, talkNpc, update, draw };
+  return { trigger, townArrive, replay, replayTrue, replayRaid, talkNpc, update, draw };
 })();

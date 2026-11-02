@@ -140,8 +140,19 @@ const Town = (() => {
   // 광차 타기: 엔딩 전이면 오르반이 말림, 뒤면 갱도를 달리는 장면(ride) → 다른 마을
   function rideCart() {
     if (!silvaneOpen(prof)) { Story.talkNpc('cartLocked'); return; }
-    Game.overlay({ type: 'ride', to: where === 'belloc' ? 'silvane' : 'belloc', t: 0, last: performance.now(), clack: 0 });
+    const to = where === 'belloc' ? 'silvane' : 'belloc';
+    Game.overlay({ type: 'ride', to, t: 0, last: performance.now(), clack: 0 });
     Sfx.cartGo();
+    if (Net.role === 'host' && Net.linked) Net.send({ t: 'cart', from: where, to });  // 파티: 방장이 타면 같은 마을의 손님도 같이(2026-11-02 사용자, coop.js 가 받음)
+  }
+  // 방장을 따라 광차 타기(손님): 같은 마을 · 마을 화면일 때만, 실베인이 아직 안 열린 손님은 못 따라감
+  function rideWith(from, to) {
+    if (Game.scene !== 'town' || where !== from || where === to) return;
+    if (!silvaneOpen(prof)) { Game.toast('방장이 광차를 탔어요 — 실베인은 심연의 문을 닫으면 갈 수 있어요'); return; }
+    while (Game.overlays.length) Game.closeOverlay();
+    Game.overlay({ type: 'ride', to, t: 0, last: performance.now(), clack: 0 });
+    Sfx.cartGo();
+    Game.toast('방장을 따라 광차에 올랐어요');
   }
   // 광차 장면(2.8초, 확인 · 뒤로 = 건너뛰기): 어두운 갱도 · 다가오는 나무 버팀목과 등불 · 철길 · 앞에 내가 탄 수레.
   // 위로(실베인) = 끝에서 햇빛이 쏟아져 하얗게, 아래로(벨록) = 점점 어두워져 까맣게 → 마을에서 그 색이 걷히며 나타남(fade)
@@ -291,6 +302,7 @@ const Town = (() => {
     { label: '설정 · 조작', go: () => Game.overlay({ type: 'settings' }) },
     { label: '이야기 다시 보기', go: () => Story.replay() },  // 오프닝 · 카엘의 인사(2026-10-25)
     ...(prof.story && prof.story.trueEnding ? [{ label: '진엔딩 다시 보기', go: () => Story.replayTrue() }] : []),
+    ...Object.keys(STORY.raids).filter(n => prof.story && prof.story['raid' + n + ':town']).map(n => ({ label: STORY.raids[n].title + ' 다시 보기', go: () => Story.replayRaid(n) })),  // 심연 조사(2026-11-02)
     { label: '캐릭터 선택 화면으로', go: () => Game.toTitle() },  // 지우기 · 코드는 캐릭터 선택 화면에서(2026-10-24)
   ];
 
@@ -707,5 +719,5 @@ const Town = (() => {
   // 장비가 바뀌면 걷는 속도 등 다시
   function refresh() { if (p) p.stats = Items.playerStats(prof); }
 
-  return { enter, returnTo, update, draw, refresh, travel, rideUpdate, rideDraw, get where() { return where; }, get player() { return p; }, get near() { return near; }, STATIONS };
+  return { enter, returnTo, update, draw, refresh, travel, rideUpdate, rideDraw, rideWith, get where() { return where; }, get player() { return p; }, get near() { return near; }, STATIONS };
 })();

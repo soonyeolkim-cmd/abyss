@@ -318,6 +318,7 @@ const Coop = (() => {
   });
   // 방장: 몹 처치 → 손님들도 각자 경험치 · 전리품
   function hostKill(e) { Net.send({ t: 'kill', id: e.id }); }
+  Net.on('cart', m => { if (Net.role === 'guest') Town.rideWith(m.from, m.to); });  // 방장이 광차를 탐 → 같은 마을 손님도 같이(town.js rideWith)
   Net.on('kill', m => { if (World.mirror && Game.scene === 'run') World.remoteKill(m.id); });
   // 방장: 거품 감옥에 갇힌 손님의 연타(js/sunken.js mash)
   Net.on('mash', (m, from) => { if (!World.mirror && Game.scene === 'run') Sunken.mashFrom(from, Math.min(10, m.n | 0)); });
