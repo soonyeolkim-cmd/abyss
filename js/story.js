@@ -338,6 +338,96 @@ const Story = (() => {
     });
   }
 
+  // 주인공 노아 얼굴 초상(2026-11-02 사용자 A안 — 시안 tools/portrait-both.js): 카엘처럼 28 × 28 을 계산으로 찍음. 게임 몸 그림 말씨(오른쪽을 보는 3/4 ·
+  // 쓸어 넘긴 앞머리 · 흰자 없는 눈 · 몸 그림과 같은 색 · 갑옷 사선 끈)에 직업 의상(모자 · 두건 · 투구 · 가리개)을 얹고, 여(prof.gender f)는 긴 머리 · 옆머리 · 속눈썹 · 볼 · 입술
+  const HERO_FACE = {
+    swordsman: { hair: ['#4a2e1a', '#7a4e2a', '#9a6638'], body: 'armor', bc: ['#8a96a4', '#a8b2be', '#314152', '#4a525e'] },
+    mage: { hair: ['#4a2e1a', '#7a4e2a', '#9a6638'], body: 'robe', bc: ['#3a5ad0', '#7aa0ff', '#e8b030', '#1e2a70'], head: 'hat', hc: ['#3a5ad0', '#7aa0ff', '#1e2a70', '#e8b030'] },
+    assassin: { hair: ['#1a161e', '#2e2834', '#3e3844'], body: 'cloak', bc: ['#3a3442', '#4a4454', '#c02a3a', '#1e1a24'], head: 'hood', hc: ['#3a3442', '#4a4454', '#2e2834'], mask: ['#c02a3a', '#8a1a24'] },
+    summoner: { hair: ['#1e1030', '#3a2058', '#4a2a6a'], body: 'robe', bc: ['#4a2a6a', '#5a3480', '#ff8ab8', '#26143a'], head: 'hood', hc: ['#5a3480', '#6a4490', '#3a2058'] },
+    paladin: { hair: ['#5a6680', '#c4cedc', '#c4cedc'], hairF: ['#8a6420', '#b8862a', '#f0cc5a'], body: 'tabard', bc: ['#a8b4c8', '#c4cedc', '#e8b84a', '#6a7690', '#f4f0e4', '#3a5aa0'], head: 'helm', hc: ['#c4cedc', '#a8b4c8', '#5a6680', '#e8b84a'] },
+  };
+  function heroFaceDraw(cls, female) {
+    const N = 28, cx = 13.5, fcx = cx + 1.3, S = HERO_FACE[cls] || HERO_FACE.swordsman, H = female && S.hairF ? S.hairF : S.hair;
+    const SKIN = '#fccba3', SHADE = '#e2b694', EYE = '#3a2a22';
+    const at = (x, y) => {
+      const px = x + 0.5, py = y + 0.5;
+      // 1) 머리 장식 윗부분
+      if (S.head === 'hat') {
+        const lean = (6.4 - py) * 0.55, hw = py / 6.4 * 5.6 + 0.4;
+        if (py < 6.4 && Math.abs(px - (cx + lean)) < hw) return px < cx + lean - hw * 0.3 ? S.hc[1] : S.hc[0];  // 뾰족 모자(오른쪽으로 기움)
+        if (py >= 6.4 && py < 7.5 && Math.abs(px - (fcx - 0.4)) < 7.2) return S.hc[3];  // 금 띠
+        if (py >= 7.5 && py < 9 && Math.abs(px - (fcx - 0.4)) < 9.6) return S.hc[2];  // 챙
+      }
+      if (S.head === 'helm') {
+        if (py < 2.6 && Math.abs(px - cx) < 1.3) return S.hc[3];  // 금 볏
+        const helm = ((px - (cx - 0.4)) / 8) ** 2 + ((py - 10.4) / 7.8) ** 2 <= 1 && py < 10.6;
+        if (helm) return Math.abs(px - cx) < 0.9 ? S.hc[3] : py < 6 && px < cx ? S.hc[0] : px > cx + 4 ? S.hc[2] : S.hc[1];
+        if (py >= 10.6 && py < 11.6 && Math.abs(px - (cx - 0.2)) < 7.8) return S.hc[3];  // 금 챙
+      }
+      // 2) 여: 등 뒤 왼쪽 긴 머리(두건이면 두건 아래로만)
+      if (female && px < cx - 3 && px > cx - 10.2 && py >= (S.head === 'hood' ? 17 : 11) && py < 25 - (cx - 3 - px) * 0.35) return px < cx - 8.6 ? H[0] : Math.abs(px - (cx - 6.4)) < 0.5 ? H[2] : H[1];
+      // 3) 몸
+      if (py >= 22) {
+        const w = 9.5 + (py - 22) * 1.4, dx = px - cx;
+        if (Math.abs(dx) <= w) {
+          const strap = Math.abs(dx - ((py - 23) * 2.2 - 4)) < 0.9, edge = px > cx + w - 1.6;
+          if (S.body === 'tabard') {
+            if (Math.abs(dx) > w - 1.4) return S.bc[5];  // 파란 망토
+            if (Math.abs(dx - 0.6) <= 4) return Math.abs(dx - 0.6) < 0.8 || (py >= 24.4 && py < 25.4 && Math.abs(dx - 0.6) < 2.6) ? S.bc[2] : S.bc[4];  // 흰 겉옷 · 금 십자
+            return py < 23.6 ? S.bc[1] : edge ? S.bc[3] : S.bc[0];  // 강철 어깨
+          }
+          if (py < 23.2 && Math.abs(px - fcx) < 4) return S.bc[2];  // 목깃(갑옷 끈 · 로브 금 · 붉은 목도리 · 분홍 띠)
+          if (S.body === 'cloak' && py < 24.4 && Math.abs(px - fcx) < 5.2) return S.bc[2];  // 암살자 목도리 아래 자락
+          if (strap && S.body !== 'cloak') return S.bc[2];
+          if (edge) return S.bc[3];
+          return py < 23.6 && px < cx ? S.bc[1] : S.bc[0];
+        }
+      }
+      // 4) 목
+      if (Math.abs(px - (fcx - 0.5)) <= 2.4 && py >= 19 && py < 22.5) return py < 20.4 ? SHADE : SKIN;
+      const face = ((px - fcx) / 5.6) ** 2 + ((py - 14) / 6.6) ** 2 <= 1;
+      const covered = S.head === 'hood' || S.head === 'helm';
+      const fringe = py < (covered ? 10.4 : 9.4 + (px - fcx) * 0.32) + ((x * 5) % 3 === 0 ? 0.9 : 0);
+      if (female && px > fcx + 4.2 && px < fcx + 6.4 && py >= (S.head === 'hood' ? 12 : 11) && py < 19) return px > fcx + 5.6 ? H[0] : H[1];  // 여: 오른쪽 옆머리(두건 직업도 두건 안으로 보임)
+      // 5) 얼굴
+      if (face && !fringe) {
+        if (px >= fcx - 3.4 && px < fcx - 1.2 && py >= 13 && py < 16) return EYE;  // 가까운 눈
+        if (px >= fcx + 2.2 && px < fcx + 3.4 && py >= 13 && py < 16) return EYE;  // 먼 눈
+        if (female && px >= fcx - 3.8 && px < fcx - 3 && py >= 12.4 && py < 13.4) return EYE;  // 속눈썹
+        if (S.mask && py >= 16.6) return py >= 19.4 ? S.mask[1] : S.mask[0];  // 암살자 가리개
+        if (px >= fcx - 0.4 && px < fcx + 1 && py >= 16.4 && py < 17.4) return SHADE;  // 코
+        if (px >= fcx && px < fcx + 1.2 && py >= 18.4 && py < 19.3) return female ? '#e0707a' : '#c8906a';  // 입
+        if (female && ((px >= fcx - 4.4 && px < fcx - 3) || (px >= fcx + 3.4 && px < fcx + 4.4)) && py >= 16.4 && py < 17.4) return '#f4a090';  // 볼
+        return px > fcx + 4 ? SHADE : SKIN;
+      }
+      // 6) 두건(얼굴 둘레까지 감쌈) · 투구 뺨 가리개 · 귀
+      if (S.head === 'hood') {
+        const hood = ((px - (cx - 0.3)) / 9) ** 2 + ((py - 11) / 9.6) ** 2 <= 1 && py < 21.5;
+        const peak = py < 3 && py > 0.6 && Math.abs(px - (cx - 2)) < (3 - py) * 0.9;
+        if (hood || peak) return py < 7 && px < cx ? S.hc[1] : px < cx - 5 || py > 17 ? S.hc[2] : S.hc[0];
+      }
+      if (S.head === 'helm' && py >= 11.6 && py < 17 && ((px < fcx - 4.6 && px > fcx - 7.4) || (px > fcx + 4.4 && px < fcx + 6.2))) return px > cx ? S.hc[2] : S.hc[1];
+      if (!covered && ((px - (fcx - 5.9)) / 1.3) ** 2 + ((py - 14.6) / 1.7) ** 2 <= 1) return SHADE;
+      // 7) 머리카락
+      const head = ((px - (cx - 0.6)) / 8.2) ** 2 + ((py - 10.6) / 8) ** 2 <= 1;
+      const tuft = !S.head && py > 3.2 && py < 6.2 && px > fcx + 2.4 && px < fcx + 2.4 + (6.2 - py) * 1.1;
+      if (head || tuft) return py < 7 && px < cx ? H[2] : px < cx - 5 ? H[0] : H[1];
+      return null;
+    };
+    const c = document.createElement('canvas'); c.width = c.height = N + 2;
+    const g = c.getContext('2d'), A = (x, y) => (x < 0 || y < 0 || x >= N || y >= N ? null : at(x, y));
+    for (let y = -1; y <= N; y++) for (let x = -1; x <= N; x++) {
+      const v = A(x, y);
+      if (v) { g.fillStyle = v; g.fillRect(x + 1, y + 1, 1, 1); continue; }
+      let edge = false;
+      for (let j = -1; j <= 1 && !edge; j++) for (let i = -1; i <= 1; i++) if (A(x + i, y + j)) { edge = true; break; }
+      if (edge) { g.fillStyle = '#222222'; g.fillRect(x + 1, y + 1, 1, 1); }
+    }
+    return c;
+  }
+  const heroFaces = {};
+  const heroFace = prof => { const k = clsOf(prof).id + (prof && prof.gender === 'f' ? 'f' : ''); return heroFaces[k] || (heroFaces[k] = heroFaceDraw(clsOf(prof).id, prof && prof.gender === 'f')); };
   // 파수꾼 카엘 얼굴: 갈색 두건 · 흰 수염 · 오른쪽 눈 흉터 · 견갑 + 금 고리. 28x28 도트를 계산으로 찍고 검은 테두리
   let kaelCanvas = null;
   function kaelFace() {
@@ -392,7 +482,7 @@ const Story = (() => {
     ctx.fillStyle = sp.bg || '#18202e'; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
     ctx.imageSmoothingEnabled = false;
     // 가슴 위로 크게(얼굴이 보이게, 아래는 원 밖으로 잘림)
-    if (who === 'hero') Art.avatar(ctx, Game.prof, cx - 6, cy + r * 1.2, 5, time);
+    if (who === 'hero') ctx.drawImage(heroFace(Game.prof), Math.round(cx - 51), Math.round(cy - 48 + Math.sin(time * 2) * 1.5), 102, 102);  // 노아 얼굴 초상(직업 · 성별)
     else if (who === 'kael') ctx.drawImage(kaelFace(), Math.round(cx - 51), Math.round(cy - 48 + Math.sin(time * 2) * 1.5), 102, 102);  // 숨 쉬듯 살짝
     else if (sp.sprite) Gfx.spr(ctx, Gfx.anim(sp.sprite + '_idle_anim', time, 6), cx - 6, cy + r * 1.2 + (sp.dy || 0), { scale: 5 });  // 마을 NPC: 그 몸 가슴 위로
     else if (who === 'boss' && o.boss) {
