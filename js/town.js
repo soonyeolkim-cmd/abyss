@@ -195,7 +195,7 @@ const Town = (() => {
     }
     // 내가 탄 수레(앞) + 머리 · 어깨
     const cy = 452 + shake;
-    Gfx.spr(ctx, clsOf(prof).sprite + '_idle_anim_f0', 480, cy + 40, { scale: 7 });
+    Gfx.spr(ctx, spriteOf(prof) + '_idle_anim_f0', 480, cy + 40, { scale: 7 });
     ctx.fillStyle = '#16181e'; ctx.fillRect(300, cy - 6, 360, 110);
     ctx.fillStyle = '#5a5e68'; ctx.fillRect(310, cy + 4, 340, 100);
     ctx.fillStyle = '#8a92a0'; ctx.fillRect(300, cy - 6, 360, 8);

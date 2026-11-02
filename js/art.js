@@ -129,7 +129,7 @@ const Art = (() => {
       ctx.beginPath(); ctx.ellipse(p.x, p.y, 9, 4, 0, 0, Math.PI * 2); ctx.stroke();
       ctx.restore();
     }
-    const base = p.cls.sprite;
+    const base = spriteOf(p.prof);  // 직업 + 성별 몸
     let name = Gfx.anim(base + '_idle_anim', time, 6);
     const o = { flash: p.flash > 0 };
     const pose = weaponPose(p, time);
@@ -1416,7 +1416,7 @@ const Art = (() => {
     shadow(ctx, 0, 0, 9, 0, 1.2);
     const hold = ps => { const b = Items.base(w); Gfx.spr(ctx, b.icon, ps.hx, ps.hy, { rot: ps.th + Math.PI / 2, grip: WEAPON_GRIP, tint: b.tint, tintAlpha: Gfx.WEAPON_TINT }); };
     if (w && pose.off) hold(pose.off);  // 양손 무기(암살자): 왼손 무기는 몸 뒤
-    Gfx.spr(ctx, Gfx.anim(clsOf(prof).sprite + '_idle_anim', time, 6), 0, 0, {});
+    Gfx.spr(ctx, Gfx.anim(spriteOf(prof) + '_idle_anim', time, 6), 0, 0, {});
     if (w) hold(pose);
     ctx.restore();
   }

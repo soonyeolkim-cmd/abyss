@@ -1243,7 +1243,7 @@ const World = (() => {
   // 파티 친구가 화면 밖이면 화면 가장자리에 그쪽을 가리키는 화살표 + 거리(2026-10-25 사용자). 쓰러졌으면 붉게 "쓰러짐"
   function mateArrow(ctx, m) {
     const down = m.dead, col = down ? '#ff6a5a' : Coop.colorOf(m.pid), d = Math.round(Math.hypot(m.x - p.x, m.y - p.y) / T);
-    edgeArrow(ctx, m.x, m.y - 10, col, (ax, ay) => Gfx.spr(ctx, m.cls.sprite + '_idle_anim_f0', ax, ay + 10, { scale: 1.5 }),  // 친구 얼굴(작게)
+    edgeArrow(ctx, m.x, m.y - 10, col, (ax, ay) => Gfx.spr(ctx, (m.prof ? spriteOf(m.prof) : m.cls.sprite) + '_idle_anim_f0', ax, ay + 10, { scale: 1.5 }),  // 친구 얼굴(작게)
       (down ? '쓰러짐 ' : ((m.cls && m.cls.name) || '친구') + ' ') + d + 'm');
   }
   // 화면 밖 (x, y) 쪽 가장자리 화살표: 둥근 바탕 + 화살촉 + 가운데 그림(icon) + 옆 글. 레이드 공허 수정(남은 초)도 같이 씀

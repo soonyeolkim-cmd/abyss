@@ -15,9 +15,9 @@ const Game = (() => {
     scene = 'splash';
   }
   // 칸 n 의 캐릭터로 시작(fresh = 새로 만들기)
-  function startSlot(n, fresh, cls) {
+  function startSlot(n, fresh, cls, gender) {
     Save.setSlot(n);
-    prof = (!fresh && Save.load(n)) || Save.fresh(cls);
+    prof = (!fresh && Save.load(n)) || Save.fresh(cls, gender);
     Save.write(prof);
     scene = 'town'; overlays = []; Input.clear();
     Town.enter(prof, false);

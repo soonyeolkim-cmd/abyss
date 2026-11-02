@@ -253,6 +253,8 @@ CLASSES.swordsman.combo4 = [CLASSES.swordsman.combo[0], CLASSES.swordsman.combo[
   { name: '올려베기', slot: 'basic', startup: 0.05, active: 0.08, recovery: 0.18, mult: 1.05, knock: 70, stun: 0.32, reach: [0, 25], arc: 75, lunge: 6, swing: [-100, 70] },
   CLASSES.swordsman.combo[2]];
 const clsOf = prof => CLASSES[(prof && prof.cls) || 'swordsman'];
+// 몸 그림 이름(2026-11-02 사용자 '여캐도 — 기존 캐릭은 남자로 고정'): prof.gender 'f' 면 직업 그림 + '_f'(assets/dt/hero_f.png … — tools/female-outfit.js 로 구움), 없으면 남자
+const spriteOf = prof => clsOf(prof).sprite + (prof && prof.gender === 'f' ? '_f' : '');
 // 능력치 이름: 마법사는 공격력을 주문력으로 부른다
 const statName = (k, prof) => (k === 'atk' && clsOf(prof).atkName) || STATS[k].name;
 

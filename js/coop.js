@@ -102,7 +102,7 @@ const Coop = (() => {
   function drawRoom(ctx, prof) {
     const host = Net.role === 'host', ms = Net.members();
     T_(ctx, '방 ' + Net.code + ' · ' + Net.count() + '/' + Net.MAX + '명', 480, Y + 90, 13, '#9a8eaa', 'center');
-    const all = [{ me: true, p: prof, tag: host ? '방장' : '손님', col: colorOf(Net.myId) }, ...ms.map(m => ({ p: { cls: m.cls, lv: m.lv, equip: { weapon: m.weapon } }, tag: m.host ? '방장' : '손님', ping: m.ping, col: colorOf(m.pid), m }))];
+    const all = [{ me: true, p: prof, tag: host ? '방장' : '손님', col: colorOf(Net.myId) }, ...ms.map(m => ({ p: { cls: m.cls, gender: m.gender, lv: m.lv, equip: { weapon: m.weapon } }, tag: m.host ? '방장' : '손님', ping: m.ping, col: colorOf(m.pid), m }))];
     const gap = 132, x0 = 480 - (all.length - 1) * gap / 2;
     all.forEach((a, i) => {
       const x = x0 + i * gap;
@@ -220,7 +220,7 @@ const Coop = (() => {
     let body = mt.body;
     if (!body || k !== mt.key) {  // 처음 · 직업 · 무기 · 속성석이 바뀌면 다시
       mt.key = k;
-      body = mt.body = { pid: info.pid, cls: clsOf(info), prof: { cls: info.cls, equip: { weapon: info.weapon }, sockets: info.sockets || {} }, stats: { fx: {} },
+      body = mt.body = { pid: info.pid, cls: clsOf(info), prof: { cls: info.cls, gender: info.gender, equip: { weapon: info.weapon }, sockets: info.sockets || {} }, stats: { fx: {} },
         x: now.x, y: now.y, fv: { x: 0, y: 1 }, state: 'idle', walkT: 0, flash: 0, charge: 0, act: null };
     }
     body.lv = info.lv;
@@ -260,14 +260,14 @@ const Coop = (() => {
   // 손님 → 방장: 동작(act) · 위치(pos의 x · y · 스틱 · 무적) · 장비(kit). 방장 → 그 손님: 몹 소식(snap, 1초 20번) · 맞음(hurt). 방장 → 모두: 처치(kill).
   const evQ = new Map();  // 손님마다 모아 둔 효과 알림
   let snapQ = [], runKits = new Map();
-  const myKit = () => { const pr = Game.prof; return { cls: pr.cls || 'swordsman', lv: pr.lv, equip: pr.equip, sockets: pr.sockets, imprint: pr.imprint || 0, cb: collectSteps(pr) }; };  // imprint = 원소 각인(방장이 손님 속성석 세기를 셈) · cb = 도감 보상 단계
-  const kitProf = k => ({ cls: k.cls, lv: k.lv, equip: k.equip, sockets: k.sockets, imprint: k.imprint || 0, cb: k.cb || 0, potions: 0, stones: {}, scrolls: {} });
+  const myKit = () => { const pr = Game.prof; return { cls: pr.cls || 'swordsman', gender: pr.gender || '', lv: pr.lv, equip: pr.equip, sockets: pr.sockets, imprint: pr.imprint || 0, cb: collectSteps(pr) }; };  // imprint = 원소 각인(방장이 손님 속성석 세기를 셈) · cb = 도감 보상 단계
+  const kitProf = k => ({ cls: k.cls, gender: k.gender || '', lv: k.lv, equip: k.equip, sockets: k.sockets, imprint: k.imprint || 0, cb: k.cb || 0, potions: 0, stones: {}, scrolls: {} });
   // 방장: 같이 들어온 손님마다 그 장비로 만든 몸(world.js start)
   function remotePlayers() {
     const out = [];
     for (const [pid, k] of runKits) {
       const info = Net.members().find(m => m.pid === pid);
-      const kit = k || (info && { cls: info.cls, lv: info.lv, equip: { weapon: info.weapon }, sockets: info.sockets || {} });
+      const kit = k || (info && { cls: info.cls, gender: info.gender, lv: info.lv, equip: { weapon: info.weapon }, sockets: info.sockets || {} });
       if (!kit) continue;
       const q = createPlayer(kitProf(kit));
       q.remote = true; q.pid = pid; q.apartT = 0;

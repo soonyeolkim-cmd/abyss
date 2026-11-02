@@ -7,8 +7,9 @@ const Save = (() => {
   let cur = 0;
   const keyOf = n => (n ? KEY + '-s' + n : KEY);
 
-  function fresh(cls = 'swordsman') {
+  function fresh(cls = 'swordsman', gender) {
     const p = { cls, lv: 1, exp: 0, gold: 30, potions: 3, equip: {}, bag: new Array(BAG_SIZE).fill(null), cleared: {}, story: {} };
+    if (gender === 'f') p.gender = 'f';  // 여자 주인공(없으면 남자 — 예전 캐릭터 그대로). 만든 뒤엔 못 바꿈
     for (const s of SLOTS) p.equip[s] = null;
     p.equip.weapon = Items.make(1, { slot: 'weapon', kind: CLASSES[cls].weapons[0], rarity: 0 });
     p.equip.armor = Items.make(1, { slot: 'armor', rarity: 0 });

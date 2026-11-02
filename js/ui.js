@@ -1505,6 +1505,7 @@ const UI = (() => {
 
   // ── 새 캐릭터: 직업 고르기 화면(2026-10-31 사용자 '목록 말고 화면에서 고르게') ── 카드 넷(검사 · 마법사 · 암살자 · 소환사) + 코드로 불러오기 버튼.
   // ←→ 카드 · ↓ 불러오기 버튼 · 만들기 = 확인, 폰은 카드를 한 번 누르면 고르고 한 번 더 누르면 만들기
+  // 2026-11-02 사용자 '여캐도': 카드 아래 [남] [여](↓ 로 내려가 ←→, 고른 성별로 카드 그림이 바뀜) · 코드로 불러오기는 오른쪽 위(카드에서 ↑). 만든 뒤엔 성별을 못 바꿈
   const NEWCHAR_CLS = ['swordsman', 'mage', 'assassin', 'summoner', 'paladin'];
   const NEWCHAR_TXT = {
     swordsman: ['근접 연타 · 회전베기 · 검기', [['검', '빠른 연격 · 치명타'], ['망치', '범위 분쇄 · 안 밀림']]],
@@ -1513,37 +1514,42 @@ const UI = (() => {
     summoner: ['소환수와 함께 싸운다', [['방울', '솜뿔이 6마리 · 합체'], ['계약서', '꼬마 악마 2 · 사슬']]],
     paladin: ['때리고 · 모으고 · 터뜨린다', [['메이스', '신성 돌진 · 심판'], ['성망치', '축성 · 축복받은 망치']]],
   };
-  const newcharAv = {};  // 카드 그림용 몸(직업 첫 무기를 든 모습)
+  const newcharAv = {};  // 카드 그림용 몸(직업 첫 무기를 든 모습, 성별마다)
   const newchar = {
-    sel: 0,
-    open() { this.sel = 0; },
+    sel: 0, card: 0, g: 'm',  // sel: 0 ~ N-1 카드 · N 성별 줄 · N+1 코드로 불러오기 / card = 고른 직업 / g = 성별
+    open() { this.sel = 0; this.card = 0; this.g = 'm'; },
     update(o) {
       if (Input.wasPressed('back') || Input.wasPressed('pause')) { Game.closeOverlay(); return; }
       const N = NEWCHAR_CLS.length;
       if (this.sel < N) {
         if (Input.nav('left')) this.sel = (this.sel + N - 1) % N;
         if (Input.nav('right')) this.sel = (this.sel + 1) % N;
-        if (Input.nav('down')) this.sel = N;  // 코드로 불러오기
-      } else if (Input.nav('up')) this.sel = 0;
+        this.card = this.sel;
+        if (Input.nav('down')) this.sel = N;  // 성별 줄
+        else if (Input.nav('up')) this.sel = N + 1;  // 코드로 불러오기(오른쪽 위)
+      } else if (this.sel === N) {
+        if (Input.nav('left') || Input.nav('right')) this.g = this.g === 'f' ? 'm' : 'f';
+        if (Input.nav('up')) this.sel = this.card;
+      } else if (Input.nav('down')) this.sel = this.card;
       if (!Input.wasPressed('ok')) return;
       Game.closeOverlay();
-      if (this.sel < N) Game.startSlot(o.n, true, NEWCHAR_CLS[this.sel]);
+      if (this.sel <= N) Game.startSlot(o.n, true, NEWCHAR_CLS[this.card], this.g);
       else title.importCode(o.n);
     },
     draw(ctx, o, time) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = 'rgba(8,4,10,0.98)'; ctx.fillRect(0, 0, 960, 540);
-      T_(ctx, '캐릭터 ' + (o.n + 1) + ' — 직업 고르기', 480, 62, 24, '#f0e0b8', 'center');
+      T_(ctx, '캐릭터 ' + (o.n + 1) + ' — 직업 · 성별 고르기', 480, 62, 24, '#f0e0b8', 'center');
       NEWCHAR_CLS.forEach((id, i) => {
         const STEP = 184, x0 = (960 - (NEWCHAR_CLS.length * STEP - 10)) / 2;  // 카드 다섯 장(2026-10-31 성기사)이 한 화면에
-        const C = CLASSES[id], x = x0 + i * STEP, y = 92, w = STEP - 10, h = 340, on = this.sel === i, [role, wps] = NEWCHAR_TXT[id];
-        zone(x, y, w, h, { on: () => this.sel === i, pick: () => { this.sel = i; } });
+        const C = CLASSES[id], x = x0 + i * STEP, y = 92, w = STEP - 10, h = 340, on = this.card === i, [role, wps] = NEWCHAR_TXT[id];
+        zone(x, y, w, h, { on: () => this.sel === i || (this.sel === NEWCHAR_CLS.length && this.card === i), pick: () => { this.sel = i; this.card = i; } });
         Gfx.panel(ctx, x, y, w, h, { border: on ? '#ffd36a' : '#5a4650' });
         T_(ctx, C.name, x + w / 2, y + 36, 22, on ? '#ffd36a' : '#f0e0b8', 'center');
         const g = ctx.createRadialGradient(x + w / 2, y + 140, 8, x + w / 2, y + 140, 90);
         g.addColorStop(0, 'rgba(255,220,150,' + (on ? 0.16 : 0.05) + ')'); g.addColorStop(1, 'rgba(255,220,150,0)');
         ctx.fillStyle = g; ctx.fillRect(x + 4, y + 50, w - 8, 170);
-        const av = newcharAv[id] || (newcharAv[id] = { cls: id, equip: { weapon: Items.make(1, { slot: 'weapon', kind: C.weapons[0], rarity: 0 }) } });
+        const ak = id + this.g, av = newcharAv[ak] || (newcharAv[ak] = { cls: id, gender: this.g === 'f' ? 'f' : undefined, equip: { weapon: Items.make(1, { slot: 'weapon', kind: C.weapons[0], rarity: 0 }) } });
         Art.avatar(ctx, av, x + w / 2 - 6, y + 196, 4, on ? time : 0);
         if (id === 'summoner') { Summon.icon(ctx, 'puff', x + 40, y + 196, 3, on ? time : 0); Summon.icon(ctx, 'imp', x + w - 38, y + 176, 2, on ? time : 0); }
         T_(ctx, role, x + w / 2, y + 232, 13, '#c8b8a0', 'center');
@@ -1553,12 +1559,22 @@ const UI = (() => {
         });
         T_(ctx, '공격 = ' + (C.atkName || '공격력'), x + w / 2, y + h - 14, 12, '#7a7078', 'center');
       });
-      const bon = this.sel === NEWCHAR_CLS.length, bx = 380, by = 448;
-      zone(bx, by, 200, 34, { pick: () => { this.sel = NEWCHAR_CLS.length; }, now: true });
-      Gfx.panel(ctx, bx, by, 200, 34, { border: bon ? '#ffd36a' : '#5a4650', bg: '#1d151b' });
-      T_(ctx, '코드로 불러오기', bx + 100, by + 23, 14, bon ? '#ffd36a' : '#c8b8a0', 'center');
-      if (!Input.touchMode()) T_(ctx, '고르기 ←→ · 불러오기 ↓ · 만들기 ' + L('ok') + ' · 돌아가기 ' + L('back'), 480, 512, 13, '#8a7e88', 'center');
-      else T_(ctx, '카드를 한 번 더 누르면 만들어요', 480, 512, 13, '#8a7e88', 'center');
+      // 성별 줄: [남] [여] — 줄에 있으면 노란 테두리, 고른 쪽은 금빛 바탕
+      const N = NEWCHAR_CLS.length, gon = this.sel === N;
+      T_(ctx, '성별', 300, 471, 15, gon ? '#ffd36a' : '#c8b8a0');
+      [['m', '남', 350], ['f', '여', 470]].forEach(([g, s, gx]) => {
+        const on = this.g === g;
+        zone(gx, 448, 110, 36, { pick: () => { this.g = g; this.sel = N; }, key: null });  // 누르면 고르기만(만들기는 카드를 한 번 더)
+        Gfx.panel(ctx, gx, 448, 110, 36, { border: on ? (gon ? '#ffd36a' : '#c8a050') : '#5a4650', bg: on ? '#2a2018' : '#1d151b' });
+        T_(ctx, s, gx + 55, 472, 17, on ? '#ffd36a' : '#c8b8a0', 'center');
+      });
+      // 코드로 불러오기: 오른쪽 위 작은 버튼
+      const bon = this.sel === N + 1, bx = 790, by = 30;
+      zone(bx, by, 150, 30, { pick: () => { this.sel = N + 1; }, now: true });
+      Gfx.panel(ctx, bx, by, 150, 30, { border: bon ? '#ffd36a' : '#5a4650', bg: '#1d151b' });
+      T_(ctx, '코드로 불러오기', bx + 75, by + 20, 13, bon ? '#ffd36a' : '#c8b8a0', 'center');
+      if (!Input.touchMode()) T_(ctx, '직업 ←→ · 성별 ↓ 뒤 ←→ · 불러오기 ↑ · 만들기 ' + L('ok') + ' · 돌아가기 ' + L('back'), 480, 512, 13, '#8a7e88', 'center');
+      else T_(ctx, '성별을 고르고 카드를 한 번 더 누르면 만들어요', 480, 512, 13, '#8a7e88', 'center');
     },
   };
   const choice = {
