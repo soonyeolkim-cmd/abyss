@@ -486,7 +486,13 @@ const Art = (() => {
     }
     ctx.save();
     ctx.translate(Math.round(d.x), Math.round(y - 6));
-    Gfx.icon(ctx, it, 0, 0, 12);
+    const b = Items.base(it);
+    if (b.slot === 'weapon') {
+      // 무기는 손에 든 그림과 같은 크기(1배)로 45° 눕혀서(2026-11-03 사용자: 새 무기 도트를 0.7배로 줄여 그려 뭉개지고 손에 든 모습과 달라 보임)
+      const n = parseInt(b.tint.slice(1), 16), dark = ((n >> 16) & 255) * 0.3 + ((n >> 8) & 255) * 0.59 + (n & 255) * 0.11 < 60;
+      if (dark) { ctx.shadowColor = 'rgba(225,215,245,0.95)'; ctx.shadowBlur = 3; }  // 어두운 재질(흑요석)은 바닥에 묻히지 않게 옅은 빛
+      Gfx.spr(ctx, b.icon, 0, 0, { rot: Math.PI / 4, center: true, tint: b.tint });
+    } else Gfx.icon(ctx, it, 0, 0, 12);
     ctx.restore();
   }
 
