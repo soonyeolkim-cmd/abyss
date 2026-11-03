@@ -449,7 +449,8 @@ function updateAct(p, dt, room) {
     if (d.dash) World.fx({ type: 'streak', x0: a.x0, y0: a.y0, follow: p, t: 0, life: 0.25 });
     if (d.area) {  // 망치 내려찍기: 판정 타원 그대로 충격파(art.js nova) + 흙먼지
       const ar = a.hd.area, st = Elements.socket(p.prof, d.slot), x = p.x + p.fv.x * ar.ahead, y = p.y + p.fv.y * ar.ahead;
-      World.fx({ type: 'nova', x, y, r: ar.r, col: st ? ELEMENTS[st.el].color : '#e8dcc0', el: st ? st.el : '', tier: Elements.tier(st), ss: Elements.ss(st, p.prof), bare: true, seed: Math.random() * 1000, t: 0, life: 0.4 });
+      World.fx({ type: 'nova', x, y, r: ar.r, col: st ? ELEMENTS[st.el].color : d.col || '#e8dcc0',  // col = 기술 색(성기사 금빛)
+        el: st ? st.el : '', tier: Elements.tier(st), ss: Elements.ss(st, p.prof), bare: true, seed: Math.random() * 1000, t: 0, life: 0.4 });
       World.fx({ type: 'shock', x, y, r: ar.r, t: 0, life: 0.3 });
       for (let i = 0; i < 8; i++) { const an = i / 8 * Math.PI * 2; World.fx({ type: 'dust', x: x + Math.cos(an) * ar.r * 0.6, y: y + Math.sin(an) * ar.r * 0.6 * GROUND_Y, vx: Math.cos(an) * 20, vy: Math.sin(an) * 10, vz: 12, t: 0, life: 0.4 }); }
       World.shake(3);

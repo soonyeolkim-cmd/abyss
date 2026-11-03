@@ -206,6 +206,7 @@ const Paladin = (() => {
     const w = p.prof && p.prof.equip && p.prof.equip.weapon, wk = w ? WEAPON_KINDS[Items.base(w).kind] || {} : {};
     const a = p.state === 'act' && p.act, d = a && a.def;
     if (d && d.rush && a.time <= a.s + a.a) drawShield(ctx, p.x + p.fv.x * 8, p.y - 10 + p.fv.y * 4, 6, 8, 0.45 + 0.2 * Math.sin(time * 40));
+    else if (d && d.bash && a.time <= a.s + a.a + 0.12) drawShield(ctx, p.x + p.fv.x * 9, p.y - 9 + p.fv.y * 4, 6, 8, a.time >= a.s ? 0.55 : 0.25);  // 방패 밀치기: 몸 앞에 큰 방패(부딪는 순간 금빛)
     else if (wk.shield) drawShield(ctx, p.x + (flip ? 4 : -4), p.y - 8, 3, 4, 0);
     if (p.hamCasts) for (const c of p.hamCasts) for (const h of c.list) drawHammer(ctx, h, c.def.spiral.hr, time);
   }

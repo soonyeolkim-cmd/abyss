@@ -242,7 +242,12 @@ const CLASSES = {
     hammers: { id: 'hammers', name: '축복받은 망치', short: '망치', icon: 'hammers', slot: 'wave', cd: 1.5, cost: 15, startup: 0.1, active: 0.05, recovery: 0.28, mult: 1.4, knock: 50, stun: 0.25, swing: [-150, 10], heavy: true,
       spiral: { life: 2.4, r0: 10, r1: 70, spin: 1.6, hr: 9, again: 0.3 } },
     // 대시 → 공격 = 신성 강타: 앞 몹을 쳐서 기절(긴 경직) · 맞으면 신성력
-    dashAttack: { name: '신성 강타', slot: 'dash', startup: 0.04, active: 0.1, recovery: 0.3, mult: 1.8, knock: 140, stun: 1.0, reach: [0, 24], arc: 70, thrust: true, heavy: true, iframes: true, holy: 1 },
+    dashAttack: { name: '신성 강타', slot: 'dash', startup: 0.04, active: 0.1, recovery: 0.3, mult: 1.8, knock: 140, stun: 1.0, reach: [0, 24], arc: 70, thrust: true, heavy: true, iframes: true, holy: 1 },  // (예전 — 둔기로 찔러 어색해서 아래 둘로 바꿈)
+    // 대시 → 공격(2026-11-03 사용자 C안 '신성 강타가 어색 — 무기마다 다르게'): 세기(배율 1.8 · 기절 · 무적 · 신성력 +1)는 그대로, 판정 = 앞 바닥 타원 = 금빛 파문 그림(player.js area · col)
+    //   메이스 = 방패 밀치기: 방패를 앞세워 짧게 들이받음(몸 앞에 큰 방패 — paladin.js drawOver bash) · 크게 밀치고 길게 기절
+    shieldBash: { name: '방패 밀치기', slot: 'dash', startup: 0.04, active: 0.1, recovery: 0.3, mult: 1.8, knock: 190, stun: 1.2, area: { ahead: 14, r: 16 }, dash: 14, ease: true, swing: [-50, -35], noBody: true, bash: true, col: '#ffd36a', heavy: true, iframes: true, holy: 1 },
+    //   성망치 = 신성 내려찍기: 머리 위로 들어 앞 바닥을 내려찍음 · 금빛 충격이 닿는 적을 치고 살짝 띄움
+    holySmite: { name: '신성 내려찍기', slot: 'dash', startup: 0.14, active: 0.08, recovery: 0.34, mult: 1.8, knock: 120, stun: 0.8, area: { ahead: 20, r: 28 }, launch: 120, swing: [-150, 10], col: '#ffd36a', heavy: true, iframes: true, holy: 1 },
   },
 };
 // 성기사 공통 값(js/paladin.js): 신성력 최대 · 신성력 하나를 쓸 때마다 최대 체력의 healPer 회복 · 빛기둥 · 망치 수 = base + 쓴 신성력(가득 holyMax 쓰면 full 개 더)
@@ -295,9 +300,9 @@ const WEAPON_KINDS = {
     pet: 'imp', summonCost: 30, blinkDodge: 64, combo: 'brandCombo', dashDef: 'pactExec' },  // combo = 기본 공격 목록(영혼 낙인)  // 대시 → 공격은 카타르와 같은 선풍 베기(2026-10-30 사용자, 물러나며 표창 saiDash 는 안 씀)
   // 성기사(2026-10-31 개편 — 공격형 성전사): 메이스(+ 방패) = 신성 돌진 · 심판(한 마리에 빛기둥) / 성망치 = 축성(성역) · 축복받은 망치(둘레 나선). chargeCost = 스킬 칸 기력 · shield = 몸에 방패를 그림
   mace: { name: '경량', speed: 1.05, reach: 0, dmg: 1, knock: 1, arc: 1, shield: true,
-    trait: ['열성', '신성 돌진(지나가며 치고 끝에 빛 폭발 · 무적) · 심판(노린 적에게 빛기둥) · 신성력을 쓰면 체력 회복'], chargeCost: 18 },
+    trait: ['열성', '신성 돌진(지나가며 치고 끝에 빛 폭발 · 무적) · 심판(노린 적에게 빛기둥) · 방패 밀치기 · 신성력을 쓰면 체력 회복'], chargeCost: 18, dashDef: 'shieldBash' },
   warhammer: { name: '중량', speed: 0.88, reach: 0, dmg: 1, knock: 1.4, arc: 1.1, superArmor: true,
-    trait: ['축성', '축성(발밑 성역 5초 — 안의 적 계속 피해 · 느려짐, 안에 서 있으면 회복) · 축복받은 망치(둘레 나선) · 공격 중 안 밀림'], chargeDef: 'consecrate', specialDef: 'hammers', chargeCost: 30 },
+    trait: ['축성', '축성(발밑 성역 5초 — 안의 적 계속 피해 · 느려짐, 안에 서 있으면 회복) · 축복받은 망치(둘레 나선) · 신성 내려찍기 · 공격 중 안 밀림'], chargeDef: 'consecrate', specialDef: 'hammers', chargeCost: 30, dashDef: 'holySmite' },
 };
 
 // 소환수(2026-10-31 사용자 — js/summon.js). max 마리(꽉 차면 스킬 칸을 눌러도 안 부름) · 유지 시간 없음(체력이 다 닳거나 던전을 나갈 때까지, 다음 층으로 따라옴) · hp = 주인 최대 체력 × · def = 주인 방어력 × ·
