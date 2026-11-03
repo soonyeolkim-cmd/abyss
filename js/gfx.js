@@ -36,6 +36,13 @@ const Gfx = (() => {
     // 성기사: 메이스 = 돌기 달린 머리 · 금 고리 / 성망치 = 넓은 머리 가운데 재질 빛 십자 · 금 고리 · 나무 자루
     weapon_mace: ['..o.o.o..', '.oWoLoDo.', 'oWLLMMDXo', 'oLLMcMDXo', 'oLMMMMDXo', '.oMMMDXo.', '..oyygo..', '..ooooo..', '...oNo...', '...oNo...', '...oNo...', '...oro...', '...oRo...', '...oyo...', '....o....'],
     weapon_warhammer: ['ooooooooooo', 'oWWLLLLLMDo', 'oLLMMcMMMDo', 'oLMMcccMMDo', 'oLMMMcMMDXo', 'oMMMMMMMDXo', 'ooooooooooo', '....oyGo...', '....oNno...', '....oNno...', '....oNno...', '....oNno...', '....oNno...', '....oNno...', '....orRo...', '....oRro...', '....oyGo...', '.....oo....'],
+    // 방어구 · 장신구(2026-11-03 사용자 '다른 장비 아이콘도 무기와 이질감 없이 선명하게'): 16 × 16 — 금속(재질 명암) · 금 · 가죽 · c 재질 빛 보석. shapeIcon 이 씀
+    gear_helmet: ['................', '......oooo......', '....ooWLLMoo....', '...oWLLLMMMDo...', '..oWLLLMMMMMDo..', '..oLLMMMMMMMDo..', '..oyyyyccyyyGo..', '..oLMooooooMDo..', '..oLMoXXXXoMDo..', '..oMMMoXXoMMXo..', '..oMMMMooMMMXo..', '..oDMMMMMMMDXo..', '...oDDMMMMDXo...', '....ooDDDDoo....', '......oooo......', '................'],
+    gear_armor: ['................', '.oooo......oooo.', 'oWLLMooooooLLMDo', 'oLLMMoyyyyoMMMDo', 'oLMMMMoyyoMMMMDo', '.oDMWLMMMMMMMDo.', '..oLWLMMMMMMDo..', '..oLLMMccMMMDo..', '..oLMMMccMMMDo..', '..oLMMMMMMMMDo..', '..oMMMMMMMMDDo..', '..oGyyyyyyyyGo..', '..oMMMoooMMMDo..', '..oDDDo..oDDXo..', '...ooo....ooo...', '................'],
+    gear_gloves: ['................', '......o.o.o.....', '.....oWoLoMo....', '.....oLoMoMoo...', '.....oLoMoMoDo..', '....ooLLMMMMDo..', '...oWooLMMMMDo..', '...oLLoLMMMMDo..', '....oLLMMMMDo...', '....oMMMMMMDo...', '....oyyyyyyGo...', '....oRrrrrrRo...', '....oRrrrrrRo...', '....ooooooooo...', '................', '................'],
+    gear_boots: ['................', '....oooooo......', '....oWLLMo......', '....oLLMDo......', '....oyycGo......', '....oLMMDo......', '....oLMMDo......', '....oLMMDoo.....', '....oLMMMDDoo...', '....oMMMMMMMDo..', '...oMMMMMMMMMDo.', '...oRRRRRRRRRRo.', '...oooooooooooo.', '................', '................', '................'],
+    gear_amulet: ['................', '...oo......oo...', '...oyo....oyo...', '....oyo..oyo....', '.....oyooyo.....', '......oGGo......', '.....oyyyyo.....', '....oyWLMDyo....', '...oyWLccMDyo...', '...oyLccMMDyo...', '...oyLMMMDXyo...', '....oyMMDXyo....', '.....oyDXyo.....', '......oyGo......', '.......oo.......', '................'],
+    gear_ring: ['................', '................', '......oooo......', '.....oWccco.....', '.....occcDo.....', '.....oyooyo.....', '....oWLooMDo....', '...oWLo..oMDo...', '...oLo....oDo...', '...oLo....oDo...', '...oLMo..oDXo...', '....oMMooDXo....', '.....oMDDXo.....', '......oooo......', '................', '................'],
   };
   // 재질 색 → 명암 다섯 단 + 빛 칸(아주 어두운 재질은 가운데를 살짝 띄워 모양이 보이게)
   const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
@@ -218,7 +225,7 @@ const Gfx = (() => {
     return base + '_f' + (Math.floor(t * fps) % n);
   }
 
-  // ── 아이템 아이콘 (무기는 아틀라스, 나머지는 16x16 점그림을 색만 바꿔 쓴다) ──
+  // ── 아이템 아이콘 (무기 · 방어구 · 장신구는 위 WPIX 도트, 속성석 · 보석 · 주문서는 16x16 점그림을 색만 바꿔 쓴다) ──
   const SHAPES = {
     helmet: ['................', '......####......', '....##bbaa##....', '...#bbaaaaaa#...', '...#baaaaaaa#...', '..#aaaaaaaaaa#..',
       '..#aaaaaaaaaa#..', '..#a########a#..', '..#a#dddddd#a#..', '..#a##dddd##a#..', '..#aa#dddd#aa#..', '..#caa#dd#aac#..',
@@ -283,6 +290,7 @@ const Gfx = (() => {
     return c ? 'rgba(' + c.join(',') + ',0)' : 'rgba(0,0,0,0)';
   }
   function shapeIcon(shape, tint) {
+    if (WPIX['gear_' + shape] && tint) return wpixCanvas('gear_' + shape, tint);  // 방어구 · 장신구 새 도트(재질 명암, 무기와 같은 방식)
     const key = shape + tint;
     if (iconCache[key]) return iconCache[key];
     const c = document.createElement('canvas');
