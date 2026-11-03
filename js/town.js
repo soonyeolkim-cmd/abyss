@@ -300,9 +300,12 @@ const Town = (() => {
     { label: '속성석 · 보석 관리', go: () => Game.overlay({ type: 'manage' }) },
     { label: '기록 · 칭호', go: () => Game.overlay({ type: 'records' }) },  // 레이드 기록 · 칭호 달기(2026-10-27, js/records.js)
     { label: '설정 · 조작', go: () => Game.overlay({ type: 'settings' }) },
-    { label: '이야기 다시 보기', go: () => Story.replay() },  // 오프닝 · 카엘의 인사(2026-10-25)
-    ...(prof.story && prof.story.trueEnding ? [{ label: '진엔딩 다시 보기', go: () => Story.replayTrue() }] : []),
-    ...Object.keys(STORY.raids).filter(n => prof.story && prof.story['raid' + n + ':town']).map(n => ({ label: STORY.raids[n].title + ' 다시 보기', go: () => Story.replayRaid(n) })),  // 심연 조사(2026-11-02)
+    // 이야기 다시 보기(2026-11-03 사용자 '다시 보기가 너무 많아 — 한 메뉴로, 글이 넘치지 않게'): 처음 이야기 · 진엔딩 · 심연 조사 N 을 한 창에 짧은 이름으로
+    { label: '이야기 다시 보기', go: () => Game.overlay({ type: 'choice', title: '이야기 다시 보기', items: [
+      { label: '처음 이야기', go: () => Story.replay() },  // 오프닝 · 카엘의 인사(2026-10-25)
+      ...(prof.story && prof.story.trueEnding ? [{ label: '진엔딩', go: () => Story.replayTrue() }] : []),
+      ...Object.keys(STORY.raids).filter(n => prof.story && prof.story['raid' + n + ':town']).map(n => ({ label: '심연 조사 ' + n, go: () => Story.replayRaid(n) })),  // 심연 조사(2026-11-02)
+    ] }) },
     { label: '캐릭터 선택 화면으로', go: () => Game.toTitle() },  // 지우기 · 코드는 캐릭터 선택 화면에서(2026-10-24)
   ];
 
