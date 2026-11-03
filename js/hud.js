@@ -543,9 +543,8 @@ const Hud = (() => {
     }
     // 가운데: 기술 = 속성석 칸 4개(2026-10-24 사용자: 기술 아이콘 칸은 없애고 속성석 칸이 기술 칸을 겸한다)
     // 위 = 누르는 키 + 기술 이름, 칸 = 낀 속성석(없으면 기술 모양을 흐리게), 아래 = 드는 기력(모자라면 빨강)
-    const SKILL_KEYS = { basic: 'attack', charge: 'charge', wave: 'special', dash: 'dodge' };
     const costs = { basic: 0, charge: costOf(p.prof, 'charge'), wave: costOf(p.prof, 'special'), dash: dashCost(p) };  // 무기 특성으로 바뀔 수 있음
-    STONE_SLOTS.forEach((slot, i) => {
+    (C.keySwap ? ['basic', 'wave', 'charge', 'dash'] : STONE_SLOTS).forEach((slot, i) => {  // 암살자: 버튼 순서(X · V · Z · C)대로 돌진 · 그림자
       const x = 374 + i * 56, y = PY + 16, s = Elements.socket(prof, slot), col = s ? ELEMENTS[s.el].color : null;
       box(ctx, x, y, 44, col);
       // 기술 아이콘을 크게(2026-10-24 사용자), 낀 속성석은 오른쪽 아래에 작게. 속성석이 있으면 아이콘이 그 속성 색
@@ -557,7 +556,7 @@ const Hud = (() => {
       if (slot === 'wave' && C.special.cd) cool(ctx, x, y, 44, p.specialCd / specialCdOf(p), p.specialCd);  // 특수기 쿨타임
       if (slot === 'charge' && p.hideCd > 0) cool(ctx, x, y, 44, p.hideCd / hideCdOf(p), p.hideCd);  // 그림자 숨기 다시 쓰기까지(2026-10-31)
       if (slot === 'charge' && C.id === 'summoner') T_(ctx, Summon.count() + '/' + SUMMON[wkOf(p).pet || 'puff'].max, x + 4, y + 12, 10, Summon.count() ? '#f0e0ff' : '#8a7e88');  // 소환사: 지금 소환수 수
-      T_(ctx, (Input.touchMode() ? '' : L(SKILL_KEYS[slot]) + ' ') + slotShortOf(p.prof, slot), x + 22, PY + 12, 11, col || '#c8b8a0', 'center');
+      T_(ctx, (Input.touchMode() ? '' : L(skillAction(prof, slot)) + ' ') + slotShortOf(p.prof, slot), x + 22, PY + 12, 11, col || '#c8b8a0', 'center');
       const n = costs[slot];
       T_(ctx, '기력 ' + n, x + 22, PY + 73, 10, !n ? '#6a7a90' : p.sp >= n ? '#8ab8ff' : '#ff7a6a', 'center');
     });

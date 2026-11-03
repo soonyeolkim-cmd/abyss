@@ -113,20 +113,22 @@ const Touch = (() => {
 
   // 버튼 그림 · 이름 · 자리: 직업 · 낀 속성석 · 장면이 바뀌면 다시
   const drawn = {};
+  // 버튼 자리(V · Z) ↔ 그 버튼이 쓰는 기술 칸: 암살자(keySwap)는 V 자리 = 돌진(wave) · Z 자리 = 그림자(charge). 서로 바꾸는 것이라 한 함수로 양쪽
+  const swapSlot = s => (typeof Game !== 'undefined' && Game.prof && clsOf(Game.prof).keySwap && (s === 'charge' || s === 'wave') ? (s === 'charge' ? 'wave' : 'charge') : s);
   function refresh() {
     if (typeof Game === 'undefined' || !Game.prof) return;
     const prof = Game.prof, C = clsOf(prof);
-    for (const slot in els) {
-      if (slot === 'basic' && inTown) continue;  // 마을: 말 걸기 버튼(mode 에서 그림)
-      const st = Elements.socket(prof, slot), col = st ? ELEMENTS[st.el].color : '#a89cb0';
+    for (const pos in els) {
+      if (pos === 'basic' && inTown) continue;  // 마을: 말 걸기 버튼(mode 에서 그림)
+      const slot = swapSlot(pos), st = Elements.socket(prof, slot), col = st ? ELEMENTS[st.el].color : '#a89cb0';
       const key = slotIconOf(prof, slot) + col;
-      if (drawn[slot] !== key) {
-        const g = els[slot].querySelector('canvas').getContext('2d');
+      if (drawn[pos] !== key) {
+        const g = els[pos].querySelector('canvas').getContext('2d');
         g.clearRect(0, 0, ICON, ICON);
         g.drawImage(Hud.pixIcon(slotIconOf(prof, slot), col), 0, 0);
-        drawn[slot] = key;
+        drawn[pos] = key;
       }
-      const s = els[slot].querySelector('small'), t = slotShortOf(Game.prof, slot);
+      const s = els[pos].querySelector('small'), t = slotShortOf(Game.prof, slot);
       if (s.textContent !== t) s.textContent = t;
     }
     // 물약 병 그림(그림 파일이 늦게 읽히면 다음 번에 그려진다) + 남은 개수
@@ -143,12 +145,15 @@ const Touch = (() => {
   setInterval(refresh, 500);
   // 특수기 쿨타임 · 그림자 숨기 대기(2026-10-31): 버튼이 어두워졌다가 12시부터 시계 방향으로 밝아진다(HUD 기술 칸과 같게)
   const cds = [
-    { el: els.wave.querySelector('.cd'), on: false, k: p => (p.cls.special.cd && p.specialCd > 0 ? p.specialCd / specialCdOf(p) : 0) },
-    { el: els.charge.querySelector('.cd'), on: false, k: p => (p.hideCd > 0 ? p.hideCd / hideCdOf(p) : 0) },
+    { slot: 'wave', on: false, k: p => (p.cls.special.cd && p.specialCd > 0 ? p.specialCd / specialCdOf(p) : 0) },
+    { slot: 'charge', on: false, k: p => (p.hideCd > 0 ? p.hideCd / hideCdOf(p) : 0) },
   ];
   function cdTick() {
     const p = typeof Game !== 'undefined' && Game.scene === 'run' ? World.player : null;
     for (const c of cds) {
+      const el = els[swapSlot(c.slot)].querySelector('.cd');  // 그 기술이 놓인 버튼(암살자는 자리가 바뀜)
+      if (c.el && c.el !== el && c.on) { c.el.style.display = 'none'; c.on = false; }
+      c.el = el;
       const k = p ? Math.min(1, c.k(p)) : 0;
       if (k > 0) {
         c.el.style.background = 'conic-gradient(transparent 0 ' + Math.round((1 - k) * 360) + 'deg, rgba(0, 0, 0, 0.55) 0 360deg)';
@@ -231,7 +236,7 @@ const Touch = (() => {
     const p = !m && Game.scene === 'run' ? World.player : null;
     if (p) {
       const need = { charge: costOf(p.prof, 'charge'), wave: costOf(p.prof, 'special'), dash: dashCost(p) };
-      for (const slot in need) els[slot].classList.toggle('low', p.sp < need[slot]);
+      for (const slot in need) els[swapSlot(slot)].classList.toggle('low', p.sp < need[slot]);
     } else for (const slot of ['charge', 'wave', 'dash']) els[slot].classList.remove('low');
     const sl = m ? UI.touchSpecial() : null;
     spec.style.display = sl ? '' : 'none';

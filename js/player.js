@@ -56,7 +56,7 @@ function bufferPlayerInput(p) {
   if (Sunken.mash(p)) { p.buffer = null; return; }  // 거품 감옥에 갇힌 동안: 방향 · 공격 = 연타로 탈출(공격 · 대시 · 기술은 안 나감)
   for (const a of ['attack', 'dodge', 'charge', 'special']) {
     if (a === 'attack' && Coop.canRevive()) continue;  // 파티: 쓰러진 친구 옆에서는 공격 버튼 = 살리기(누르고 있기)
-    if (Input.wasPressed(a)) { p.buffer = a; p.bufferT = 0.2; }
+    if (Input.wasPressed(a)) { p.buffer = p.cls.keySwap && (a === 'charge' || a === 'special') ? (a === 'charge' ? 'special' : 'charge') : a; p.bufferT = 0.2; }  // 암살자: V = 돌진(특수) · Z = 그림자(스킬)
   }
 }
 // 무기 특성(2026-10-26 사용자: 직업마다 무기 2종 차별화) — data.js WEAPON_KINDS 의 trait · 고친 값. 없으면 직업 기본값

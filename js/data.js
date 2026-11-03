@@ -75,6 +75,9 @@ const CLASSES = {
   // 기술 칸 4개는 검사 · 마법사와 같은 규칙(기본 · 차지 · 특수 · 대시, 2026-10-25 사용자) — 대시 칸 이름은 '대시'
   assassin: {
     id: 'assassin', name: '암살자', sprite: 'assassin', atkName: '공격력', dual: true,
+    // keySwap(2026-11-03 사용자 '돌진과 그림자 자리를 바꾸자'): 버튼만 바꿈 — V(패드 B) = 돌진 베기(특수 칸 wave), Z(패드 Y) = 그림자 숨기(스킬 칸 charge).
+    //   칸 · 속성석 · 기력은 그 기술에 그대로 붙어 있다(skillAction · player.js 입력 · hud.js · touch.js 가 바꿔 읽음)
+    keySwap: true,
     weapons: ['katar', 'sai'],
     slotNames: { basic: '기본 공격', charge: '그림자 숨기', wave: '돌진 베기', dash: '대시' },
     slotShort: { basic: '기본', charge: '그림자', wave: '돌진', dash: '대시' },
@@ -97,7 +100,7 @@ const CLASSES = {
     // cd 3 → 0.6(2026-10-25 사용자: 검사 · 마법사처럼 쿨타임 없이 — 검사 검기와 같은 연타 막이만, 기력으로 조절)
     // cd 0.6 → 0(2026-11-02 사용자 '쿨타임을 없애서 검사와 밸런스') — 베기가 끝난 뒤 후딜에서 다음 돌진으로 끊을 수 있어
     //   연타하면 약 0.25초마다(2초에 8번, 예전 0.6초마다), 기력 10 으로만 조절
-    special: { id: 'rush', name: '돌진 베기', short: '돌진', slot: 'wave', cd: 0, cost: 10, rush: true,
+    special: { id: 'rush', name: '돌진 베기', short: '돌진', slot: 'wave', cd: 0, cost: 20, rush: true,  // 기력 10 → 20(2026-11-03 사용자 — V 로 옮기면서)
       startup: 0.03, active: 0.14, recovery: 0.3, mult: 2.5, knock: 60, stun: 0.8,  // 밀어내기는 작게(적을 지나 등 뒤에 서게)
       reach: [0, 42], arc: 160, swing: [-120, 120], noBody: true,  // 백스탭처럼 넓게 휘두르며 지나간다(2026-10-25 사용자: 거리 30 · 각도 70 찌르기 → 넓은 범위)
       dash: 90, past: 30, min: 50, max: 150, safe: 0.35, crit: true, heavy: true, iframes: true,
@@ -258,6 +261,9 @@ CLASSES.swordsman.combo4 = [CLASSES.swordsman.combo[0], CLASSES.swordsman.combo[
   { name: '올려베기', slot: 'basic', startup: 0.05, active: 0.08, recovery: 0.18, mult: 1.05, knock: 70, stun: 0.32, reach: [0, 25], arc: 75, lunge: 6, swing: [-100, 70] },
   CLASSES.swordsman.combo[2]];
 const clsOf = prof => CLASSES[(prof && prof.cls) || 'swordsman'];
+// 기술 칸을 쓰는 버튼(동작) — 암살자(keySwap)는 스킬 칸 · 특수 칸 버튼이 서로 바뀜(V = 돌진 · Z = 그림자)
+const SKILL_ACTION = { basic: 'attack', charge: 'charge', wave: 'special', dash: 'dodge' };
+const skillAction = (prof, slot) => (clsOf(prof).keySwap && (slot === 'charge' || slot === 'wave') ? (slot === 'charge' ? 'special' : 'charge') : SKILL_ACTION[slot]);
 // 몸 그림 이름(2026-11-02 사용자 '여캐도 — 기존 캐릭은 남자로 고정'): prof.gender 'f' 면 직업 그림 + '_f'(assets/dt/hero_f.png … — tools/female-outfit.js 로 구움), 없으면 남자
 const spriteOf = prof => clsOf(prof).sprite + (prof && prof.gender === 'f' ? '_f' : '');
 // 능력치 이름: 마법사는 공격력을 주문력으로 부른다
