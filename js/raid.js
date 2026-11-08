@@ -33,7 +33,7 @@ const Raid = (() => {
     const lv = { def, W, H, tiles, rooms: [r], at, drops: [], chests: [], columns: [], stairs: null, roomMaps: true, cleared: new Set([0]), visited: new Set([0]) };
     lv.boss = r; lv.start = { cx: r.cx, cy: r.y + r.h - 3 };  // 아래 가운데로 들어와 위의 파수꾼을 마주 본다
     lv.explored = new Uint8Array(W * H);
-    for (const [dx, dy] of [[-11, -5], [11, -5], [-11, 5], [11, 5]]) lv.columns.push([r.cx + dx, r.cy + dy]);
+    if (def.boss !== 'lab_mother') for (const [dx, dy] of [[-11, -5], [11, -5], [-11, 5], [11, 5]]) lv.columns.push([r.cx + dx, r.cy + dy]);  // 분열의 어미 방은 기둥 없이(약물 배양조 셋 — js/lab.js)
     lv.pillars0 = lv.columns.map(c => c.slice());  // 껍질 패턴이 다시 나오면 무너진 기둥이 다시 솟는다(restorePillars)
     lv.crates = new Set();
     lv.decor = { skulls: [], banners: new Set() };
@@ -416,6 +416,7 @@ const Raid = (() => {
   // ── 피해(combat.js hitEnemy · elements.js damage) ──
   // [배율, 알림 글] — 단계 바뀌는 중 · 보호막 = 0, 심장 = exposedMul, 그 밖 = 껍질
   function cut(e) {
+    if (e.def.brood) return [1, ''];  // 분열의 어미: 배율은 js/lab.js(Sunken.cut → Lab.cut)
     if (e.state === 'phaseShift' || e.spawnT > 0) return [0, '무적'];
     if (e.state === 'exposed') return [R.exposedMul, ''];
     if (e.mech === 'crystal' && parts('crystal').length) return [0, KING ? '물의 장막' : '보호막'];
@@ -423,6 +424,7 @@ const Raid = (() => {
   }
   // 한 번에 몫(최대 체력 / 순서 길이)보다 더 깎이지 않게: 문턱에서 멈추고 chunkDone → 다음 패턴. 마지막 몫은 끝까지
   function clamp(e) {
+    if (e.def.brood) return;  // 분열의 어미: 공명 상한 · 단계 문턱은 js/lab.js setPool
     if (!e.nBreak || e.chunkDone) { if (e.chunkDone) e.hp = Math.max(e.hp, e.chunkThr); return; }
     const thr = e.brk + 1 >= e.nBreak ? 0 : e.maxHp * (1 - (e.brk + 1) / e.nBreak);
     if (thr && e.hp <= thr) { e.hp = thr; e.chunkThr = thr; e.chunkDone = true; }
@@ -431,7 +433,7 @@ const Raid = (() => {
   // ── 그리기 ──
   // 보스 몸 위: 심장 빛(드러났을 때) · 2단계 수정 보호막 막
   function drawBoss(ctx, e, x, y, time) {
-    if (e.state === 'dead') return;
+    if (e.state === 'dead' || e.def.brood) return;
     if (e.state === 'exposed') {
       const hx = x, hy = y - e.h * (KING ? 0.4 : 0.43), r = 9 + Math.sin(time * 10) * 2, g = ctx.createRadialGradient(hx, hy, 0, hx, hy, r);
       g.addColorStop(0, 'rgba(95,224,208,0.8)'); g.addColorStop(1, 'rgba(95,224,208,0)');

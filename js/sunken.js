@@ -235,6 +235,8 @@ const Sunken = (() => {
 
   // ── 피해 배율(combat.js hitEnemy · elements.js · paladin.js · 출혈) ── { m 배율, s 알림 글, armor 경직 · 밀림 없음 } 또는 null
   function cut(e, src) {
+    const lc = Lab.cut(e, src);  // 심연 실험장(js/lab.js) 것이면 그쪽 배율
+    if (lc !== undefined) return lc;
     const d = e.def;
     if (d.knight === 'mirror' && World.enemies().some(c => c.def.clone && live(c) && c.ri === e.ri)) {  // 에코: 잔상(물 분신)이 하나라도 남아 있으면 안 맞음(2026-11-01 사용자)
       // 그때 진짜를 치면 일부를 되돌림(2026-11-01 사용자 '분신 나왔을 때 본체 때리면 대미지 일부 반사'): 기사 공격 × mirror.reflect, 한 사람에게 0.4초에 한 번(거울 반사와 같은 식 — 내 공격력에 비례하면 한 방에 쓰러져서)

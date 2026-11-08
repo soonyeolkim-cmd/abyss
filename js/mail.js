@@ -8,7 +8,7 @@
 //   body  : 본문(줄바꿈 \n)
 //   until : 'YYYY-MM-DD' 이 날까지만 보임(더 일찍 끝낼 때만). 우편은 모두 보낸 날부터 KEEP_DAYS(30)일 뒤 저절로 사라짐 — 안 받은 선물도 함께
 //           (2026-11-01 사용자 '30일 안 받으면 자동 삭제')
-//   gifts : { gold, essence, cores, pearls, potions, scrolls(축복받은 강화 주문서 장 수), scrolls2(강화 주문서 장 수), inherit(계승 주문서 장 수),
+//   gifts : { gold, essence, cores, pearls, seeds, potions, scrolls(축복받은 강화 주문서 장 수), scrolls2(강화 주문서 장 수), inherit(계승 주문서 장 수),
 //             stones: [{ el, size, n }](el = fire · frost · thunder · poison · might · guard, size 0 조각 ~ 6 태초),
 //             items: [{ ilvl, slot, kind?, rarity }](slot = weapon · helmet · armor · gloves · boots · amulet · ring, rarity 0 일반 · 1 매직 · 2 레어 —
 //                     장비 기본 능력치는 늘 같음(규칙). 무기는 kind 를 빼면 받는 캐릭터 직업 무기(우편은 모든 직업이 받으니 보통 뺌)) }
@@ -47,6 +47,7 @@ const Mail = (() => {
     if (g.essence) out.push('심연 정수 ' + g.essence + '개');
     if (g.cores) out.push('심연의 핵 ' + g.cores + '개');
     if (g.pearls) out.push('심해 진주 ' + g.pearls + '개');
+    if (g.seeds) out.push('심연의 씨앗 ' + g.seeds + '개');
     if (g.potions) out.push('물약 ' + g.potions + '개');
     if (g.scrolls) out.push(SCROLL_NAMES[0] + ' ' + g.scrolls + '장');
     if (g.scrolls2) out.push(SCROLL_NAMES[1] + ' ' + g.scrolls2 + '장');
@@ -71,6 +72,7 @@ const Mail = (() => {
     if (g.essence) out.push({ draw: (c, x, y) => Gfx.essenceIcon(c, x, y, 20), n: g.essence });
     if (g.cores) out.push({ draw: (c, x, y) => Gfx.coreIcon(c, x, y, 20), n: g.cores });
     if (g.pearls) out.push({ draw: pearl, n: g.pearls });
+    if (g.seeds) out.push({ draw: (ctx, x, y) => Gfx.seedIcon(ctx, x, y, 14), n: g.seeds });
     if (g.potions) out.push({ draw: (c, x, y) => Gfx.spr(c, 'flask_big_red', x, y + 10, { scale: 1.4 }), n: g.potions });
     if (g.scrolls) out.push({ draw: (c, x, y) => Gfx.scrollIcon(c, { g: 'any', r: 0 }, x, y, 20), n: g.scrolls });
     if (g.scrolls2) out.push({ draw: (c, x, y) => Gfx.scrollIcon(c, { g: 'any', r: 1 }, x, y, 20), n: g.scrolls2 });
@@ -109,6 +111,7 @@ const Mail = (() => {
     if (g.essence) addEssence(prof, g.essence);
     if (g.cores) prof.cores = (prof.cores || 0) + g.cores;
     if (g.pearls) prof.pearls = (prof.pearls || 0) + g.pearls;
+    if (g.seeds) prof.seeds = (prof.seeds || 0) + g.seeds;
     let lost = 0;
     if (g.potions) { const max = clsOf(prof).potion.max, add = Math.min(g.potions, Math.max(0, max - prof.potions)); prof.potions += add; lost = g.potions - add; }
     if (g.scrolls) Items.addScroll(prof, { g: 'any', r: 0 }, g.scrolls);

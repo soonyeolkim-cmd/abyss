@@ -39,6 +39,7 @@ const Craft = (() => {
     const el = gemEl(slot);
     return [
       U.pearls && { name: '심해 진주', icon: 'pearl', have: prof.pearls || 0, need: U.pearls },
+      U.seeds && { name: '심연의 씨앗', icon: 'seed', have: prof.seeds || 0, need: U.seeds },
       U.essence && { name: '심연 정수', icon: 'essence', have: prof.essence || 0, need: U.essence },
       U.scrolls && { name: SCROLL_NAMES[BLESSED.r], icon: 'scroll', have: scrollHave(prof), need: U.scrolls },
       U.gems && { name: STONE_SIZES[U.gemSize].name + ' ' + GEMS[el].stone, icon: 'gem', el, size: U.gemSize, have: gemHave(prof, el, U.gemSize), need: U.gems },
@@ -102,6 +103,7 @@ const Craft = (() => {
   function upgrade(prof, it, U) {
     const el = gemEl(it.slot);
     prof.pearls -= U.pearls || 0;
+    prof.seeds = (prof.seeds || 0) - (U.seeds || 0);
     prof.essence -= U.essence || 0;
     for (let n = 0; n < (U.scrolls || 0); n++) Items.takeScroll(prof, BLESSED);
     for (let n = 0; n < (U.gems || 0); n++) Elements.take(prof, { el, size: U.gemSize });
@@ -145,6 +147,7 @@ const Craft = (() => {
   function matIcon(ctx, m, x, y) {
     if (m.icon === 'core') Gfx.coreIcon(ctx, x, y, 21);
     else if (m.icon === 'pearl') pearlIcon(ctx, x, y, 21);
+    else if (m.icon === 'seed') Gfx.seedIcon(ctx, x, y, 21);
     else if (m.icon === 'essence') Gfx.essenceIcon(ctx, x, y, 20);
     else if (m.icon === 'scroll') Gfx.scrollIcon(ctx, { g: 'any', r: 0 }, x, y, 20);
     else if (m.icon === 'gem') Gfx.stoneIcon(ctx, { el: m.el, size: m.size }, x, y, 20);

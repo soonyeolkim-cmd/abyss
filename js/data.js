@@ -538,7 +538,22 @@ const RAID_RULE = { hpMul: 7.2, time: 600, shellCut: 0, exposedMul: 2, slams: 3,
 //   속도는 그 번마다 기본 × speed(사이 무작위 — 한 번 안의 고리는 같은 속도라 간격 = 닿는 간격, 대시 0.28초 + 여유로 늘 피할 수 있음). 고리 하나 넘길 때마다 1(slams 번이면 지침)
 const KING_RULE = { hpMul: 5.5, essence: 12, cores: 0, pearls: 1, orbSpeed: 170, rallyMax: 2, waveGap: 0.9, sluiceWrong: 0.4,
   surge: { wind: [0.45, 1.15], nOdds: [0.4, 0.35, 0.25], gap: [0.42, 0.95], speed: [0.75, 1.35] } };
-const raidRule = stage => (stage === 2 ? Object.assign({}, RAID_RULE, KING_RULE) : RAID_RULE);
+// 3단계 최종 보스 '분열의 어미'(2026-11-02 사용자 확정 · 2026-11-08 넣음 — js/lab.js, 파수꾼 · 왕과 다른 틀: 본체 + 복제체, 체력은 하나)
+//   잠김: 몸들의 색이 다르면 어떤 공격도 안 들어감('팅'). 공명 = 몸 둘 이상이 같은 색 → 그 색 몸은 피해, 다른 색 몸을 치면 준 피해 × heal 만큼 회복(잘못 치면 손해)
+//   공명 한 번에 깎을 수 있는 양 = 최대 체력 × cap(셋 다 같은 색이면 × bigCap) — 닿으면 하얗게 '버팀'. 단계 문턱(phases)에서도 끊김 → 공명이 최소 열 번쯤
+//   색은 every[단계] 초마다 바뀜(warn 초 전에 깜빡), 바뀔 때 match 확률로 둘이 같은 색 — 공명 없이 force 초가 지나면 반드시. 공명은 deal 초, 끝나면 gap 초 동안은 다시 안 맞음
+//   약물 배양조 셋(붉은 ● · 푸른 ▲ · 노란 ■): tank.hits 대 치면 깨져 그 색 웅덩이(r, pool 초) — 들어간 몸은 lock 초 그 색으로 고정(내가 색을 맞추는 수단). refill 초 뒤 다시 참
+//   단계: ① 100~70% 둘 ② 70~40% 복제체 하나 더(셋) — 공명 색이 아닌 몸 = 외톨이 폭주(lonely: 빨라짐 · 자주 침) ③ 40~0% 색이 더 자주 + flood.every 초마다 약물 범람
+//   (예고 warn 초 뒤 t 초 동안 모든 몸이 한 색 = 큰 공명, 대신 깨끗한 발판 pads 개(padR) 밖 바닥은 0.5초마다 최대 체력 pct — 못 피함)
+//   공격(그림 = 판정): 본체 — 살덩이 내려찍기(flesh: 노리는 사람 발밑 원 예고) · 새끼 뱉기(spit — 분열체, 드롭 없음) / 복제체 — 돌진(dash 붉은 띠) · 산성 침(acid 부채꼴 탄)
+//   보상 = 심연의 씨앗 seeds(Lv.120 업그레이드에만 — 2026-11-08 사용자 '보스 잡으면 전용 재료 1개씩') · 정수 essence
+// 체력 hpMul(2026-11-08 시험): 6 이면 Lv.120 +10 유니크 한 벌(보석 · 속성석 없이) 기본 공격 봇이 공명 한 번에 0.85%(상한 10%) — 10분 안에 못 깸 → 2.4(봇 약 2%, 기술 · 속성석을 쓰면 몇 배). 손맛 보고 다시
+const BROOD_RULE = { hpMul: 2.4, essence: 14, cores: 0, pearls: 0, seeds: 1, cap: 0.1, bigCap: 1.5, heal: 0.5, deal: 5, every: [6, 6, 4], warn: 0.8, match: 0.4, force: 9, gap: 2.5, shift: 1.5, phases: [0.7, 0.4],
+  tank: { hits: 3, r: 34, pool: 8, lock: 4, refill: 14 }, flood: { every: 24, first: 10, warn: 2.2, t: 6, pads: 3, padR: 26, pct: 0.04 }, lonely: { speed: 1.6, cd: 0.55 },
+  flesh: { wind: 1.0, follow: 0.4, r: 34, dmg: 1.2 }, spit: { n: 2, max: 4 },
+  twin: { dash: { wind: 0.7, speed: 280, time: 0.45, dmg: 1.0 }, acid: { wind: 0.6, n: 5, speed: 120, dmg: 0.6 }, swing: 0.8 } };
+const raidRule = stage => (stage === 3 ? Object.assign({}, RAID_RULE, BROOD_RULE) : stage === 2 ? Object.assign({}, RAID_RULE, KING_RULE) : RAID_RULE);
+const SEED_COLOR = '#b8e84a';  // 심연의 씨앗(3단계 레이드 보상, Lv.120 업그레이드에만)
 const PEARL_COLOR = '#bcd8ff';  // 심해 진주(2단계 레이드 보상, Lv.110 업그레이드에만 — 사용자: 재료는 그 단계 재료로)
 // 레이드 칭호(2026-10-27 사용자 — js/records.js): 레이드 단계(stage)마다 여덟 개. 꾸미기만(능력치 없음).
 // 처치 횟수는 파티로 깬 것도 셈, 질풍 · 섬광 · 흠집 하나 없이 · 고독한 사냥꾼은 혼자 깬 것만. 시간 = 파수꾼이 깨어난 뒤부터(초) — 210 · 120 은 손맛 보고 다시
@@ -560,6 +575,14 @@ const RAID_TITLES = [
   { id: 'nohit2', stage: 2, name: '물 한 방울 안 묻히고', cond: '혼자 한 대도 안 맞고 처치', ok: r => !!r.solo && r.solo.hits === 0 },
   { id: 'lone2', stage: 2, name: '고독한 잠수부', cond: '혼자 처치', ok: r => !!r.solo },
   { id: 'abyss2', stage: 2, name: '심해를 꿰뚫은 자', cond: '위 2단계 칭호 여섯 개 모두', all: true },
+  // 3단계 '분열의 어미'(2026-11-08) — 같은 틀
+  { id: 'raid3_1', stage: 3, name: '어미를 쓰러뜨린 자', cond: '분열의 어미 처음 처치', ok: r => r.clears >= 1 },
+  { id: 'raid3_10', stage: 3, name: '실험장의 사냥꾼', cond: '분열의 어미 10번 처치 (파티 포함)', ok: r => r.clears >= 10 },
+  { id: 'raid3_50', stage: 3, name: '실험장의 주인', cond: '분열의 어미 50번 처치 (파티 포함)', ok: r => r.clears >= 50 },
+  { id: 'swift3', stage: 3, name: '공명', cond: '혼자 5분 안에 처치', ok: r => !!r.solo && r.solo.time <= 300 },
+  { id: 'nohit3', stage: 3, name: '흠 없는 표본', cond: '혼자 한 대도 안 맞고 처치', ok: r => !!r.solo && r.solo.hits === 0 },
+  { id: 'lone3', stage: 3, name: '고독한 관찰자', cond: '혼자 처치', ok: r => !!r.solo },
+  { id: 'lab3', stage: 3, name: '심연을 해부한 자', cond: '위 3단계 칭호 여섯 개 모두', all: true },
 ];
 Object.assign(ENEMIES, {
   abyss_raid: { name: '심연의 파수꾼', sprite: 'raid_warden', pix: true, idle: false, boss: true, raid: true, speed: 34, range: 30, superArmor: true, launchMul: 0, r: 16,
@@ -662,6 +685,64 @@ Object.assign(ENEMIES, {
   trident: { name: '삼지창', sprite: 'trident_part', pix: true, idle: false, part: 'orb', stick: true, hp: 1, exp: 0, gold: [0, 0], speed: 0, range: 0, poise: 99, r: 7,
     atk: { windup: 9, active: 0, recovery: 0, dmg: 0, knock: 0, reach: [0, 0], arc: 0, lunge: 0 } },
 });
+// ── 끝없는 심연 3단계 '심연 실험장' 몹 · 실패작 · 분열의 어미(2026-11-08 사용자 — 시안 tools/lab-*.js 그대로, 그림 · 행동 = js/lab.js) ──
+// 층마다 하나씩: 1층 배양조(+ 깨어난 실험체) → 2층 + 접붙인 마물 → 3층 + 폭주체 → 4 · 5층 + 사슬 묶인 실험체
+// hatch = 깨어나면 first 초 뒤부터 every 초마다 실험체를 하나씩(모두 n), 배양조를 부수면 멈춤(나온 실험체는 졸개 — 경험치만) · graft = 쓰러지면 조각 n 마리가 떨어져 나옴(졸개)
+// rage = 체력이 at 아래면 약물이 끓어 붉게(속도 × speed · 준비 × wind) · burst = 쓰러지면 delay 초 뒤 둘레 r 약물 폭발(예고 원 = 판정)
+// bound = 사슬에 묶여 처음 자리 둘레 leash 안에서만 움직임 → 체력이 snapHp 아래이거나 깨어난 뒤 snapT 초가 지나면 사슬이 끊겨 날뜀(속도 × speed · 준비 × wind) — 묶였을 때 잡는 게 수
+Object.assign(ENEMIES, {
+  lab_vat: { name: '배양조', sprite: 'lab_vat', pix: true, idle: false, rooted: true, poise: 99, solo: 2, hatch: { n: 3, every: 2.4, first: 0.8 }, r: 8,
+    atk: { windup: 9, active: 0, recovery: 0, knock: 0, reach: [0, 0], arc: 0, lunge: 0 } },
+  lab_spawn: { name: '배양조 실험체', sprite: 'lab_spawn', pix: true, idle: false, speed: 44, range: 16, poise: 3, r: 6,
+    atk: { windup: 0.45, active: 0.1, recovery: 0.6, knock: 120, reach: [0, 19], arc: 70, lunge: 150 } },
+  lab_graft: { name: '접붙인 마물', sprite: 'lab_graft', pix: true, idle: false, speed: 36, range: 18, poise: 5, graft: { n: 2, type: 'lab_bit' }, r: 8,
+    atk: { windup: 0.55, active: 0.12, recovery: 0.7, knock: 160, reach: [0, 22], arc: 90, lunge: 120 } },
+  lab_bit: { name: '떨어진 조각', sprite: 'lab_bit', pix: true, idle: false, speed: 62, range: 12, poise: 1, scale: 1, r: 4,
+    atk: { windup: 0.35, active: 0.1, recovery: 0.5, knock: 80, reach: [0, 14], arc: 70, lunge: 170 } },
+  lab_bloat: { name: '폭주체', sprite: 'lab_bloat', pix: true, idle: false, speed: 34, range: 16, poise: 4, rage: { at: 0.5, speed: 1.7, wind: 0.6 }, burst: { r: 30, delay: 0.9, dmg: 1.3 }, r: 7,
+    atk: { windup: 0.5, active: 0.1, recovery: 0.6, knock: 140, reach: [0, 20], arc: 80, lunge: 150 } },
+  lab_chain: { name: '사슬 묶인 실험체', sprite: 'lab_chain', pix: true, idle: false, speed: 30, range: 18, poise: 6, solo: 2, bound: { leash: 26, snapHp: 0.6, snapT: 7, speed: 1.8, wind: 0.65 }, r: 7,
+    atk: { windup: 0.5, active: 0.12, recovery: 0.6, knock: 170, reach: [0, 24], arc: 100, lunge: 160 } },
+  // 실패작 다섯(층 끝 중간 보스 — 바탕 패턴(휘두르기 · 내려찍기 · 돌진 · 탄)은 다른 중간 보스와 같고 기믹 lab 이 덧붙는다, js/lab.js)
+  //   stitch 봉합체: 실밥 n 개가 있으면 피해 × cut. 큰 공격 뒤 틈(recover · 기절 — 실밥이 청록으로 빛남)에 맞을 때마다(gap 초에 하나) 실밥이 하나씩 끊김 → 다 끊으면 expose 초 드러남(× mul), restitch 초 뒤 다시 꿰맴
+  //   brood 배양 모체: every 초마다 배양조 실험체 n 마리. 등 뒤 뚜껑(뒤 ± cone)이 있으면 피해 × cut — 등 뒤에서 lid 대 치면 뚜껑이 깨져 expose 초 드러남(× mul, 낳기 멈춤) · regrow 초 뒤 다시. 몸은 초당 turn 라디안으로만 돎(빙 돌아 등을 노리기)
+  //   melt 흘러내리는 자: 물렁한 동안 피해 × soft → every 초마다 웅덩이로 녹아듦(안 맞음) under 초 동안 노리는 사람 쪽으로 흘러옴 → rise 초 바닥 예고(r = 판정) 뒤 솟아오름 → hard 초 굳음(청록, × mul)
+  //   zero 격리 번호 0: 사슬 갑옷(피해 × cut). every 초마다 사슬이 하나씩 끊어짐(max 개) — 끊어질수록 사슬 채찍(lash) 길이 · 빠르기가 늚. 가슴 자물쇠(앞 ± cone 에서 hits 대)를 치면 다시 묶임 — 사슬이 stunAt 개 넘게 끊겼을 때 묶으면 bind[끊긴 수] 초 기절(× mul). 일찍 묶으면 안전하지만 딜 타임 없음(2026-11-08 시험: 하나 끊길 때마다 묶어 늘 기절이라 너무 쉬움)
+  //   eye 관찰체: 유리병 속 눈 n 개(부품, 둘레를 돎) 중 청록으로 빛나는 하나만 터뜨릴 수 있음 — 하나를 터뜨리면 relight 초 뒤 남은 눈 중 하나가 무작위로 빛남(그사이 · 다른 눈을 치면 표식). 다 터뜨리면 병이 깨져 expose 초 드러남(× mul), regrow 초 뒤 다시.
+  //        바라보는 부채꼴(gaze r · arc 도, 초당 turn 라디안으로 돎) 안에 hold 초 서 있으면 표식 하나 — max 개면 응시 광선(최대 체력 pct, 못 피함) · 밖에 decay 초 있으면 하나씩 사라짐
+  lab_stitch: { name: '봉합체', sprite: 'lab_stitch', pix: true, idle: false, boss: true, lab: 'stitch', scale: 1.25, speed: 34, range: 26, superArmor: true, launchMul: 0.2, r: 12,
+    stitch: { n: 3, cut: 0.1, gap: 0.25, expose: 5, mul: 1.5, restitch: 2.5 },
+    sweep: { r: 60, arc: 180, wind: 0.65, active: 0.18, dmg: 1.4, knock: 240, cd: 4, rec: 1.1 },
+    atk: { windup: 0.6, active: 0.12, recovery: 0.9, knock: 210, reach: [0, 34], arc: 110, lunge: 140 },
+    slam: { windup: 0.85, radius: 54 }, charge: { windup: 0.6, speed: 255, time: 0.6 }, fan: { windup: 0.7, count: 7, speed: 115, color: '#c8ff6a' }, summon: 'lab_spawn' },
+  lab_brood: { name: '배양 모체', sprite: 'lab_brood', pix: true, idle: false, boss: true, lab: 'brood', scale: 1.25, speed: 30, range: 24, superArmor: true, launchMul: 0.15, r: 13,
+    nest: { every: 7, n: 2, type: 'lab_spawn', max: 6 }, lid: { cut: 0.15, cone: 0.35, hits: 5, expose: 6, mul: 1.5, regrow: 4, turn: 1.1 },
+    atk: { windup: 0.55, active: 0.12, recovery: 0.7, knock: 190, reach: [0, 30], arc: 120, lunge: 120 },
+    slam: { windup: 0.85, radius: 50 }, charge: { windup: 0.6, speed: 240, time: 0.6 }, fan: { windup: 0.65, count: 9, speed: 110, color: '#c8ff6a' }, summon: 'lab_spawn' },
+  lab_melt: { name: '흘러내리는 자', sprite: 'lab_melt', pix: true, idle: false, boss: true, lab: 'melt', scale: 1.25, speed: 34, range: 22, superArmor: true, launchMul: 0.15, r: 12,
+    melt: { soft: 0.25, every: 6, sink: 0.5, under: 2.2, flow: 70, rise: 0.85, follow: 0.5, r: 38, dmg: 1.5, hard: 3.5, mul: 1.5 },
+    atk: { windup: 0.55, active: 0.12, recovery: 0.7, knock: 180, reach: [0, 30], arc: 100, lunge: 150 },
+    slam: { windup: 0.8, radius: 50 }, charge: { windup: 0.55, speed: 250, time: 0.6 }, fan: { windup: 0.65, count: 9, speed: 115, color: '#c8ff6a' }, summon: 'lab_bloat' },
+  lab_zero: { name: '격리 번호 0', sprite: 'lab_zero', pix: true, idle: false, boss: true, lab: 'zero', scale: 1.25, speed: 32, range: 26, superArmor: true, launchMul: 0.15, r: 12,
+    chains: { cut: 0.35, max: 3, every: 8, len: [56, 80, 104, 130], wind: [0.8, 0.7, 0.6, 0.5], w: 8, dmg: 1.3, knock: 230, cd: [4, 3.4, 2.8, 2.2] }, lock: { cone: 0.3, hits: 4, stunAt: 2, bind: [0, 0, 2.5, 3.5], mul: 1.5 },
+    atk: { windup: 0.6, active: 0.12, recovery: 0.75, knock: 220, reach: [0, 32], arc: 110, lunge: 150 },
+    slam: { windup: 0.85, radius: 56 }, charge: { windup: 0.6, speed: 260, time: 0.6 }, summon: 'lab_bloat' },
+  lab_eye: { name: '관찰체', sprite: 'lab_eye', pix: true, idle: false, boss: true, lab: 'eye', scale: 1.25, speed: 28, range: 24, superArmor: true, launchMul: 0.1, r: 13,
+    eyes: { n: 3, orbit: 34, spin: 1.5, relight: 0.9, expose: 6, mul: 1.5, regrow: 4 }, gaze: { r: 170, arc: 50, turn: 0.8, hold: 0.9, max: 3, decay: 3, pct: 0.3 },
+    atk: { windup: 0.55, active: 0.12, recovery: 0.7, knock: 180, reach: [0, 28], arc: 100, lunge: 120 },
+    slam: { windup: 0.8, radius: 50 }, charge: { windup: 0.55, speed: 240, time: 0.6 }, fan: { windup: 0.65, count: 11, speed: 120, color: '#ffe066' }, summon: 'lab_graft' },
+  // 실패작 부품(labPart): 관찰체의 떠다니는 눈 — 몹처럼 맞지만 경험치 · 전리품 없음
+  lab_eyeball: { name: '떠다니는 눈', sprite: 'lab_eyeball', pix: true, idle: false, part: 'eye', labPart: true, rooted: true, hp: 1, exp: 0, gold: [0, 0], speed: 0, range: 0, poise: 99, r: 5,
+    atk: { windup: 9, active: 0, recovery: 0, dmg: 0, knock: 0, reach: [0, 0], arc: 0, lunge: 0 } },
+  // 최종 보스 '분열의 어미'(js/lab.js — 수치 BROOD_RULE). 본체(raid) + 복제체(부품 twin — 체력은 본체와 하나) · 약물 배양조 셋(부품 tank)
+  lab_mother: { name: '분열의 어미', sprite: 'lab_mother', pix: true, idle: false, boss: true, raid: true, brood: true, scale: 1.5, speed: 24, range: 30, superArmor: true, launchMul: 0, r: 17,
+    atk: { windup: 0.6, active: 0.14, recovery: 0.8, knock: 210, reach: [0, 40], arc: 100, lunge: 100 },
+    slam: { windup: 0.9, radius: 56 }, charge: { windup: 0.7, speed: 240, time: 0.6 }, fan: { windup: 0.6, count: 9, speed: 115, color: '#c8ff6a' }, summon: 'lab_spawn' },
+  lab_twin: { name: '분열의 어미 복제체', sprite: 'lab_twin', pix: true, idle: false, part: 'twin', labPart: true, scale: 1.2, speed: 46, range: 20, poise: 99, superArmor: true, r: 9, hp: 1, exp: 0, gold: [0, 0],
+    atk: { windup: 0.5, active: 0.12, recovery: 0.6, dmg: 0, knock: 160, reach: [0, 24], arc: 90, lunge: 150 } },
+  lab_tank: { name: '약물 배양조', sprite: 'lab_tank0', pix: true, idle: false, part: 'tank', labPart: true, rooted: true, hp: 1, exp: 0, gold: [0, 0], speed: 0, range: 0, poise: 99, r: 8,
+    atk: { windup: 9, active: 0, recovery: 0, dmg: 0, knock: 0, reach: [0, 0], arc: 0, lunge: 0 } },
+});
 // 몹 서 있는 그림 이름(0x72 몸은 _idle_anim, 코드 도트 몸은 _anim) — 고르기 줄 · 이야기 창처럼 몹 그림만 따로 그릴 때
 const idleAnim = d => d.sprite + (d.idle ? '_idle_anim' : '_anim');
 const SHIELD = { cut: 0.1, front: 0.3 };  // 방패병 앞(바라보는 쪽 ±약 72°)에서 친 피해 ×0.1, 경직 없음. 마법진(위에서 떨어짐) · 속성 피해는 넘는다
@@ -687,6 +768,7 @@ const ENEMY_ROLE = {
   ghoul: 'tank', ogre_grunt: 'tank', chain_ogre: 'tank', fiend: 'tank', void_fiend: 'tank',
   splitter: 'grunt', shieldbearer: 'tank', blinker: 'grunt', tentacle: 'grunt', warder: 'caster',  // 분열체 새끼는 따로(splitling)
   drowned: 'grunt', jelly: 'fast', crab: 'tank', angler: 'tank', tidecaller: 'caster',  // 가라앉은 심연(분신 · 부품은 따로)
+  lab_vat: 'tank', lab_spawn: 'grunt', lab_graft: 'tank', lab_bit: 'fast', lab_bloat: 'grunt', lab_chain: 'tank',  // 심연 실험장(복제체 · 부품은 따로)
 };
 for (const k in ENEMY_ROLE) {
   const d = ENEMIES[k], r = ROLES[ENEMY_ROLE[k]];
@@ -850,12 +932,33 @@ const SUNKEN = { stage: 2, max: 5, diff: 2, lv: 110, entry: 105, ilvl: [100, 104
 const SEA = { tint: '#5a7ac8', weed: '#2e6a4a', weedLit: '#4a9a5a', coral: '#c8503a', glow: '#bcd8ff' };
 HAZARDS.deep = { name: '깊은 물웅덩이', color: '#2a5ad8', pool: true, slow: true };
 for (const F of SUNKEN.floors) Object.assign(ENEMIES[F.boss], { cdMul: SUNKEN.mid.cd, recMul: SUNKEN.mid.rec, summon: F.pool[F.pool.length - 1] });  // 기사가 부르는 졸개 = 그 층에서 새로 나오는 몹(층을 바꿔도 아직 안 나온 몹을 부르지 않게)
-const STAGE_DEFS = { 1: ENDLESS, 2: SUNKEN };
+// ── 끝없는 심연 3단계 '심연 실험장'(2026-11-08 사용자 — 메모/abyss-story-plan.md) ──
+// 범인 하르겐이 심연 아래 숨겨 둔 실험장. 2단계와 같은 틀: 5층 × 방 셋 일직선(빈방 → 잔몹방 → 실패작방), 층마다 구역 이름(zones). 5층 다음 = 최종 보스 레이드 '분열의 어미'(js/lab.js).
+// 해금 = 삼지창의 왕 unlock 번 처치(파티 포함) → 만렙 129. 몹 Lv.120 · 입장 Lv.115 · 떨어지는 장비는 늘 Lv.100(규칙) — Lv.120 장비는 업그레이드로만.
+// 세기(2026-11-08 계산, 손맛은 다시): 몹만 세지는 곡선이 Lv.110 → 120 에 체력 ×2.50 · 공격 ×2.19, 주인공(장비 · 기본치)은 ×1.79 →
+//   2단계 값 × 0.9(체력) · × 0.94(공격) = 주인공 기준 2단계의 약 1.25배 · 1.15배(2단계가 1단계에 한 것과 같은 걸음)
+const LAB = { stage: 3, max: 5, diff: 2, lv: 120, entry: 115, ilvl: [100, 104], stepHp: SUNKEN.stepHp * 0.9, stepDmg: SUNKEN.stepDmg * 0.94, bossHp: SUNKEN.bossHp * 0.9, bossDmg: SUNKEN.bossDmg * 0.94,
+  hp: 1.06, dmg: 1.04, reward: 0.05, packs: 1, packAdd: 7, mid: { hp: 3.9, dmg: 1.4, cd: 0.6, rec: 0.6 }, unlock: 10, flatMobs: true,
+  loot: { gear: 1, chests: 1, bigItems: 3, bigGold: 1.8, gold: 2.2, boost: 0.35 },  // 2단계보다 골드 · 등급 조금 더
+  zones: ['배양실', '개조실', '폐수 처리실', '격리실', '관찰실'],
+  floors: [
+    { pool: ['lab_spawn', 'lab_spawn', 'lab_vat'], boss: 'lab_stitch', music: 'plague', summon: 'lab_spawn' },
+    { pool: ['lab_spawn', 'lab_graft', 'lab_vat'], boss: 'lab_brood', music: 'plague', summon: 'lab_graft' },
+    { pool: ['lab_spawn', 'lab_graft', 'lab_bloat', 'lab_vat'], boss: 'lab_melt', music: 'crypt', summon: 'lab_bloat' },
+    { pool: ['lab_spawn', 'lab_graft', 'lab_bloat', 'lab_chain', 'lab_vat'], boss: 'lab_zero', music: 'crypt', summon: 'lab_bloat' },
+    { pool: ['lab_spawn', 'lab_graft', 'lab_bloat', 'lab_chain', 'lab_vat'], boss: 'lab_eye', music: 'abyss', summon: 'lab_graft' },
+  ] };
+for (const F of LAB.floors) Object.assign(ENEMIES[F.boss], { cdMul: LAB.mid.cd, recMul: LAB.mid.rec, summon: F.summon });
+// 풍경 '심연 실험장': 0x72 벽돌에 차가운 회록빛을 곱하고(tint) 벽 앞 배양조 줄 · 약물 관 · 철창 · 실험대 · 배수 철망 · 사슬 · 표본 병(lab — js/lab.js paintLab). 함정 = 약물 웅덩이(독 · 느려짐)
+const LABSCENE = { tint: '#86a092', glow: '#c8ff6a' };
+HAZARDS.acid = { name: '약물 웅덩이', color: '#6cb02a', pool: true, slow: true, dot: 0.03 };
+const STAGE_DEFS = { 1: ENDLESS, 2: SUNKEN, 3: LAB };
 // 끝없는 심연 단계(2026-10-26 사용자): 광산 도시 실베인 던전 고르기에 줄로 하나씩(벨록 던전 줄 모양). 만렙을 10씩 풀 때마다 한 단계씩 늘린다(1단계 = Lv.100 '살아 있는 심연')
 // boss = 줄 왼쪽에 서 있는 그 단계 최종 보스(레이드), gear = 떨어지는 장비 착용 레벨(늘 Lv.100 — 규칙), raidName = 처치 횟수 줄에 쓰는 이름
 const ABYSS_STAGES = [
   { stage: 1, name: '살아 있는 심연', lv: ENDLESS.lv, entry: ENDLESS.entry, mat: '혈석', gear: 100, tint: '#c8306a', glow: '200,48,106', boss: 'abyss_raid', raidName: '파수꾼', floors: ENDLESS.max },  // 줄 아이콘 = 그 단계 최종 보스(사용자)
   { stage: 2, name: '가라앉은 심연', lv: SUNKEN.lv, entry: SUNKEN.entry, mat: '혈석', gear: 100, tint: '#3e7ad8', glow: '62,122,216', boss: 'sunken_king', raidName: '왕', floors: SUNKEN.max },
+  { stage: 3, name: '심연 실험장', lv: LAB.lv, entry: LAB.entry, mat: '혈석', gear: 100, tint: '#9ad040', glow: '154,208,64', boss: 'lab_mother', raidName: '어미', floors: LAB.max },
 ];
 // 최고 층(단계마다: 1단계 = prof.endless.best, 2단계 = prof.endless.best2)
 const endlessBest = (prof, stage = 1) => (prof.endless && prof.endless[stage === 1 ? 'best' : 'best' + stage]) || 0;
@@ -864,9 +967,12 @@ const endlessOpen = prof => !!(prof.story && prof.story.trueEnding);
 const raidClears = (prof, stage = 1) => (prof.raidRec && prof.raidRec[stage] ? prof.raidRec[stage].clears : stage === 1 ? (prof.endless && prof.endless.raid) || 0 : 0);
 // 2단계 해금(2026-11-01 사용자): 심연의 파수꾼 SUNKEN.unlock(10)번 처치 → 만렙 119 · 가라앉은 심연
 const sunkenOpen = prof => endlessOpen(prof) && raidClears(prof, 1) >= SUNKEN.unlock;
-const stageOpen = (prof, stage) => (stage === 1 ? endlessOpen(prof) : stage === 2 ? sunkenOpen(prof) : false);
+// 3단계 해금(2026-11-08 사용자): 삼지창의 왕 LAB.unlock(10)번 처치 → 만렙 129 · 심연 실험장
+const labOpen = prof => sunkenOpen(prof) && raidClears(prof, 2) >= LAB.unlock;
+const stageOpen = (prof, stage) => (stage === 1 ? endlessOpen(prof) : stage === 2 ? sunkenOpen(prof) : stage === 3 ? labOpen(prof) : false);
 const stageLockWhy = (prof, st) => (!endlessOpen(prof) ? '심연의 문을 영웅으로 깨면 열려요'
-  : st.stage === 2 && !sunkenOpen(prof) ? '심연의 파수꾼을 ' + SUNKEN.unlock + '번 쓰러뜨리면 열려요 (지금 ' + raidClears(prof, 1) + '번)'
+  : st.stage >= 2 && !sunkenOpen(prof) ? '심연의 파수꾼을 ' + SUNKEN.unlock + '번 쓰러뜨리면 열려요 (지금 ' + raidClears(prof, 1) + '번)'
+  : st.stage === 3 && !labOpen(prof) ? '삼지창의 왕을 ' + LAB.unlock + '번 쓰러뜨리면 열려요 (지금 ' + raidClears(prof, 2) + '번)'
   : prof.lv < st.entry ? 'Lv.' + st.entry + '부터 들어갈 수 있어요 (지금 Lv.' + prof.lv + ')' : '');
 const mixColor = (a, b, k) => '#' + [1, 3, 5].map(i => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - k) + parseInt(b.slice(i, i + 2), 16) * k).toString(16).padStart(2, '0')).join('');
 // 그 단계 그 층 던전. stage 2 = 가라앉은 심연(일직선 방 셋 · 기사)
@@ -883,16 +989,18 @@ function endlessDef(floor, stage = 1) {
   };
   if (stage === 2) return Object.assign(base, { timeId: 'sunken' + floor, name: '가라앉은 심연 ' + floor + '층', line: true, noMobRoom: !!S.testNoMobs, packs: S.packs, hazard: 'deep', tint: SEA.tint, sea: true,
     banner: 'wall_banner_blue', wall: ['wall_fountain_mid_blue_anim_f0', 'wall_hole_1'], cols: 0.5, doorCol: '60,110,220', desc: '심연에 가라앉은 옛 왕국의 유적.' });
+  if (stage === 3) return Object.assign(base, { timeId: 'lab' + floor, name: '심연 실험장 ' + floor + '층 · ' + S.zones[floor - 1], line: true, noMobRoom: !!S.testNoMobs, packs: S.packs, hazard: 'acid', tint: LABSCENE.tint, lab: true,
+    banner: 'wall_goo', wall: ['wall_goo', 'wall_hole_1', 'wall_hole_2'], cols: 0.4, doorCol: '120,200,60', desc: '심연 아래 누군가 숨겨 둔 실험장.' });
   return Object.assign(base, { timeId: 'endless' + floor, name: '끝없는 심연 ' + floor + '층', rooms: S.rooms, packs: S.packs, hazard: 'void', tint: LIVING.tint, veins: true,
     banner: 'wall_banner_red', wall: ['wall_goo', 'wall_hole_2'], cols: 0.3, desc: '살아 숨 쉬는 심연의 틈.' });
 }
 // 최종 보스 레이드 던전: 마지막 층 세기 그대로 + 보스 체력 = 마지막 층 중간 보스(mid.hp 배율 전) × hpMul, 공격 = mid.dmg 배율 전. 방 하나(js/raid.js level), 몹 무리 · 함정 없음
 function raidDef(stage = 1) {
   const S = STAGE_DEFS[stage] || ENDLESS, R = raidRule(stage), dl = endlessDef(S.max, stage);
-  const two = stage === 2;
-  return Object.assign({}, dl, { raid: true, stage, floor: S.max + 1, timeId: two ? 'sunkenRaid' : 'endlessRaid', name: '최종 보스 — ' + (two ? '삼지창의 왕' : '심연의 파수꾼'),
-    boss: two ? 'sunken_king' : 'abyss_raid', pool: [], hazard: null, music: two ? 'lord' : 'order', line: false, sea: two, veins: false,
-    ease: Object.assign({}, dl.ease, { bhp: dl.ease.bhp / S.mid.hp * R.hpMul, bdmg: dl.ease.bdmg / S.mid.dmg }), desc: two ? '가라앉은 왕국의 마지막 왕.' : '심연의 밑바닥을 지키는 파수꾼.' });
+  const two = stage === 2, three = stage === 3;
+  return Object.assign({}, dl, { raid: true, stage, floor: S.max + 1, timeId: three ? 'labRaid' : two ? 'sunkenRaid' : 'endlessRaid', name: '최종 보스 — ' + (three ? '분열의 어미' : two ? '삼지창의 왕' : '심연의 파수꾼'),
+    boss: three ? 'lab_mother' : two ? 'sunken_king' : 'abyss_raid', pool: [], hazard: null, music: three ? 'boss' : two ? 'lord' : 'order', line: false, sea: two, lab: three, veins: false,
+    ease: Object.assign({}, dl.ease, { bhp: dl.ease.bhp / S.mid.hp * R.hpMul, bdmg: dl.ease.bdmg / S.mid.dmg }), desc: three ? '실험장의 가장 가까웠던 그릇.' : two ? '가라앉은 왕국의 마지막 왕.' : '심연의 밑바닥을 지키는 파수꾼.' });
 }
 
 // ── 아이템 ──
@@ -921,23 +1029,23 @@ const UNIQUES = {
 const UNIQUE_NAMES_BY_TIER = {
   echo: {
     // 맨 끝 = Lv.100 혈석(제작으로만, 2026-10-26)
-    light: ['메아리', '되울림', '잔향의 검', '룬 메아리', '용울음', '심연 반향', '검은 잔영', '성화 울림검', '별의 메아리', '태초의 울림', '혈맥 메아리검', '심해 메아리검'],
-    heavy: ['쿵쿵이', '되치기 망치', '천둥 메아리', '룬 울림망치', '용골 분쇄자', '심연 공명', '흑요 진동', '성화 낙진', '별부수개', '태초의 고동', '심장 고동망치', '해구 고동망치'],
-    wand: ['속삭임', '메아리 막대', '잔향 롯드', '룬 속삭임', '용의 숨결봉', '심연의 목소리', '흑요 메아리', '성화 지휘봉', '별빛 속삭임', '태초의 말씀', '핏줄 속삭임', '심해 속삭임'],
-    staff: ['울림 지팡이', '되뇌는 지팡이', '잔향 지팡이', '룬 공명장', '용의 포효', '심연 합창', '흑요 공명', '성화 성가', '별의 합창', '태초의 노래', '혈맥 합창', '심해 합창'],
-    katar: ['메아리 발톱', '되찌르기', '잔향 카타르', '룬 발톱', '용송곳니', '심연 송곳', '흑요 발톱', '성화 송곳니', '별빛 발톱', '태초의 송곳니', '혈석 송곳니', '심해 송곳니'],
-    sai: ['받아침', '되받는 싸이', '잔향 싸이', '룬 받침칼', '용뿔 싸이', '심연 갈퀴', '흑요 받침', '성화 삼지창', '별빛 받침', '태초의 받침', '혈석 갈퀴', '심해 갈퀴'],
-    bell: ['딸랑이', '메아리 방울', '잔향 방울', '룬 방울', '용의 방울', '심연의 종', '흑요 방울', '성화 종소리', '별빛 방울', '태초의 종', '혈석 방울', '심해 방울'],
-    pact: ['낡은 계약서', '되새김 계약', '잔향 계약서', '룬 계약서', '용의 맹약', '심연 계약', '흑요 서약서', '성화 계약', '별의 계약', '태초의 계약', '핏빛 계약서', '심해 계약서'],
-    mace: ['순례자 메이스', '되울림 철퇴', '잔향 메이스', '룬 메이스', '용의 철퇴', '심연 철퇴', '흑요 메이스', '성화 철퇴', '별빛 메이스', '태초의 철퇴', '혈석 메이스', '심해 메이스'],
-    warhammer: ['수련 성망치', '맹세의 망치', '잔향 성망치', '룬 성망치', '용의 심판', '심연 응징자', '흑요 성망치', '성화 천벌', '별의 심판', '태초의 응징', '혈석 성망치', '심해 성망치'],
+    light: ['메아리', '되울림', '잔향의 검', '룬 메아리', '용울음', '심연 반향', '검은 잔영', '성화 울림검', '별의 메아리', '태초의 울림', '혈맥 메아리검', '심해 메아리검', '변이 메아리검'],
+    heavy: ['쿵쿵이', '되치기 망치', '천둥 메아리', '룬 울림망치', '용골 분쇄자', '심연 공명', '흑요 진동', '성화 낙진', '별부수개', '태초의 고동', '심장 고동망치', '해구 고동망치', '변이 고동망치'],
+    wand: ['속삭임', '메아리 막대', '잔향 롯드', '룬 속삭임', '용의 숨결봉', '심연의 목소리', '흑요 메아리', '성화 지휘봉', '별빛 속삭임', '태초의 말씀', '핏줄 속삭임', '심해 속삭임', '변이 속삭임'],
+    staff: ['울림 지팡이', '되뇌는 지팡이', '잔향 지팡이', '룬 공명장', '용의 포효', '심연 합창', '흑요 공명', '성화 성가', '별의 합창', '태초의 노래', '혈맥 합창', '심해 합창', '변이 합창'],
+    katar: ['메아리 발톱', '되찌르기', '잔향 카타르', '룬 발톱', '용송곳니', '심연 송곳', '흑요 발톱', '성화 송곳니', '별빛 발톱', '태초의 송곳니', '혈석 송곳니', '심해 송곳니', '변이 송곳니'],
+    sai: ['받아침', '되받는 싸이', '잔향 싸이', '룬 받침칼', '용뿔 싸이', '심연 갈퀴', '흑요 받침', '성화 삼지창', '별빛 받침', '태초의 받침', '혈석 갈퀴', '심해 갈퀴', '변이 갈퀴'],
+    bell: ['딸랑이', '메아리 방울', '잔향 방울', '룬 방울', '용의 방울', '심연의 종', '흑요 방울', '성화 종소리', '별빛 방울', '태초의 종', '혈석 방울', '심해 방울', '변이 방울'],
+    pact: ['낡은 계약서', '되새김 계약', '잔향 계약서', '룬 계약서', '용의 맹약', '심연 계약', '흑요 서약서', '성화 계약', '별의 계약', '태초의 계약', '핏빛 계약서', '심해 계약서', '변이 계약서'],
+    mace: ['순례자 메이스', '되울림 철퇴', '잔향 메이스', '룬 메이스', '용의 철퇴', '심연 철퇴', '흑요 메이스', '성화 철퇴', '별빛 메이스', '태초의 철퇴', '혈석 메이스', '심해 메이스', '변이 메이스'],
+    warhammer: ['수련 성망치', '맹세의 망치', '잔향 성망치', '룬 성망치', '용의 심판', '심연 응징자', '흑요 성망치', '성화 천벌', '별의 심판', '태초의 응징', '혈석 성망치', '심해 성망치', '변이 성망치'],
   },
-  skin: ['돌거북 투구', '바위 껍질', '강철 등딱지', '룬 거북 투구', '용비늘 관', '심연 거북관', '흑요 껍데기', '성화 수호관', '별거북 투구', '태초의 등껍질', '혈석 등껍질', '심해 등껍질'],
-  leaf: ['숲지기의 갑주', '떡갈나무 갑옷', '강철 잎새 갑주', '룬 덩굴 갑주', '용림 갑주', '심연 가시나무', '흑요 수풀', '성화 세계수', '별잎 갑주', '태초의 숲', '핏줄 덩굴 갑주', '산호 덩굴 갑주'],
-  ambush: ['그림자 손', '쥐도둑 장갑', '어스름 손', '룬 그림자 손', '용발톱 손', '심연의 손', '흑요 그림자', '성화 암살자 손', '별그림자 손', '태초의 어둠', '핏빛 그림자 손', '심해 그림자 손'],
-  dashguard: ['바람걸음', '산들 장화', '돌풍 장화', '룬 바람걸음', '용날개 장화', '심연 질풍', '흑요 회오리', '성화 열풍', '별바람 걸음', '태초의 바람', '혈풍 장화', '해류 장화'],
-  breath: ['끝없는 숨결', '깊은 숨 목걸이', '고요한 들숨', '룬 숨결', '용의 숨', '심연의 호흡', '흑요 고동', '성화 숨결', '별의 숨결', '태초의 호흡', '심장의 숨결', '심해의 숨결'],
-  vamp: ['피의 서약', '핏방울 반지', '붉은 맹세', '룬 혈약', '용피 반지', '심연 혈맹', '흑요 피', '성화 피의 맹세', '별피 서약', '태초의 피', '혈석 맹약', '심해 맹약'],
+  skin: ['돌거북 투구', '바위 껍질', '강철 등딱지', '룬 거북 투구', '용비늘 관', '심연 거북관', '흑요 껍데기', '성화 수호관', '별거북 투구', '태초의 등껍질', '혈석 등껍질', '심해 등껍질', '변이 등껍질'],
+  leaf: ['숲지기의 갑주', '떡갈나무 갑옷', '강철 잎새 갑주', '룬 덩굴 갑주', '용림 갑주', '심연 가시나무', '흑요 수풀', '성화 세계수', '별잎 갑주', '태초의 숲', '핏줄 덩굴 갑주', '산호 덩굴 갑주', '변이 덩굴 갑주'],
+  ambush: ['그림자 손', '쥐도둑 장갑', '어스름 손', '룬 그림자 손', '용발톱 손', '심연의 손', '흑요 그림자', '성화 암살자 손', '별그림자 손', '태초의 어둠', '핏빛 그림자 손', '심해 그림자 손', '변이 그림자 손'],
+  dashguard: ['바람걸음', '산들 장화', '돌풍 장화', '룬 바람걸음', '용날개 장화', '심연 질풍', '흑요 회오리', '성화 열풍', '별바람 걸음', '태초의 바람', '혈풍 장화', '해류 장화', '폭주 장화'],
+  breath: ['끝없는 숨결', '깊은 숨 목걸이', '고요한 들숨', '룬 숨결', '용의 숨', '심연의 호흡', '흑요 고동', '성화 숨결', '별의 숨결', '태초의 호흡', '심장의 숨결', '심해의 숨결', '변이의 숨결'],
+  vamp: ['피의 서약', '핏방울 반지', '붉은 맹세', '룬 혈약', '용피 반지', '심연 혈맹', '흑요 피', '성화 피의 맹세', '별피 서약', '태초의 피', '혈석 맹약', '심해 맹약', '변이 맹약'],
 };
 // u = UNIQUES 키, kind = 무기 종류(무기만), tier = 재질 단계
 const uniqueName = (u, kind, tier) => {
@@ -1037,6 +1145,7 @@ const GEAR_TIERS = [
   { mat: '태초', tint: '#ffc018' },    // Lv.90~99 금색
   { mat: '혈석', tint: '#d0306a' },    // Lv.100~ 핏빛 자홍(2026-10-26 사용자: 끝없는 심연 Lv.100 장비, '살아 있는 심연' 혈관 색)
   { mat: '심해석', tint: '#3e7ad8' },  // Lv.110~ 깊은 바다 파랑(2026-11-01 사용자: 2단계 '가라앉은 심연' — Lv.100 제작 유니크 업그레이드로만)
+  { mat: '변이석', tint: '#b8d830' },  // Lv.120~ 독한 약물 연두(2026-11-08: 3단계 '심연 실험장' — Lv.110 유니크 업그레이드로만, 용린 초록보다 노랗고 밝게)
 ];
 // 롯드 그림: 마법 지팡이 그림의 윗부분(머리 + 짧은 자루)만 잘라 쓴다 — 스태프와 같은 머리, 길이만 짧게
 FRAMES.weapon_rod = [FRAMES.weapon_red_magic_staff[0], FRAMES.weapon_red_magic_staff[1], 8, 18];
@@ -1351,7 +1460,8 @@ const LV_MAX = 99;  // 만렙(2026-10-25 사용자: 일단 99)
 // 끝없는 심연에 갈 수 있게 되면(진엔딩) 만렙이 109 로 풀린다(2026-10-26 사용자 — 10씩 풀기, endgame-plan.md)
 const LV_MAX_ABYSS = 109;
 const LV_MAX_SUNKEN = 119;  // 2단계 '가라앉은 심연'이 열리면(파수꾼 10번 처치, 2026-11-01 사용자) 119
-const lvMax = prof => (sunkenOpen(prof) ? LV_MAX_SUNKEN : endlessOpen(prof) ? LV_MAX_ABYSS : LV_MAX);
+const LV_MAX_LAB = 129;  // 3단계 '심연 실험장'이 열리면(삼지창의 왕 10번 처치, 2026-11-08 사용자) 129
+const lvMax = prof => (labOpen(prof) ? LV_MAX_LAB : sunkenOpen(prof) ? LV_MAX_SUNKEN : endlessOpen(prof) ? LV_MAX_ABYSS : LV_MAX);
 // Lv.100 이상 유니크는 떨어지지 않는다 — 제작으로만(레이드 '심연의 핵', endgame-plan.md ⑤). 항아리도 이 단계부터 유니크 대신 레어
 const UNIQUE_CRAFT_LV = 100;
 // Lv.100 유니크 제작(2026-10-26 사용자, 실베인 '심연 장인 고른' — js/craft.js): 부위(무기는 내 직업 무기 종류)를 고르면 그 부위 유니크 확정.
@@ -1364,7 +1474,9 @@ const CRAFT = { lv: UNIQUE_CRAFT_LV, cores: 1, essence: 60, scrolls: 20, gems: 1
 const CRAFT2 = { from: UNIQUE_CRAFT_LV, lv: 110, pearls: 1, essence: 80, scrolls: 25, gems: 2, gemSize: 5, gold: 300000, isOpen: prof => sunkenOpen(prof) };
 // 유니크 업그레이드 사다리(2026-11-01 사용자 '레벨 제한은 계속 넓혀 갈 거라 제작과 메뉴를 나눔'): 한 칸 = from → lv, isOpen 이면 업그레이드 창에 그 칸 탭이 보임.
 // 다음 단계(Lv.110 → 120 …)는 여기에 한 칸 더(재료 칸 이름은 CRAFT2 와 같게 — craft.js upNeeds)
-const CRAFT_UPS = [CRAFT2];
+// Lv.120 업그레이드(2026-11-08 사용자 '조금 더 무겁게'): 같은 부위 Lv.110 유니크가 그대로 Lv.120 — 재료 = 심연의 씨앗 seeds(3단계 레이드에서 1개씩) · 정수 120 · 축복받은 강화 주문서 35 · 전설 보석 3 · 50만 G
+const CRAFT3 = { from: 110, lv: 120, seeds: 1, essence: 120, scrolls: 35, gems: 3, gemSize: 5, gold: 500000, isOpen: prof => labOpen(prof) };
+const CRAFT_UPS = [CRAFT2, CRAFT3];
 // 원소 각인(2026-10-26 사용자: 속성석 소진처 — 네 속성을 다 받으니 어떤 속성을 끼든 같이 세지는 공통 효과로): 끝없는 심연이 열리면 세공사 미라 '원소 각인'.
 // 전설(size) 화염석 · 빙결석 · 뇌전석 · 맹독석 하나씩 + 골드 gold(다음 ★) → ★ +1(캐릭터마다, 최대 max). ★마다 낀 속성석 세기(power) +step —
 // 칸 능력 · 폭발 · 상태이상 · 패시브 피해가 모두 커지고, 범위는 돌 크기로 따로 정해져서 그대로(이펙트 범위 = 판정 범위). 보석은 안 받음.

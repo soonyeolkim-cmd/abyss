@@ -360,7 +360,7 @@ const UI = (() => {
         const raids = raidClears(prof, st.stage);  // 최종 보스를 깬 횟수(파티 포함)
         if (!lockWhy || st.stage === 1) T_(ctx, (best ? '최고 ' + best + '층' : '아직 안 깸') + (raids ? ' · ' + st.raidName + ' 처치 ' + raids + '번' : ''), 880, y + 52, 13, raids ? '#5fe0d0' : best ? '#ffd36a' : '#9a8e96', 'right');
       });
-      const cs = ABYSS_STAGES[Math.min(this.card, ABYSS_STAGES.length - 1)], bt = prof.bestTimes && prof.bestTimes[timeKey((cs.stage === 2 ? 'sunken' : 'endless') + cs.floors, ENDLESS.diff)];
+      const cs = ABYSS_STAGES[Math.min(this.card, ABYSS_STAGES.length - 1)], bt = prof.bestTimes && prof.bestTimes[timeKey((cs.stage === 3 ? 'lab' : cs.stage === 2 ? 'sunken' : 'endless') + cs.floors, ENDLESS.diff)];
       if (bt) T_(ctx, cs.floors + '층 최고 기록 ' + fmtTime(bt), 930, 535, 11, '#ffd36a', 'right');
       T_(ctx, '끝없는 심연은 늘 1층부터 · 층을 깨면 바로 다음 층 · 보상은 영웅 난이도', 480, 516, 13, '#d8b0ff', 'center');
       if (!Input.touchMode()) T_(ctx, (ABYSS_STAGES.length > 1 ? '단계 ↑↓ · ' : '') + '들어가기 ' + L('ok') + ' · 돌아가기 ' + L('back'), 480, 535, 11, '#6a6068', 'center');
@@ -2036,8 +2036,8 @@ const UI = (() => {
       zone(0, 0, 960, 540, { now: true });  // 아무 데나 누르면 마을로
       const { run, kind } = res;
       // 최종 보스 레이드: 처치 · 실패(쓰러짐 · 시간 초과 — 골드는 안 잃음)
-      const king = run.dungeon && run.dungeon.stage === 2, rn = king ? '삼지창의 왕' : '심연의 파수꾼';  // 2단계 레이드 이름
-      const title = run.raidCleared && kind === 'clear' ? rn + ' 처치!' : run.raidFail ? (run.raidFail === 'time' ? '시간이 다 됐다…' : (king ? '왕' : '파수꾼') + '에게 쓰러졌다…') : kind === 'clear' ? '던전 클리어!' : kind === 'dead' ? '쓰러졌다…' : '던전을 나왔다';
+      const stg = (run.dungeon && run.dungeon.stage) || 1, rn = stg === 3 ? '분열의 어미' : stg === 2 ? '삼지창의 왕' : '심연의 파수꾼';  // 단계마다 레이드 이름
+      const title = run.raidCleared && kind === 'clear' ? rn + ' 처치!' : run.raidFail ? (run.raidFail === 'time' ? '시간이 다 됐다…' : (stg === 3 ? '어미' : stg === 2 ? '왕' : '파수꾼') + '에게 쓰러졌다…') : kind === 'clear' ? '던전 클리어!' : kind === 'dead' ? '쓰러졌다…' : '던전을 나왔다';
       T_(ctx, title, 480, 90, 40, run.raidCleared && kind === 'clear' ? '#5fe0d0' : kind === 'clear' ? '#ffd36a' : kind === 'dead' ? '#d84a4a' : '#c8b8a0', 'center');
       if (run.dungeon.endless) {  // 끝없는 심연: 이번 런에서 깬 가장 깊은 층 · 새 최고 층(층이 이어지므로 쓰러져도 깬 층은 남는다)
         const top = run.endlessCleared || 0, nb = top > (run.endlessPrev || 0);
@@ -2047,7 +2047,7 @@ const UI = (() => {
       } else T_(ctx, run.dungeon.name + (run.diff ? ' · ' + DIFFS[run.diff].name : ''), 480, 122, 16, run.diff ? DIFFS[run.diff].color : '#9a8e96', 'center');
       Gfx.panel(ctx, 180, 150, 600, 320);
       const rows = [['처치', run.kills + '마리'], ['경험치', '+' + run.exp + (run.levelUps ? '  (레벨 업 ' + run.levelUps + '번!)' : '')],
-        ['골드', '+' + run.gold + 'G' + (run.lostGold ? '  (쓰러져서 -' + run.lostGold + 'G)' : '') + (run.essence ? '  · 심연 정수 +' + run.essence : '') + (run.cores ? '  · 심연의 핵 +' + run.cores : '') + (run.pearls ? '  · 심해 진주 +' + run.pearls : '')],
+        ['골드', '+' + run.gold + 'G' + (run.lostGold ? '  (쓰러져서 -' + run.lostGold + 'G)' : '') + (run.essence ? '  · 심연 정수 +' + run.essence : '') + (run.cores ? '  · 심연의 핵 +' + run.cores : '') + (run.pearls ? '  · 심해 진주 +' + run.pearls : '') + (run.seeds ? '  · 심연의 씨앗 +' + run.seeds : '')],
         ['시간', run.clearTime !== undefined ? fmtTime(run.clearTime) + (run.newRecord ? '  ★ 새 기록!' + (run.bestPrev ? ' (예전 ' + fmtTime(run.bestPrev) + ')' : '') : '  (최고 ' + fmtTime(run.bestPrev) + ')') : '보스를 못 쓰러뜨림 — 기록 없음'],
         ['주운 장비', run.items.length + '개' + (run.stones ? '  · 속성석 · 보석 ' + run.stones + '개' : '') + (run.scrolls ? '  · 주문서 ' + run.scrolls + '개' : '') + (run.autoSold ? '  · 자동 판매 ' + run.autoSold + '개' : '')]];
       // 레이드 처치(js/records.js): 시간 줄 = 파수꾼 처치 시간(혼자 · 파티 기록) · 맞은 횟수, 새 칭호 줄

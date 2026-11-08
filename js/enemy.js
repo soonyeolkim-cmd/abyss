@@ -47,7 +47,7 @@ function updateEnemy(e, dt, room, p) {
   e.flash = Math.max(0, e.flash - dt);
   e.armorT = Math.max(0, e.armorT - dt);
   e.wardT = Math.max(0, (e.wardT || 0) - dt);
-  if (d.part && e.state !== 'dead') { if (d.knightPart) Sunken.part(e, dt); else Raid.part(e, dt, room, p); return; }  // 레이드 부품(공허 수정 · 구슬) — js/raid.js, 기사 부품(닻 · 산호) — js/sunken.js
+  if (d.part && e.state !== 'dead') { if (d.knightPart) Sunken.part(e, dt); else if (d.labPart) Lab.part(e, dt, room, p); else Raid.part(e, dt, room, p); return; }  // 레이드 부품(공허 수정 · 구슬) — js/raid.js, 기사 부품(닻 · 산호) — js/sunken.js
   Elements.tick(e, dt);  // 화상 · 독 · 감전 · 냉기
   if (d.rooted) { e.kx = 0; e.ky = 0; }  // 땅속 촉수는 안 밀림(속성 폭발 밀어내기도)
   if (d.burrow && !e.under && e.awake) e.upT += dt;  // 솟아 있는 시간(내리치는 동안도 센다)
@@ -184,14 +184,14 @@ function updateEnemy(e, dt, room, p) {
     case 'move':
       if (d.dummy) { e.moving = false; break; }  // 연습장 허수아비: 가만히
       if (!e.awake) { e.moving = false; wakeCheck(e, room, p); break; }
-      if (d.raid) Raid.think(e, dt, room, p); else if (Sunken.think(e, dt, room, p)) { /* 아귀 · 기사(js/sunken.js) */ } else if (d.boss) bossThink(e, dt, room, p); else if (d.burrow) tentacleThink(e, dt, room, p); else aiMove(e, dt, room, p);
+      if (d.raid && !d.brood) Raid.think(e, dt, room, p); else if (Lab.think(e, dt, room, p)) { /* 실험장 몹 · 실패작 · 분열의 어미(js/lab.js) */ } else if (Sunken.think(e, dt, room, p)) { /* 아귀 · 기사(js/sunken.js) */ } else if (d.boss) bossThink(e, dt, room, p); else if (d.burrow) tentacleThink(e, dt, room, p); else aiMove(e, dt, room, p);
       break;
     case 'dead':
       e.t += dt;
       break;
     default:
-      if (d.raid) Raid.state(e, dt, room, p);  // 레이드 보스만의 상태(심장 노출 · 단계 바뀜 · 구슬 · 사방 탄)
-      else Sunken.state(e, dt, room, p);  // 가라앉은 심연 몹 · 기사(거품 · 껍데기 · 덥석 · 닻 · 등불)
+      if (d.raid && !d.brood) Raid.state(e, dt, room, p);  // 레이드 보스만의 상태(심장 노출 · 단계 바뀜 · 구슬 · 사방 탄)
+      else if (!Lab.state(e, dt, room, p)) Sunken.state(e, dt, room, p);  // 실험장(녹아듦 · 채찍 · 응시 · 분열의 어미) — 아니면  // 가라앉은 심연 몹 · 기사(거품 · 껍데기 · 덥석 · 닻 · 등불)
   }
 }
 

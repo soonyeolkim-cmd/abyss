@@ -220,6 +220,7 @@ const World = (() => {
   // ── 몹 · 상자 배치 ──
   function populate() {
     const def = lv.def;
+    Lab.reset();  // 분열의 어미 체력 · 색(지난 판 것 지움)
     if (def.raid) {  // 최종 보스 레이드: 방 하나에 파수꾼만(js/raid.js)
       const s = Raid.bossSpot(lv), b = createEnemy(def.boss, s.x, s.y, dlv(), { awake: false });
       addEnemy(b); b.ri = 0;
@@ -497,6 +498,7 @@ const World = (() => {
     updateChests(dt);
     if (lv.roomMaps) updateRooms();
     if (lv.def.stage === 2) Sunken.update(dt, lv);  // 조류 물살 · 산호 빛 · 산호 다시 솟기
+    if (lv.def.lab) { Sunken.update(dt, lv); Lab.update(dt, lv); }  // 실험장: 후려치기 대기(Sunken) · 실패작 기믹 · 분열의 어미 색 · 공명 · 웅덩이 · 범람
     if (lv.def.endless) Sunken.pillars(dt, lv);  // 끝없는 심연 중간 보스방(1 · 2단계): 기둥 넷이 다 무너지면 다시 솟음
     }
     fadeT = Math.max(0, fadeT - dt);
@@ -592,6 +594,7 @@ const World = (() => {
     fields = m.fd;
     if (m.rd) Raid.unsnap(m.rd);
     Sunken.unsnap(m.td);
+    Lab.unsnap(m.ld);
     for (const ev of m.ev) replay(ev);
   }
   // 손님: 방장 쪽에서 생긴 효과를 내 화면에
@@ -632,7 +635,7 @@ const World = (() => {
     const sh = shots.filter(near).map(s => [r1(s.x), r1(s.y), r1(s.vx), r1(s.vy), s.r, s.color]);
     const ps = pshots.filter(near).map(s => Object.assign(prim(s), { stone: !!s.stone, sc: s.def && s.def.wave && s.def.wave.scale || 1 }));
     const fd = fields.filter(near).map(prim);
-    return { t: 'snap', e, sh, ps, fd, fl: floorNo(), cl: lv.roomMaps ? [...lv.cleared] : undefined, pc: lv.def.raid || lv.def.endless ? lv.columns : undefined, rd: lv.def.raid ? Raid.snap() : undefined, td: lv.def.stage === 2 ? Sunken.snap() : undefined };  // td = 조류 방향  // rd = 레이드 보스 패턴 · 피함 셈 · 도약 자리  // pc = 레이드 · 끝없는 심연 중간 보스방 기둥(부서진 것 빼고)  // g(사라진 몹)는 coop.js 가 takeGone 으로 손님 모두에게 같이 붙인다
+    return { t: 'snap', e, sh, ps, fd, fl: floorNo(), cl: lv.roomMaps ? [...lv.cleared] : undefined, pc: lv.def.raid || lv.def.endless ? lv.columns : undefined, rd: lv.def.raid ? Raid.snap() : undefined, td: lv.def.stage === 2 ? Sunken.snap() : undefined, ld: lv.def.lab ? Lab.snap() : undefined };  // ld = 실험장 색 · 공명 · 웅덩이 · 실패작 상태  // td = 조류 방향  // rd = 레이드 보스 패턴 · 피함 셈 · 도약 자리  // pc = 레이드 · 끝없는 심연 중간 보스방 기둥(부서진 것 빼고)  // g(사라진 몹)는 coop.js 가 takeGone 으로 손님 모두에게 같이 붙인다
   }
 
   // 계단 자리: 보스방 안에서 보스가 쓰러진 곳(전리품 · 상자가 흩어지는 곳)에서 가장 먼 빈 칸(2026-10-24 사용자: 낙템 줍다 계단 밟지 않게)
@@ -666,7 +669,7 @@ const World = (() => {
     } else if (lv.def.endless) {  // 끝없는 심연: 깬 던전 수(10개)에는 안 들어가고 최고 층만
       run.endlessCleared = Math.max(run.endlessCleared || 0, lv.def.floor);
       if (!p.dead) { p.hp = p.maxHp; text(p.x, p.y, 44, '체력 회복!', '#7dff8a', true); }  // 중간 보스를 잡으면 체력 가득(2026-10-26 사용자, 파티 손님은 remoteKill → reward 로 각자). 쓰러진 사람은 계단에서 일어남(descend)
-      prof.endless = Object.assign(prof.endless || {}, { [lv.def.stage === 2 ? 'best2' : 'best']: Math.max(endlessBest(prof, lv.def.stage), lv.def.floor) });
+      prof.endless = Object.assign(prof.endless || {}, { [(lv.def.stage || 1) === 1 ? 'best' : 'best' + lv.def.stage]: Math.max(endlessBest(prof, lv.def.stage), lv.def.floor) });  // 단계마다 best · best2 · best3
     } else {
       prof.cleared[lv.def.id] = true;
       if (!prof.clearedDiff) prof.clearedDiff = {};
@@ -771,7 +774,7 @@ const World = (() => {
       if (f.blast && !f.done && f.t >= f.delay) {
         f.done = true;
         actor = null;
-        addFx({ type: 'nova', x: f.x, y: f.y, r: f.r, col: f.voidBlast ? '#c06aff' : f.zap ? '#ffe45a' : f.seaBlast ? '#6a9ad8' : ELEMENTS.fire.color, el: f.voidBlast || f.seaBlast ? '' : f.zap ? 'thunder' : 'fire', tier: 0, bare: true, seed: Math.random() * 1000, t: 0, life: 0.35 });  // 화염 강화 몹 죽음 폭발(판정 r 그대로)
+        addFx({ type: 'nova', x: f.x, y: f.y, r: f.r, col: f.voidBlast ? '#c06aff' : f.zap ? '#ffe45a' : f.seaBlast ? '#6a9ad8' : f.acidBlast ? '#6cb02a' : ELEMENTS.fire.color, el: f.voidBlast || f.seaBlast ? '' : f.zap ? 'thunder' : f.acidBlast ? 'poison' : 'fire', tier: 0, bare: true, seed: Math.random() * 1000, t: 0, life: 0.35 });  // 화염 강화 몹 죽음 폭발(판정 r 그대로)
         Sfx.blast(); shake(3);
         for (const t of [World.player, ...rps]) if (!t.dead && groundDist(t.x - f.x, t.y - f.y) < f.r + BODY_R) hurtPlayer(t, f, f.dmg, 160);
       }
@@ -829,6 +832,7 @@ const World = (() => {
     for (const sc of o.scrolls || []) toss({ kind: 'scroll', scroll: sc });
     for (let k = 0; k < (o.cores || 0); k++) toss({ kind: 'core' });
     for (let k = 0; k < (o.pearls || 0); k++) toss({ kind: 'pearl' });
+    for (let k = 0; k < (o.seeds || 0); k++) toss({ kind: 'seed' });
     for (let k = 0; k < (o.essence || 0); k++) toss({ kind: 'essence' });
   }
   // 심연 정수(끝없는 심연에서만): 수호자 = 층마다 정해진 수, 고유 · 정예 = 확률로 1개(깊을수록 더 잘)
@@ -861,7 +865,10 @@ const World = (() => {
       }
       if (d.t < 0.35 || p.dead) continue;
       const dist = Math.hypot(p.x - d.x, p.y - d.y);
-      if (d.kind === 'pearl') {  // 심해 진주(2단계 레이드 보상): 끌려와서 주머니로
+      if (d.kind === 'seed') {  // 심연의 씨앗(3단계 레이드 보상): 끌려와서 주머니로
+        if (dist < 40) { const k = Math.min(1, dt * 10); d.x += (p.x - d.x) * k; d.y += (p.y - d.y) * k; }
+        if (dist < 8) { prof.seeds = (prof.seeds || 0) + 1; run.seeds = (run.seeds || 0) + 1; d.gone = true; Sfx.unique(); text(p.x, p.y, 34, '심연의 씨앗', SEED_COLOR, true); }
+      } else if (d.kind === 'pearl') {  // 심해 진주(2단계 레이드 보상): 끌려와서 주머니로
         if (dist < 40) { const k = Math.min(1, dt * 10); d.x += (p.x - d.x) * k; d.y += (p.y - d.y) * k; }
         if (dist < 8) { prof.pearls = (prof.pearls || 0) + 1; run.pearls = (run.pearls || 0) + 1; d.gone = true; Sfx.unique(); text(p.x, p.y, 34, '심해 진주', PEARL_COLOR, true); }
       } else if (d.kind === 'core') {  // 심연의 핵(레이드 보상): 끌려와서 주머니로
@@ -931,7 +938,8 @@ const World = (() => {
   // ── 몹이 쓰러짐 ──
   function onKill(e) {
     if (Sunken.onKill(e)) return;  // 익사한 병사: 거품 속에서 다시 일어남(아직 안 쓰러짐) — js/sunken.js
-    if (e.def.part) { if (e.def.knightPart) Sunken.partDied(e); else Raid.partDied(e); return; }  // 레이드 부품(공허 수정 · 구슬): 경험치 · 전리품 · 처치 수 없음
+    if (Lab.onKill(e)) return;  // 접붙인 마물 조각 · 폭주체 약물 폭발(js/lab.js)
+    if (e.def.part) { if (e.def.knightPart) Sunken.partDied(e); else if (e.def.labPart) Lab.partDied(e); else Raid.partDied(e); return; }  // 레이드 부품(공허 수정 · 구슬): 경험치 · 전리품 · 처치 수 없음
     Elements.onDeath(e);  // 연쇄 폭발(화염 패시브)
     if (rps.length) Coop.hostKill(e);  // 파티: 손님들도 자기 경험치 · 전리품을 굴린다
     const d = e.def;
@@ -1005,7 +1013,7 @@ const World = (() => {
     if (d.boss) {
       const bossItems = [mk(lv.ilvlR[1], { boost: 0.8 })];
       if (lv.ilvlR[1] < UNIQUE_CRAFT_LV && Math.random() < UNIQUE_DROP.boss * DIFFS[RUN.diff].uniq * lowUniq(prof.lv, dlv())) bossItems.push(Items.makeUnique(lv.ilvlR[1]));  // Lv.100 유니크는 제작으로만
-      loot(e.x, e.y, { gold: goldRoll(d.gold), items: bossItems, stones: [rollStone(STONE_BOSS_BOOST), rollStone(STONE_BOSS_BOOST), ...(d.raid ? [{ el: EL_ORDER[rnd(0, EL_ORDER.length - 1)], size: raidRule(lv.def.stage).stoneSize }] : [])], scrolls: Array.from({ length: SCROLL_DROP_RATE.boss }, rollScroll), essence: essenceRoll('boss'), cores: d.raid ? raidRule(lv.def.stage).cores : 0, pearls: d.raid ? raidRule(lv.def.stage).pearls || 0 : 0 });  // 심해 진주: 2단계 레이드  // 심연의 핵: 레이드를 깨면 늘 cores 개(파티는 각자)
+      loot(e.x, e.y, { gold: goldRoll(d.gold), items: bossItems, stones: [rollStone(STONE_BOSS_BOOST), rollStone(STONE_BOSS_BOOST), ...(d.raid ? [{ el: EL_ORDER[rnd(0, EL_ORDER.length - 1)], size: raidRule(lv.def.stage).stoneSize }] : [])], scrolls: Array.from({ length: SCROLL_DROP_RATE.boss }, rollScroll), essence: essenceRoll('boss'), cores: d.raid ? raidRule(lv.def.stage).cores : 0, pearls: d.raid ? raidRule(lv.def.stage).pearls || 0 : 0, seeds: d.raid ? raidRule(lv.def.stage).seeds || 0 : 0 });  // 심해 진주: 2단계 레이드  // 심연의 핵: 레이드를 깨면 늘 cores 개(파티는 각자)
       shake(5);
       bossCleared(e);
       return;
@@ -1125,12 +1133,14 @@ const World = (() => {
     ctx.drawImage(lv.canvas, cam.x, cam.y, VIEW_W, VIEW_H, cam.x, cam.y, VIEW_W, VIEW_H);
     drawVeins(ctx);
     if (lv.def.sea) Sunken.drawSea(ctx, lv, time, lv.roomMaps ? roomOf(p) : 0);  // 가라앉은 심연 물결 빛 · 거품
+    if (lv.def.lab) Lab.drawLab(ctx, lv, time, lv.roomMaps ? roomOf(p) : 0);  // 심연 실험장: 약물 관 방울
     drawHazards(ctx);
     drawDoors(ctx);
     if (lv.stairs) Art.stairs(ctx, lv.stairs, time);
     for (const f of fields) if (f.wave || inView(f.x, f.y)) Art.field(ctx, f, time);  // 레이드 파동은 방 전체로 퍼지니 늘 그림
     if (lv.def.raid) Raid.ground(ctx);  // 레이드 도약 내려찍기 예고(내 발밑)
-    if (lv.def.stage === 2) Sunken.ground(ctx, lv, time, lv.roomMaps ? roomOf(p) : 0);  // 닻 예고 · 조류 물살
+    if (lv.def.stage >= 2) Sunken.ground(ctx, lv, time, lv.roomMaps ? roomOf(p) : 0);  // 닻 예고 · 조류 물살 · 후려치기 부채꼴(실험장 봉합체도)
+    if (lv.def.lab) Lab.ground(ctx, lv, time, lv.roomMaps ? roomOf(p) : 0);  // 실험장: 솟기 · 채찍 · 응시 · 살덩이 내려찍기 · 돌진 · 약물 웅덩이 · 범람
     for (const d of lv.drops) if (inView(d.x, d.y)) Art.drop(ctx, d, time);
     // 앞뒤(y) 정렬: 기둥 · 상자 · 캐릭터
     const list = [];
@@ -1157,6 +1167,7 @@ const World = (() => {
     const lightR = (lv.def.raid || lv.def.practice ? LIGHT_R * 2.2 : LIGHT_R) * (lv.def.stage === 2 ? Sunken.lightMul(lv, p) : 1);  // 등불의 기사 방은 어둡게
     Art.darkness(ctx, p.x, p.y - 10, cam, lightR);  // 레이드 방은 밝게(귀퉁이 수정이 보이게) · 연습장도
     if (lv.def.stage === 2) Sunken.light(ctx, lv, time);  // 등불 · 발광 산호 빛
+    if (lv.def.lab) Lab.light(ctx, lv, time);  // 배양조 · 철망 약물 빛
     const stairsOn = lv.stairs && inView(lv.stairs.x, lv.stairs.y, 60);
     if (stairsOn) {  // 계단(모든 던전): 어둠 위 1배 화면에 도트 빛기둥 · ▼(빛 밖이면 계단 그림도)
       const sd = Math.hypot(lv.stairs.x - p.x, lv.stairs.y - p.y + 10);
@@ -1177,6 +1188,7 @@ const World = (() => {
     if (stairsOn) Art.stairsLabel(ctx, lv.stairs);  // 계단 이름
     for (const t of texts) Art.floatText(ctx, t);
     if (lv.def.raid) Raid.labels(ctx);  // 레이드 공허 수정: 터지기까지 남은 초
+    if (lv.def.lab) Lab.labels(ctx);  // 관찰체 표식 · 응시 광선
     const tag = (s, x, y, col) => { ctx.font = 'bold 6px ' + Gfx.FONT; ctx.textAlign = 'center'; ctx.fillStyle = '#000'; ctx.fillText(s, x + 0.5, y + 0.5); ctx.fillStyle = col; ctx.fillText(s, x, y); ctx.textAlign = 'left'; };
     for (const m of mates) if (inView(m.x, m.y)) {  // 파티원 이름표(직업, 파티 순서 색)는 어둠 위에(어디 있는지 보이게) · 단 칭호는 그 위
       tag((m.cls && m.cls.name) || '친구', m.x, m.y - 26, Coop.colorOf(m.pid));

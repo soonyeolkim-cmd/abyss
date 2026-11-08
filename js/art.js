@@ -248,11 +248,11 @@ const Art = (() => {
     const flip = e.fv.x < 0;
     let x = e.x, y = e.y - e.z;
     const o = { flip, flash: e.flash > 0 ? '#ffffff' : false, scale: e.scale || 1, tint: d.tint, tintAlpha: d.tintAlpha };
-    if (d.part && !d.knightPart) { Raid.drawPart(ctx, e, time); return; }  // 레이드 공허 수정 · 구슬(기사 부품 — 닻 · 산호 · 거품 감옥 — 은 아래 도트 그림으로. 예전엔 공허 구슬로 그려졌음)
+    if (d.part && !d.knightPart && !d.labPart) { Raid.drawPart(ctx, e, time); return; }  // 레이드 공허 수정 · 구슬(기사 부품 — 닻 · 산호 · 거품 감옥 — 은 아래 도트 그림으로. 예전엔 공허 구슬로 그려졌음)
     if (d.raid && e.state === 'exposed') name = d.openSprite || 'raid_warden_open';  // 갈비가 벌어져 심장이 드러남(삼지창의 왕 = 진주가 갈라짐)
-    name = Sunken.spriteOf(e, name);  // 삼지창을 던진 왕은 맨손
+    name = Lab.spriteOf(e, Sunken.spriteOf(e, name));  // 실험장: 배양조 깨짐 · 폭주 · 실패작 상태 · 분열의 어미 색(js/lab.js)  // 삼지창을 던진 왕은 맨손
     if (d.raid && e.state === 'phaseShift' && Math.floor(time * 16) % 2) o.flash = '#ffffff';
-    if (d.pix && (Sunken.drawMob(ctx, e, time, o) || pixMob(ctx, e, time, o))) return;  // 가라앉은 심연: 땅속 아귀 · 숨은 게 · 거품 속 병사 · 숨은 등불 기사  // 끝없는 심연 도트 몹: 땅속 · 사라짐처럼 따로 그리는 때
+    if (d.pix && (Sunken.drawMob(ctx, e, time, o) || Lab.drawMob(ctx, e, time, o) || pixMob(ctx, e, time, o))) return;  // 가라앉은 심연: 땅속 아귀 · 숨은 게 · 거품 속 병사 · 숨은 등불 기사  // 끝없는 심연 도트 몹: 땅속 · 사라짐처럼 따로 그리는 때
     if (d.pix && e.state !== 'dead' && e.state !== 'air' && e.state !== 'down') {  // 한두 장 그림이라 걷기 · 떠 있기를 흔들림으로
       if (d.blink || d.float) y -= 2 + Math.round(Math.sin(time * 3 + e.walkT) * 1.5);  // 다리 없는 망령 · 해파리: 늘 떠서 일렁임
       else if (e.moving) y -= Math.floor((time + e.walkT) * (d.r <= 4 ? 10 : 7)) % 2;
@@ -274,7 +274,7 @@ const Art = (() => {
       ctx.beginPath(); ctx.moveTo(e.x, e.y - 4); ctx.lineTo(e.x + e.chargeV.x * 160, e.y - 4 + e.chargeV.y * 160); ctx.stroke();
       ctx.restore();
     }
-    const tele = e.state === 'windup' && (committed(e) || d.superArmor) || ['slam', 'leapWind', 'chargeWind', 'fan', 'orbWind', 'ringWind', 'anchorWind', 'waveWind', 'spinWind', 'rushWind', 'jailWind', 'sweepWind', 'thrustWind'].includes(e.state);
+    const tele = e.state === 'windup' && (committed(e) || d.superArmor) || ['slam', 'leapWind', 'chargeWind', 'fan', 'orbWind', 'ringWind', 'anchorWind', 'waveWind', 'spinWind', 'rushWind', 'jailWind', 'sweepWind', 'thrustWind', 'meltRise', 'lashWind', 'gazeWind', 'fleshWind', 'spitWind', 'dashWind', 'acidWind', 'swingWind'].includes(e.state);
     if (tele && !o.flash && Math.floor(time * 14) % 2 === 0) o.flash = '#ff4030';
     if (d.shield && e.state === 'recover' && !o.flash && Math.floor(time * 6) % 3 === 0) o.flash = '#5fe0d0';  // 방패병 틈: 청록으로 깜빡
     if (d.shield && SHIELD_UP.includes(e.state) && e.state !== 'dead') {  // 방패가 막는 쪽(앞 ±약 72°)을 발밑 뼈빛 호로
@@ -312,6 +312,7 @@ const Art = (() => {
     }
     Gfx.spr(ctx, name, x, y, o);
     Sunken.drawOver(ctx, e, x, y, time);  // 거품 겹 · 휘청 별 · 닻 사슬
+    Lab.drawOver(ctx, e, x, y, time);  // 실밥 틈 · 뚜껑 · 사슬 · 자물쇠 · 빛나는 눈 · 분열의 어미 색 기호(js/lab.js)
     if (d.acc && e.state !== 'dead') bossAcc(ctx, d.acc, x, y, o.scale, flip, time);
     if (d.raid) Raid.drawBoss(ctx, e, x, y, time);
     if (e.wardT > 0 && e.state !== 'dead' && !e.dying) {  // 보호막 사제의 보호막: 몸을 감싼 청록 막(일렁임)
@@ -466,6 +467,15 @@ const Art = (() => {
       const pg = ctx.createRadialGradient(cx - 1.2, cy - 1.2, 0.5, cx, cy, 3.5);
       pg.addColorStop(0, '#ffffff'); pg.addColorStop(0.5, PEARL_COLOR); pg.addColorStop(1, '#6a9ad8');
       ctx.fillStyle = pg; ctx.beginPath(); ctx.arc(cx, cy, 3.5, 0, Math.PI * 2); ctx.fill();
+      return;
+    }
+    if (d.kind === 'seed') {  // 심연의 씨앗(3단계 레이드 보상): 연두빛 둘레 + 씨앗 도트
+      const cy = Math.round(y - 6 + Math.sin(time * 3 + d.x) * 1), cx = Math.round(d.x);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 10);
+      g.addColorStop(0, 'rgba(184,232,74,' + (0.45 + 0.25 * Math.sin(time * 6)) + ')'); g.addColorStop(1, 'rgba(184,232,74,0)');
+      ctx.fillStyle = g; ctx.fillRect(cx - 10, cy - 10, 20, 20); ctx.restore();
+      Gfx.seedIcon(ctx, cx, cy, 10);
       return;
     }
     if (!d.item) return;  // 그림이 없는 새 종류가 생겨도 화면이 멈추지 않게
@@ -1344,7 +1354,7 @@ const Art = (() => {
       if (f.done) return;
       const k = Math.min(1, f.t / f.delay);
       ctx.save();
-      const c = f.voidBlast ? '192,106,255' : f.zap ? '255,228,90' : f.seaBlast ? '106,154,216' : '255,90,40';  // 레이드 공허 장판 = 보랏빛 · 해파리 전기 = 노랑 · 왕의 물기둥 = 물빛
+      const c = f.voidBlast ? '192,106,255' : f.zap ? '255,228,90' : f.seaBlast ? '106,154,216' : f.acidBlast ? '108,176,42' : '255,90,40';  // 폭주체 약물 폭발 = 연두  // 레이드 공허 장판 = 보랏빛 · 해파리 전기 = 노랑 · 왕의 물기둥 = 물빛
       ctx.strokeStyle = 'rgba(' + c + ',' + (0.5 + 0.5 * Math.sin(time * 30)) + ')'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r, f.r * 0.6, 0, 0, Math.PI * 2); ctx.stroke();
       ctx.fillStyle = 'rgba(' + c + ',0.25)';

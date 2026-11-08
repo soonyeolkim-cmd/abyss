@@ -214,10 +214,11 @@ const Elements = (() => {
   // 속성 피해(상태이상 · 폭발 · 번개): 숫자를 띄우고, 쓰러지면 처치
   function damage(e, amount, el) {
     if (e.dying || e.state === 'dead' || World.mirror || untouchable(e) || e.def.part === 'orb') return;  // 파티 손님: 피해는 방장 쪽에서 · 땅속 촉수 · 사라진 순간이동자는 안 맞음
-    const rc = e.def.raid ? (e.state === 'exposed' ? Raid.cut(e)[0] : 0) : 1;  // 레이드 보스: 심장이 드러난 동안만 속성 피해(화상 · 독 · 폭발 · 번개)가 들어간다(2026-10-26 사용자)
+    const rc = e.def.raid && !e.def.brood ? (e.state === 'exposed' ? Raid.cut(e)[0] : 0) : 1;  // 레이드 보스: 심장이 드러난 동안만 속성 피해(화상 · 독 · 폭발 · 번개)가 들어간다(2026-10-26 사용자)
     if (!rc) return;
     const sc = Sunken.cut(e);  // 가라앉은 심연: 껍데기 · 거품 갑옷은 속성 피해도 덜(부품은 안 맞음)
     if (sc && e.def.knightPart) return;
+    if (sc && sc.m <= 0 && (e.def.labPart || e.def.brood)) return;  // 분열의 어미: 잠김 · 다른 색은 속성 피해도 없음(회복도 안 함)
     const rb = isRes(el) ? 1 + RES_BONUS : mixedFull() ? MIX_MUL : 1;  // 공명: 그 속성 피해 더 · 칸 4개 다 찬 섞기(듀오 · 3:1 …): 덜(2026-10-29 — 같은 속성 4개가 섞기보다 세게)
     const d = Math.max(1, Math.round(amount * vuln(e) * rc * rb * (sc ? sc.m : 1) * (e.wardT > 0 ? WARD.cut : 1)));  // 보호막 사제 둘레(방패병 방패는 속성 피해를 못 막음)
     e.hp -= d;

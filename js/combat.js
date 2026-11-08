@@ -74,7 +74,7 @@ function hitEnemy(e, def, p, w) {
     dmg *= rc[0];
     if (rc[1] && !(e.tingT > World.time)) { e.tingT = World.time + 0.5; World.text(e.x, e.y, e.h + 8, rc[1], '#ece0cc'); }
   }
-  dmg = (rc && !rc[0]) || (sc && sc.m === 0) ? 0 : Math.max(1, Math.round(dmg));  // 피해 0 = 레이드 껍질 · 보호막 / 브란 닻 · 에코 거울 반사
+  dmg = (rc && !rc[0]) || (sc && sc.m === 0) ? 0 : sc && sc.m < 0 ? Math.round(dmg) : Math.max(1, Math.round(dmg));  // 음수 = 분열의 어미: 공명 색이 아닌 몸을 침 → 회복(js/lab.js)  // 피해 0 = 레이드 껍질 · 보호막 / 브란 닻 · 에코 거울 반사
   e.hp -= dmg;
   if (ed.raid) Raid.clamp(e);  // 한 번에 다음 단계를 건너뛰지 않게
   if (ed.dummy) Practice.add(dmg, def.slot || def.name, crit);  // 연습장 딜 측정(기술 칸, 칸이 없는 속성석 탄은 이름 — 화염구 등)
@@ -141,7 +141,8 @@ function hitEnemy(e, def, p, w) {
   World.shake(crit ? 3 : heavy ? 2.5 : 1.5);
   if (crit) World.hitstop(def && def.hitstop !== undefined ? Math.min(0.07, def.hitstop) : 0.07);  // 멈칫을 줄인 기술(검 돌진 회전)은 치명타도 그만큼만
   if (!p.remote) Input.rumble(crit || heavy ? 0.5 : 0.25, crit || heavy ? 90 : 50);
-  if (dmg) World.number(e.x, e.y, (e.z || 0) + e.h + 4, dmg, crit ? '#ffd34d' : rc && rc[0] > 1 ? '#5fe0d0' : stag > 1 ? '#7fe3ff' : '#ffffff', crit || (rc && rc[0] > 1));
+  if (dmg < 0) World.number(e.x, e.y, (e.z || 0) + e.h + 4, '+' + (-dmg), '#7dff8a', true);
+  else if (dmg) World.number(e.x, e.y, (e.z || 0) + e.h + 4, dmg, crit ? '#ffd34d' : rc && rc[0] > 1 ? '#5fe0d0' : stag > 1 ? '#7fe3ff' : '#ffffff', crit || (rc && rc[0] > 1));
   return true;
 }
 
@@ -158,7 +159,7 @@ function bleedTick(e, dt) {
   if (Math.random() < dt * 4) World.ember(e, '#c8202a');
   if (b.tick <= 0) {
     b.tick += 0.5;
-    const rc = e.def.raid ? (e.state === 'exposed' ? Raid.cut(e)[0] : 0) : 1;
+    const rc = e.def.raid && !e.def.brood ? (e.state === 'exposed' ? Raid.cut(e)[0] : 0) : 1;
     const sc = Sunken.cut(e);
     const d = Math.round(b.n * b.per * 0.5 * (1 - (e.armorCut || 0)) * Elements.vuln(e) * rc * (sc ? Math.max(sc.m, 0) : 1));
     if (d > 0) {

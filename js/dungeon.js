@@ -264,6 +264,7 @@ const Dungeon = (() => {
     }
     if (lv.def.veins) paintVeins(lv, g);
     if (lv.def.sea) Sunken.paintSea(lv, g);  // 가라앉은 심연: 해초 · 산호 · 유적 돌 조각
+    if (lv.def.lab) Lab.paintLab(lv, g);  // 심연 실험장: 배양조 줄 · 약물 관 · 철창 · 실험대 · 배수 철망(js/lab.js)
     return c;
   }
   // 살아 있는 심연(끝없는 심연): 방마다 바닥을 기어가는 핏빛 혈관 — 1px 도트 줄(아래 그늘 한 줄) + 시작점 살덩이 마디.

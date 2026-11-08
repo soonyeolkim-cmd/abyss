@@ -439,6 +439,21 @@ const Gfx = (() => {
 
   // 심연의 핵 아이콘(2026-10-26 제작 창): 바닥에 떨어진 핵(art.js drop 'core')과 같은 7x6 청록 심장 도트를 키워 그림
   let coreCanvas = null;
+  // 심연의 씨앗(3단계 레이드 보상): 갈라진 틈에서 약물 연두빛이 새는 살빛 씨앗(7 × 7)
+  let seedCanvas = null;
+  function seedIcon(ctx, cx, cy, size) {
+    if (!seedCanvas) {
+      const c = document.createElement('canvas'); c.width = 7; c.height = 7;
+      const g = c.getContext('2d'), P = { o: '#120a14', f: '#7a4a4e', F: '#b47a72', h: '#e2b0a0', G: '#6cb02a', l: '#c8ff6a' };
+      ['..ooo..', '.oFhFo.', 'oFhlFFo', 'oFlGFfo', 'oFFGlfo', '.ofFffo', '..ooo..'].forEach((row, j) => [...row].forEach((ch, i) => { if (P[ch]) { g.fillStyle = P[ch]; g.fillRect(i, j, 1, 1); } }));
+      seedCanvas = c;
+    }
+    const k = Math.max(1, Math.round(size / 7));
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(seedCanvas, Math.round(cx - 3.5 * k), Math.round(cy - 3.5 * k), 7 * k, 7 * k);
+    ctx.restore();
+  }
   function coreIcon(ctx, cx, cy, size) {
     if (!coreCanvas) {
       const c = document.createElement('canvas'); c.width = 7; c.height = 6;
@@ -483,5 +498,5 @@ const Gfx = (() => {
 
   // 코드로 그린 그림을 이름으로 등록(js/sunken.js — 가라앉은 심연 몹 · 기사 · 왕)
   const put = (name, c) => { SHEETS[name] = c; FRAMES[name] = [0, 0, c.width, c.height]; };
-  return { WEAPON_TINT, FONT, mix, clear, ready, spr, anim, icon, stoneIcon, aurora, scrollIcon, essenceIcon, coreIcon, text, panel, bar, put };
+  return { WEAPON_TINT, FONT, mix, clear, ready, spr, anim, icon, stoneIcon, aurora, scrollIcon, essenceIcon, coreIcon, seedIcon, text, panel, bar, put };
 })();
