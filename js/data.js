@@ -551,7 +551,8 @@ const KING_RULE = { hpMul: 5.5, essence: 12, cores: 0, pearls: 1, orbSpeed: 170,
 // 체력 hpMul(2026-11-08 시험): 6 이면 Lv.120 +10 유니크 한 벌(보석 · 속성석 없이) 기본 공격 봇이 공명 한 번에 0.85%(상한 10%) — 10분 안에 못 깸 → 2.4(봇 약 2%, 기술 · 속성석을 쓰면 몇 배). 손맛 보고 다시
 //   → 2026-11-08 사용자 기준 캐릭터(태초 속성석 · 보석): 2.4 면 공명마다 상한 10% 를 꽉 채워 146초(최소 시간) — 상한 없이 재면 한 번에 약 15% → 7.2(봇 공명 한 번 약 5% · 약 5분, 기술을 쓰면 더 빠름)
 //   → 2026-11-08 A + D(복제체를 쳐서 색 돌리기 · 합체 막기)로 공명이 빨라져 같은 봇이 3분 → 9.6(약 4분)
-const BROOD_RULE = { hpMul: 9.6, essence: 14, cores: 0, pearls: 0, seeds: 1, cap: 0.1, bigCap: 1.5, heal: 0.5, deal: 5, every: [6, 6, 4], warn: 0.8, match: 0.4, force: 9, gap: 2.5, shift: 1.5, phases: [0.7, 0.4],
+// 2026-11-08 사용자 '최종 보스는 오히려 지금의 80% 수준으로': hpMul 9.6 → 7.68
+const BROOD_RULE = { hpMul: 7.68, essence: 14, cores: 0, pearls: 0, seeds: 1, cap: 0.1, bigCap: 1.5, heal: 0.5, deal: 5, every: [6, 6, 4], warn: 0.8, match: 0.4, force: 9, gap: 2.5, shift: 1.5, phases: [0.7, 0.4],
   tank: { hits: 3, r: 34, pool: 8, lock: 4, refill: 14 }, flood: { every: 24, first: 10, warn: 2.2, t: 6, pads: 3, padR: 26, pct: 0.04 }, lonely: { speed: 1.6, cd: 0.55 },
   flesh: { wind: 1.0, follow: 0.4, r: 34, dmg: 1.2 }, spit: { n: 2, max: 4 },
   // 2026-11-08 사용자 '최종 보스 주변에 졸개 한 마리만 돌려서 색깔 같고 다르게 — 다시': 복제체는 하나만, 어미 둘레(orbit, 바닥 타원)를 spin[단계] 라디안/초로 돎(2단계부터 flip 초마다 방향이 바뀜).
@@ -777,7 +778,12 @@ Object.assign(ENEMIES, {
     atk: { windup: 0.6, active: 0.12, recovery: 0.75, knock: 220, reach: [0, 32], arc: 110, lunge: 150 },
     slam: { windup: 0.85, radius: 56 }, charge: { windup: 0.6, speed: 260, time: 0.6 }, summon: 'lab_bloat' },
   lab_eye: { name: '관찰체', sprite: 'lab_eye', pix: true, idle: false, boss: true, lab: 'eye', scale: 1.25, speed: 28, range: 24, superArmor: true, launchMul: 0.1, r: 13,
-    eyes: { n: 3, orbit: 34, spin: 1.5, relight: 0.9, expose: 6, mul: 1.5, regrow: 4 }, gaze: { r: 170, arc: 50, turn: 0.8, hold: 0.9, max: 3, decay: 3, pct: 0.3 },
+    // 2026-11-08 사용자 '5층 보스도 말뚝딜하면 눈이 잡히고 딜 타임이 나옴 — 본체를 3대 이상 치면 화면 점멸하며 전체 대미지'(제안 ① 등지면 안 맞음 · 눈 도는 거리 34 → 48 — 본체를 안 건드리고 빛나는 눈만 골라 치게):
+    //   flash = 유리병(눈)이 남아 있는 동안 본체를 맞히면 '노려봄' 1(사람마다 gap 초에 한 번 · 모두 합쳐 셈), decay 초 동안 안 맞으면 하나씩 빠짐. max 면 wind 초 예고(몸이 하얗게 · 화면 가장자리 초당 2번 깜빡) 뒤
+    //   섬광: 화면이 하얗게 한 번 덮였다 서서히 사라짐(빠른 깜빡임 없음 — 빛에 예민한 사람 배려) · 방 안에서 관찰체 쪽을 보고 있는 사람(바라보는 쪽과 관찰체 쪽 사이 90° 안)은 최대 체력 pct(대시로도 못 피함)
+    //   + 터진 눈이 다시 셋 다 떠오름(시험: 등만 돌리면 섬광을 안 맞아 말뚝딜이 그대로 빨라서 — 마구 쳐서 터뜨린 눈을 헛것으로)
+    eyes: { n: 3, orbit: 48, spin: 1.5, relight: 0.9, expose: 6, mul: 1.5, regrow: 4 }, gaze: { r: 170, arc: 50, turn: 0.8, hold: 0.9, max: 3, decay: 3, pct: 0.3 },
+    flash: { max: 3, gap: 0.3, decay: 4, wind: 1.0, pct: 0.25 },
     atk: { windup: 0.55, active: 0.12, recovery: 0.7, knock: 180, reach: [0, 28], arc: 100, lunge: 120 },
     slam: { windup: 0.8, radius: 50 }, charge: { windup: 0.55, speed: 240, time: 0.6 }, fan: { windup: 0.65, count: 11, speed: 120, color: '#ffe066' }, summon: 'lab_graft' },
   // 실패작 부품(labPart): 관찰체의 떠다니는 눈 — 몹처럼 맞지만 경험치 · 전리품 없음
@@ -997,8 +1003,10 @@ for (const F of SUNKEN.floors) Object.assign(ENEMIES[F.boss], { cdMul: SUNKEN.mi
 //   기준 캐릭터(Lv.120 · Lv.100 +10 유니크 · 기술 칸 넷 태초 화염석 · 장비마다 태초 보석, 체력 19만 · 공격 2.1만)로 재서 2단계(같은 장비 Lv.110)와 견줌(기본 공격 봇, 피하지 않음):
 //   5층 잔몹방 2단계 29초 · 받은 피해 286% → 3단계 처음 71초 · 1258% → 체력 × 0.4 · 공격 × 0.38 로 41초 · 290%(1층 28초 · 158%, 2단계 27초 · 83%)
 //   중간 보스 내려찍기 한 방 2단계 33~38% → 3단계 37~43%(bossDmg × 0.49), 체력 bossHp × 0.54(5층 4,681만, 2단계 브란 3,462만). 받는 피해 초당 5~12%(2단계 기사 7~16%)
-const LAB = { stage: 3, max: 5, diff: 2, lv: 120, entry: 115, ilvl: [100, 104], stepHp: SUNKEN.stepHp * 0.4, stepDmg: SUNKEN.stepDmg * 0.38, bossHp: SUNKEN.bossHp * 0.54, bossDmg: SUNKEN.bossDmg * 0.49,
-  hp: 1.06, dmg: 1.04, reward: 0.05, packs: 1, packAdd: 7, mid: { hp: 3.9, dmg: 1.4, cd: 0.6, rec: 0.6 }, unlock: STAGE_UNLOCK, flatMobs: true,
+// 2026-11-08 사용자 '3단계 기준 = Lv.110 유니크 한 벌 +10 · 태초 보석 · 속성석인데 중간 보스가 딜 타임 2 ~ 4번에 죽음 — 잡몹 ×2 · 중간 보스 ×2'(×3 은 딜 타임 6 ~ 12번이라 길어서):
+//   stepHp × 0.4 → × 0.8 · mid.hp 3.9 → 7.8(레이드 '분열의 어미'는 mid.hp 를 나눠 빼므로 그대로 — 따로 BROOD_RULE.hpMul)
+const LAB = { stage: 3, max: 5, diff: 2, lv: 120, entry: 115, ilvl: [100, 104], stepHp: SUNKEN.stepHp * 0.8, stepDmg: SUNKEN.stepDmg * 0.38, bossHp: SUNKEN.bossHp * 0.54, bossDmg: SUNKEN.bossDmg * 0.49,
+  hp: 1.06, dmg: 1.04, reward: 0.05, packs: 1, packAdd: 7, mid: { hp: 7.8, dmg: 1.4, cd: 0.6, rec: 0.6 }, unlock: STAGE_UNLOCK, flatMobs: true,
   loot: { gear: 1, chests: 1, bigItems: 3, bigGold: 1.8, gold: 2.2, boost: 0.35 },  // 2단계보다 골드 · 등급 조금 더
   zones: ['배양실', '개조실', '폐수 처리실', '격리실', '관찰실'],
   floors: [

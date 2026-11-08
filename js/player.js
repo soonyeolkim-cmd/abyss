@@ -429,6 +429,9 @@ function updateAct(p, dt, room) {
   const C = p.cls, a = p.act, d = a.def;
   a.time += dt;
   const tA = a.s, tB = a.s + a.a, tEnd = tB + a.r;
+  // 구속(구속체 충격파 — bindT): 돌진 베기 · 신성 돌진 · 백스탭 · 물러나며 표창도 기술은 나가되 자리는 안 움직임(2026-11-08 사용자)
+  const held = p.bindT > 0;
+  if (held && a.fly && !a.fly.done) { a.fly.done = true; if (a.fly.tgt && !a.fly.tgt.dying) p.fv = unit(a.fly.tgt.x - p.x, a.fly.tgt.y - p.y, p.fv); }
   // 백스탭: 준비 동안 대상 등 뒤로 날아간다(벽 · 몸 무시 — 자리는 미리 걸을 수 있는 곳으로 골라 둠), 도착하면 대상을 본다
   if (a.fly && !a.fly.done) {
     const f = a.fly, k = Math.min(1, a.time / Math.max(0.001, a.s));
@@ -438,13 +441,13 @@ function updateAct(p, dt, room) {
   // 롯드: 마력탄을 쏘는 동안에도 걸을 수 있다(느리게, 보는 쪽은 그대로)
   if (d.orb && wkOf(p).castMove) { const m = moveInput(p); if (m) { const sp = p.cls.speed * (1 + p.stats.move / 100) * wkOf(p).castMove; Dungeon.move(room, p, m.x * sp * dt, m.y * sp * dt, BODY_R, false); } }
   // 싸이 물러나며 표창: 기술 동안 뒤로 빠진다
-  if (d.backstep && a.time < tB) Dungeon.move(room, p, -p.fv.x * d.backstep / tB * dt, -p.fv.y * d.backstep / tB * dt, BODY_R, false);
+  if (d.backstep && a.time < tB && !held) Dungeon.move(room, p, -p.fv.x * d.backstep / tB * dt, -p.fv.y * d.backstep / tB * dt, BODY_R, false);
   if (a.time < tB) {
     let v = 0;
     if (d.dash) { if (a.time >= tA) v = (a.len || d.dash) / a.a * (d.ease ? 2 * Math.max(0, 1 - (a.time - tA) / a.a) : 1); }  // 돌진 베기는 그 적까지 거리(a.len) · ease = 빠르게 나가 미끄러지듯 멈춤(거리는 같음)
     // 기본 공격 내딛기(lunge): 방향키를 누르고 있을 때만(2026-10-24 사용자: 중립이면 제자리, 누르면 그쪽으로 전진)
     else if (d.lunge && a.push) v = d.lunge / tB;
-    if (v) Dungeon.move(room, p, p.fv.x * v * dt, p.fv.y * v * dt, BODY_R, false);
+    if (v && !held) Dungeon.move(room, p, p.fv.x * v * dt, p.fv.y * v * dt, BODY_R, false);
   }
   if (!a.fxDone && a.time >= tA) {
     a.fxDone = true;

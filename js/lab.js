@@ -223,7 +223,7 @@ const Lab = (() => {
     brood: '배양 모체 — 배양조에 약물을 넣는 동안만 등 뒤 청록 뚜껑이 깨진다! 앞에서 치면 산성 거품이 쌓여 터진다',
     melt: '흘러내리는 자 — 녹아 흐르는 웅덩이는 빨아들이고 장판을 남긴다, 대시로 빠져나와라! 솟아오른 뒤 굳은(청록) 동안 쳐라',
     zero: '구속체 — 돌진할 때마다 기둥을 꽂아 사슬이 감긴다! 멀리 서서 길게 달리게 하라 — 사슬이 짧아진 채 돌진하면 장력에 끌려 넘어진다',
-    eye: '관찰체 — 청록으로 빛나는 눈만 터뜨려라(다른 눈은 표식)! 바라보는 부채꼴 안에 오래 서 있어도 표식 — 셋이면 응시 광선',
+    eye: '관찰체 — 청록으로 빛나는 눈만 터뜨려라(다른 눈 · 부채꼴은 표식)! 본체를 세 번 치면 섬광 — 예고가 뜨면 관찰체를 등져라',
   };
   function midInit(e, lv) {
     const d = e.def, k = d.lab;
@@ -232,7 +232,7 @@ const Lab = (() => {
     if (k === 'brood') { e.lid = d.lid.hits; e.hatchT = 3; e.injCd = d.inject.first; e.foam = 0; }
     if (k === 'melt') e.meltCd = 4;
     if (k === 'zero') { e.lashCd = 2; e.chargeCd = 2; e.posts = []; e.taut = false; }
-    if (k === 'eye') { e.gazeA = Math.atan2(e.fv.y, e.fv.x); e.marks = new Map(); e.eyeA = 0; spawnEyes(e); }
+    if (k === 'eye') { e.gazeA = Math.atan2(e.fv.y, e.fv.x); e.marks = new Map(); e.eyeA = 0; e.glare = 0; spawnEyes(e); }
     World.say(HINT[k], 3.4);
   }
   function midThink(e, dt, lv, p) {
@@ -432,6 +432,25 @@ const Lab = (() => {
         e.t -= dt; e.kx = 0; e.ky = 0;
         if (e.t <= 0) { e.state = 'move'; e.atkCd = 0.6; if (d.lab === 'eye') { spawnEyes(e); World.text(e.x, e.y, e.h + 8, '눈이 다시 떠올랐다', '#ffe066'); } }
         return true;
+      case 'flashWind': {  // 섬광 예고(몸이 하얗게) → 방 안에서 관찰체 쪽을 보고 있는 사람만(대시로도 못 피함)
+        e.t -= dt; e.kx = 0; e.ky = 0;
+        if (e.t <= 0) {
+          const F = d.flash;
+          for (const t of peopleOf()) {
+            if (t.dead || World.roomOf(t) !== e.ri) continue;
+            const u = unit(e.x - t.x, e.y - t.y, t.fv), look = t.fv.x * u.x + t.fv.y * u.y;
+            if (look > 0) { hurtPlayer(t, { x: e.x, y: e.y, pct: F.pct, unavoid: true }, 0, 0); World.text(t.x, t.y, 44, '눈이 부시다!', '#ffffff', true); }
+            else World.text(t.x, t.y, 44, '피했다!', TEAL);
+          }
+          e.glare = 0; World.shake(5); Sfx.blast();
+          if (eyesOf(e).length < d.eyes.n) {  // 터진 눈이 다시 모임(마구 쳐서 눈을 터뜨린 것도 헛것이 되게)
+            for (const o of eyesOf(e)) { o.dying = true; o.hp = 0; o.state = 'dead'; o.t = 0; }
+            spawnEyes(e); World.text(e.x, e.y, e.h + 16, '터진 눈이 다시 떠올랐다!', '#ffe066', true);
+          }
+          e.state = 'recover'; e.t = 0.8;
+        }
+        return true;
+      }
       case 'gazeWind':  // 응시 광선 준비(눈이 붉게) → 표식이 가득 찬 사람에게(못 피함)
         e.t -= dt; e.kx = 0; e.ky = 0;
         if (e.t <= 0) {
@@ -544,7 +563,15 @@ const Lab = (() => {
     }
     if (k === 'eye') {
       if (e.state === 'labDown') return { m: d.eyes.mul, s: '' };
-      if (eyesOf(e).length) return { m: 0, s: '유리병이 막는다', armor: true };
+      if (eyesOf(e).length) {
+        if (src && src.x !== undefined && !src.pet && !World.mirror && !(src.glareT > now()) && e.state !== 'flashWind') {  // 섬광: 본체를 맞히면 노려봄(사람마다 gap 초에 한 번)
+          const F = d.flash;
+          src.glareT = now() + F.gap; e.glare = Math.min(F.max, (e.glare || 0) + 1); e.glareAt = now(); e.glareDecT = F.decay;
+          World.text(e.x, e.y, e.h + 14, '노려본다 ' + e.glare + '/' + F.max, '#ffffff');
+          sayOnce(e, 'glareSeen', '유리병이 막는 동안 본체를 치면 노려봄이 쌓인다 — 셋이면 섬광! 빛나는 눈만 쳐라', 3);
+        }
+        return { m: 0, s: '유리병이 막는다', armor: true };
+      }
       return null;
     }
     return null;
@@ -760,7 +787,15 @@ const Lab = (() => {
         }
         if (n < B.max) { World.text(e.x, e.y, e.h + 10, '배양조가 실험체를 낳는다!', ACID_HI); World.sparks(e.x, e.y - e.h * 0.8, 6, 10, ACID_HI, true); Sfx.spell(); }
       }
-      if (k === 'eye') eyeTick(e, dt);
+      if (k === 'eye') {
+        eyeTick(e, dt);
+        const F = d.flash;
+        if (e.glare > 0 && e.glare < F.max && now() - (e.glareAt || 0) > F.decay && (e.glareDecT = (e.glareDecT || F.decay) - dt) <= 0) { e.glareDecT = F.decay; e.glare--; }
+        if (e.glare >= F.max && !['labDown', 'gazeWind', 'flashWind', 'dead'].includes(e.state)) {
+          e.state = 'flashWind'; e.t = e.windupT = F.wind; e.kx = 0; e.ky = 0;
+          World.text(e.x, e.y, e.h + 12, '섬광 — 눈을 돌려라!', '#ffffff', true); World.say('섬광 — 관찰체를 등져라!', 1.4); Sfx.spell(); World.shake(2);
+        }
+      }
     }
     if (lv.zeroWaves && lv.zeroWaves.length) {  // 구속체 충격파: 고리 띠(두께 w)가 지나가는 사람마다 한 번 — 피해 + 구속(대시 무적이면 피함)
       for (const w of lv.zeroWaves) {
@@ -1466,7 +1501,33 @@ const Lab = (() => {
     }
   }
   // 어둠 위(world.js draw): 표식(내 머리 위 노란 눈) · 응시 광선 · 범람 알림
+  let flashK = 0, flashSeen = new Map();
   function labels(ctx) {
+    for (const e of World.enemies()) {  // 관찰체 섬광: 노려봄 칸(머리 위 눈 셋) · 예고(몸 둘레 흰 빛) · 터진 순간(파티 손님도 상태가 바뀌는 걸 보고) 화면 덮기
+      if (e.def.lab !== 'eye' || !live(e)) continue;
+      const F = e.def.flash, x = Math.round(e.x), y = Math.round(e.y - e.h - 16), g = e.glare || 0;
+      if (g > 0 && e.state !== 'labDown') for (let i = 0; i < F.max; i++) {
+        const ex = x - (F.max - 1) * 6 + i * 12, on = i < g;
+        ctx.fillStyle = '#120a14'; ctx.fillRect(ex - 5, y - 3, 10, 6);
+        ctx.fillStyle = on ? '#ffffff' : '#4a4a58'; ctx.fillRect(ex - 4, y - 2, 8, 4);
+        if (on) { ctx.fillStyle = '#ff5a5a'; ctx.fillRect(ex - 1, y - 2, 2, 4); }
+      }
+      if (e.state === 'flashWind') {
+        const k = 1 - e.t / (e.windupT || F.wind);
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35 + 0.5 * k;
+        const R = e.r * (2 + k * 2), gr = ctx.createRadialGradient(e.x, e.y - e.h * 0.5, 0, e.x, e.y - e.h * 0.5, R);
+        gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = gr; ctx.fillRect(e.x - R, e.y - e.h * 0.5 - R, R * 2, R * 2); ctx.restore();
+        const W = ctx.canvas.width, H = ctx.canvas.height, b = 0.25 + 0.25 * Math.sin(World.time * Math.PI * 4);  // 화면 가장자리: 초당 2번(3번 넘지 않게)
+        ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.strokeStyle = 'rgba(255,255,255,' + b + ')'; ctx.lineWidth = 8; ctx.strokeRect(4, 4, W - 8, H - 8); ctx.restore();
+      }
+      if (flashSeen.get(e.id) === 'flashWind' && e.state !== 'flashWind' && e.state !== 'dead') flashK = 1;  // 막 터짐
+      flashSeen.set(e.id, e.state);
+    }
+    if (flashK > 0) {  // 화면 전체를 하얗게 한 번 덮었다가 서서히(0.7초) — 되풀이 깜빡임 없음
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = 'rgba(255,255,255,' + (0.85 * flashK) + ')'; ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height); ctx.restore();
+      flashK = Math.max(0, flashK - 1 / 42);
+    }
     for (const t of peopleOf()) if (t.bindT > 0 && !t.dead) {  // 구속: 몸을 감은 도트 사슬 두 바퀴(뒤쪽 고리는 흐리게) + 머리 위 자물쇠 · 남은 시간 고리
       const x = Math.round(t.x), y = Math.round(t.y), time = World.time, max = (ENEMIES.lab_zero.quake && ENEMIES.lab_zero.quake.bind) || 5;
       const link = (px, py, even, back) => {
@@ -1588,7 +1649,7 @@ const Lab = (() => {
   function snap() {
     const lv = World.level;
     if (!lv || !lv.def.lab) return undefined;
-    const ms = World.enemies().filter(e => e.def.lab && e.lInit && live(e)).map(e => [e.id, e.stitches ?? e.lid ?? 0, e.exposeT > 0 ? 1 : 0, Math.round((e.gazeA || 0) * 100) / 100, e.litI || 0, e.posts ? e.posts.map(q => [Math.round(q.x), Math.round(q.y)]) : 0, e.foam || 0]);
+    const ms = World.enemies().filter(e => e.def.lab && e.lInit && live(e)).map(e => [e.id, e.stitches ?? e.lid ?? 0, e.exposeT > 0 ? 1 : 0, Math.round((e.gazeA || 0) * 100) / 100, e.litI || 0, e.posts ? e.posts.map(q => [Math.round(q.x), Math.round(q.y)]) : 0, e.foam || 0, e.glare || 0]);
     const out = { ms, tr: (lv.labTrail || []).map(w => [Math.round(w.x), Math.round(w.y), w.r, Math.round(w.t * 10) / 10, w.life, w.ri]), zw: (lv.zeroWaves || []).map(w => [Math.round(w.x), Math.round(w.y), Math.round(w.t * 100) / 100, w.ri]) };
     if (B && motherOf()) {
       out.b = bodiesOf().map(b => [b.id, b.col, b.lockT > 0 ? 1 : 0, b.next ?? -1]);
@@ -1607,11 +1668,12 @@ const Lab = (() => {
     const byId = id => World.enemies().find(e => e.id === id);
     if (World.level && a.tr) World.level.labTrail = a.tr.map(([x, y, r, t, life, ri]) => ({ x, y, r, t, life, ri, dmg: 0 }));
     if (World.level && a.zw) World.level.zeroWaves = a.zw.map(([x, y, t, ri]) => ({ x, y, t, ri, hit: [], q: ENEMIES.lab_zero.quake }));  // 그림만(맞히기는 방장)
-    for (const [id, n, ex, ga, li, ps, fo] of a.ms || []) {
+    for (const [id, n, ex, ga, li, ps, fo, gl] of a.ms || []) {
       const e = byId(id); if (!e) continue;
       e.lInit = true; e.exposeT = ex ? 1 : 0; e.gazeA = ga; e.litI = li;
       if (ps) e.posts = ps.map(([x, y]) => ({ x, y }));
       if (e.def.lab === 'brood') e.foam = fo || 0;
+      if (e.def.lab === 'eye') e.glare = gl || 0;
       if (e.def.lab === 'stitch') e.stitches = n; if (e.def.lab === 'brood') e.lid = n; 
     }
     if (a.b) {

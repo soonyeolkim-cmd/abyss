@@ -275,7 +275,7 @@ const Art = (() => {
       ctx.beginPath(); ctx.moveTo(e.x, e.y - 4); ctx.lineTo(e.x + e.chargeV.x * len, e.y - 4 + e.chargeV.y * len); ctx.stroke();
       ctx.restore();
     }
-    const tele = e.state === 'windup' && (committed(e) || d.superArmor) || ['slam', 'leapWind', 'chargeWind', 'fan', 'orbWind', 'ringWind', 'anchorWind', 'waveWind', 'spinWind', 'rushWind', 'jailWind', 'sweepWind', 'thrustWind', 'meltRise', 'lashWind', 'gazeWind', 'fleshWind', 'spitWind', 'dashWind', 'acidWind', 'swingWind', 'foamWind'].includes(e.state);
+    const tele = e.state === 'windup' && (committed(e) || d.superArmor) || ['slam', 'leapWind', 'chargeWind', 'fan', 'orbWind', 'ringWind', 'anchorWind', 'waveWind', 'spinWind', 'rushWind', 'jailWind', 'sweepWind', 'thrustWind', 'meltRise', 'lashWind', 'gazeWind', 'fleshWind', 'spitWind', 'dashWind', 'acidWind', 'swingWind', 'foamWind', 'flashWind'].includes(e.state);
     if (tele && !o.flash && Math.floor(time * 14) % 2 === 0) o.flash = '#ff4030';
     if (d.shield && e.state === 'recover' && !o.flash && Math.floor(time * 6) % 3 === 0) o.flash = '#5fe0d0';  // 방패병 틈: 청록으로 깜빡
     if (d.shield && SHIELD_UP.includes(e.state) && e.state !== 'dead') {  // 방패가 막는 쪽(앞 ±약 72°)을 발밑 뼈빛 호로
