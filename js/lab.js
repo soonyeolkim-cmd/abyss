@@ -216,7 +216,7 @@ const Lab = (() => {
   const HINT = {
     stitch: '봉합체 — 실밥은 큰 공격 뒤 틈(청록 빛)에만 끊어진다! 끊으면 실바늘이 다시 꿰매러 간다 — 닿기 전에 잡아라',
     brood: '배양 모체 — 등 뒤 청록 뚜껑을 깨면 낳기가 멈추고 드러난다! 몸은 천천히 돈다, 빙 돌아라',
-    melt: '흘러내리는 자 — 물렁할 땐 잘 안 들어간다! 솟아오른 뒤 굳은(청록) 동안 쳐라',
+    melt: '흘러내리는 자 — 녹아 흐르는 웅덩이는 빨아들이고 장판을 남긴다, 대시로 빠져나와라! 솟아오른 뒤 굳은(청록) 동안 쳐라',
     zero: '구속체 — 사슬이 끊길수록 채찍이 길어진다! 둘 이상 끊겼을 때 앞에서 가슴 자물쇠를 쳐 다시 묶으면 기절',
     eye: '관찰체 — 청록으로 빛나는 눈만 터뜨려라(다른 눈은 표식)! 바라보는 부채꼴 안에 오래 서 있어도 표식 — 셋이면 응시 광선',
   };
@@ -300,9 +300,23 @@ const Lab = (() => {
         if (e.t <= 0) { e.state = 'melted'; e.t = d.melt.under; }
         return true;
       case 'melted': {  // 웅덩이째 노리는 사람 쪽으로 흘러옴(안 맞음)
+        const M = d.melt;
         e.t -= dt; e.moving = true; e.walkT += dt;
-        if (!p.dead) { const u = unit(p.x - e.x, p.y - e.y, e.fv); mobMove(lv, e, u.x * d.melt.flow * dt, u.y * d.melt.flow * dt); }
+        if (!p.dead) { const u = unit(p.x - e.x, p.y - e.y, e.fv); mobMove(lv, e, u.x * M.flow * dt, u.y * M.flow * dt); }
         if (Math.random() < dt * 8) World.sparks(e.x + (Math.random() - 0.5) * 20, e.y, 2, 1, ACID_HI, false);
+        e.poolT = (e.poolT || 0) - dt;
+        const hurtNow = e.poolT <= 0;
+        if (hurtNow) e.poolT = M.pool.every;
+        for (const t of peopleOf()) {  // 빨아들이기(대시 중엔 안 끌림) · 웅덩이 몸 위면 피해(그림 = 판정 — 바닥 타원 pool.r)
+          if (World.roomOf(t) !== e.ri) continue;
+          const gd = groundDist(t.x - e.x, t.y - e.y);
+          if (gd <= M.pull.r && gd > 3 && t.state !== 'dodge') { const u = unit(e.x - t.x, e.y - t.y, { x: 0, y: 0 }); Dungeon.move(lv, t, u.x * M.pull.speed * dt, u.y * M.pull.speed * dt, BODY_R); }
+          if (hurtNow && gd <= M.pool.r + BODY_R) hurtPlayer(t, { x: e.x, y: e.y + 1, disarmT: e.disarmT, disarmCut: e.disarmCut }, d.slam.dmg * e.dmgMul * M.pool.dmg, 0);
+        }
+        if ((e.trailT = (e.trailT || 0) - dt) <= 0) {  // 지나간 자리 약물 장판
+          e.trailT = M.trail.every;
+          (lv.labTrail || (lv.labTrail = [])).push({ x: e.x, y: e.y, r: M.trail.r, t: M.trail.life, life: M.trail.life, ri: e.ri, dmg: d.slam.dmg * e.dmgMul * M.trail.dmg });
+        }
         if (e.t <= 0) { e.state = 'meltRise'; e.t = e.windupT = d.melt.rise; e.lx = p.x; e.ly = p.y; Sfx.spell(); }
         return true;
       }
@@ -592,6 +606,15 @@ const Lab = (() => {
         if (n < B.max) { World.text(e.x, e.y, e.h + 10, '배양조가 실험체를 낳는다!', ACID_HI); World.sparks(e.x, e.y - e.h * 0.8, 6, 10, ACID_HI, true); Sfx.spell(); }
       }
       if (k === 'eye') eyeTick(e, dt);
+    }
+    if (lv.labTrail && lv.labTrail.length) {  // 흘러내리는 자가 지나간 약물 장판: 위에 있으면 0.5초마다 피해(그림 = 판정, 바닥 타원 r)
+      for (const w of lv.labTrail) w.t -= dt;
+      lv.labTrail = lv.labTrail.filter(w => w.t > 0);
+      for (const t of peopleOf()) {
+        if (t.trailHurtT > World.time) continue;
+        const w = lv.labTrail.find(o => o.ri === World.roomOf(t) && groundDist(t.x - o.x, t.y - o.y) <= o.r + BODY_R * 0.5);
+        if (w && hurtPlayer(t, { x: t.x, y: t.y + 1, hazard: true }, w.dmg, 0) !== 'miss') t.trailHurtT = World.time + 0.5;
+      }
     }
     const m = motherOf();
     if (m && m.lInit && live(m)) broodUpdate(dt, lv, m);
@@ -944,9 +967,18 @@ const Lab = (() => {
     if (d.lab === 'melt' && (e.state === 'melted' || e.state === 'meltSink' || e.under)) {  // 웅덩이째 흘러다님(안 맞음)
       const k = e.state === 'meltSink' ? 1 - e.t / d.melt.sink : 1;
       ctx.save();
-      ctx.fillStyle = 'rgba(46,90,20,0.75)'; ctx.beginPath(); ctx.ellipse(x, y, 16 * k + 4, (16 * k + 4) * GROUND_Y, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(108,176,42,0.8)'; ctx.beginPath(); ctx.ellipse(x - 2, y - 1, 10 * k + 2, (10 * k + 2) * GROUND_Y, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = ACID_HI; for (let i = 0; i < 3; i++) ctx.fillRect(Math.round(x + Math.cos(time * 3 + i * 2) * 8 * k), Math.round(y + Math.sin(time * 4 + i) * 3), 2, 2);
+      const M = d.melt, R = M.pool.r * k;  // 웅덩이 몸 = 판정(pool.r)
+      if (e.state === 'melted') {  // 빨아들이는 둘레(pull.r): 점선 고리 + 안으로 빨려드는 줄
+        ctx.save(); ctx.strokeStyle = 'rgba(200,255,106,0.5)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+        ctx.beginPath(); ctx.ellipse(x, y, M.pull.r, M.pull.r * GROUND_Y, 0, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+        for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2 + i, ph = 1 - ((time * 2 + i * 0.37) % 1), r1 = R + (M.pull.r - R) * ph, r2 = Math.max(R, r1 - 9); ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * r1, y + Math.sin(a) * r1 * GROUND_Y); ctx.lineTo(x + Math.cos(a) * r2, y + Math.sin(a) * r2 * GROUND_Y); ctx.stroke(); }
+        ctx.restore();
+      }
+      ctx.save();
+      ctx.fillStyle = 'rgba(46,90,20,0.8)'; ctx.beginPath(); ctx.ellipse(x, y, R + 2, (R + 2) * GROUND_Y, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(108,176,42,0.85)'; ctx.beginPath(); ctx.ellipse(x - 2, y - 1, R * 0.65, R * 0.65 * GROUND_Y, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = ACID_HI; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(x, y, R, R * GROUND_Y, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = ACID_HI; for (let i = 0; i < 4; i++) ctx.fillRect(Math.round(x + Math.cos(time * 3 + i * 2) * R * 0.5), Math.round(y + Math.sin(time * 4 + i) * R * 0.3), 2, 2);
       ctx.fillStyle = '#ffe066'; ctx.fillRect(x - 3, y - 1, 1, 1); ctx.fillRect(x + 2, y - 1, 1, 1);  // 웅덩이 속 노란 눈
       ctx.restore();
       if (e.state === 'meltSink') Gfx.spr(ctx, 'lab_melt_anim_f0', x, y + Math.round(k * 20), Object.assign({}, o, { alpha: 1 - k }));
@@ -1060,6 +1092,14 @@ const Lab = (() => {
         ctx.restore();
       }
     }
+    for (const w of lv.labTrail || []) {  // 약물 장판(판정 r = 바닥 타원)
+      if (w.ri !== ri) continue;
+      const a = Math.min(1, w.t / 0.6), k = Math.min(1, (w.life - w.t) / 0.15);
+      ctx.save(); ctx.globalAlpha = 0.75 * a;
+      ctx.fillStyle = '#2e5a14'; ctx.beginPath(); ctx.ellipse(w.x, w.y, w.r * k, w.r * k * GROUND_Y, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 0.8 * a; ctx.fillStyle = ACID; ctx.beginPath(); ctx.ellipse(w.x - 1, w.y, w.r * 0.6 * k, w.r * 0.6 * k * GROUND_Y, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
     for (const e of World.enemies()) {
       if (e.ri !== ri || !live(e)) continue;
       const d = e.def;
@@ -1157,7 +1197,7 @@ const Lab = (() => {
     const lv = World.level;
     if (!lv || !lv.def.lab) return undefined;
     const ms = World.enemies().filter(e => e.def.lab && e.lInit && live(e)).map(e => [e.id, e.stitches ?? e.lid ?? e.chainLv ?? 0, e.exposeT > 0 ? 1 : 0, Math.round((e.gazeA || 0) * 100) / 100, e.litI || 0]);
-    const out = { ms };
+    const out = { ms, tr: (lv.labTrail || []).map(w => [Math.round(w.x), Math.round(w.y), w.r, Math.round(w.t * 10) / 10, w.life, w.ri]) };
     if (B && motherOf()) {
       out.b = bodiesOf().map(b => [b.id, b.col, b.lockT > 0 ? 1 : 0, b.next ?? -1]);
       out.r = B.res ? [B.res.col, B.res.braced ? 1 : 0] : null;
@@ -1171,6 +1211,7 @@ const Lab = (() => {
   function unsnap(a) {
     if (!a) return;
     const byId = id => World.enemies().find(e => e.id === id);
+    if (World.level && a.tr) World.level.labTrail = a.tr.map(([x, y, r, t, life, ri]) => ({ x, y, r, t, life, ri, dmg: 0 }));
     for (const [id, n, ex, ga, li] of a.ms || []) {
       const e = byId(id); if (!e) continue;
       e.lInit = true; e.exposeT = ex ? 1 : 0; e.gazeA = ga; e.litI = li;

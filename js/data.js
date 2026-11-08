@@ -724,7 +724,10 @@ Object.assign(ENEMIES, {
     atk: { windup: 0.55, active: 0.12, recovery: 0.7, knock: 190, reach: [0, 30], arc: 120, lunge: 120 },
     slam: { windup: 0.85, radius: 50 }, charge: { windup: 0.6, speed: 240, time: 0.6 }, fan: { windup: 0.65, count: 9, speed: 110, color: '#c8ff6a' }, summon: 'lab_spawn' },
   lab_melt: { name: '흘러내리는 자', sprite: 'lab_melt', pix: true, idle: false, boss: true, lab: 'melt', scale: 1.25, speed: 34, range: 22, superArmor: true, launchMul: 0.15, r: 12,
-    melt: { soft: 0.25, every: 6, sink: 0.5, under: 2.2, flow: 70, rise: 0.85, follow: 0.5, r: 38, dmg: 1.5, hard: 3.5, mul: 1.5 },
+    melt: { soft: 0.25, every: 6, sink: 0.5, under: 3, flow: 125, rise: 0.85, follow: 0.5, r: 38, dmg: 1.5, hard: 3.5, mul: 1.5,
+      // 2026-11-08 사용자 '3층 보스 너무 쉬워 — 녹아내리면 빠르고 장판으로 대미지 주고 빨아들이는 효과': 녹아 있는 동안(under 2.2 → 3초, 흘러옴 70 → 125px/초 — 걷기 82보다 빠름)
+      //   pool = 웅덩이 몸(반지름 r) 위에 있으면 every 초마다 내려찍기 × dmg · pull = 둘레 r 안을 speed px/초로 끌어당김(대시 중엔 안 끌림) · trail = 지나간 자리에 every 초마다 약물 장판(r, life 초, 0.5초마다 × dmg)
+      pool: { r: 24, every: 0.4, dmg: 0.3 }, pull: { r: 90, speed: 60 }, trail: { every: 0.2, r: 16, life: 3.5, dmg: 0.15 } },  // 시험: 웅덩이 0.12 = 한 번 2.4%(기준 캐릭터) → 0.3 · 장판 0.06 → 0.15
     atk: { windup: 0.55, active: 0.12, recovery: 0.7, knock: 180, reach: [0, 30], arc: 100, lunge: 150 },
     slam: { windup: 0.8, radius: 50 }, charge: { windup: 0.55, speed: 250, time: 0.6 }, fan: { windup: 0.65, count: 9, speed: 115, color: '#c8ff6a' }, summon: 'lab_bloat' },
   lab_zero: { name: '구속체', sprite: 'lab_zero', pix: true, idle: false, boss: true, lab: 'zero', scale: 1.25, speed: 32, range: 26, superArmor: true, launchMul: 0.15, r: 12,
