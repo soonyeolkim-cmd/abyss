@@ -705,14 +705,17 @@ Object.assign(ENEMIES, {
   lab_chain: { name: '사슬 묶인 실험체', sprite: 'lab_chain', pix: true, idle: false, speed: 30, range: 18, poise: 6, solo: 2, bound: { leash: 26, snapHp: 0.6, snapT: 7, speed: 1.8, wind: 0.65 }, r: 7,
     atk: { windup: 0.5, active: 0.12, recovery: 0.6, knock: 170, reach: [0, 24], arc: 100, lunge: 160 } },
   // 실패작 다섯(층 끝 중간 보스 — 바탕 패턴(휘두르기 · 내려찍기 · 돌진 · 탄)은 다른 중간 보스와 같고 기믹 lab 이 덧붙는다, js/lab.js)
-  //   stitch 봉합체: 실밥 n 개가 있으면 피해 × cut. 큰 공격 뒤 틈(recover · 기절 — 실밥이 청록으로 빛남)에 맞을 때마다(gap 초에 하나) 실밥이 하나씩 끊김 → 다 끊으면 expose 초 드러남(× mul), restitch 초 뒤 다시 꿰맴
+  //   stitch 봉합체: 실밥 n 개가 있으면 피해 × cut. 큰 공격(내려찍기 · 후려치기 · 돌진) 뒤 틈 · 기둥 기절(실밥이 청록으로 빛남)에 맞을 때마다(gap 초에 하나) 실밥이 하나씩 끊김 →
+  //        끊을 때마다 실바늘(needle — 부품, hp 대)이 fling px 밖으로 튀어나와 speed px/초로 봉합체에게 기어가 닿으면 그 실밥을 다시 꿰맴.
+  //        실밥이 다 끊기고 실바늘도 다 잡으면 expose 초 드러남(× mul), restitch 초 뒤 다시 꿰맴
+  //        (2026-11-08 사용자 '끊기가 너무 쉬워 — A안 실바늘': 예전엔 작은 휘두르기 뒤 틈에도 끊기고 셋을 1초 안에 끊으면 바로 드러남)
   //   brood 배양 모체: every 초마다 배양조 실험체 n 마리. 등 뒤 뚜껑(뒤 ± cone)이 있으면 피해 × cut — 등 뒤에서 lid 대 치면 뚜껑이 깨져 expose 초 드러남(× mul, 낳기 멈춤) · regrow 초 뒤 다시. 몸은 초당 turn 라디안으로만 돎(빙 돌아 등을 노리기)
   //   melt 흘러내리는 자: 물렁한 동안 피해 × soft → every 초마다 웅덩이로 녹아듦(안 맞음) under 초 동안 노리는 사람 쪽으로 흘러옴 → rise 초 바닥 예고(r = 판정) 뒤 솟아오름 → hard 초 굳음(청록, × mul)
   //   zero 구속체(예전 이름 '격리 번호 0' — 2026-11-08 사용자가 바꿈): 사슬 갑옷(피해 × cut). every 초마다 사슬이 하나씩 끊어짐(max 개) — 끊어질수록 사슬 채찍(lash) 길이 · 빠르기가 늚. 가슴 자물쇠(앞 ± cone 에서 hits 대)를 치면 다시 묶임 — 사슬이 stunAt 개 넘게 끊겼을 때 묶으면 bind[끊긴 수] 초 기절(× mul). 일찍 묶으면 안전하지만 딜 타임 없음(2026-11-08 시험: 하나 끊길 때마다 묶어 늘 기절이라 너무 쉬움)
   //   eye 관찰체: 유리병 속 눈 n 개(부품, 둘레를 돎) 중 청록으로 빛나는 하나만 터뜨릴 수 있음 — 하나를 터뜨리면 relight 초 뒤 남은 눈 중 하나가 무작위로 빛남(그사이 · 다른 눈을 치면 표식). 다 터뜨리면 병이 깨져 expose 초 드러남(× mul), regrow 초 뒤 다시.
   //        바라보는 부채꼴(gaze r · arc 도, 초당 turn 라디안으로 돎) 안에 hold 초 서 있으면 표식 하나 — max 개면 응시 광선(최대 체력 pct, 못 피함) · 밖에 decay 초 있으면 하나씩 사라짐
   lab_stitch: { name: '봉합체', sprite: 'lab_stitch', pix: true, idle: false, boss: true, lab: 'stitch', scale: 1.25, speed: 34, range: 26, superArmor: true, launchMul: 0.2, r: 12,
-    stitch: { n: 3, cut: 0.1, gap: 0.25, expose: 5, mul: 1.5, restitch: 2.5 },
+    stitch: { n: 3, cut: 0.1, gap: 0.25, expose: 5, mul: 1.5, restitch: 2.5 }, needle: { hp: 2, fling: 70, speed: 20 },
     sweep: { r: 60, arc: 180, wind: 0.65, active: 0.18, dmg: 1.4, knock: 240, cd: 4, rec: 1.1 },
     atk: { windup: 0.6, active: 0.12, recovery: 0.9, knock: 210, reach: [0, 34], arc: 110, lunge: 140 },
     slam: { windup: 0.85, radius: 54 }, charge: { windup: 0.6, speed: 255, time: 0.6 }, fan: { windup: 0.7, count: 7, speed: 115, color: '#c8ff6a' }, summon: 'lab_spawn' },
@@ -733,6 +736,8 @@ Object.assign(ENEMIES, {
     atk: { windup: 0.55, active: 0.12, recovery: 0.7, knock: 180, reach: [0, 28], arc: 100, lunge: 120 },
     slam: { windup: 0.8, radius: 50 }, charge: { windup: 0.55, speed: 240, time: 0.6 }, fan: { windup: 0.65, count: 11, speed: 120, color: '#ffe066' }, summon: 'lab_graft' },
   // 실패작 부품(labPart): 관찰체의 떠다니는 눈 — 몹처럼 맞지만 경험치 · 전리품 없음
+  lab_needle: { name: '실바늘', sprite: 'lab_needle', pix: true, idle: false, part: 'needle', labPart: true, hp: 2, exp: 0, gold: [0, 0], speed: 20, range: 0, poise: 99, r: 5,
+    atk: { windup: 9, active: 0, recovery: 0, dmg: 0, knock: 0, reach: [0, 0], arc: 0, lunge: 0 } },
   lab_eyeball: { name: '떠다니는 눈', sprite: 'lab_eyeball', pix: true, idle: false, part: 'eye', labPart: true, rooted: true, hp: 1, exp: 0, gold: [0, 0], speed: 0, range: 0, poise: 99, r: 5,
     atk: { windup: 9, active: 0, recovery: 0, dmg: 0, knock: 0, reach: [0, 0], arc: 0, lunge: 0 } },
   // 최종 보스 '분열의 어미'(js/lab.js — 수치 BROOD_RULE). 본체(raid) + 복제체(부품 twin — 체력은 본체와 하나) · 약물 배양조 셋(부품 tank)

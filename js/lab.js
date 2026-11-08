@@ -106,6 +106,7 @@ const Lab = (() => {
     '■': ['ooooooo', 'oXXXXXo', 'oXXXXXo', 'oXXXXXo', 'oXXXXXo', 'oXXXXXo', 'ooooooo'],
   };
   const EYEBALL = ['.www.', 'wwkww', 'wkykw', 'wwkww', '.www.'];
+  const NEEDLE = ['.........tT', '........tT.', 'WWMMMMMmmt.', '.c.c.C.c...', 'c.c...c.c..'];  // 실바늘: 쇠바늘 몸 · 청록 바늘귀 · 실 다리
   // 풍경 장식(tools/lab-scene-sketch.js)
   const PIPE = ['.MMMMMM.', '.mmmmmm.', '..mMWm..', '..mMWm..', '..mMWm..', '..mMWm..', '..mMWm..', '.RRRRRR.', '.R.mW.R.', '.RRRRRR.',
     '..mMWm..', '..mMWm..', '..mMWm..', '..mMWm..', '.mmmmmm.', '.MGGGGM.', '...GG...', '...l....', '...G....'];
@@ -132,6 +133,7 @@ const Lab = (() => {
     mid('lab_zero', ZERO, 13); mid('lab_zero_bound', ZERO_BOUND, 13);
     mid('lab_eye', EYE, 15); mid('lab_eye_open', EYE_OPEN, 15);
     anim('lab_eyeball', ol(EYEBALL));
+    anim('lab_needle', ol(NEEDLE), ol(over(NEEDLE, 0, 3, ['c.c.c.C.c..', '.c...c.c.c.'])));
     // 분열의 어미 · 복제체: 색마다 잠김(어둡게) · 공명(밝게) + 버팀(하얀 실루엣)
     for (const [nm, rows, at] of [['lab_mother', MOTHER, 14], ['lab_twin', TWIN, 7]]) {
       const B = breath(rows, at);
@@ -212,7 +214,7 @@ const Lab = (() => {
 
   // ── 실패작(중간 보스) ──
   const HINT = {
-    stitch: '봉합체 — 실밥은 큰 공격 뒤 틈(청록 빛)에만 끊어진다! 셋을 다 끊어 몸을 열어라',
+    stitch: '봉합체 — 실밥은 큰 공격 뒤 틈(청록 빛)에만 끊어진다! 끊으면 실바늘이 다시 꿰매러 간다 — 닿기 전에 잡아라',
     brood: '배양 모체 — 등 뒤 청록 뚜껑을 깨면 낳기가 멈추고 드러난다! 몸은 천천히 돈다, 빙 돌아라',
     melt: '흘러내리는 자 — 물렁할 땐 잘 안 들어간다! 솟아오른 뒤 굳은(청록) 동안 쳐라',
     zero: '구속체 — 사슬이 끊길수록 채찍이 길어진다! 둘 이상 끊겼을 때 앞에서 가슴 자물쇠를 쳐 다시 묶으면 기절',
@@ -401,17 +403,19 @@ const Lab = (() => {
     if (d.brood || d.part === 'twin') return bodyCut(e);
     if (d.part === 'tank') { if (src) tankHit(e); return { m: 0, s: '', armor: true }; }
     if (d.part === 'eye') return eyeballCut(e, src);
+    if (d.part === 'needle') return { m: 1e-9, s: '', armor: true };  // 실바늘: 한 대에 1씩(hp 대)
     if (!d.lab) return undefined;
     const k = d.lab;
     if (k === 'stitch') {
       if (e.exposeT > 0) return { m: d.stitch.mul, s: '' };
-      if (e.stitches > 0 && src && OPEN_STATES.includes(e.state) && !(e.stitchT > now())) {
+      if (e.stitches > 0 && src && stitchOpen(e) && !(e.stitchT > now())) {
         e.stitchT = now() + d.stitch.gap; e.stitches--;
         World.sparks(e.x, e.y, e.h * 0.55, 12, TEAL, true); Sfx.stone();
-        if (!e.stitches) { e.exposeT = d.stitch.expose; World.text(e.x, e.y, e.h + 10, '실밥이 다 끊어졌다 — 몸이 벌어졌다!', TEAL, true); World.say('지금 쳐라!', 1.6); World.shake(4); Sfx.chest(); return { m: d.stitch.mul, s: '' }; }
-        World.text(e.x, e.y, e.h + 10, '실밥이 끊어졌다! (남은 ' + e.stitches + ')', TEAL);
+        flingNeedle(e, src);
+        World.text(e.x, e.y, e.h + 10, e.stitches ? '실밥이 끊어졌다! (남은 ' + e.stitches + ')' : '실밥이 다 끊어졌다 — 실바늘을 잡아라!', TEAL, !e.stitches);
+        sayOnce(e, 'needleSeen', '실바늘이 다시 꿰매러 간다 — 봉합체에 닿기 전에 잡아라!', 2.6);
       }
-      return { m: d.stitch.cut, s: e.stitches > 0 ? (OPEN_STATES.includes(e.state) ? '' : '실밥') : '꿰매는 중', armor: true };  // 드러남이 끝나고 다시 꿰매기까지도 단단함
+      return { m: d.stitch.cut, s: e.stitches > 0 ? (stitchOpen(e) ? '' : '실밥') : needlesOf(e).length ? '실바늘이 남았다' : '꿰매는 중', armor: true };  // 드러남이 끝나고 다시 꿰매기까지도 단단함
     }
     if (k === 'brood') {
       const L = d.lid;
@@ -460,6 +464,22 @@ const Lab = (() => {
     }
     return null;
   }
+  // 봉합체: 실밥이 끊기는 틈 = 큰 공격(내려찍기 · 후려치기 · 돌진) 뒤 회복 · 기둥 기절(bigRec — update 가 상태 바뀜을 보고 정함)
+  const stitchOpen = e => e.state === 'tired' || (e.state === 'recover' && !!e.bigRec);
+  const needlesOf = e => World.enemies().filter(o => o.def.part === 'needle' && o.owner === e.id && live(o));
+  // 실바늘: 끊은 사람 반대쪽(없으면 아무 쪽)으로 fling 만큼 튀어나감 — 걸을 수 있는 자리
+  function flingNeedle(e, src) {
+    const N = e.def.needle, lv = World.level;
+    const a0 = src ? Math.atan2(e.y - src.y, e.x - src.x) : Math.random() * Math.PI * 2;
+    let x = e.x, y = e.y;
+    for (let i = 0; i < 12; i++) {
+      const a = a0 + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 0.5, nx = e.x + Math.cos(a) * N.fling, ny = e.y + Math.sin(a) * N.fling * 0.7;
+      if (Dungeon.walkable(lv, nx, ny, 5) && Dungeon.roomIdx(lv, nx, ny) === e.ri) { x = nx; y = ny; break; }
+    }
+    const o = World.spawn('lab_needle', x, y, { spawn: true });
+    o.hp = o.maxHp = N.hp; o.ri = e.ri; o.owner = e.id; o.spawnT = 0.35;
+    World.sparks(x, y, 6, 8, '#c8c8d4', true);
+  }
   // 관찰체 눈: 빛나는 하나만 터짐(1대) — 다른 눈을 치면 친 사람에게 표식
   function eyeballCut(e, src) {
     const o = World.enemies().find(m => m.id === e.owner);
@@ -499,6 +519,7 @@ const Lab = (() => {
       } else { o.litI = -1; o.relitT = o.def.eyes.relight; o.nextEyes = left.map(m => m.idx); }  // 잠깐 뒤 남은 눈 중 하나가 빛남(eyeTick)
     }
     if (d.part === 'twin') { const m = motherOf(); if (m && live(m) && pool && pool.hp <= 0) killMother(m); }
+    if (d.part === 'needle') { World.sparks(e.x, e.y, 6, 10, '#c8c8d4', true); Sfx.stone(); World.text(e.x, e.y, 24, '실바늘을 잡았다!', TEAL); }
   }
   // 실험장 부품(enemy.js updateEnemy): 눈 = 관찰체 둘레를 돎 · 복제체 = 따로 움직임 · 배양조 = 다시 차기
   function part(e, dt, lv, p) {
@@ -509,6 +530,20 @@ const Lab = (() => {
     if (e.def.part === 'eye') {
       const o = World.enemies().find(m => m.id === e.owner);
       if (!o || !live(o)) { e.dying = true; e.hp = 0; e.state = 'dead'; e.t = 0.6; }
+      return;
+    }
+    if (e.def.part === 'needle') {  // 봉합체에게 기어가 닿으면 실밥 하나를 다시 꿰맴
+      const o = World.enemies().find(m => m.id === e.owner);
+      if (!o || !live(o) || o.exposeT > 0) { e.dying = true; e.hp = 0; e.state = 'dead'; e.t = 0.6; return; }
+      if (e.spawnT > 0) return;
+      const dx = o.x - e.x, dy = o.y - e.y, dd = Math.max(1, Math.hypot(dx, dy));
+      e.fv = unit(dx, dy, e.fv); e.moving = true;
+      Dungeon.move(lv, e, dx / dd * e.def.speed * dt, dy / dd * e.def.speed * dt, e.r);
+      if (dd < o.r + e.r + 2) {
+        o.stitches = Math.min(o.def.stitch.n, (o.stitches || 0) + 1);
+        World.text(o.x, o.y, o.h + 10, '실바늘이 실밥을 다시 꿰맸다!', '#ff9a6a', true); World.sparks(o.x, o.y, o.h * 0.55, 10, TEAL, true); Sfx.spell();
+        e.dying = true; e.hp = 0; e.state = 'dead'; e.t = 0.6;
+      }
       return;
     }
     if (e.def.part === 'tank' && e.broken && (e.refillT -= dt) <= 0) {
@@ -523,6 +558,12 @@ const Lab = (() => {
       if (!e.def.lab || !e.lInit || !live(e)) continue;
       const d = e.def, k = d.lab;
       if (e.sweepCd > 0) e.sweepCd -= dt;
+      if (k === 'stitch') {  // 틈 판정: 큰 공격(내려찍기 · 후려치기 · 돌진)이 끝나 회복으로 넘어갔는지
+        if (e.state !== e.prevSt) { if (e.state === 'recover') e.bigRec = ['slam', 'sweep', 'charge'].includes(e.prevSt); e.prevSt = e.state; }
+        if (e.stitches === 0 && !(e.exposeT > 0) && !(e.restitchT > 0) && !needlesOf(e).length) {  // 실밥도 실바늘도 없음 → 드러남
+          e.exposeT = d.stitch.expose; World.text(e.x, e.y, e.h + 10, '몸이 벌어졌다 — 지금!', TEAL, true); World.say('지금 쳐라!', 1.6); World.shake(4); Sfx.chest();
+        }
+      }
       if (e.exposeT > 0 && (e.exposeT -= dt) <= 0) {
         if (k === 'stitch') e.restitchT = d.stitch.restitch;
         if (k === 'brood') e.regrowT = d.lid.regrow;
@@ -923,7 +964,7 @@ const Lab = (() => {
       ctx.beginPath(); ctx.moveTo(x, y - e.h * 0.7); ctx.lineTo(e.ax, e.ay - 2); ctx.stroke(); ctx.setLineDash([]);
       ctx.fillStyle = '#6e6e7e'; ctx.fillRect(Math.round(e.ax) - 2, Math.round(e.ay) - 3, 4, 3); ctx.restore();
     }
-    if (d.lab === 'stitch' && e.stitches > 0 && !(e.exposeT > 0) && OPEN_STATES.includes(e.state)) {  // 틈: 실밥이 청록으로 맥동
+    if (d.lab === 'stitch' && e.stitches > 0 && !(e.exposeT > 0) && stitchOpen(e)) {  // 틈: 실밥이 청록으로 맥동
       ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.18 + 0.14 * Math.sin(time * 16);
       ctx.fillStyle = TEAL; ctx.beginPath(); ctx.ellipse(x, y - e.h * 0.5, e.r, e.h * 0.22, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
     }
@@ -965,6 +1006,10 @@ const Lab = (() => {
         const R2 = e.r * 2.2, g = ctx.createRadialGradient(x, y - e.h * 0.5, 0, x, y - e.h * 0.5, R2); g.addColorStop(0, RC[e.col][0]); g.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = g; ctx.fillRect(x - R2, y - e.h * 0.5 - R2, R2 * 2, R2 * 2); ctx.restore();
       }
+    }
+    if (d.part === 'needle') {  // 실바늘 → 봉합체로 이어진 실(어디로 가는지)
+      const o = World.enemies().find(m => m.id === e.owner);
+      if (o && live(o)) { ctx.save(); ctx.strokeStyle = 'rgba(95,224,208,0.55)'; ctx.lineWidth = 1; ctx.setLineDash([2, 2]); ctx.lineDashOffset = time * 8; ctx.beginPath(); ctx.moveTo(x, y - 3); ctx.lineTo(o.x, o.y - o.h * 0.5); ctx.stroke(); ctx.restore(); }
     }
     if (d.part === 'tank' && !e.broken) {  // 칠 수 있는 배양조: 아래 그 색 빛 + 남은 대수
       ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.25 + 0.15 * Math.sin(time * 4 + e.col);
