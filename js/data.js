@@ -740,7 +740,14 @@ Object.assign(ENEMIES, {
     atk: { windup: 0.6, active: 0.12, recovery: 0.9, knock: 210, reach: [0, 34], arc: 110, lunge: 140 },
     slam: { windup: 0.85, radius: 54 }, charge: { windup: 0.6, speed: 255, time: 0.6 }, fan: { windup: 0.7, count: 7, speed: 115, color: '#c8ff6a' }, summon: 'lab_spawn' },
   lab_brood: { name: '배양 모체', sprite: 'lab_brood', pix: true, idle: false, boss: true, lab: 'brood', scale: 1.25, speed: 30, range: 24, superArmor: true, launchMul: 0.15, r: 13,
+    // 2026-11-08 사용자 '2층 보스 말뚝딜이면 끝남 — B + D'(A '등만 들어감'은 말뚝딜해도 결국 등이 맞아 딜 타임이 나와서 안 고름):
+    //   inject(B) = first 초 뒤부터 every 초마다 윗벽 배양조 쪽(위)을 보고 t 초 동안 약물을 넣음(안 돌고 안 때림 — 등이 아래로 열림, 관 · 발밑 막대).
+    //     등 뒤 뚜껑(lid.hits 대)은 주입 중에만 깨짐(그 밖엔 '단단하다'). 깨면 stagger 초 휘청 + lid.expose 초 드러남(× lid.mul). 못 깨면 spawn 강한 실험체가 깨어남
+    //   foam(D) = 앞 · 옆(등 뒤 ± cone 밖)에서 맞으면 gap 초에 한 번 산성 거품 1(최대 max — 몸에 방울) · 안 맞으면 decay 초마다 1씩 빠짐.
+    //     가득 차면 wind 초 예고 원(r = 판정) 뒤 둘레로 터짐(내려찍기 × dmg, 밀침 knock) — 주입 · 휘청 중이면 끝난 뒤
     nest: { every: 7, n: 2, type: 'lab_spawn', max: 6 }, lid: { cut: 0.15, cone: 0.35, hits: 5, expose: 6, mul: 1.5, regrow: 4, turn: 1.1 },
+    inject: { first: 8, every: 13, t: 5, stagger: 2.5, spawn: { type: 'lab_graft', n: 2 } },
+    foam: { max: 12, gap: 0.2, decay: 1.2, wind: 1.0, r: 62, dmg: 1.2, knock: 240 },  // 시험: dmg 1.6 = 한 번 최대 61%(기준 캐릭터) → 1.2 · 예고 0.8 → 1.0초
     atk: { windup: 0.55, active: 0.12, recovery: 0.7, knock: 190, reach: [0, 30], arc: 120, lunge: 120 },
     slam: { windup: 0.85, radius: 50 }, charge: { windup: 0.6, speed: 240, time: 0.6 }, fan: { windup: 0.65, count: 9, speed: 110, color: '#c8ff6a' }, summon: 'lab_spawn' },
   lab_melt: { name: '흘러내리는 자', sprite: 'lab_melt', pix: true, idle: false, boss: true, lab: 'melt', scale: 1.25, speed: 34, range: 22, superArmor: true, launchMul: 0.15, r: 12,

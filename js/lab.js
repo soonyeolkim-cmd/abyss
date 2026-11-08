@@ -99,6 +99,8 @@ const Lab = (() => {
     '......offfFFFFFX', '.....offfffFFFFX', '.....ooffffffffx', '....ooffffffffff', '...ooffffFffffff', '...offfffffffxff',
     '...offsfffffsfff', '...ooffffffffffx', '....oooooooooooo', '................']);
   const TWIN = mir(['..........', '......oooo', '....ooFFFF', '...oFhhFFF', '..oFhFoooo', '..oFFFFoyy', '..oFFFFoyk', '..oFFFFFoo', '.oFFFFFFFX', '.oFFFFFsws', '.ofFFFFFFX', '.offFFFFFx', '..offfffff', '..offo.off', '...oo...oo']);
+  // 구속 자물쇠(머리 위 — 2026-11-08 사용자 '구속 아이콘을 더 어울리게'): 쇠 고리 + 금빛 몸 + 열쇠 구멍
+  const LOCK = ['...ooo...', '..oWWWo..', '.oWo.oMo.', '.oWo.oMo.', '.oMo.omo.', 'ooooooooo', 'oyyyyyyRo', 'oyyykyyRo', 'oyyykyyRo', 'oyyyyyyRo', 'oRRRRRRRo', 'ooooooooo'];
   const BLOB = ['...FFF...', '..FhhFF..', '.FhFFFFF.', 'FFFkyFFFf', 'FFFkkFFff', '.fFFFsFf.', '..fsfff..'];  // 어미 살점(꿈틀대는 살덩이 · 작은 눈)
   const RC = [['#ff6a5a', '#9a2028', '●', '붉은'], ['#6a9cff', '#24408e', '▲', '푸른'], ['#ffd84a', '#9a7418', '■', '노란']];
   const SYM = {
@@ -135,6 +137,7 @@ const Lab = (() => {
     mid('lab_eye', EYE, 15); mid('lab_eye_open', EYE_OPEN, 15);
     anim('lab_eyeball', ol(EYEBALL));
     anim('lab_blob', ol(BLOB), ol(breath(BLOB, 3)));
+    Gfx.put('lab_lock', canvasOf(LOCK));
     anim('lab_needle', ol(NEEDLE), ol(over(NEEDLE, 0, 3, ['c.c.c.C.c..', '.c...c.c.c.'])));
     // 분열의 어미 · 복제체: 색마다 잠김(어둡게) · 공명(밝게) + 버팀(하얀 실루엣)
     for (const [nm, rows, at] of [['lab_mother', MOTHER, 14], ['lab_twin', TWIN, 7]]) {
@@ -217,7 +220,7 @@ const Lab = (() => {
   // ── 실패작(중간 보스) ──
   const HINT = {
     stitch: '봉합체 — 실밥은 큰 공격 뒤 틈(청록 빛)에만 끊어진다! 끊으면 실바늘이 다시 꿰매러 간다 — 닿기 전에 잡아라',
-    brood: '배양 모체 — 등 뒤 청록 뚜껑을 깨면 낳기가 멈추고 드러난다! 몸은 천천히 돈다, 빙 돌아라',
+    brood: '배양 모체 — 배양조에 약물을 넣는 동안만 등 뒤 청록 뚜껑이 깨진다! 앞에서 치면 산성 거품이 쌓여 터진다',
     melt: '흘러내리는 자 — 녹아 흐르는 웅덩이는 빨아들이고 장판을 남긴다, 대시로 빠져나와라! 솟아오른 뒤 굳은(청록) 동안 쳐라',
     zero: '구속체 — 돌진할 때마다 기둥을 꽂아 사슬이 감긴다! 멀리 서서 길게 달리게 하라 — 사슬이 짧아진 채 돌진하면 장력에 끌려 넘어진다',
     eye: '관찰체 — 청록으로 빛나는 눈만 터뜨려라(다른 눈은 표식)! 바라보는 부채꼴 안에 오래 서 있어도 표식 — 셋이면 응시 광선',
@@ -226,7 +229,7 @@ const Lab = (() => {
     const d = e.def, k = d.lab;
     e.lInit = true; e.sweepCd = 1; e.exposeT = 0;
     if (k === 'stitch') e.stitches = d.stitch.n;
-    if (k === 'brood') { e.lid = d.lid.hits; e.hatchT = 3; }
+    if (k === 'brood') { e.lid = d.lid.hits; e.hatchT = 3; e.injCd = d.inject.first; e.foam = 0; }
     if (k === 'melt') e.meltCd = 4;
     if (k === 'zero') { e.lashCd = 2; e.chargeCd = 2; e.posts = []; e.taut = false; }
     if (k === 'eye') { e.gazeA = Math.atan2(e.fv.y, e.fv.x); e.marks = new Map(); e.eyeA = 0; spawnEyes(e); }
@@ -266,6 +269,7 @@ const Lab = (() => {
   function broodBossThink(e, dt, lv, p) {
     const d = e.def, L = d.lid;
     e.moving = false; e.atkCd -= dt;
+    if (e.injCd <= 0 && e.lid > 0) { injectStart(e, lv); return; }
     turnTo(e, p, L.turn * dt);
     const pd = Math.hypot(p.x - e.x, p.y - e.y);
     if (e.atkCd <= 0) {
@@ -280,6 +284,25 @@ const Lab = (() => {
       const u = unit(p.x - e.x, p.y - e.y, e.fv), step = d.speed * dt;
       mobMove(lv, e, u.x * step, u.y * step); e.moving = true; e.walkT += dt;
     }
+  }
+  // B 주입: 등 뒤에 자리가 가장 넓은 쪽으로 등을 돌리고(위쪽 = 윗벽 배양조를 조금 더 좋아함) 그 반대 벽 배양조에 관을 꽂아 t 초 약물을 넣음
+  function injectStart(e, lv) {
+    const I = e.def.inject, r = lv.rooms[e.ri] || lv.boss, x0 = r.x * T, x1 = (r.x + r.w) * T, y0 = r.y * T, y1 = (r.y + r.h) * T;
+    const opts = [{ x: 0, y: -1, room: y1 - e.y + 40 }, { x: -1, y: 0, room: x1 - e.x }, { x: 1, y: 0, room: e.x - x0 }, { x: 0, y: 1, room: e.y - y0 }];  // room = 등 뒤 자리
+    const v = opts.sort((a, b) => b.room - a.room)[0];
+    e.injV = { x: v.x, y: v.y }; e.fv = { x: v.x, y: v.y };
+    e.state = 'inject'; e.t = e.windupT = I.t; e.kx = 0; e.ky = 0;
+    World.text(e.x, e.y, e.h + 10, '배양조에 약물을 넣는다 — 등이 열렸다!', TEAL, true); Sfx.spell();
+    sayOnce(e, 'injSeen', '주입하는 동안만 등 뒤 뚜껑이 깨진다 — 등 뒤로 돌아가 쳐라! 못 막으면 강한 실험체가 깨어난다', 3.2);
+  }
+  // D 산성 거품: 앞 · 옆에서 맞으면 gap 초에 한 번 1씩(가득 차면 update 가 터뜨림)
+  function foamAdd(e) {
+    const F = e.def.foam;
+    e.foamHitAt = now(); e.foamDecT = F.decay;
+    if (e.foamT > now() || e.foam >= F.max) return;
+    e.foamT = now() + F.gap; e.foam++;
+    sayOnce(e, 'foamSeen', '앞에서 치면 산성 거품이 쌓인다 — 가득 차면 둘레로 터진다!', 2.8);
+    if (e.foam >= F.max) World.text(e.x, e.y, e.h + 12, '산성 거품이 가득 찼다!', ACID_HI, true);
   }
   // 관찰체 떠다니는 눈(부품): 차례로 하나만 빛남(lit)
   function spawnEyes(e) {
@@ -347,6 +370,30 @@ const Lab = (() => {
         e.t -= dt; e.kx = 0; e.ky = 0;
         if (e.t <= 0) { e.state = 'move'; e.atkCd = 0.5; World.text(e.x, e.y, e.h + 6, '다시 물렁해졌다', '#c8d0b8'); }
         return true;
+      case 'inject': {  // B 주입 중: 안 돌고 안 때림 — 끝까지 못 막으면 강한 실험체(뚜껑을 깨면 cut 이 labDown 으로 바꿈)
+        const I = d.inject;
+        e.t -= dt; e.kx = 0; e.ky = 0; if (e.injV) e.fv = { x: e.injV.x, y: e.injV.y };
+        if (e.t <= 0) {
+          for (let k = 0; k < I.spawn.n; k++) {
+            const a = Math.random() * Math.PI * 2, c = World.spawn(I.spawn.type, e.x + Math.cos(a) * 18, e.y + Math.sin(a) * 12, { spawn: true });
+            c.minion = true; c.ri = e.ri; c.spawnT = 0.5;
+            if (!Dungeon.walkable(lv, c.x, c.y, c.r)) { c.x = e.x; c.y = e.y + 8; }
+          }
+          World.text(e.x, e.y, e.h + 10, '주입 완료 — 강한 실험체가 깨어났다!', '#ff7a5a', true); World.shake(4); Sfx.roar();
+          e.state = 'recover'; e.t = 0.6; e.injCd = I.every;
+        }
+        return true;
+      }
+      case 'foamWind': {  // D 산성 거품 터짐: 예고 원(r = 판정) 뒤 둘레 피해
+        const F = d.foam;
+        e.t -= dt; e.kx = 0; e.ky = 0;
+        if (e.t <= 0) {
+          World.fx({ type: 'nova', x: e.x, y: e.y, r: F.r, col: ACID, el: '', tier: 0, bare: true, seed: Math.random() * 1000, t: 0, life: 0.35 });
+          for (const t of peopleOf()) if (groundDist(t.x - e.x, t.y - e.y) <= F.r + BODY_R) hurtPlayer(t, { x: e.x, y: e.y + 1, disarmT: e.disarmT, disarmCut: e.disarmCut }, d.slam.dmg * e.dmgMul * F.dmg, F.knock);
+          World.shake(6); Sfx.blast(); e.foam = 0; e.state = 'recover'; e.t = 0.8;
+        }
+        return true;
+      }
       case 'lashWind':
         e.t -= dt; e.kx = 0; e.ky = 0;
         if (e.t <= 0) {
@@ -444,20 +491,25 @@ const Lab = (() => {
       }
       return { m: d.stitch.cut, s: e.stitches > 0 ? (stitchOpen(e) ? '' : '실밥') : needlesOf(e).length ? '실바늘이 남았다' : '꿰매는 중', armor: true };  // 드러남이 끝나고 다시 꿰매기까지도 단단함
     }
-    if (k === 'brood') {
+    if (k === 'brood') {  // 뚜껑은 주입 중(B)에만 깨짐 · 앞 · 옆에서 맞으면 산성 거품(D)
       const L = d.lid;
       if (e.exposeT > 0) return { m: L.mul, s: '' };
-      if (e.lid > 0) {
-        if (src && dot(e, src) < -L.cone && !(e.lidT > now())) {
+      const back = !!src && src.x !== undefined && dot(e, src) < -L.cone;
+      if (src && src.x !== undefined && !back) foamAdd(e);
+      if (e.state === 'inject' && e.lid > 0) {
+        if (back && !(e.lidT > now())) {
           e.lidT = now() + 0.18; e.lid--;
           World.sparks(e.x - e.fv.x * 10, e.y, e.h * 0.85, 10, TEAL, true); Sfx.stone();
-          if (!e.lid) { e.exposeT = L.expose; World.text(e.x, e.y, e.h + 12, '뚜껑이 깨졌다 — 낳기가 멈췄다!', TEAL, true); World.shake(4); Sfx.chest(); return { m: L.mul, s: '' }; }
+          if (!e.lid) {
+            e.exposeT = L.expose; e.state = 'labDown'; e.t = d.inject.stagger; e.kx = 0; e.ky = 0; e.injCd = d.inject.every;
+            World.text(e.x, e.y, e.h + 12, '뚜껑이 깨졌다 — 주입이 멈췄다!', TEAL, true); World.shake(4); Sfx.chest();
+            return { m: L.mul, s: '' };
+          }
           World.text(e.x, e.y, e.h + 12, '뚜껑 ' + e.lid, TEAL);
-          return { m: L.cut, s: '', armor: true };
         }
-        return { m: L.cut, s: '단단하다', armor: true };
+        return { m: L.cut, s: back ? '' : '등 뒤를 쳐라', armor: true };
       }
-      return { m: L.cut, s: '뚜껑이 다시 자란다', armor: true };
+      return { m: L.cut, s: e.lid > 0 ? '단단하다' : '뚜껑이 다시 자란다', armor: true };
     }
     if (k === 'melt') {
       if (e.state === 'hardened') return { m: d.melt.mul, s: '' };
@@ -665,6 +717,15 @@ const Lab = (() => {
           if (dd > L.reelStop) { const st = Math.min(dd - L.reelStop, L.reel * dt); mobMove(lv, e, dx / dd * st, dy / dd * st); if (Math.random() < dt * 10) World.dust(e.x, e.y, 3); }
         } else e.reel = false;
         if (e.snapT > 0) e.snapT -= dt;
+      }
+      if (k === 'brood') {  // 주입 시계 · 거품 빠짐 · 거품이 가득 차면 터짐(주입 · 휘청 중이면 끝난 뒤)
+        const F = d.foam;
+        if (e.state !== 'inject' && e.state !== 'labDown' && !(e.exposeT > 0) && e.injCd > 0) e.injCd -= dt;
+        if (e.foam > 0 && e.foam < F.max && now() - (e.foamHitAt || 0) > F.decay && (e.foamDecT = (e.foamDecT || F.decay) - dt) <= 0) { e.foamDecT = F.decay; e.foam--; }
+        if (e.foam >= F.max && !['inject', 'labDown', 'foamWind', 'dead'].includes(e.state)) {
+          e.state = 'foamWind'; e.t = e.windupT = F.wind; e.kx = 0; e.ky = 0;
+          World.text(e.x, e.y, e.h + 12, '거품이 터진다 — 물러나라!', ACID_HI, true); Sfx.spell();
+        }
       }
       if (k === 'brood' && !(e.exposeT > 0) && e.state !== 'dead' && (e.hatchT -= dt) <= 0) {  // 배양조에서 실험체(뚜껑이 깨진 동안은 멈춤)
         const B = d.nest;
@@ -1181,10 +1242,35 @@ const Lab = (() => {
       ctx.fillStyle = TEAL; ctx.beginPath(); ctx.ellipse(x, y - e.h * 0.5, e.r, e.h * 0.22, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
     }
     if ((d.lab === 'stitch' || d.lab === 'brood') && e.exposeT > 0) { ctx.fillStyle = TEAL; for (let k = 0; k < 3; k++) { const a = time * 6 + k * 2.1; ctx.fillRect(Math.round(x + Math.cos(a) * 10), Math.round(y - e.h - 3 + Math.sin(a) * 2), 2, 2); } }
-    if (d.lab === 'brood' && e.lid > 0 && !(e.exposeT > 0)) {  // 뚜껑 쪽(등 뒤 ± cone): 발밑 청록 호
-      const L = d.lid, a = Math.atan2(-e.fv.y / GROUND_Y, -e.fv.x), w = Math.acos(L.cone), R = e.r + 8;
-      ctx.save(); ctx.strokeStyle = 'rgba(95,224,208,' + (0.5 + 0.25 * Math.sin(time * 6)) + ')'; ctx.lineWidth = 1.5;
+    if (d.lab === 'brood' && e.lid > 0 && !(e.exposeT > 0)) {  // 뚜껑 쪽(등 뒤 ± cone): 발밑 청록 호 — 주입 중(깰 수 있을 때)만 밝게
+      const L = d.lid, a = Math.atan2(-e.fv.y / GROUND_Y, -e.fv.x), w = Math.acos(L.cone), R = e.r + 8, inj = e.state === 'inject';
+      ctx.save(); ctx.strokeStyle = inj ? 'rgba(95,224,208,' + (0.6 + 0.35 * Math.sin(time * 12)) + ')' : 'rgba(140,150,160,0.3)'; ctx.lineWidth = inj ? 2.5 : 1;
       ctx.beginPath(); ctx.ellipse(e.x, e.y, R, R * GROUND_Y, 0, a - w, a + w); ctx.stroke(); ctx.restore();
+    }
+    if (d.lab === 'brood' && e.state === 'inject' && e.injV) {  // 주입: 머리 → 벽 배양조 관(약물이 흘러듦) + 발밑 막대
+      const lv = World.level, r = lv.rooms[e.ri] || lv.boss, v = e.injV, hx = x + v.x * 6, hy = y - e.h * 0.75;
+      const wx = v.x ? (v.x > 0 ? (r.x + r.w) * T - 4 : r.x * T + 4) : hx, wy = v.y ? (v.y > 0 ? (r.y + r.h) * T - 4 : r.y * T + 10) : hy;
+      ctx.save(); ctx.lineCap = 'round';
+      ctx.strokeStyle = '#120a14'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(wx, wy); ctx.stroke();
+      ctx.strokeStyle = '#4e7a88'; ctx.lineWidth = 3; ctx.stroke();
+      ctx.strokeStyle = ACID_HI; ctx.lineWidth = 1.5; ctx.setLineDash([3, 4]); ctx.lineDashOffset = time * 30; ctx.beginPath(); ctx.moveTo(wx, wy); ctx.lineTo(hx, hy); ctx.stroke();
+      ctx.setLineDash([]);
+      const w = 36, bx = Math.round(x - w / 2), by = Math.round(y + 12), k = 1 - e.t / (e.windupT || d.inject.t);
+      ctx.fillStyle = '#000'; ctx.fillRect(bx - 1, by - 1, w + 2, 5); ctx.fillStyle = ACID_HI; ctx.fillRect(bx, by, Math.round(w * k), 3);
+      ctx.textAlign = 'center'; ctx.font = 'bold 8px ' + Gfx.FONT; const s = '주입 — 뚜껑 ' + e.lid;
+      ctx.fillStyle = '#000'; ctx.fillText(s, x + 0.5, by + 12.5); ctx.fillStyle = TEAL; ctx.fillText(s, x, by + 12);
+      ctx.restore();
+    }
+    if (d.lab === 'brood' && e.foam > 0) {  // 산성 거품: 몸에 붙은 방울(가득 차 갈수록 크고 깜빡)
+      const F = d.foam, full = e.foam / F.max;
+      ctx.save();
+      for (let i = 0; i < e.foam; i++) {
+        const a = i / F.max * Math.PI * 2 + time * 0.8, rr = 1.5 + (i % 3) * 0.6 + (full > 0.75 ? Math.sin(time * 14 + i) * 0.6 : 0);
+        const bx = x + Math.cos(a) * (e.r - 1), by = y - e.h * 0.45 + Math.sin(a) * e.h * 0.28;
+        ctx.fillStyle = '#120a14'; ctx.beginPath(); ctx.arc(bx, by, rr + 1, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = full > 0.75 && Math.floor(time * 8) % 2 ? '#ffffff' : ACID_HI; ctx.beginPath(); ctx.arc(bx, by, rr, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
     }
     if (d.lab === 'zero') {  // 마지막 기둥 → 몸 사슬(팽팽할수록 붉게 · 넘어진 순간 번쩍)
       const a = chainTail(e), free = chainFree(e), gd = groundDist(e.x - a.x, e.y - a.y), k = free > 1 ? Math.min(1, gd / free) : 1;
@@ -1344,6 +1430,7 @@ const Lab = (() => {
       const d = e.def;
       if (e.state === 'meltRise') circle(e.lx, e.ly, d.melt.r, 1 - e.t / e.windupT);
       if (e.state === 'fleshWind') circle(e.lx, e.ly, BR().flesh.r, 1 - e.t / e.windupT);
+      if (e.state === 'foamWind' && d.foam) circle(e.x, e.y, d.foam.r, 1 - e.t / e.windupT);  // 배양 모체 산성 거품 터짐(판정 r)
       if ((e.state === 'lashWind' || e.state === 'lash') && e.chargeV) band(e, e.lashLen || d.lash.len, d.lash.w, e.state === 'lash' ? 1 : 1 - e.t / e.windupT, e.state === 'lash');
       if (d.lab === 'eye' && e.lInit && e.state !== 'labDown' && e.gazeA !== undefined) {  // 응시 부채꼴(판정 = 그림)
         const G = d.gaze, h = G.arc / 2 * Math.PI / 180;
@@ -1358,15 +1445,33 @@ const Lab = (() => {
   }
   // 어둠 위(world.js draw): 표식(내 머리 위 노란 눈) · 응시 광선 · 범람 알림
   function labels(ctx) {
-    for (const t of peopleOf()) if (t.bindT > 0 && !t.dead) {  // 구속: 몸을 감은 사슬 두 바퀴 + 남은 초
-      const x = Math.round(t.x), y = Math.round(t.y), time = World.time;
-      ctx.save(); ctx.strokeStyle = '#120a14'; ctx.lineWidth = 3;
-      for (const k of [0, 1]) { ctx.beginPath(); ctx.ellipse(x, y - 8 - k * 8, 9, 3, Math.sin(time * 3 + k) * 0.15, 0, Math.PI * 2); ctx.stroke(); }
-      ctx.strokeStyle = '#c8c8d4'; ctx.lineWidth = 1.5; ctx.setLineDash([2, 1.5]);
-      for (const k of [0, 1]) { ctx.beginPath(); ctx.ellipse(x, y - 8 - k * 8, 9, 3, Math.sin(time * 3 + k) * 0.15, 0, Math.PI * 2); ctx.stroke(); }
-      ctx.setLineDash([]); ctx.textAlign = 'center'; ctx.font = 'bold 8px ' + Gfx.FONT;
-      const s = '구속 ' + t.bindT.toFixed(1);
-      ctx.fillStyle = '#000'; ctx.fillText(s, x + 0.5, y - 33.5); ctx.fillStyle = '#ff9a7a'; ctx.fillText(s, x, y - 34);
+    for (const t of peopleOf()) if (t.bindT > 0 && !t.dead) {  // 구속: 몸을 감은 도트 사슬 두 바퀴(뒤쪽 고리는 흐리게) + 머리 위 자물쇠 · 남은 시간 고리
+      const x = Math.round(t.x), y = Math.round(t.y), time = World.time, max = (ENEMIES.lab_zero.quake && ENEMIES.lab_zero.quake.bind) || 5;
+      const link = (px, py, even, back) => {
+        ctx.globalAlpha = back ? 0.45 : 1;
+        ctx.fillStyle = '#120a14'; ctx.fillRect(px - 2, py - 1, even ? 5 : 3, 3);
+        ctx.fillStyle = back ? '#7a7a88' : '#d8d8e4';
+        if (even) { ctx.fillRect(px - 1, py - 1, 3, 1); ctx.fillRect(px - 1, py + 1, 3, 1); } else ctx.fillRect(px - 1, py, 1, 1);
+      };
+      ctx.save();
+      for (const back of [true, false]) for (const k of [0, 1]) {
+        const cy = y - 4 - k * 6, rx = 8, ry = 2.5, n = 10, sp = time * 0.6 * (k ? -1 : 1) + k * 0.4;
+        ctx.globalAlpha = back ? 0.45 : 0.9; ctx.strokeStyle = '#5a5a66'; ctx.lineWidth = 1;  // 고리를 잇는 줄(뒤쪽 반 · 앞쪽 반)
+        ctx.beginPath(); ctx.ellipse(x, cy, rx, ry, 0, back ? Math.PI : 0, back ? Math.PI * 2 : Math.PI); ctx.stroke();
+        for (let i = 0; i < n; i++) {
+          const a = sp + i / n * Math.PI * 2, isBack = Math.sin(a) < 0;
+          if (isBack !== back) continue;
+          link(Math.round(x + Math.cos(a) * rx), Math.round(cy + Math.sin(a) * ry), i % 2 === 0, back);
+        }
+      }
+      ctx.globalAlpha = 1;
+      const lx = x, ly = y - 44, k = Math.max(0, Math.min(1, t.bindT / max));
+      ctx.fillStyle = 'rgba(18,10,20,0.55)'; ctx.beginPath(); ctx.arc(lx, ly, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#120a14'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(lx, ly, 9, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = t.bindT < 1 ? '#ffe066' : '#ff7a5a'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(lx, ly, 9, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); ctx.stroke();
+      const shake = t.bindT < 1 ? Math.round(Math.sin(time * 40)) : 0;  // 풀리기 직전: 자물쇠가 달각거림
+      Gfx.spr(ctx, 'lab_lock', lx + shake, ly + 1, { center: true });
       ctx.restore();
     }
     for (const t of peopleOf()) {
@@ -1461,7 +1566,7 @@ const Lab = (() => {
   function snap() {
     const lv = World.level;
     if (!lv || !lv.def.lab) return undefined;
-    const ms = World.enemies().filter(e => e.def.lab && e.lInit && live(e)).map(e => [e.id, e.stitches ?? e.lid ?? 0, e.exposeT > 0 ? 1 : 0, Math.round((e.gazeA || 0) * 100) / 100, e.litI || 0, e.posts ? e.posts.map(q => [Math.round(q.x), Math.round(q.y)]) : 0]);
+    const ms = World.enemies().filter(e => e.def.lab && e.lInit && live(e)).map(e => [e.id, e.stitches ?? e.lid ?? 0, e.exposeT > 0 ? 1 : 0, Math.round((e.gazeA || 0) * 100) / 100, e.litI || 0, e.posts ? e.posts.map(q => [Math.round(q.x), Math.round(q.y)]) : 0, e.foam || 0]);
     const out = { ms, tr: (lv.labTrail || []).map(w => [Math.round(w.x), Math.round(w.y), w.r, Math.round(w.t * 10) / 10, w.life, w.ri]), zw: (lv.zeroWaves || []).map(w => [Math.round(w.x), Math.round(w.y), Math.round(w.t * 100) / 100, w.ri]) };
     if (B && motherOf()) {
       out.b = bodiesOf().map(b => [b.id, b.col, b.lockT > 0 ? 1 : 0, b.next ?? -1]);
@@ -1480,10 +1585,11 @@ const Lab = (() => {
     const byId = id => World.enemies().find(e => e.id === id);
     if (World.level && a.tr) World.level.labTrail = a.tr.map(([x, y, r, t, life, ri]) => ({ x, y, r, t, life, ri, dmg: 0 }));
     if (World.level && a.zw) World.level.zeroWaves = a.zw.map(([x, y, t, ri]) => ({ x, y, t, ri, hit: [], q: ENEMIES.lab_zero.quake }));  // 그림만(맞히기는 방장)
-    for (const [id, n, ex, ga, li, ps] of a.ms || []) {
+    for (const [id, n, ex, ga, li, ps, fo] of a.ms || []) {
       const e = byId(id); if (!e) continue;
       e.lInit = true; e.exposeT = ex ? 1 : 0; e.gazeA = ga; e.litI = li;
       if (ps) e.posts = ps.map(([x, y]) => ({ x, y }));
+      if (e.def.lab === 'brood') e.foam = fo || 0;
       if (e.def.lab === 'stitch') e.stitches = n; if (e.def.lab === 'brood') e.lid = n; 
     }
     if (a.b) {
