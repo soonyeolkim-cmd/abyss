@@ -536,6 +536,7 @@ const Lab = (() => {
           e.chainLv++; e.chainT = d.chains.every; e.lockHits = 0;
           World.text(e.x, e.y, e.h + 12, e.chainLv >= d.chains.max ? '사슬이 다 끊어졌다!' : '사슬이 끊어졌다! (' + e.chainLv + '/' + d.chains.max + ')', '#ff7a5a', true);
           World.sparks(e.x, e.y - e.h * 0.6, 6, 14, '#c8c8d4', true); World.shake(3); Sfx.roar();
+          if (e.chainLv === d.lock.stunAt) World.say('지금이다 — 앞에서 가슴 자물쇠를 ' + d.lock.hits + '대 쳐서 다시 묶으면 기절!', 2.6);  // 2026-11-08 사용자: 딜 타임이 언제 열리는지 보이게
         }
       }
       if (k === 'brood' && !(e.exposeT > 0) && e.state !== 'dead' && (e.hatchT -= dt) <= 0) {  // 배양조에서 실험체(뚜껑이 깨진 동안은 멈춤)
@@ -937,7 +938,14 @@ const Lab = (() => {
       ctx.save(); ctx.strokeStyle = '#a8a8b8'; ctx.lineWidth = 1; ctx.setLineDash([2, 1]);
       for (let i = 0; i < left; i++) { const a = Math.PI * (0.25 + i * 0.25), ax = e.x + Math.cos(a + Math.PI) * 30 * (i % 2 ? 1 : -1), ay = e.y + 10; ctx.beginPath(); ctx.moveTo(x + (i % 2 ? 10 : -10) * s, y - e.h * 0.6); ctx.lineTo(ax, ay); ctx.stroke(); }
       ctx.restore();
-      if (e.chainLv > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.4 + 0.3 * Math.sin(time * 10); ctx.fillStyle = TEAL; ctx.beginPath(); ctx.arc(x + (e.fv.x < 0 ? -1 : 1), y - e.h * 0.55, 5, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+      const ready = e.chainLv >= d.lock.stunAt;  // 지금 묶으면 기절(딜 타임)
+      if (e.chainLv > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = ready ? 0.65 + 0.35 * Math.sin(time * 14) : 0.3 + 0.2 * Math.sin(time * 10); ctx.fillStyle = TEAL; ctx.beginPath(); ctx.arc(x + (e.fv.x < 0 ? -1 : 1), y - e.h * 0.55, ready ? 8 : 5, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+      // 머리 위: 끊긴 사슬 수(사슬 N/3) · 둘 이상이면 '앞에서 자물쇠!'(깜빡) + 자물쇠 맞힌 수
+      ctx.save(); ctx.textAlign = 'center'; ctx.font = 'bold 8px ' + Gfx.FONT;
+      const line = (s, yy, col) => { ctx.fillStyle = '#000'; ctx.fillText(s, x + 0.5, yy + 0.5); ctx.fillStyle = col; ctx.fillText(s, x, yy); };
+      line('사슬 ' + e.chainLv + '/' + d.chains.max, y - e.h - 6, ready ? '#ff9a6a' : '#c8c8d4');
+      if (ready) line('앞에서 자물쇠! ' + (e.lockHits || 0) + '/' + d.lock.hits, y - e.h - 16, Math.floor(time * 6) % 2 ? TEAL : '#ffffff');
+      ctx.restore();
     }
     if (d.lab === 'zero' && e.state === 'labDown') { ctx.fillStyle = '#ffe066'; for (let k = 0; k < 3; k++) { const a = time * 6 + k * 2.1; ctx.fillRect(Math.round(x + Math.cos(a) * 9), Math.round(y - e.h - 3 + Math.sin(a) * 2), 2, 2); } }
     if (d.lab === 'eye' && e.state === 'labDown') { ctx.fillStyle = TEAL; for (let k = 0; k < 3; k++) { const a = time * 6 + k * 2.1; ctx.fillRect(Math.round(x + Math.cos(a) * 10), Math.round(y - e.h - 3 + Math.sin(a) * 2), 2, 2); } }
