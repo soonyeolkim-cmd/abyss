@@ -550,12 +550,18 @@ const KING_RULE = { hpMul: 5.5, essence: 12, cores: 0, pearls: 1, orbSpeed: 170,
 //   보상 = 심연의 씨앗 seeds(Lv.120 업그레이드에만 — 2026-11-08 사용자 '보스 잡으면 전용 재료 1개씩') · 정수 essence
 // 체력 hpMul(2026-11-08 시험): 6 이면 Lv.120 +10 유니크 한 벌(보석 · 속성석 없이) 기본 공격 봇이 공명 한 번에 0.85%(상한 10%) — 10분 안에 못 깸 → 2.4(봇 약 2%, 기술 · 속성석을 쓰면 몇 배). 손맛 보고 다시
 //   → 2026-11-08 사용자 기준 캐릭터(태초 속성석 · 보석): 2.4 면 공명마다 상한 10% 를 꽉 채워 146초(최소 시간) — 상한 없이 재면 한 번에 약 15% → 7.2(봇 공명 한 번 약 5% · 약 5분, 기술을 쓰면 더 빠름)
-const BROOD_RULE = { hpMul: 7.2, essence: 14, cores: 0, pearls: 0, seeds: 1, cap: 0.1, bigCap: 1.5, heal: 0.5, deal: 5, every: [6, 6, 4], warn: 0.8, match: 0.4, force: 9, gap: 2.5, shift: 1.5, phases: [0.7, 0.4],
+//   → 2026-11-08 A + D(복제체를 쳐서 색 돌리기 · 합체 막기)로 공명이 빨라져 같은 봇이 3분 → 9.6(약 4분)
+const BROOD_RULE = { hpMul: 9.6, essence: 14, cores: 0, pearls: 0, seeds: 1, cap: 0.1, bigCap: 1.5, heal: 0.5, deal: 5, every: [6, 6, 4], warn: 0.8, match: 0.4, force: 9, gap: 2.5, shift: 1.5, phases: [0.7, 0.4],
   tank: { hits: 3, r: 34, pool: 8, lock: 4, refill: 14 }, flood: { every: 24, first: 10, warn: 2.2, t: 6, pads: 3, padR: 26, pct: 0.04 }, lonely: { speed: 1.6, cd: 0.55 },
   flesh: { wind: 1.0, follow: 0.4, r: 34, dmg: 1.2 }, spit: { n: 2, max: 4 },
   // 2026-11-08 사용자 '최종 보스 주변에 졸개 한 마리만 돌려서 색깔 같고 다르게 — 다시': 복제체는 하나만, 어미 둘레(orbit, 바닥 타원)를 spin[단계] 라디안/초로 돎(2단계부터 flip 초마다 방향이 바뀜).
   //   70% 분열(복제체 하나 더) · 약물 배양조(웅덩이로 색 고정) · 외톨이 폭주 · 돌진은 없앰. 새끼 뱉기 · 40% 약물 범람(모든 몸 한 색 = 큰 공명) · 다른 색 치면 회복은 그대로
-  twin: { orbit: 48, spin: [1.4, 2.0, 2.0], flip: [6, 9], move: 240, acid: { wind: 0.6, n: 5, speed: 120, dmg: 0.6 }, swing: 0.8, cd: [2.4, 3.2] } };
+  // 2026-11-08 사용자 '마지막 보스가 너무 밋밋하다 — A + D':
+  //   A = 복제체를 칠 때마다 색이 다음으로(● → ▲ → ■, cycleGap 초에 한 번) — 어미 색만 저절로 바뀜(every 초, 바뀌기 warn 초 전 깜빡). 둘이 같은 색이면 한 대 쳐서 공명
+  //   D = 합체 막기(fuse): first 초 뒤부터 every 초마다 어미가 복제체를 t 초 동안 끌어당김(도는 반지름이 줄어듦, 이어진 줄 · 막대) —
+  //       그사이 복제체를 hits 대 치면 떼어 냄 → 어미 down 초 휘청 + 바로 공명. 못 막으면 마지막 warn 초 붉은 원(r, 판정) 뒤 둘레가 터짐(최대 체력 pct, 못 피함 — 원 밖이면 안 맞음) · 어미 체력 heal 회복
+  twin: { orbit: 48, spin: [1.4, 2.0, 2.0], flip: [6, 9], move: 240, acid: { wind: 0.6, n: 5, speed: 120, dmg: 0.6 }, swing: 0.8, cd: [2.4, 3.2], cycleGap: 0.35 },
+  fuse: { first: 40, every: 55, t: 6, hits: 6, gap: 0.15, warn: 1.5, r: 80, pct: 0.35, heal: 0.05, down: 2 } };
 const raidRule = stage => (stage === 3 ? Object.assign({}, RAID_RULE, BROOD_RULE) : stage === 2 ? Object.assign({}, RAID_RULE, KING_RULE) : RAID_RULE);
 const SEED_COLOR = '#b8e84a';  // 심연의 씨앗(3단계 레이드 보상, Lv.120 업그레이드에만)
 const PEARL_COLOR = '#bcd8ff';  // 심해 진주(2단계 레이드 보상, Lv.110 업그레이드에만 — 사용자: 재료는 그 단계 재료로)

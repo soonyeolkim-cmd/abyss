@@ -407,6 +407,10 @@ const Lab = (() => {
         e.t -= dt; e.kx = 0; e.ky = 0;
         if (e.t <= 0) { e.state = 'move'; e.atkCd = 1; }
         return true;
+      case 'fuseWind':  // 합체(복제체를 끌어당김) — 끝은 fuseTick 이 정함
+        e.kx = 0; e.ky = 0;
+        if (!B || !B.fuse) { e.state = 'move'; e.atkCd = 1; }
+        return true;
     }
     return false;
   }
@@ -684,7 +688,8 @@ const Lab = (() => {
     m.col = 0;
     B = { phase: 1, nextT: R.every[0], warned: false, res: null, since: 0, gapT: 0, floodT: R.flood.first, flood: null, pools: [] };
     spawnTwin(m, lv, 1);  // 2026-11-08: 복제체 하나가 어미 둘레를 돎 · 약물 배양조 없앰
-    World.say('분열의 어미 — 둘레를 도는 복제체와 색이 같을 때 한 대 치면 공명! 5초 동안 피해가 들어간다', 4.5);
+    B.fuseT = BR().fuse.first; B.fuse = null;
+    World.say('분열의 어미 — 둘레를 도는 복제체를 쳐서 색을 바꿔라! 어미와 같은 색이 되면 한 대 쳐서 공명(5초)', 4.5);
   }
   function spawnTwin(m, lv, col) {
     const a = Math.random() * Math.PI * 2, t = World.spawn('lab_twin', m.x + Math.cos(a) * 40, m.y + Math.sin(a) * 26, { spawn: true });
@@ -714,7 +719,7 @@ const Lab = (() => {
   function endRes(quiet) {
     if (!B || !B.res) return;
     B.res = null; B.gapT = BR().gap; B.ready = null;
-    rerollNow(false);
+    motherShift();
     B.nextT = BR().every[B.phase - 1]; B.warned = false;
     if (!quiet) { const m = motherOf(); if (m) World.text(m.x, m.y, m.h + 14, '다시 이어졌다', '#c8c8d4'); }
   }
@@ -737,7 +742,13 @@ const Lab = (() => {
     if (B.phase === 2) { World.text(m.x, m.y, m.h + 20, '더 빨리 돈다!', '#ff7ab0', true); World.say('복제체가 더 빨리 돌고, 가끔 도는 방향이 바뀐다!', 3); }  // 2026-11-08: 분열(복제체 하나 더) 대신
     if (B.phase === 3) { B.floodT = 4; World.text(m.x, m.y, m.h + 20, '약물이 끓어오른다!', ACID_HI, true); World.say('약물 범람이 시작된다 — 색이 더 자주 바뀐다!', 3); }
   }
-  // 색 다시 고르기: want = 둘을 같은 색으로(공명 기회). 웅덩이에 고정된 몸(lockT)은 그대로
+  // 어미 색을 다른 색으로(복제체 색과도 다르게 — 바로 공명 준비가 되지 않게). 2026-11-08 A: 복제체 색은 사람이 쳐서 바꿈
+  function motherShift() {
+    const m = motherOf(); if (!m) return;
+    const tw = bodiesOf().filter(b => b !== m).map(b => b.col), opts = [0, 1, 2].filter(c => c !== m.col && !tw.includes(c));
+    m.col = opts.length ? pickOf(opts) : pickOf([0, 1, 2].filter(c => c !== m.col)); m.next = undefined;
+  }
+  // (예전) 색 다시 고르기: want = 둘을 같은 색으로(공명 기회). 웅덩이에 고정된 몸(lockT)은 그대로 — 2026-11-08 A 뒤로는 안 씀
   function pickNext(force) {
     const R = BR(), bodies = bodiesOf(), free = shuffle(bodies.filter(b => !(b.lockT > 0)));
     if (!free.length) return;
@@ -802,10 +813,11 @@ const Lab = (() => {
             fl.tick = 0.5;
             for (const t of peopleOf()) if (!fl.pads.some(q => groundDist(t.x - q.x, t.y - q.y) <= F.padR)) { hurtPlayer(t, { x: t.x, y: t.y + 1, pct: F.pct, unavoid: true, hazard: true }, 0, 0); World.sparks(t.x, t.y, 4, 4, ACID_HI, false); }
           }
-          if ((fl.t -= dt) <= 0) { B.flood = null; B.floodT = F.every; for (const b of bodies) b.lockT = 0; if (B.res) endRes(); else rerollNow(false); }
+          if ((fl.t -= dt) <= 0) { B.flood = null; B.floodT = F.every; for (const b of bodies) b.lockT = 0; if (B.res) endRes(); else motherShift(); }
         }
       }
     }
+    fuseTick(dt, m);  // 합체 시계는 늘 흐름(공명 · 범람 · 단계 바뀜 중이면 끝난 뒤 시작)
     // 공명 중
     if (B.res) {
       const n = groups()[B.res.col];
@@ -820,9 +832,11 @@ const Lab = (() => {
     // 잠김: 색 바꾸기(warn 초 전에 깜빡) · 같은 색이 되면 '공명 준비'(B.ready) — 그때 한 대라도 치면 5초 공명(bodyCut, 2026-11-08 사용자). 안 치면 색은 그대로 바뀜
     const every = R.every[B.phase - 1];
     if (B.gapT <= 0) {
-      if (!B.warned && (B.nextT -= dt) <= R.warn) { B.warned = true; pickNext(); }
-      else if (B.warned && (B.nextT -= dt) <= 0) { applyNext(); B.nextT = every; B.warned = false; }
-      const g = groups(), c = g.indexOf(Math.max(...g)), rd = g[c] >= 2 ? c : null;
+      if (!B.fuse) {  // 어미 색만 저절로 바뀜(warn 초 전 다음 색 깜빡) — 합체 중엔 멈춤
+        if (!B.warned && (B.nextT -= dt) <= R.warn) { B.warned = true; m.next = pickOf([0, 1, 2].filter(c => c !== m.col)); }
+        else if (B.warned && (B.nextT -= dt) <= 0) { if (m.next !== undefined) m.col = m.next; m.next = undefined; B.nextT = every; B.warned = false; }
+      }
+      const g = groups(), c = g.indexOf(Math.max(...g)), rd = g[c] >= 2 && !B.fuse ? c : null;
       if (rd !== null && B.ready !== rd) { World.text(m.x, m.y, m.h + 16, '같은 색! 한 대 치면 공명', RC[rd][0], true); sayOnce(B, 'readySeen', '색이 같아졌다 — 아무 몸이나 한 대 치면 5초 동안 공명!', 2.4); Sfx.spell(); }
       B.ready = rd;
     }
@@ -831,11 +845,56 @@ const Lab = (() => {
   function bodyCut(e) {
     const m = motherOf();
     if (!B || !m || m.state === 'phaseShift' || e.spawnT > 0 || m.spawnT > 0) return { m: 0, s: '무적', armor: true };
+    if (B.fuse) {  // 합체 막기: 복제체를 hits 대 치면 떼어 냄(피해 없음)
+      if (e.def.part !== 'twin') return { m: 0, s: '합체 중', armor: true };
+      const F = BR().fuse;
+      if (!(e.fuseT > now())) {
+        e.fuseT = now() + F.gap; e.flash = 0.1; World.sparks(e.x, e.y, e.h * 0.5, 8, '#ff7ab0', true);
+        if (++B.fuse.hits >= F.hits) fuseBreak(m, e);
+      }
+      return { m: 0, s: '', armor: true };
+    }
     if (!B.res && B.ready !== null && B.ready !== undefined && e.col === B.ready) startRes(B.ready, groups()[B.ready]);  // 같은 색일 때 한 대 = 공명 열림(이 한 대부터 들어감)
+    if (!B.res && e.def.part === 'twin' && !(B.flood && B.flood.on)) {  // A: 복제체를 치면 색이 다음으로(● → ▲ → ■)
+      if (!(e.cycT > now())) {
+        e.cycT = now() + BR().twin.cycleGap; e.col = (e.col + 1) % 3;
+        World.text(e.x, e.y, e.h + 8, RC[e.col][2], RC[e.col][0]); World.sparks(e.x, e.y, e.h * 0.5, 6, RC[e.col][0], true); Sfx.stone();
+        sayOnce(B, 'cycleSeen', '복제체를 칠 때마다 색이 바뀐다 — 어미 색에 맞춰라!', 2.4);
+      }
+      return { m: 0, s: '', armor: true };
+    }
     if (!B.res) return { m: 0, s: '팅', armor: true };
     if (B.res.braced) return { m: 0, s: '버팀', armor: true };
     if (e.col === B.res.col) return { m: 1, s: '', armor: true };
     return { m: -BR().heal, s: '회복!', armor: true };
+  }
+  // D: 합체 막기 — first · every 초마다 어미가 복제체를 끌어당김(t 초). 막으면 휘청 + 공명, 못 막으면 둘레 폭발 + 회복
+  function fuseTick(dt, m) {
+    const F = BR().fuse;
+    if (!B.fuse) {
+      if (B.fuseT > 0) B.fuseT -= dt;
+      if (B.fuseT > 0 || B.res || B.flood || m.state === 'phaseShift' || m.state === 'labDown') return;
+      B.fuse = { t: F.t, hits: 0 }; B.ready = null; B.warned = false; m.next = undefined;
+      m.state = 'fuseWind'; m.t = F.t; m.kx = 0; m.ky = 0;
+      World.text(m.x, m.y, m.h + 18, '합체하려 한다!', '#ff7ab0', true); World.say('합체 — 복제체를 ' + F.hits + '대 쳐서 떼어 내라! 못 막으면 둘레가 터진다', 3); Sfx.roar(); World.shake(3);
+      return;
+    }
+    if (m.state === 'phaseShift') return;
+    if ((B.fuse.t -= dt) > 0) return;
+    // 못 막음: 둘레 폭발(붉은 원 = 판정) · 회복
+    B.fuse = null; B.fuseT = F.every;
+    World.fx({ type: 'nova', x: m.x, y: m.y, r: F.r, col: '#ff5a7a', el: '', tier: 0, bare: true, seed: Math.random() * 1000, t: 0, life: 0.45 });
+    for (const t of peopleOf()) if (groundDist(t.x - m.x, t.y - m.y) <= F.r + BODY_R) { World.sparks(t.x, t.y, 14, 12, '#ff5a7a', true); hurtPlayer(t, { x: m.x, y: m.y, pct: F.pct, unavoid: true }, 0, 220); }
+    pool.hp = Math.min(pool.max, pool.hp + pool.max * F.heal);
+    World.text(m.x, m.y, m.h + 18, '합체했다 — 회복!', '#7dff8a', true); World.shake(8); Sfx.blast();
+    m.state = 'recover'; m.t = 0.8;
+  }
+  function fuseBreak(m, tw) {
+    const F = BR().fuse;
+    B.fuse = null; B.fuseT = F.every;
+    World.text(tw.x, tw.y, tw.h + 10, '떼어 냈다!', TEAL, true); World.shake(5); Sfx.chest();
+    m.state = 'labDown'; m.t = F.down; m.kx = 0; m.ky = 0;
+    tw.col = m.col; startRes(m.col, 2);  // 막으면 바로 공명
   }
   // 약물 배양조를 침: hits 대면 깨져 그 색 웅덩이
   function tankHit(e) {
@@ -883,10 +942,11 @@ const Lab = (() => {
     if (m.state !== 'phaseShift') e.orbA += e.orbDir * W.spin[ph] * dt * (e.slowUntil > now() ? e.slowK : 1);
     if (ph >= 1 && (e.flipT -= dt) <= 0) { e.flipT = W.flip[0] + Math.random() * (W.flip[1] - W.flip[0]); e.orbDir *= -1; World.text(e.x, e.y, e.h + 6, '방향이 바뀐다!', '#ffd36a'); }
     {
-      const tx = m.x + Math.cos(e.orbA) * W.orbit, ty = m.y + Math.sin(e.orbA) * W.orbit * GROUND_Y, dx = tx - e.x, dy = ty - e.y, dd = Math.hypot(dx, dy);
+      const orb = W.orbit * (B && B.fuse ? Math.max(0.35, B.fuse.t / BR().fuse.t) : 1);  // 합체 중: 점점 끌려옴
+      const tx = m.x + Math.cos(e.orbA) * orb, ty = m.y + Math.sin(e.orbA) * orb * GROUND_Y, dx = tx - e.x, dy = ty - e.y, dd = Math.hypot(dx, dy);
       if (dd > 0.5) { const st = Math.min(dd, W.move * dt); Dungeon.move(lv, e, dx / dd * st, dy / dd * st, e.r); e.moving = true; e.walkT += dt; } else e.moving = false;
     }
-    if (m.state === 'phaseShift') return;
+    if (m.state === 'phaseShift' || (B && B.fuse)) return;
     switch (e.state) {
       case 'move':
         faceTo(e, p);
@@ -1002,6 +1062,15 @@ const Lab = (() => {
       const o = World.enemies().find(m => m.id === e.owner);
       if (o && e.idx === o.litI) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.5 + 0.3 * Math.sin(time * 9); const g = ctx.createRadialGradient(x, y - e.z, 0, x, y - e.z, 9); g.addColorStop(0, 'rgba(95,224,208,0.9)'); g.addColorStop(1, 'rgba(95,224,208,0)'); ctx.fillStyle = g; ctx.fillRect(x - 9, y - e.z - 9, 18, 18); ctx.restore(); }
     }
+    if (d.part === 'twin' && B && B.fuse) {  // 합체: 복제체 → 어미 끌려가는 줄(맥동)
+      const m = motherOf();
+      if (m) { ctx.save(); ctx.strokeStyle = 'rgba(255,90,140,' + (0.5 + 0.4 * Math.sin(time * 16)) + ')'; ctx.lineWidth = 2; ctx.setLineDash([3, 2]); ctx.lineDashOffset = -time * 20; ctx.beginPath(); ctx.moveTo(x, y - e.h * 0.5); ctx.lineTo(m.x, m.y - m.h * 0.5); ctx.stroke(); ctx.restore(); }
+    }
+    if (d.brood && B && B.fuse) {  // 어미 머리 위: '떼어 내기 n/6' + 남은 시간 막대
+      const F = BR().fuse, w = 40, bx = Math.round(x - w / 2), by = Math.round(y + 14);  // 발밑(머리 위는 기호 · 화면 위 체력 막대와 겹침)
+      ctx.fillStyle = '#000'; ctx.fillRect(bx - 1, by - 1, w + 2, 5); ctx.fillStyle = '#ff5a7a'; ctx.fillRect(bx, by, Math.round(w * (1 - B.fuse.t / F.t)), 3);
+      ctx.save(); ctx.textAlign = 'center'; ctx.font = 'bold 8px ' + Gfx.FONT; ctx.fillStyle = '#000'; ctx.fillText('떼어 내기 ' + B.fuse.hits + '/' + F.hits, x + 0.5, by + 12.5); ctx.fillStyle = '#ffd36a'; ctx.fillText('떼어 내기 ' + B.fuse.hits + '/' + F.hits, x, by + 12); ctx.restore();
+    }
     if (d.brood || d.part === 'twin') {  // 머리 위 색 기호(바뀌기 전 깜빡) · 웅덩이 고정 = 작은 고리
       const blink = (B && B.warned && e.next !== undefined && e.next !== e.col) || (World.mirror && e.snapWarn);
       const c = blink && Math.floor(time * 10) % 2 ? (e.next !== undefined ? e.next : e.col) : e.col;
@@ -1048,6 +1117,12 @@ const Lab = (() => {
       if (!hot) { ctx.beginPath(); ctx.moveTo(len * k, -w); ctx.lineTo(len * k, w); ctx.stroke(); }
       ctx.restore();
     };
+    if (B && lv.def.raid && B.fuse && B.fuse.t <= BR().fuse.warn) {  // 합체 실패 폭발 예고(판정 r — 원 밖이면 안 맞음)
+      const m = motherOf(), F = BR().fuse, k = 1 - B.fuse.t / F.warn;
+      if (m) { ctx.save(); ctx.fillStyle = 'rgba(255,40,60,' + (0.12 + 0.22 * k) + ')'; ctx.strokeStyle = 'rgba(255,80,100,' + (0.5 + 0.5 * k) + ')'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.ellipse(m.x, m.y, F.r, F.r * GROUND_Y, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(m.x, m.y, F.r * k, F.r * GROUND_Y * k, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+    }
     if (B && lv.def.raid) {  // 약물 웅덩이(판정 r = 바닥 타원) · 범람
       for (const w of B.pools) {
         const fade = Math.min(1, w.t / 1);
@@ -1191,6 +1266,7 @@ const Lab = (() => {
       out.b = bodiesOf().map(b => [b.id, b.col, b.lockT > 0 ? 1 : 0, b.next ?? -1]);
       out.r = B.res ? [B.res.col, B.res.braced ? 1 : 0] : null;
       out.rd = B.ready ?? null;
+      out.fu = B.fuse ? [Math.round(B.fuse.t * 10) / 10, B.fuse.hits] : null;
       out.w = B.warned ? 1 : 0;
       out.p = B.pools.map(w => [Math.round(w.x), Math.round(w.y), w.r, w.col, Math.round(w.t * 10) / 10]);
       out.f = B.flood ? [B.flood.col, B.flood.on ? 1 : 0, Math.round(B.flood.warn * 10) / 10, B.flood.pads.map(q => [Math.round(q.x), Math.round(q.y)])] : null;
@@ -1214,6 +1290,7 @@ const Lab = (() => {
       B.pools = (a.p || []).map(([x, y, r, col, t]) => ({ x, y, r, col, t }));
       B.flood = a.f ? { col: a.f[0], on: !!a.f[1], warn: a.f[2], pads: a.f[3].map(([x, y]) => ({ x, y })) } : null;
       B.res = null; B.warned = false; B.ready = a.rd ?? null;
+      B.fuse = a.fu ? { t: a.fu[0], hits: a.fu[1] } : null;
       for (const [id, col, br] of a.t || []) { const e = byId(id); if (e) { e.col = col; e.broken = !!br; } }
     }
   }

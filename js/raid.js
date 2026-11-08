@@ -40,7 +40,7 @@ const Raid = (() => {
     lv.canvas = Dungeon.paint(lv);
     return lv;
   }
-  const bossSpot = lv => ({ x: lv.boss.cx * T + 8, y: (lv.boss.y + 6) * T });
+  const bossSpot = lv => (lv.def.boss === 'lab_mother' ? { x: lv.boss.cx * T + 8, y: lv.boss.cy * T } : { x: lv.boss.cx * T + 8, y: (lv.boss.y + 6) * T });  // 분열의 어미는 방 가운데(위에 붙으면 머리 위 기호 · 합체 막대가 체력 막대에 가려짐)
 
   // 보스 머리 위 큰 글(파티 손님에게도) + 내 화면 가운데 알림
   function say(e, s, col = TEAL) { World.text(e.x, e.y, e.h + 14, s, col, true); World.say(s, 2.6); }
