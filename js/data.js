@@ -708,7 +708,7 @@ Object.assign(ENEMIES, {
   //   stitch 봉합체: 실밥 n 개가 있으면 피해 × cut. 큰 공격 뒤 틈(recover · 기절 — 실밥이 청록으로 빛남)에 맞을 때마다(gap 초에 하나) 실밥이 하나씩 끊김 → 다 끊으면 expose 초 드러남(× mul), restitch 초 뒤 다시 꿰맴
   //   brood 배양 모체: every 초마다 배양조 실험체 n 마리. 등 뒤 뚜껑(뒤 ± cone)이 있으면 피해 × cut — 등 뒤에서 lid 대 치면 뚜껑이 깨져 expose 초 드러남(× mul, 낳기 멈춤) · regrow 초 뒤 다시. 몸은 초당 turn 라디안으로만 돎(빙 돌아 등을 노리기)
   //   melt 흘러내리는 자: 물렁한 동안 피해 × soft → every 초마다 웅덩이로 녹아듦(안 맞음) under 초 동안 노리는 사람 쪽으로 흘러옴 → rise 초 바닥 예고(r = 판정) 뒤 솟아오름 → hard 초 굳음(청록, × mul)
-  //   zero 격리 번호 0: 사슬 갑옷(피해 × cut). every 초마다 사슬이 하나씩 끊어짐(max 개) — 끊어질수록 사슬 채찍(lash) 길이 · 빠르기가 늚. 가슴 자물쇠(앞 ± cone 에서 hits 대)를 치면 다시 묶임 — 사슬이 stunAt 개 넘게 끊겼을 때 묶으면 bind[끊긴 수] 초 기절(× mul). 일찍 묶으면 안전하지만 딜 타임 없음(2026-11-08 시험: 하나 끊길 때마다 묶어 늘 기절이라 너무 쉬움)
+  //   zero 구속체(예전 이름 '격리 번호 0' — 2026-11-08 사용자가 바꿈): 사슬 갑옷(피해 × cut). every 초마다 사슬이 하나씩 끊어짐(max 개) — 끊어질수록 사슬 채찍(lash) 길이 · 빠르기가 늚. 가슴 자물쇠(앞 ± cone 에서 hits 대)를 치면 다시 묶임 — 사슬이 stunAt 개 넘게 끊겼을 때 묶으면 bind[끊긴 수] 초 기절(× mul). 일찍 묶으면 안전하지만 딜 타임 없음(2026-11-08 시험: 하나 끊길 때마다 묶어 늘 기절이라 너무 쉬움)
   //   eye 관찰체: 유리병 속 눈 n 개(부품, 둘레를 돎) 중 청록으로 빛나는 하나만 터뜨릴 수 있음 — 하나를 터뜨리면 relight 초 뒤 남은 눈 중 하나가 무작위로 빛남(그사이 · 다른 눈을 치면 표식). 다 터뜨리면 병이 깨져 expose 초 드러남(× mul), regrow 초 뒤 다시.
   //        바라보는 부채꼴(gaze r · arc 도, 초당 turn 라디안으로 돎) 안에 hold 초 서 있으면 표식 하나 — max 개면 응시 광선(최대 체력 pct, 못 피함) · 밖에 decay 초 있으면 하나씩 사라짐
   lab_stitch: { name: '봉합체', sprite: 'lab_stitch', pix: true, idle: false, boss: true, lab: 'stitch', scale: 1.25, speed: 34, range: 26, superArmor: true, launchMul: 0.2, r: 12,
@@ -724,7 +724,7 @@ Object.assign(ENEMIES, {
     melt: { soft: 0.25, every: 6, sink: 0.5, under: 2.2, flow: 70, rise: 0.85, follow: 0.5, r: 38, dmg: 1.5, hard: 3.5, mul: 1.5 },
     atk: { windup: 0.55, active: 0.12, recovery: 0.7, knock: 180, reach: [0, 30], arc: 100, lunge: 150 },
     slam: { windup: 0.8, radius: 50 }, charge: { windup: 0.55, speed: 250, time: 0.6 }, fan: { windup: 0.65, count: 9, speed: 115, color: '#c8ff6a' }, summon: 'lab_bloat' },
-  lab_zero: { name: '격리 번호 0', sprite: 'lab_zero', pix: true, idle: false, boss: true, lab: 'zero', scale: 1.25, speed: 32, range: 26, superArmor: true, launchMul: 0.15, r: 12,
+  lab_zero: { name: '구속체', sprite: 'lab_zero', pix: true, idle: false, boss: true, lab: 'zero', scale: 1.25, speed: 32, range: 26, superArmor: true, launchMul: 0.15, r: 12,
     chains: { cut: 0.5, max: 3, every: 10, len: [56, 80, 104, 130], wind: [0.8, 0.7, 0.6, 0.5], w: 8, dmg: 1.0, knock: 230, cd: [4.5, 4, 3.5, 3] }, lock: { cone: 0.3, hits: 4, stunAt: 2, bind: [0, 0, 2.5, 3.5], mul: 1.5 },  // 2026-11-08 기준 캐릭터 시험: 4분 · 초당 14% → 2분 남짓 · 11%(갑옷 0.35 → 0.5 · 채찍 1.3 → 1.0 · 간격 늘림 · 끊김 8 → 10초) — 이때 lock 이 이 주석 뒤로 들어가 꺼져서 칠 때마다 오류(화면 끊김) → 2026-11-08 고침
     atk: { windup: 0.6, active: 0.12, recovery: 0.75, knock: 220, reach: [0, 32], arc: 110, lunge: 150 },
     slam: { windup: 0.85, radius: 56 }, charge: { windup: 0.6, speed: 260, time: 0.6 }, summon: 'lab_bloat' },
