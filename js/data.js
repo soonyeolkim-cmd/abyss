@@ -725,7 +725,7 @@ Object.assign(ENEMIES, {
     atk: { windup: 0.55, active: 0.12, recovery: 0.7, knock: 180, reach: [0, 30], arc: 100, lunge: 150 },
     slam: { windup: 0.8, radius: 50 }, charge: { windup: 0.55, speed: 250, time: 0.6 }, fan: { windup: 0.65, count: 9, speed: 115, color: '#c8ff6a' }, summon: 'lab_bloat' },
   lab_zero: { name: '격리 번호 0', sprite: 'lab_zero', pix: true, idle: false, boss: true, lab: 'zero', scale: 1.25, speed: 32, range: 26, superArmor: true, launchMul: 0.15, r: 12,
-    chains: { cut: 0.5, max: 3, every: 10, len: [56, 80, 104, 130], wind: [0.8, 0.7, 0.6, 0.5], w: 8, dmg: 1.0, knock: 230, cd: [4.5, 4, 3.5, 3] },  // 2026-11-08 기준 캐릭터 시험: 4분 · 초당 14% → 2분 남짓 · 11%(갑옷 0.35 → 0.5 · 채찍 1.3 → 1.0 · 간격 늘림 · 끊김 8 → 10초) lock: { cone: 0.3, hits: 4, stunAt: 2, bind: [0, 0, 2.5, 3.5], mul: 1.5 },
+    chains: { cut: 0.5, max: 3, every: 10, len: [56, 80, 104, 130], wind: [0.8, 0.7, 0.6, 0.5], w: 8, dmg: 1.0, knock: 230, cd: [4.5, 4, 3.5, 3] }, lock: { cone: 0.3, hits: 4, stunAt: 2, bind: [0, 0, 2.5, 3.5], mul: 1.5 },  // 2026-11-08 기준 캐릭터 시험: 4분 · 초당 14% → 2분 남짓 · 11%(갑옷 0.35 → 0.5 · 채찍 1.3 → 1.0 · 간격 늘림 · 끊김 8 → 10초) — 이때 lock 이 이 주석 뒤로 들어가 꺼져서 칠 때마다 오류(화면 끊김) → 2026-11-08 고침
     atk: { windup: 0.6, active: 0.12, recovery: 0.75, knock: 220, reach: [0, 32], arc: 110, lunge: 150 },
     slam: { windup: 0.85, radius: 56 }, charge: { windup: 0.6, speed: 260, time: 0.6 }, summon: 'lab_bloat' },
   lab_eye: { name: '관찰체', sprite: 'lab_eye', pix: true, idle: false, boss: true, lab: 'eye', scale: 1.25, speed: 28, range: 24, superArmor: true, launchMul: 0.1, r: 13,
