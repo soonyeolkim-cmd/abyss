@@ -295,6 +295,28 @@ const Lab = (() => {
     World.text(e.x, e.y, e.h + 10, '배양조에 약물을 넣는다 — 등이 열렸다!', TEAL, true); Sfx.spell();
     sayOnce(e, 'injSeen', '주입하는 동안만 등 뒤 뚜껑이 깨진다 — 등 뒤로 돌아가 쳐라! 못 막으면 강한 실험체가 깨어난다', 3.2);
   }
+  // 산성 방울 감옥(2026-11-08 사용자): 단단할 때(드러나지 않음 — 주입 중 등 뒤 뚜껑 치기는 빼고) 한 사람이 준 피해를 쌓아 최대 체력 jail.pct 를 넘으면 가둠
+  //   방울 = 2단계 거품 감옥(bubble_jail · Sunken.part · 연타 · 친구가 쳐서 터뜨림) 그대로, acid 가 붙으면 갇힌 동안 독 피해 · 초록 그림(sunken.js)
+  function hardHit(e, p, dmg) {
+    const J = e.def.jail;
+    if (!J || !p || p.pet || e.exposeT > 0 || World.mirror) return;
+    if (e.state === 'inject') return;  // 주입 중 = 등 뒤로 돌아가 뚜껑을 칠 때(돌아가며 옆을 스친 것도 안 셈)
+    const now_ = World.time, m = e.maxHp;
+    p.acidHeat = Math.max(0, (p.acidHeat || 0) - (now_ - (p.acidHeatAt || now_)) * J.decay * m) + dmg; p.acidHeatAt = now_;
+    if (p.acidHeat >= J.warn * J.pct * m && !(p.acidWarnT > now_)) {
+      p.acidWarnT = now_ + 4;
+      World.text(p.x, p.y, 46, '산성 방울이 차오른다 — 그만!', ACID_HI, true);
+      sayOnce(e, 'jailSeen', '단단할 때 너무 많이 치면 산성 방울에 갇힌다 — 주입을 기다려라!', 3);
+    }
+    if (p.acidHeat < J.pct * m || Sunken.jailOf(p)) return;
+    p.acidHeat = 0;
+    const B0 = ENEMIES.knight_bubble.jail, j = World.spawn('bubble_jail', p.x, p.y, {});
+    j.hp = j.maxHp = B0.hits; j.ri = e.ri; j.hold = p; j.t = j.tMax = J.t; j.owner = e.id;
+    j.acid = { every: J.every, pct: J.poison, burst: J.burst, tickT: J.every };
+    World.sparks(p.x, p.y, 12, 14, ACID_HI, true);
+    World.text(p.x, p.y, 44, '산성 방울에 갇혔다 — 연타!', ACID_HI, true);
+    World.hitstop(0.45); World.shake(5); Sfx.blast();
+  }
   // D 산성 거품: 앞 · 옆에서 맞으면 gap 초에 한 번 1씩(가득 차면 update 가 터뜨림)
   function foamAdd(e) {
     const F = e.def.foam;
@@ -1606,6 +1628,6 @@ const Lab = (() => {
   // 새 레이드 · 새 층: 이전 판 상태 지움(world.js descend · start 뒤 populate 전에 불러도 되고, 어미가 처음 생각할 때 다시 만든다)
   function reset() { pool = null; B = null; snapRes = null; }
 
-  return { think, state, cut, onKill, part, partDied, update, spriteOf, drawMob, drawOver, ground, labels, light, paintLab, drawLab, snap, unsnap, reset, isLab, RC, chargeReach,
+  return { think, state, cut, onKill, part, partDied, update, spriteOf, drawMob, drawOver, ground, labels, light, paintLab, drawLab, snap, unsnap, reset, isLab, RC, chargeReach, hardHit,
     get brood() { return B; }, get pool() { return pool; } };
 })();

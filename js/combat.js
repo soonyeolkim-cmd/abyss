@@ -121,6 +121,7 @@ function hitEnemy(e, def, p, w) {
     World.onKill(e);
   }
   if (!e.dying) Sunken.onHit(e);  // 소라게 숨기 · 거품 한 겹 · 물거울 분신
+  if (ed.lab === 'brood') { e.lastHitBy = p; e.lastHitAt = World.time; if (!e.dying && dmg > 0) Lab.hardHit(e, p, dmg); }  // 배양 모체: 단단할 때 너무 많이 치면 산성 방울에 갇힘(js/lab.js) — 속성 피해는 마지막으로 친 사람 몫
   // 검사 검기: 베인 상처(2026-10-25) — 4초 동안 받는 피해 +25%
   if (def.id === 'wave' || def.id === 'quake') { if (!(e.cutT > 0) && !e.dying) World.text(e.x, e.y, e.h + 10, '베인 상처', '#ff8a7a'); e.cutT = WAVE_CUT.t; }
   if (!blocked && !def.noEl) Elements.onHit(e, def, p);  // 그 기술 칸에 끼운 속성석 효과(방패에 막히면 안 터짐) · noEl = 검기 두 줄 · 롯드 세 발의 덤(속성은 한 발만)

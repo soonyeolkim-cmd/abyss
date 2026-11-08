@@ -222,6 +222,7 @@ const Elements = (() => {
     const rb = isRes(el) ? 1 + RES_BONUS : mixedFull() ? MIX_MUL : 1;  // 공명: 그 속성 피해 더 · 칸 4개 다 찬 섞기(듀오 · 3:1 …): 덜(2026-10-29 — 같은 속성 4개가 섞기보다 세게)
     const d = Math.max(1, Math.round(amount * vuln(e) * rc * rb * (sc ? sc.m : 1) * (e.wardT > 0 ? WARD.cut : 1)));  // 보호막 사제 둘레(방패병 방패는 속성 피해를 못 막음)
     e.hp -= d;
+    if (e.def.lab === 'brood' && e.lastHitBy && e.hp > 0 && World.time - (e.lastHitAt || -9) < 0.6) Lab.hardHit(e, e.lastHitBy, d);  // 배양 모체 산성 방울: 친 바로 뒤(0.6초 안)의 속성 피해도 그 사람 몫(남아 도는 화상 · 독은 안 셈)
     if (e.def.raid) Raid.clamp(e);
     if (e.def.dummy) Practice.add(d, 'el:' + el);  // 연습장 딜 측정(속성 피해)
     World.number(e.x + (Math.random() - 0.5) * 6, e.y, e.h + 2, d, ELEMENTS[el].color);

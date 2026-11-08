@@ -625,17 +625,17 @@ const Hud = (() => {
     if (lv.def.practice) Practice.hud(ctx, prof);  // 연습장: 왼쪽 위 딜 측정판
     const c = World.comboInfo;
     if (c) { ctx.globalAlpha = Math.min(1, c.t / 0.5); T_(ctx, c.n + ' 콤보', 930, 236, 26, '#ffd36a', 'right'); ctx.globalAlpha = 1; }
-    const jl = lv.def.stage === 2 && Sunken.jailOf(p);
+    const jl = (lv.def.stage === 2 || lv.def.lab) && Sunken.jailOf(p);
     if (jl) {  // 거품 감옥 알림판(2026-11-01 사용자: 갇힌 줄 모름) — 화면 가장자리 물빛 테두리 + 가운데 큰 글 + 방향 · 공격 연타 그림(남은 수 · 초는 안 보임, 2026-11-01 사용자)
       const now = performance.now() / 1000, k = 0.5 + 0.5 * Math.sin(now * 10), left = Math.max(0, jl.t);
       ctx.save();
-      ctx.strokeStyle = 'rgba(95,224,208,' + (0.35 + 0.35 * k) + ')'; ctx.lineWidth = 14; ctx.strokeRect(7, 7, 946, (VIEW_H - HUD_H) * SCALE - 14);
+      ctx.strokeStyle = (lv.def.lab ? 'rgba(200,255,106,' : 'rgba(95,224,208,') + (0.35 + 0.35 * k) + ')'; ctx.lineWidth = 14;  // 실험장 = 산성 방울(초록) ctx.strokeRect(7, 7, 946, (VIEW_H - HUD_H) * SCALE - 14);
       // 알림판 자리: 갇힌 내 몸 · 거품(연타하면 출렁)을 가리지 않게 — 위에 자리가 있으면(보스 체력 막대 아래) 위, 없으면 아래
       const PH = 132, sy = (p.y - World.cam.y) * SCALE, top = sy - 70 - PH >= 62 ? sy - 70 - PH : Math.min(sy + 24, (VIEW_H - HUD_H) * SCALE - PH - 8);
       ctx.fillStyle = 'rgba(8,16,32,0.82)'; ctx.fillRect(250, top, 460, PH);
-      ctx.strokeStyle = left < 0.8 && k > 0.5 ? '#ff5a7a' : '#5fe0d0'; ctx.lineWidth = 3; ctx.strokeRect(250.5, top + 0.5, 459, PH - 1);
+      ctx.strokeStyle = left < 0.8 && k > 0.5 ? '#ff5a7a' : lv.def.lab ? '#c8ff6a' : '#5fe0d0'; ctx.lineWidth = 3; ctx.strokeRect(250.5, top + 0.5, 459, PH - 1);
       ctx.restore();
-      T_(ctx, '거품에 갇혔다!', 480, top + 36, 30, '#5fe0d0', 'center');
+      T_(ctx, lv.def.lab ? '산성 방울에 갇혔다!' : '거품에 갇혔다!', 480, top + 36, 30, lv.def.lab ? '#c8ff6a' : '#5fe0d0', 'center');
       mashPic(ctx, now, top + 86);
     }
     const m = World.msg;

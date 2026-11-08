@@ -748,6 +748,10 @@ Object.assign(ENEMIES, {
     nest: { every: 7, n: 2, type: 'lab_spawn', max: 6 }, lid: { cut: 0.15, cone: 0.35, hits: 5, expose: 6, mul: 1.5, regrow: 4, turn: 1.1 },
     inject: { first: 8, every: 13, t: 5, stagger: 2.5, spawn: { type: 'lab_graft', n: 2 } },
     foam: { max: 12, gap: 0.2, decay: 1.2, wind: 1.0, r: 62, dmg: 1.2, knock: 240 },  // 시험: dmg 1.6 = 한 번 최대 61%(기준 캐릭터) → 1.2 · 예고 0.8 → 1.0초
+    // 2026-11-08 사용자 '단단한 상태일 때 어느 정도 대미지를 넘어서면 방울에 가두기 — 심연2처럼 풀고, 푸는 동안 독 대미지':
+    //   jail = 드러나지 않았을 때(주입 중 등 뒤 뚜껑 치기는 빼고) 한 사람이 준 피해가 모체 최대 체력 pct 를 넘으면 그 사람을 산성 방울에 가둠(쌓인 피해는 초당 최대 체력 decay 씩 빠짐, warn 넘으면 경고).
+    //   푸는 법 = 2단계 거품 감옥 그대로(방향 · 공격 연타 knight_bubble.jail.mash 번, 친구가 방울을 쳐서 터뜨려도 됨). 갇힌 동안 every 초마다 최대 체력 poison(못 피함), t 초 안에 못 풀면 터져 burst
+    jail: { pct: 0.008, decay: 0.0005, warn: 0.7, t: 3, every: 0.5, poison: 0.04, burst: 0.2 },  // 시험: 기준 캐릭터가 단단할 때 마구 치면 모체 최대 체력 초당 약 0.2%(decay 0.0015 면 거의 상쇄돼 안 갇힘) · pct 0.015 면 2분 47초에 한 번뿐 → 0.008(약 5초 마구 치면 갇힘)
     atk: { windup: 0.55, active: 0.12, recovery: 0.7, knock: 190, reach: [0, 30], arc: 120, lunge: 120 },
     slam: { windup: 0.85, radius: 50 }, charge: { windup: 0.6, speed: 240, time: 0.6 }, fan: { windup: 0.65, count: 9, speed: 110, color: '#c8ff6a' }, summon: 'lab_spawn' },
   lab_melt: { name: '흘러내리는 자', sprite: 'lab_melt', pix: true, idle: false, boss: true, lab: 'melt', scale: 1.25, speed: 34, range: 22, superArmor: true, launchMul: 0.15, r: 12,

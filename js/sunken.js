@@ -686,10 +686,15 @@ const Sunken = (() => {
       const h = e.hold;
       if (!h || h.dead) { e.dying = true; e.hp = 0; e.state = 'dead'; e.t = 0.6; return; }
       h.x = e.x; h.y = e.y; h.kx = 0; h.ky = 0;
+      if (e.acid && (e.acid.tickT -= dt) <= 0) {  // 산성 방울(심연 실험장 배양 모체): 갇힌 동안 독 피해
+        e.acid.tickT = e.acid.every;
+        hurtPlayer(h, { x: e.x, y: e.y + 1, pct: e.acid.pct, unavoid: true }, 0, 0);
+        World.sparks(e.x, e.y, 10, 6, '#c8ff6a', false);
+      }
       if ((e.t -= dt) <= 0) {
-        World.fx({ type: 'nova', x: e.x, y: e.y, r: 14, col: WATER, el: '', tier: 0, bare: true, seed: Math.random() * 1000, t: 0, life: 0.35 });
-        World.sparks(e.x, e.y, 10, 18, FOAM, true); World.shake(4); Sfx.blast();
-        hurtPlayer(h, { x: e.x, y: e.y + 1, pct: ENEMIES.knight_bubble.jail.pct, unavoid: true }, 0, 160);
+        World.fx({ type: 'nova', x: e.x, y: e.y, r: 14, col: e.acid ? '#6cb02a' : WATER, el: '', tier: 0, bare: true, seed: Math.random() * 1000, t: 0, life: 0.35 });
+        World.sparks(e.x, e.y, 10, 18, e.acid ? '#c8ff6a' : FOAM, true); World.shake(4); Sfx.blast();
+        hurtPlayer(h, { x: e.x, y: e.y + 1, pct: e.acid ? e.acid.burst : ENEMIES.knight_bubble.jail.pct, unavoid: true }, 0, 160);
         World.text(e.x, e.y, 40, '거품이 터졌다!', '#ff6a5a', true);
         e.dying = true; e.hp = 0; e.state = 'dead'; e.t = 0.6;
       }
@@ -788,10 +793,12 @@ const Sunken = (() => {
     if (d.part === 'jail') {  // 갇힌 사람을 감싼 큰 거품 + 터지기까지 남은 시간 호(파티 손님도 e.t 로)
       if (e.state === 'dead') return true;
       const wob = Math.max(0, 1 - (performance.now() / 1000 - (e.wobT || 0)) / 0.15);  // 연타할 때마다 잠깐 부풀었다 돌아옴
-      const k = Math.max(0, Math.min(1, e.t / ENEMIES.knight_bubble.jail.t)), r = 11 + Math.sin(time * 6) * 0.8 + wob * 2, cy = y - 7;
+      const acid = !!(World.level && World.level.def.lab);  // 심연 실험장 = 산성 방울(초록, 파티 손님도 같은 색)
+      const k = Math.max(0, Math.min(1, e.t / (e.tMax || (acid ? ENEMIES.lab_brood.jail.t : ENEMIES.knight_bubble.jail.t)))), r = 11 + Math.sin(time * 6) * 0.8 + wob * 2, cy = y - 7;
       ctx.save();
-      ctx.fillStyle = 'rgba(106,154,216,' + (0.18 + (e.flash > 0 ? 0.3 : 0)) + ')'; ctx.beginPath(); ctx.arc(x, cy, r, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = 'rgba(196,226,255,0.85)'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = (acid ? 'rgba(108,176,42,' : 'rgba(106,154,216,') + (0.24 + (e.flash > 0 ? 0.3 : 0)) + ')'; ctx.beginPath(); ctx.arc(x, cy, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = acid ? 'rgba(200,255,106,0.9)' : 'rgba(196,226,255,0.85)'; ctx.lineWidth = 1; ctx.stroke();
+      if (acid) { ctx.fillStyle = '#c8ff6a'; for (let i = 0; i < 3; i++) { const a = time * 2 + i * 2.1, by = cy + 6 - ((time * 12 + i * 6) % 14); ctx.fillRect(Math.round(x + Math.cos(a) * 5), Math.round(by), 1, 1); } }  // 안에서 끓어오르는 독 방울
       ctx.strokeStyle = k < 0.35 && Math.floor(time * 8) % 2 ? '#ff5a7a' : TEAL; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(x, cy, r + 3, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); ctx.stroke();
       ctx.fillStyle = '#ffffff'; ctx.fillRect(x - 5, cy - 6, 2, 1); ctx.fillRect(x - 6, cy - 5, 1, 2);
