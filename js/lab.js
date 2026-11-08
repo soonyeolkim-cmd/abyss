@@ -682,18 +682,14 @@ const Lab = (() => {
     bindPool(m);
     m.col = 0;
     B = { phase: 1, nextT: R.every[0], warned: false, res: null, since: 0, gapT: 0, floodT: R.flood.first, flood: null, pools: [] };
-    spawnTwin(m, lv, 1);
-    const r = lv.boss;
-    [[r.x + 3, r.cy], [r.x + r.w - 4, r.cy], [r.cx, r.y + 2]].forEach(([x, y], c) => {
-      const t = World.spawn('lab_tank', x * T + 8, y * T + 12, { spawn: true });
-      t.col = c; t.ri = m.ri; t.hits = 0; t.broken = false;
-    });
-    World.say('분열의 어미 — 몸들의 색이 같을 때(공명)만 피해가 들어간다! 다른 색 몸을 치면 회복된다', 4.5);
+    spawnTwin(m, lv, 1);  // 2026-11-08: 복제체 하나가 어미 둘레를 돎 · 약물 배양조 없앰
+    World.say('분열의 어미 — 둘레를 도는 복제체와 색이 같을 때(공명)만 피해가 들어간다! 다른 색 몸을 치면 회복된다', 4.5);
   }
   function spawnTwin(m, lv, col) {
     const a = Math.random() * Math.PI * 2, t = World.spawn('lab_twin', m.x + Math.cos(a) * 40, m.y + Math.sin(a) * 26, { spawn: true });
     if (!Dungeon.walkable(lv, t.x, t.y, t.r)) { t.x = m.x; t.y = m.y + 20; }
     t.ri = m.ri; t.dmgMul = m.dmgMul; t.col = col; t.atkCd = 1.5; t.armorCut = m.armorCut;
+    t.orbA = Math.atan2((t.y - m.y) / GROUND_Y, t.x - m.x); t.orbDir = 1; t.flipT = BR().twin.flip[0];
     bindPool(t);
     World.sparks(t.x, t.y, 10, 14, '#c8306a', true); World.dust(t.x, t.y, 10);
     return t;
@@ -705,7 +701,7 @@ const Lab = (() => {
   }
   // 공명 시작 · 끝 · 버팀 · 단계
   function startRes(col, n) {
-    const R = BR(), big = n >= 3;
+    const R = BR(), big = n >= 3 || !!(B.flood && B.flood.on);  // 범람 = 모든 몸이 한 색 → 큰 공명
     B.res = { col, t: R.deal, floor: pool.hp - pool.max * R.cap * (big ? R.bigCap : 1), big, braced: false };
     B.since = 0;
     const m = motherOf();
@@ -736,12 +732,7 @@ const Lab = (() => {
     World.shake(7); World.dust(m.x, m.y, 18); Sfx.roar();
     const W = R.wave;
     World.field({ wave: true, x: m.x, y: m.y, delay: W.delay, speed: W.speed, w: W.w, pct: W.pct, tick: 99, life: W.delay + W.maxR / W.speed });
-    if (B.phase === 2) {
-      const used = bodiesOf().map(b => b.col), col = [0, 1, 2].find(c => !used.includes(c));
-      spawnTwin(m, World.level, col === undefined ? 2 : col);
-      World.text(m.x, m.y, m.h + 20, '분열!', '#ff7ab0', true);
-      World.say('분열 — 복제체가 하나 더! 짝이 없는 몸은 폭주한다', 3);
-    }
+    if (B.phase === 2) { World.text(m.x, m.y, m.h + 20, '더 빨리 돈다!', '#ff7ab0', true); World.say('복제체가 더 빨리 돌고, 가끔 도는 방향이 바뀐다!', 3); }  // 2026-11-08: 분열(복제체 하나 더) 대신
     if (B.phase === 3) { B.floodT = 4; World.text(m.x, m.y, m.h + 20, '약물이 끓어오른다!', ACID_HI, true); World.say('약물 범람이 시작된다 — 색이 더 자주 바뀐다!', 3); }
   }
   // 색 다시 고르기: want = 둘을 같은 색으로(공명 기회). 웅덩이에 고정된 몸(lockT)은 그대로
@@ -876,30 +867,30 @@ const Lab = (() => {
     }
     if (pd > 44) { const step = d.speed * dt; mobMove(lv, e, e.fv.x * step, e.fv.y * step); e.moving = true; e.walkT += dt; }
   }
-  // 복제체: 빠르게 따라붙어 휘두르기 · 돌진(붉은 띠 예고 = 판정) · 산성 침(부채꼴 탄). 짝 없는 몸(2단계부터) = 외톨이 폭주
-  function lonelyOf(e) { return B && B.phase >= 2 && bodiesOf().filter(b => b.col === e.col).length < 2; }
+  // 복제체(2026-11-08 사용자 '주변에 한 마리만 돌려서'): 어미 둘레를 돎 — 돌면서 가까우면 휘두르기 · 아니면 산성 침(부채꼴 탄). 사람을 쫓아가지 않음
   function twinTick(e, dt, lv, p) {
     const m = motherOf(), d = e.def, W = BR().twin;
     if (e.dying || !m) { e.dying = true; e.state = 'dead'; e.t = 0; return; }
     if (e.spawnT > 0) { e.spawnT -= dt; return; }
     if (!p || p.dead) { e.moving = false; return; }
-    const lone = lonelyOf(e), sp = d.speed * (lone ? BR().lonely.speed : 1) * (e.slowUntil > now() ? e.slowK : 1);
-    const pd = Math.hypot(p.x - e.x, p.y - e.y);
-    e.moving = false;
+    const pd = Math.hypot(p.x - e.x, p.y - e.y), ph = B ? B.phase - 1 : 0;
+    // 어미 둘레를 돎(어떤 상태든 — 공격 준비 중에도). 2단계부터 flip 초마다 방향이 바뀜
+    if (e.orbA === undefined) { e.orbA = Math.atan2((e.y - m.y) / GROUND_Y, e.x - m.x); e.orbDir = 1; e.flipT = W.flip[0]; }
+    if (m.state !== 'phaseShift') e.orbA += e.orbDir * W.spin[ph] * dt * (e.slowUntil > now() ? e.slowK : 1);
+    if (ph >= 1 && (e.flipT -= dt) <= 0) { e.flipT = W.flip[0] + Math.random() * (W.flip[1] - W.flip[0]); e.orbDir *= -1; World.text(e.x, e.y, e.h + 6, '방향이 바뀐다!', '#ffd36a'); }
+    {
+      const tx = m.x + Math.cos(e.orbA) * W.orbit, ty = m.y + Math.sin(e.orbA) * W.orbit * GROUND_Y, dx = tx - e.x, dy = ty - e.y, dd = Math.hypot(dx, dy);
+      if (dd > 0.5) { const st = Math.min(dd, W.move * dt); Dungeon.move(lv, e, dx / dd * st, dy / dd * st, e.r); e.moving = true; e.walkT += dt; } else e.moving = false;
+    }
     if (m.state === 'phaseShift') return;
     switch (e.state) {
       case 'move':
         faceTo(e, p);
-        e.atkCd -= dt * (lone ? 1 / BR().lonely.cd : 1);
-        if (e.atkCd <= 0) {
-          const r = Math.random();
+        if ((e.atkCd -= dt) <= 0) {
           if (pd < 32) { e.state = 'swingWind'; e.t = e.windupT = d.atk.windup; }
-          else if (pd < 170 && r < 0.55) { e.state = 'dashWind'; e.t = e.windupT = W.dash.wind; e.chargeV = unit(p.x - e.x, p.y - e.y, e.fv); }
           else { e.state = 'acidWind'; e.t = e.windupT = W.acid.wind; }
-          e.atkCd = 1.5 + Math.random() * 0.8;
-          break;
+          e.atkCd = W.cd[0] + Math.random() * (W.cd[1] - W.cd[0]);
         }
-        if (pd > 34) { Dungeon.move(lv, e, e.fv.x * sp * dt, e.fv.y * sp * dt, e.r); e.moving = true; e.walkT += dt; }
         break;
       case 'swingWind':
         e.t -= dt;
@@ -909,18 +900,6 @@ const Lab = (() => {
           e.state = 'twRecover'; e.t = d.atk.recovery;
         }
         break;
-      case 'dashWind':
-        e.t -= dt;
-        if (e.t <= 0) { e.state = 'dash'; e.t = W.dash.time; e.dashHit = []; Sfx.dash(); }
-        break;
-      case 'dash': {
-        e.t -= dt;
-        const ox = e.x, oy = e.y;
-        Dungeon.move(lv, e, e.chargeV.x * W.dash.speed * dt, e.chargeV.y * W.dash.speed * dt, e.r);
-        for (const t of peopleOf()) if (!e.dashHit.includes(t) && Math.hypot(t.x - e.x, t.y - e.y) < e.r + BODY_R + 4 && hurtPlayer(t, e, 15 * e.dmgMul * W.dash.dmg, 200) !== 'miss') e.dashHit.push(t);
-        if (e.t <= 0 || Math.hypot(e.x - ox, e.y - oy) < W.dash.speed * dt * 0.3) { e.state = 'twRecover'; e.t = 0.5; World.dust(e.x, e.y, 6); }
-        break;
-      }
       case 'acidWind':
         e.t -= dt;
         if (e.t <= 0) {
@@ -1106,7 +1085,6 @@ const Lab = (() => {
       if (e.state === 'meltRise') circle(e.lx, e.ly, d.melt.r, 1 - e.t / e.windupT);
       if (e.state === 'fleshWind') circle(e.lx, e.ly, BR().flesh.r, 1 - e.t / e.windupT);
       if ((e.state === 'lashWind' || e.state === 'lash') && e.chargeV) band(e, e.lashLen || d.chains.len[0], d.chains.w, e.state === 'lash' ? 1 : 1 - e.t / e.windupT, e.state === 'lash');
-      if (e.state === 'dashWind' && e.chargeV) { const W = BR().twin.dash; ctx.save(); ctx.strokeStyle = 'rgba(255,60,40,' + (0.2 + 0.35 * (1 - e.t / e.windupT)) + ')'; ctx.lineWidth = e.r * 2; ctx.beginPath(); ctx.moveTo(e.x, e.y - 4); ctx.lineTo(e.x + e.chargeV.x * W.speed * W.time, e.y - 4 + e.chargeV.y * W.speed * W.time); ctx.stroke(); ctx.restore(); }
       if (d.lab === 'eye' && e.lInit && e.state !== 'labDown' && e.gazeA !== undefined) {  // 응시 부채꼴(판정 = 그림)
         const G = d.gaze, h = G.arc / 2 * Math.PI / 180;
         ctx.save(); ctx.translate(e.x, e.y); ctx.scale(1, GROUND_Y);

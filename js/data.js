@@ -552,7 +552,9 @@ const KING_RULE = { hpMul: 5.5, essence: 12, cores: 0, pearls: 1, orbSpeed: 170,
 const BROOD_RULE = { hpMul: 7.2, essence: 14, cores: 0, pearls: 0, seeds: 1, cap: 0.1, bigCap: 1.5, heal: 0.5, deal: 5, every: [6, 6, 4], warn: 0.8, match: 0.4, force: 9, gap: 2.5, shift: 1.5, phases: [0.7, 0.4],
   tank: { hits: 3, r: 34, pool: 8, lock: 4, refill: 14 }, flood: { every: 24, first: 10, warn: 2.2, t: 6, pads: 3, padR: 26, pct: 0.04 }, lonely: { speed: 1.6, cd: 0.55 },
   flesh: { wind: 1.0, follow: 0.4, r: 34, dmg: 1.2 }, spit: { n: 2, max: 4 },
-  twin: { dash: { wind: 0.7, speed: 280, time: 0.45, dmg: 1.0 }, acid: { wind: 0.6, n: 5, speed: 120, dmg: 0.6 }, swing: 0.8 } };
+  // 2026-11-08 사용자 '최종 보스 주변에 졸개 한 마리만 돌려서 색깔 같고 다르게 — 다시': 복제체는 하나만, 어미 둘레(orbit, 바닥 타원)를 spin[단계] 라디안/초로 돎(2단계부터 flip 초마다 방향이 바뀜).
+  //   70% 분열(복제체 하나 더) · 약물 배양조(웅덩이로 색 고정) · 외톨이 폭주 · 돌진은 없앰. 새끼 뱉기 · 40% 약물 범람(모든 몸 한 색 = 큰 공명) · 다른 색 치면 회복은 그대로
+  twin: { orbit: 48, spin: [1.4, 2.0, 2.0], flip: [6, 9], move: 240, acid: { wind: 0.6, n: 5, speed: 120, dmg: 0.6 }, swing: 0.8, cd: [2.4, 3.2] } };
 const raidRule = stage => (stage === 3 ? Object.assign({}, RAID_RULE, BROOD_RULE) : stage === 2 ? Object.assign({}, RAID_RULE, KING_RULE) : RAID_RULE);
 const SEED_COLOR = '#b8e84a';  // 심연의 씨앗(3단계 레이드 보상, Lv.120 업그레이드에만)
 const PEARL_COLOR = '#bcd8ff';  // 심해 진주(2단계 레이드 보상, Lv.110 업그레이드에만 — 사용자: 재료는 그 단계 재료로)
