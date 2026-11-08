@@ -6,11 +6,11 @@ const UNLOCKS = [
   { id: 'endless', name: '끝없는 심연 · 레이드', where: '실베인 던전 입구 — 입장 Lv.' + ENDLESS.entry, npc: 'gate', town: 'silvane', ok: p => endlessOpen(p) },
   { id: 'imprint', name: '원소 각인', where: '세공사 미라', npc: 'jewel', ok: p => endlessOpen(p) },
   { id: 'craft', name: 'Lv.100 유니크 제작', where: '실베인 심연 장인 고른', npc: 'artisan', town: 'silvane', ok: p => p.lv >= 100 },
-  // 2단계(2026-11-01 사용자): 심연의 파수꾼 10번 처치 → 만렙 119 · 가라앉은 심연, Lv.110 이 되면 업그레이드
+  // 2단계(2026-11-01 사용자): 심연의 파수꾼 STAGE_UNLOCK(8)번 처치 → 만렙 119 · 가라앉은 심연, Lv.110 이 되면 업그레이드
   { id: 'cap119', name: '만렙 Lv.' + LV_MAX_SUNKEN, where: '심연의 파수꾼을 ' + SUNKEN.unlock + '번 쓰러뜨려 레벨 한도가 열렸어요', ok: p => sunkenOpen(p) },
   { id: 'sunken', name: '끝없는 심연 2단계 · 가라앉은 심연', where: '실베인 던전 입구 — 입장 Lv.' + SUNKEN.entry + ' · 5층 → 삼지창의 왕', npc: 'gate', town: 'silvane', ok: p => sunkenOpen(p) },
   { id: 'craft110', name: 'Lv.' + CRAFT2.lv + ' 유니크 업그레이드', where: '실베인 심연 장인 고른 — Lv.' + CRAFT2.from + ' 제작 유니크를 그대로 Lv.' + CRAFT2.lv + '로', npc: 'artisan', town: 'silvane', ok: p => sunkenOpen(p) && p.lv >= CRAFT2.lv },
-  // 3단계(2026-11-08 사용자): 삼지창의 왕 10번 처치 → 만렙 129 · 심연 실험장, Lv.120 이 되면 업그레이드
+  // 3단계(2026-11-08 사용자): 삼지창의 왕 STAGE_UNLOCK(8)번 처치 → 만렙 129 · 심연 실험장, Lv.120 이 되면 업그레이드
   { id: 'cap129', name: '만렙 Lv.' + LV_MAX_LAB, where: '삼지창의 왕을 ' + LAB.unlock + '번 쓰러뜨려 레벨 한도가 열렸어요', ok: p => labOpen(p) },
   { id: 'lab', name: '끝없는 심연 3단계 · 심연 실험장', where: '실베인 던전 입구 — 입장 Lv.' + LAB.entry + ' · 5층 → 분열의 어미', npc: 'gate', town: 'silvane', ok: p => labOpen(p) },
   { id: 'craft120', name: 'Lv.' + CRAFT3.lv + ' 유니크 업그레이드', where: '실베인 심연 장인 고른 — Lv.' + CRAFT3.from + ' 유니크를 그대로 Lv.' + CRAFT3.lv + '로', npc: 'artisan', town: 'silvane', ok: p => labOpen(p) && p.lv >= CRAFT3.lv },

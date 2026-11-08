@@ -902,8 +902,10 @@ const LIVING = { tint: '#7a4a86', vein: '#5a1430', veinLit: '#c8306a' };
 // line = 일직선 방 셋(dungeon.js generateLine) · mobRoom = 잔몹방 크기 · packs = 잔몹방 무리 수
 // 2026-11-01 사용자 '전체적으로 너무 쉽다 — 몹 · 중간 보스 체력과 공격력 20% 넘게': 잔몹 stepHp · stepDmg ×1.3, 기사 mid.hp 3 → 3.9 · mid.dmg 1.25 → 1.625(×1.3).
 //   왕(raidDef)은 mid 배율을 나눠 빼므로 그대로 — 왕은 수문 순서(KING_RULE.sluiceWrong)로 어렵게
+// 다음 단계 도전 조건(2026-11-08 사용자 '2 · 3단계 도전 조건을 이전 단계 8회 클리어로 완화하고 통일'): 바로 앞 단계 최종 보스 STAGE_UNLOCK 번 처치(파티 포함). 예전 10번
+const STAGE_UNLOCK = 8;
 const SUNKEN = { stage: 2, max: 5, diff: 2, lv: 110, entry: 105, ilvl: [100, 104], stepHp: 0.6104, stepDmg: 0.6755, bossHp: 0.24, bossDmg: 0.364, hp: 1.06, dmg: 1.04, reward: 0.05,
-  packs: 1, packAdd: 7, mid: { hp: 3.9, dmg: 1.4, cd: 0.6, rec: 0.6 }, unlock: 10,
+  packs: 1, packAdd: 7, mid: { hp: 3.9, dmg: 1.4, cd: 0.6, rec: 0.6 }, unlock: STAGE_UNLOCK,
   // 보상 늘림(2026-11-01 사용자 '2단계 장비 드롭 · 상자 · 등급을 늘려 — 골드가 모자라 1단계로 돌아가는 그림'): 잰 값(한 판, 레이드 빼고) 1단계 골드 6.5만 + 장비 20개(판값 22만) · 2단계 3.3만 + 12개(16.5만)
   //   gear = 장비 드롭 배율(1단계 ENDLESS.gear 1/3 대신) · chests = 잔몹방 작은 상자 수 · bigItems = 기사 보물 상자 장비 수 · gold = 골드 배율 · boost = 좋은 등급 잘 나오게(장비마다 더함)
   //   2026-11-01 사용자 '잔몹방에 상자 3개는 보기 안 좋다 — 1개 + 중간 보스 방에 큰 상자': chests 3 → 1, 빠진 작은 상자 둘 몫은 기사 보물 상자로
@@ -943,7 +945,7 @@ for (const F of SUNKEN.floors) Object.assign(ENEMIES[F.boss], { cdMul: SUNKEN.mi
 //   5층 잔몹방 2단계 29초 · 받은 피해 286% → 3단계 처음 71초 · 1258% → 체력 × 0.4 · 공격 × 0.38 로 41초 · 290%(1층 28초 · 158%, 2단계 27초 · 83%)
 //   중간 보스 내려찍기 한 방 2단계 33~38% → 3단계 37~43%(bossDmg × 0.49), 체력 bossHp × 0.54(5층 4,681만, 2단계 브란 3,462만). 받는 피해 초당 5~12%(2단계 기사 7~16%)
 const LAB = { stage: 3, max: 5, diff: 2, lv: 120, entry: 115, ilvl: [100, 104], stepHp: SUNKEN.stepHp * 0.4, stepDmg: SUNKEN.stepDmg * 0.38, bossHp: SUNKEN.bossHp * 0.54, bossDmg: SUNKEN.bossDmg * 0.49,
-  hp: 1.06, dmg: 1.04, reward: 0.05, packs: 1, packAdd: 7, mid: { hp: 3.9, dmg: 1.4, cd: 0.6, rec: 0.6 }, unlock: 10, flatMobs: true,
+  hp: 1.06, dmg: 1.04, reward: 0.05, packs: 1, packAdd: 7, mid: { hp: 3.9, dmg: 1.4, cd: 0.6, rec: 0.6 }, unlock: STAGE_UNLOCK, flatMobs: true,
   loot: { gear: 1, chests: 1, bigItems: 3, bigGold: 1.8, gold: 2.2, boost: 0.35 },  // 2단계보다 골드 · 등급 조금 더
   zones: ['배양실', '개조실', '폐수 처리실', '격리실', '관찰실'],
   floors: [
@@ -970,9 +972,9 @@ const endlessBest = (prof, stage = 1) => (prof.endless && prof.endless[stage ===
 const endlessOpen = prof => !!(prof.story && prof.story.trueEnding);
 // 레이드 처치 횟수(파티 포함 — js/records.js 기록, 기록 전 1단계는 prof.endless.raid)
 const raidClears = (prof, stage = 1) => (prof.raidRec && prof.raidRec[stage] ? prof.raidRec[stage].clears : stage === 1 ? (prof.endless && prof.endless.raid) || 0 : 0);
-// 2단계 해금(2026-11-01 사용자): 심연의 파수꾼 SUNKEN.unlock(10)번 처치 → 만렙 119 · 가라앉은 심연
+// 2단계 해금(2026-11-01 사용자): 심연의 파수꾼 SUNKEN.unlock(8)번 처치 → 만렙 119 · 가라앉은 심연
 const sunkenOpen = prof => endlessOpen(prof) && raidClears(prof, 1) >= SUNKEN.unlock;
-// 3단계 해금(2026-11-08 사용자): 삼지창의 왕 LAB.unlock(10)번 처치 → 만렙 129 · 심연 실험장
+// 3단계 해금(2026-11-08 사용자): 삼지창의 왕 LAB.unlock(8)번 처치 → 만렙 129 · 심연 실험장
 const labOpen = prof => sunkenOpen(prof) && raidClears(prof, 2) >= LAB.unlock;
 const stageOpen = (prof, stage) => (stage === 1 ? endlessOpen(prof) : stage === 2 ? sunkenOpen(prof) : stage === 3 ? labOpen(prof) : false);
 const stageLockWhy = (prof, st) => (!endlessOpen(prof) ? '심연의 문을 영웅으로 깨면 열려요'
@@ -1464,8 +1466,8 @@ const STONE_BOSS_BOOST = 0.8;  // 보스 · 큰 상자: 큰 쪽이 더 잘 나�
 const LV_MAX = 99;  // 만렙(2026-10-25 사용자: 일단 99)
 // 끝없는 심연에 갈 수 있게 되면(진엔딩) 만렙이 109 로 풀린다(2026-10-26 사용자 — 10씩 풀기, endgame-plan.md)
 const LV_MAX_ABYSS = 109;
-const LV_MAX_SUNKEN = 119;  // 2단계 '가라앉은 심연'이 열리면(파수꾼 10번 처치, 2026-11-01 사용자) 119
-const LV_MAX_LAB = 129;  // 3단계 '심연 실험장'이 열리면(삼지창의 왕 10번 처치, 2026-11-08 사용자) 129
+const LV_MAX_SUNKEN = 119;  // 2단계 '가라앉은 심연'이 열리면(파수꾼 STAGE_UNLOCK(8)번 처치 — 2026-11-08 10 → 8, 2026-11-01 사용자) 119
+const LV_MAX_LAB = 129;  // 3단계 '심연 실험장'이 열리면(삼지창의 왕 STAGE_UNLOCK(8)번 처치, 2026-11-08 사용자) 129
 const lvMax = prof => (labOpen(prof) ? LV_MAX_LAB : sunkenOpen(prof) ? LV_MAX_SUNKEN : endlessOpen(prof) ? LV_MAX_ABYSS : LV_MAX);
 // Lv.100 이상 유니크는 떨어지지 않는다 — 제작으로만(레이드 '심연의 핵', endgame-plan.md ⑤). 항아리도 이 단계부터 유니크 대신 레어
 const UNIQUE_CRAFT_LV = 100;
