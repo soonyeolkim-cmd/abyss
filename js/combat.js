@@ -219,6 +219,7 @@ function after(p, src, r) {
   if (r !== 'hit' || !src || p.dead) return r;
   if (src.stun) { p.state = 'stun'; p.t = src.stun; p.act = null; p.charge = 0; World.text(p.x, p.y, 40, '기절!', '#ffd36a'); }
   if (src.mark) { p.markT = src.mark; World.text(p.x, p.y, 48, '공허 표식!', '#c06aff'); }
+  if (src.bind) { p.bindT = Math.max(p.bindT || 0, src.bind); World.text(p.x, p.y, 48, '구속! ' + src.bind + '초', '#ff7a5a', true); }  // 구속체 충격파: 걷기 · 대시 못 함
   return r;
 }
 

@@ -566,7 +566,12 @@ const BROOD_RULE = { hpMul: 9.6, essence: 14, cores: 0, pearls: 0, seeds: 1, cap
   //   같은 휘두름에 복제체도 맞았으면 봐줌(어미 맞은 뒤 pend 초 기다려 복제체가 맞았는지 봄) — 어미'만' 노리고 친 것만 살점.
   //   복제체가 어미에게서 떨어져 골라 칠 수 있게 orbit 48 → 64(도는 빠르기는 거의 그대로가 되게 spin 을 줄임)
   split: { gap: 0.6, max: 5, fling: [60, 90], hp: 2, heal: 0.015, pend: 0.12 },
-  twin: { orbit: 64, spin: [1.05, 1.5, 1.5], flip: [6, 9], move: 240, acid: { wind: 0.6, n: 5, speed: 120, dmg: 0.6 }, swing: 0.8, cd: [2.4, 3.2], cycleGap: 0.35 },
+  // 2026-11-08 사용자 '아직 말뚝딜하면 느리게 깨짐 — A + B, 공명이면 기호를 없애 딜에 집중':
+  //   A = 같은 색이어도 '어미만' 맞은 한 대여야 공명(같은 휘두름에 복제체도 맞으면 무효 — split.pend 초 기다려 확인). 맞는 색 복제체를 또 치면 색이 지나감
+  //   B = 복제체가 어미 곁을 돌지 않고 방을 돌아다니며 사람을 피함: 가장 가까운 사람이 keep 안이면 flee[단계] 로, 아니면 wander 로 — pick 초마다 step 떨어진 곳 중
+  //       사람에게서 가장 먼 곳(+ 어미에게서 먼 만큼 fromMother 가산)을 고름. 공격 준비 · 공격 중엔 멈춤. 합체 중엔 어미에게 pull 로 끌려감
+  //   공명 중엔 어미 · 복제체 머리 위 기호 · 준비 고리를 그리지 않음(빛으로만) · 복제체가 resPull 로 어미 곁에 끌려와 둘을 함께 칠 수 있음
+  twin: { flee: [52, 62, 62], wander: 24, keep: 130, pick: 0.45, step: 60, fromMother: 0.25, pull: 60, resPull: 160, acid: { wind: 0.6, n: 5, speed: 120, dmg: 0.6 }, swing: 0.8, cd: [2.4, 3.2], cycleGap: 0.35 },
   fuse: { first: 40, every: 55, t: 6, hits: 6, gap: 0.15, warn: 1.5, r: 80, pct: 0.35, heal: 0.05, down: 2 } };
 const raidRule = stage => (stage === 3 ? Object.assign({}, RAID_RULE, BROOD_RULE) : stage === 2 ? Object.assign({}, RAID_RULE, KING_RULE) : RAID_RULE);
 const SEED_COLOR = '#b8e84a';  // 심연의 씨앗(3단계 레이드 보상, Lv.120 업그레이드에만)
@@ -754,6 +759,9 @@ Object.assign(ENEMIES, {
     //   sweep = 붙으면 사슬을 휘둘러 밀쳐 냄 · lash = 사슬 채찍(보통 공격 — 노린 쪽 길이 len · 반폭 w 띠, 예고 띠 = 판정)
     //   넘어진 동안 사슬이 되감겨 가운데 말뚝 쪽으로 reel 속도로 끌려감(reelStop 안까지) — 다음 판이 기둥 하나 만에 짧아지지 않게
     leash: { len: 330, short: 90, self: 0.06, minPost: 14, far: 60, reel: 90, reelStop: 30, cut: 0.25, down: 2.5, mul: 1.4, chargeCd: [1.6, 2.6] }, lash: { len: 90, wind: 0.7, w: 8, dmg: 1.0, knock: 230, cd: 4 },
+    // 2026-11-08 사용자 '돌진할 때 충격파도 날리고 맞으면 5초간 구속': quake = 돌진이 시작될 때 몸에서 바닥 고리가 speed 로 maxR 까지 퍼짐(고리 띠 두께 w = 판정, 대시 무적이면 피함).
+    //   맞으면 slam.dmg × dmg 피해 + bind 초 구속(걷기 · 대시 못 함, 공격 · 기술은 됨 — combat.js after · player.js moveInput)
+    quake: { speed: 180, maxR: 130, w: 12, dmg: 0.5, bind: 5 },
     sweep: { r: 56, arc: 200, wind: 0.6, active: 0.18, dmg: 1.1, knock: 110, cd: 4.5, rec: 0.9 },  // 시험: 밀침 320 이면 붙어 치기만 해도 원 밖으로 밀려 저절로 넘어뜨림 → 110
     atk: { windup: 0.6, active: 0.12, recovery: 0.75, knock: 220, reach: [0, 32], arc: 110, lunge: 150 },
     slam: { windup: 0.85, radius: 56 }, charge: { windup: 0.6, speed: 260, time: 0.6 }, summon: 'lab_bloat' },

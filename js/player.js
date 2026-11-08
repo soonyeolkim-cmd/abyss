@@ -41,8 +41,8 @@ function spend(p, n) {
 
 // p = 누구의 입력인가: 파티 방장 쪽 손님 몸(remote)은 손님이 보낸 스틱 값, 내 몸은 키보드 · 패드 · 터치(창이 열려 있으면 없음)
 function moveInput(p) {
-  if (p && p.remote) return Sunken.jailOf(p) ? null : p.rmove || null;
-  if (World.inputLock || Sunken.jailOf(p)) return null;  // 거품 감옥: 방향은 연타에만(제자리 걷는 그림 안 나오게)
+  if (p && p.remote) return Sunken.jailOf(p) || p.bindT > 0 ? null : p.rmove || null;
+  if (World.inputLock || Sunken.jailOf(p) || p.bindT > 0) return null;  // 구속(구속체 충격파 — bindT 초): 걷기 · 대시 못 함, 공격 · 기술은 됨  // 거품 감옥: 방향은 연타에만(제자리 걷는 그림 안 나오게)
   const m = Input.move();
   if (!m.x && !m.y) return null;
   const l = Math.hypot(m.x, m.y);
@@ -200,7 +200,8 @@ function updatePlayer(p, dt, room, gates) {
   if (p.echo) updateEcho(p, dt);
   if (p.hidden && !p.dead && !p.remote) updateHide(p, dt);  // 방장 쪽 손님 몸은 손님이 보낸 숨기 상태만(길 · 기력은 손님 기기에서)
   p.slowT = Math.max(0, (p.slowT || 0) - dt);  // 냉기 강화 몹에게 맞으면 느려짐
-  p.markT = Math.max(0, (p.markT || 0) - dt);  // 레이드 공허 표식: 받는 피해 증가(combat.js)
+  p.markT = Math.max(0, (p.markT || 0) - dt);
+  p.bindT = Math.max(0, (p.bindT || 0) - dt);  // 구속(구속체 충격파): 걷기 · 대시 못 함  // 레이드 공허 표식: 받는 피해 증가(combat.js)
   p.iframes = Math.max(0, p.iframes - dt);
   p.flash = Math.max(0, p.flash - dt);
   p.bufferT -= dt;
@@ -273,6 +274,7 @@ function tryStart(p, b) {
   }
   if (b === 'dodge') {
     // 쿨타임 없음(2026-10-24 사용자: 기력이 있으니까) — 대시가 끝나면 기력만 있으면 바로 또
+    if (p.bindT > 0) { if (p.spWarnT <= 0) { World.text(p.x, p.y, 40, '구속됨!', '#ff7a5a'); p.spWarnT = 0.6; } return false; }  // 구속: 대시 못 함
     if (p.dodgeCd > 0 || !spend(p, dashCost(p))) return false;
     const m = moveInput(p);
     startDodge(p, m ? unit(m.x, m.y, p.fv) : { x: p.fv.x, y: p.fv.y });

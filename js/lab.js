@@ -645,6 +645,11 @@ const Lab = (() => {
           e.taut = chainFree(e) < L.short;
           if (e.taut) World.text(e.x, e.y, e.h + 10, '사슬이 짧다!', '#ff7a5a', true);
         }
+        if (e.state === 'charge' && e.zPrev === 'chargeWind' && d.quake) {  // 돌진이 시작될 때 충격파(바닥 고리 — 맞으면 구속)
+          (lv.zeroWaves || (lv.zeroWaves = [])).push({ x: e.x, y: e.y, t: 0, ri: e.ri, hit: [], dmg: d.slam.dmg * e.dmgMul * d.quake.dmg, q: d.quake });
+          World.shake(3); World.dust(e.x, e.y, 10); Sfx.stone();
+          sayOnce(e, 'quakeSeen', '충격파에 맞으면 5초 동안 구속(걷기 · 대시 못 함) — 고리가 오면 대시로 넘어라!', 2.8);
+        }
         e.zPrev = e.state;
         const s = chainTail(e), free = chainFree(e), gx = e.x - s.x, gy = (e.y - s.y) / GROUND_Y, gd = Math.hypot(gx, gy);
         if (gd > free) {  // 사슬 끝: 마지막 기둥에서 남은 길이 밖으로 못 나감
@@ -673,6 +678,17 @@ const Lab = (() => {
         if (n < B.max) { World.text(e.x, e.y, e.h + 10, '배양조가 실험체를 낳는다!', ACID_HI); World.sparks(e.x, e.y - e.h * 0.8, 6, 10, ACID_HI, true); Sfx.spell(); }
       }
       if (k === 'eye') eyeTick(e, dt);
+    }
+    if (lv.zeroWaves && lv.zeroWaves.length) {  // 구속체 충격파: 고리 띠(두께 w)가 지나가는 사람마다 한 번 — 피해 + 구속(대시 무적이면 피함)
+      for (const w of lv.zeroWaves) {
+        w.t += dt;
+        const R = Math.min(w.q.maxR, w.t * w.q.speed);
+        for (const t of peopleOf()) {
+          if (t.dead || w.hit.includes(t) || World.roomOf(t) !== w.ri || Math.abs(groundDist(t.x - w.x, t.y - w.y) - R) > w.q.w / 2 + BODY_R * 0.5) continue;
+          if (hurtPlayer(t, { x: w.x, y: w.y + 1, bind: w.q.bind }, w.dmg, 60) !== 'miss') w.hit.push(t);
+        }
+      }
+      lv.zeroWaves = lv.zeroWaves.filter(w => w.t * w.q.speed < w.q.maxR + 8);
     }
     if (lv.labTrail && lv.labTrail.length) {  // 흘러내리는 자가 지나간 약물 장판: 위에 있으면 0.5초마다 피해(그림 = 판정, 바닥 타원 r)
       for (const w of lv.labTrail) w.t -= dt;
@@ -751,13 +767,12 @@ const Lab = (() => {
     B = { phase: 1, nextT: R.every[0], warned: false, res: null, since: 0, gapT: 0, floodT: R.flood.first, flood: null, pools: [] };
     spawnTwin(m, lv, 1);  // 2026-11-08: 복제체 하나가 어미 둘레를 돎 · 약물 배양조 없앰
     B.fuseT = BR().fuse.first; B.fuse = null;
-    World.say('분열의 어미 — 둘레를 도는 복제체만 쳐서 색을 바꿔라(어미를 치면 살점이 떨어진다)! 같은 색이 되면 한 대 쳐서 공명(5초)', 4.5);
+    World.say('분열의 어미 — 도망 다니는 복제체를 쫓아가 쳐서 색을 바꿔라(어미를 치면 살점이 떨어진다)! 같은 색이 되면 어미만 한 대 쳐서 공명(5초)', 4.5);
   }
   function spawnTwin(m, lv, col) {
     const a = Math.random() * Math.PI * 2, t = World.spawn('lab_twin', m.x + Math.cos(a) * 40, m.y + Math.sin(a) * 26, { spawn: true });
     if (!Dungeon.walkable(lv, t.x, t.y, t.r)) { t.x = m.x; t.y = m.y + 20; }
     t.ri = m.ri; t.dmgMul = m.dmgMul; t.col = col; t.atkCd = 1.5; t.armorCut = m.armorCut;
-    t.orbA = Math.atan2((t.y - m.y) / GROUND_Y, t.x - m.x); t.orbDir = 1; t.flipT = BR().twin.flip[0];
     bindPool(t);
     World.sparks(t.x, t.y, 10, 14, '#c8306a', true); World.dust(t.x, t.y, 10);
     return t;
@@ -801,7 +816,7 @@ const Lab = (() => {
     World.shake(7); World.dust(m.x, m.y, 18); Sfx.roar();
     const W = R.wave;
     World.field({ wave: true, x: m.x, y: m.y, delay: W.delay, speed: W.speed, w: W.w, pct: W.pct, tick: 99, life: W.delay + W.maxR / W.speed });
-    if (B.phase === 2) { World.text(m.x, m.y, m.h + 20, '더 빨리 돈다!', '#ff7ab0', true); World.say('복제체가 더 빨리 돌고, 가끔 도는 방향이 바뀐다!', 3); }  // 2026-11-08: 분열(복제체 하나 더) 대신
+    if (B.phase === 2) { World.text(m.x, m.y, m.h + 20, '더 빨리 도망친다!', '#ff7ab0', true); World.say('복제체가 더 빨리 도망친다!', 3); }  // 2026-11-08: 분열(복제체 하나 더) 대신
     if (B.phase === 3) { B.floodT = 4; World.text(m.x, m.y, m.h + 20, '약물이 끓어오른다!', ACID_HI, true); World.say('약물 범람이 시작된다 — 색이 더 자주 바뀐다!', 3); }
   }
   // 어미 색을 다른 색으로(복제체 색과도 다르게 — 바로 공명 준비가 되지 않게). 2026-11-08 A: 복제체 색은 사람이 쳐서 바꿈
@@ -839,6 +854,11 @@ const Lab = (() => {
     const R = BR();
     B.since += dt;
     if (B.gapT > 0) B.gapT -= dt;
+    if (m.resPend && now() >= m.resPend.at) {  // 같은 색일 때 어미가 맞은 휘두름: 복제체도 맞았으면 무효, 어미만이면 공명
+      const rp = m.resPend; m.resPend = null;
+      if (B.twinHitAt > rp.at - 2 * R.split.pend) { World.text(m.x, m.y, m.h + 14, '복제체도 맞았다 — 어미만 쳐라!', '#ff9a6a'); sayOnce(B, 'bothSeen', '복제체와 함께 치면 공명이 안 열린다 — 떨어진 데서 어미만 한 대!', 2.8); }
+      else if (!B.res && !B.fuse && B.ready !== null && B.ready !== undefined && B.ready === m.col) startRes(B.ready, groups()[B.ready]);
+    }
     if (m.splitPend && now() >= m.splitPend.at) {  // 어미만 맞은 휘두름이었으면 살점(그사이 복제체가 맞았거나 공명이 열렸으면 없던 일)
       const sp = m.splitPend; m.splitPend = null;
       if (!B.res && !B.fuse && !(B.twinHitAt > sp.at - 2 * R.split.pend)) splitOff(m, sp);
@@ -903,7 +923,7 @@ const Lab = (() => {
         else if (B.warned && (B.nextT -= dt) <= 0) { if (m.next !== undefined) m.col = m.next; m.next = undefined; B.nextT = every; B.warned = false; }
       }
       const g = groups(), c = g.indexOf(Math.max(...g)), rd = g[c] >= 2 && !B.fuse ? c : null;
-      if (rd !== null && B.ready !== rd) { World.text(m.x, m.y, m.h + 16, '같은 색! 한 대 치면 공명', RC[rd][0], true); sayOnce(B, 'readySeen', '색이 같아졌다 — 아무 몸이나 한 대 치면 5초 동안 공명!', 2.4); Sfx.spell(); }
+      if (rd !== null && B.ready !== rd) { World.text(m.x, m.y, m.h + 16, '같은 색! 어미만 한 대', RC[rd][0], true); sayOnce(B, 'readySeen', '색이 같아졌다 — 복제체는 그만 치고, 어미만 한 대 치면 5초 동안 공명!', 2.6); Sfx.spell(); }
       B.ready = rd;
     }
   }
@@ -920,19 +940,26 @@ const Lab = (() => {
       }
       return { m: 0, s: '', armor: true };
     }
-    if (!B.res && B.ready !== null && B.ready !== undefined && e.col === B.ready) startRes(B.ready, groups()[B.ready]);  // 같은 색일 때 한 대 = 공명 열림(이 한 대부터 들어감)
-    if (e.def.part === 'twin') B.twinHitAt = now();  // 같은 휘두름에 복제체도 맞았으면 어미 살점은 안 떨어짐(splitOff 예약 확인)
-    if (!B.res && e.def.part === 'twin' && !(B.flood && B.flood.on)) {  // A: 복제체를 치면 색이 다음으로(● → ▲ → ■)
+    // 2026-11-08 사용자 'A + B': 공명은 같은 색일 때 '어미만' 맞은 한 대로만 열림(같은 휘두름에 복제체도 맞으면 무효) — 어미가 맞으면 pend 초 기다려 broodUpdate 가 정함
+    if (e.def.part === 'twin') B.twinHitAt = now();  // 같은 휘두름에 복제체도 맞았는지(공명 열기 · 살점 예약 확인)
+    const rdy = !B.res && B.ready !== null && B.ready !== undefined;
+    if (!B.res && e.def.part === 'twin' && !(B.flood && B.flood.on)) {  // 복제체를 치면 색이 다음으로(● → ▲ → ■) — 맞는 색에서 또 치면 지나감
       if (!(e.cycT > now())) {
+        const was = rdy && e.col === B.ready;
         e.cycT = now() + BR().twin.cycleGap; e.col = (e.col + 1) % 3;
-        World.text(e.x, e.y, e.h + 8, RC[e.col][2], RC[e.col][0]); World.sparks(e.x, e.y, e.h * 0.5, 6, RC[e.col][0], true); Sfx.stone();
+        World.sparks(e.x, e.y, e.h * 0.5, 6, RC[e.col][0], true); Sfx.stone();
+        if (was) { B.ready = null; World.text(e.x, e.y, e.h + 8, '색이 지나갔다!', '#ff9a6a', true); sayOnce(B, 'overSeen', '같은 색에서 복제체를 또 치면 색이 지나간다 — 맞으면 손을 멈추고 어미만 한 대!', 2.8); }
+        else World.text(e.x, e.y, e.h + 8, RC[e.col][2], RC[e.col][0]);
         sayOnce(B, 'cycleSeen', '복제체를 칠 때마다 색이 바뀐다 — 어미 색에 맞춰라!', 2.4);
       }
       return { m: 0, s: '', armor: true };
     }
     if (!B.res) {
-      // B: 공명 아닐 때 어미'만' 치면 살점이 떨어져 나감 — 같은 휘두름에 복제체도 맞았는지 보려고 pend 초 뒤에 정함(broodUpdate)
-      if (e.def.brood && src && !m.splitPend && !(B.twinHitAt > now() - BR().split.pend)) m.splitPend = { at: now() + BR().split.pend, x: src.x, y: src.y };
+      const P = BR().split.pend;
+      if (e.def.brood && src && !(B.twinHitAt > now() - P)) {
+        if (rdy && e.col === B.ready) { if (!m.resPend) m.resPend = { at: now() + P }; }  // 같은 색: 어미만 맞았으면 공명
+        else if (!m.splitPend) m.splitPend = { at: now() + P, x: src.x, y: src.y };  // 공명 아닐 때 어미'만' 치면 살점
+      }
       return { m: 0, s: '팅', armor: true };
     }
     if (B.res.braced) return { m: 0, s: '버팀', armor: true };
@@ -1027,14 +1054,34 @@ const Lab = (() => {
     if (e.spawnT > 0) { e.spawnT -= dt; return; }
     if (!p || p.dead) { e.moving = false; return; }
     const pd = Math.hypot(p.x - e.x, p.y - e.y), ph = B ? B.phase - 1 : 0;
-    // 어미 둘레를 돎(어떤 상태든 — 공격 준비 중에도). 2단계부터 flip 초마다 방향이 바뀜
-    if (e.orbA === undefined) { e.orbA = Math.atan2((e.y - m.y) / GROUND_Y, e.x - m.x); e.orbDir = 1; e.flipT = W.flip[0]; }
-    if (m.state !== 'phaseShift') e.orbA += e.orbDir * W.spin[ph] * dt * (e.slowUntil > now() ? e.slowK : 1);
-    if (ph >= 1 && (e.flipT -= dt) <= 0) { e.flipT = W.flip[0] + Math.random() * (W.flip[1] - W.flip[0]); e.orbDir *= -1; World.text(e.x, e.y, e.h + 6, '방향이 바뀐다!', '#ffd36a'); }
-    {
-      const orb = W.orbit * (B && B.fuse ? Math.max(0.35, B.fuse.t / BR().fuse.t) : 1);  // 합체 중: 점점 끌려옴
-      const tx = m.x + Math.cos(e.orbA) * orb, ty = m.y + Math.sin(e.orbA) * orb * GROUND_Y, dx = tx - e.x, dy = ty - e.y, dd = Math.hypot(dx, dy);
-      if (dd > 0.5) { const st = Math.min(dd, W.move * dt); Dungeon.move(lv, e, dx / dd * st, dy / dd * st, e.r); e.moving = true; e.walkT += dt; } else e.moving = false;
+    // 2026-11-08 사용자 'A + B': 어미 곁을 돌지 않고 방을 돌아다니며 사람을 피해 다님(쫓아가 쳐야 색이 바뀜). 공격 준비 · 공격 중엔 멈춤(칠 틈)
+    //   합체 중엔 어미에게 끌려감(pull) · 단계 바뀜 중엔 멈춤
+    const slow = e.slowUntil > now() ? e.slowK : 1;
+    e.moving = false;
+    if (B && (B.fuse || B.res)) {  // 공명 중에도 어미 곁으로 끌려옴(둘을 함께 칠 수 있게 — 딜에 집중)
+      const dx = m.x - e.x, dy = m.y - e.y, dd = Math.hypot(dx, dy), stop = m.r + e.r + (B.fuse ? 4 : 10);
+      if (dd > stop) { const st = Math.min(dd - stop, (B.fuse ? W.pull : W.resPull) * dt); Dungeon.move(lv, e, dx / dd * st, dy / dd * st, e.r); e.moving = true; e.walkT += dt; }
+    } else if (m.state !== 'phaseShift' && (e.state === 'move' || e.state === 'twRecover')) {
+      const ppl = peopleOf().filter(t => !t.dead), near = ppl.reduce((a, t) => Math.min(a, groundDist(t.x - e.x, t.y - e.y)), 1e9);
+      const fleeing = near < W.keep;
+      if ((e.fleeT = (e.fleeT || 0) - dt) <= 0 || !e.goal || Math.hypot(e.goal.x - e.x, e.goal.y - e.y) < 4) {
+        e.fleeT = W.pick;
+        let best = null, bs = -1e9;
+        const rm = lv.rooms[e.ri] || lv.boss, topY = (rm.y + 3) * T;
+        for (let i = 0; i < 12; i++) {
+          const a = i / 12 * Math.PI * 2 + Math.random() * 0.4, L = fleeing ? W.step : W.step * 0.6;
+          const nx = e.x + Math.cos(a) * L, ny = e.y + Math.sin(a) * L * GROUND_Y;
+          if (ny < topY || !Dungeon.walkable(lv, nx, ny, e.r + 6) || Dungeon.roomIdx(lv, nx, ny) !== e.ri || !Dungeon.walkable(lv, (nx + e.x) / 2, (ny + e.y) / 2, e.r + 2)) continue;  // 방 위쪽 3칸은 피함(화면 위 체력 막대에 가려짐)
+          const pdist = ppl.reduce((s, t) => Math.min(s, groundDist(t.x - nx, t.y - ny)), 1e9);
+          const sc = (fleeing ? pdist : Math.random() * 40) + W.fromMother * Math.min(120, groundDist(m.x - nx, m.y - ny));
+          if (sc > bs) { bs = sc; best = { x: nx, y: ny }; }
+        }
+        e.goal = best;
+      }
+      if (e.goal) {
+        const dx = e.goal.x - e.x, dy = e.goal.y - e.y, dd = Math.hypot(dx, dy);
+        if (dd > 1) { const st = Math.min(dd, (fleeing ? W.flee[ph] : W.wander) * slow * dt); Dungeon.move(lv, e, dx / dd * st, dy / dd * st, e.r); e.moving = true; e.walkT += dt; e.fv = unit(dx, dy, e.fv); }
+      }
     }
     if (m.state === 'phaseShift' || (B && B.fuse)) return;
     switch (e.state) {
@@ -1168,13 +1215,14 @@ const Lab = (() => {
       ctx.fillStyle = '#000'; ctx.fillRect(bx - 1, by - 1, w + 2, 5); ctx.fillStyle = '#ff5a7a'; ctx.fillRect(bx, by, Math.round(w * (1 - B.fuse.t / F.t)), 3);
       ctx.save(); ctx.textAlign = 'center'; ctx.font = 'bold 8px ' + Gfx.FONT; ctx.fillStyle = '#000'; ctx.fillText('떼어 내기 ' + B.fuse.hits + '/' + F.hits, x + 0.5, by + 12.5); ctx.fillStyle = '#ffd36a'; ctx.fillText('떼어 내기 ' + B.fuse.hits + '/' + F.hits, x, by + 12); ctx.restore();
     }
-    if (d.brood || d.part === 'twin') {  // 머리 위 색 기호(바뀌기 전 깜빡) · 웅덩이 고정 = 작은 고리
+    if (d.brood || d.part === 'twin') {  // 머리 위 색 기호(바뀌기 전 깜빡) · 웅덩이 고정 = 작은 고리 — 공명 중엔 기호 · 준비 고리를 안 그림(딜에 집중, 2026-11-08 사용자)
+      const resNow = (B && B.res) || (World.mirror && snapRes);
       const blink = (B && B.warned && e.next !== undefined && e.next !== e.col) || (World.mirror && e.snapWarn);
       const c = blink && Math.floor(time * 10) % 2 ? (e.next !== undefined ? e.next : e.col) : e.col;
       const sy = Math.round(y - (e.h + 6) - (d.brood ? 4 : 0));
-      if (!(blink && Math.floor(time * 20) % 4 === 0)) Gfx.spr(ctx, 'lab_sym' + (c || 0), x, sy, { scale: d.brood ? 2 : 1.5 });
+      if (!resNow && !(blink && Math.floor(time * 20) % 4 === 0)) Gfx.spr(ctx, 'lab_sym' + (c || 0), x, sy, { scale: d.brood ? 2 : 1.5 });
       if (e.lockT > 0) { ctx.save(); ctx.strokeStyle = RC[e.col || 0][0]; ctx.globalAlpha = 0.6; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(e.x, e.y, e.r + 4, (e.r + 4) * GROUND_Y, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
-      const rdy = B && !B.res && B.ready === e.col && B.ready !== null;
+      const rdy = !resNow && B && !B.res && B.ready === e.col && B.ready !== null;
       if (rdy) {  // 공명 준비(같은 색 — 한 대 치면 열림): 발밑 그 색 고리가 맥동
         ctx.save(); ctx.strokeStyle = RC[e.col][0]; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.5 + 0.4 * Math.sin(time * 12);
         ctx.beginPath(); ctx.ellipse(e.x, e.y, e.r + 6, (e.r + 6) * GROUND_Y, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
@@ -1245,6 +1293,17 @@ const Lab = (() => {
         ctx.restore();
       }
     }
+    for (const w of lv.zeroWaves || []) {  // 구속체 충격파 고리(판정 = 이 띠: 반지름 R · 두께 w) + 끝 반지름 maxR 흐린 점선
+      if (w.ri !== ri) continue;
+      const R = Math.min(w.q.maxR, w.t * w.q.speed), fade = Math.max(0, Math.min(1, (w.q.maxR + 8 - w.t * w.q.speed) / 8 + 0.3));
+      ctx.save(); ctx.translate(w.x, w.y); ctx.scale(1, GROUND_Y);
+      ctx.strokeStyle = 'rgba(255,122,90,0.25)'; ctx.lineWidth = 1; ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.arc(0, 0, w.q.maxR, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      ctx.globalAlpha = Math.min(1, fade);
+      ctx.strokeStyle = 'rgba(200,200,212,0.45)'; ctx.lineWidth = w.q.w; ctx.beginPath(); ctx.arc(0, 0, Math.max(0.1, R), 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = '#ff7a5a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, Math.max(0.1, R + w.q.w / 2 - 1), 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, Math.max(0.1, R - w.q.w / 2 + 1), 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
     for (const w of lv.labTrail || []) {  // 약물 장판(판정 r = 바닥 타원)
       if (w.ri !== ri) continue;
       const a = Math.min(1, w.t / 0.6), k = Math.min(1, (w.life - w.t) / 0.15);
@@ -1299,6 +1358,17 @@ const Lab = (() => {
   }
   // 어둠 위(world.js draw): 표식(내 머리 위 노란 눈) · 응시 광선 · 범람 알림
   function labels(ctx) {
+    for (const t of peopleOf()) if (t.bindT > 0 && !t.dead) {  // 구속: 몸을 감은 사슬 두 바퀴 + 남은 초
+      const x = Math.round(t.x), y = Math.round(t.y), time = World.time;
+      ctx.save(); ctx.strokeStyle = '#120a14'; ctx.lineWidth = 3;
+      for (const k of [0, 1]) { ctx.beginPath(); ctx.ellipse(x, y - 8 - k * 8, 9, 3, Math.sin(time * 3 + k) * 0.15, 0, Math.PI * 2); ctx.stroke(); }
+      ctx.strokeStyle = '#c8c8d4'; ctx.lineWidth = 1.5; ctx.setLineDash([2, 1.5]);
+      for (const k of [0, 1]) { ctx.beginPath(); ctx.ellipse(x, y - 8 - k * 8, 9, 3, Math.sin(time * 3 + k) * 0.15, 0, Math.PI * 2); ctx.stroke(); }
+      ctx.setLineDash([]); ctx.textAlign = 'center'; ctx.font = 'bold 8px ' + Gfx.FONT;
+      const s = '구속 ' + t.bindT.toFixed(1);
+      ctx.fillStyle = '#000'; ctx.fillText(s, x + 0.5, y - 33.5); ctx.fillStyle = '#ff9a7a'; ctx.fillText(s, x, y - 34);
+      ctx.restore();
+    }
     for (const t of peopleOf()) {
       const n = t.labMarks || 0;
       for (let i = 0; i < n; i++) { const x = Math.round(t.x - (n - 1) * 4 + i * 8), y = Math.round(t.y - 42); ctx.fillStyle = '#120a14'; ctx.fillRect(x - 3, y - 2, 7, 5); ctx.fillStyle = '#ffe066'; ctx.fillRect(x - 2, y - 1, 5, 3); ctx.fillStyle = '#2a1a24'; ctx.fillRect(x, y - 1, 1, 3); }
@@ -1317,6 +1387,12 @@ const Lab = (() => {
       const r = L.r + Math.sin(time * 2 + L.x) * 2, g = ctx.createRadialGradient(L.x, L.y, 0, L.x, L.y, r);
       g.addColorStop(0, 'rgba(160,230,80,' + L.a + ')'); g.addColorStop(1, 'rgba(160,230,80,0)');
       ctx.fillStyle = g; ctx.fillRect(L.x - r, L.y - r, r * 2, r * 2);
+    }
+    for (const w of lv.zeroWaves || []) {  // 구속체 충격파 고리: 어둠 속에서도 보이게(띠 두께 = 판정 그대로)
+      const R = Math.min(w.q.maxR, w.t * w.q.speed);
+      ctx.save(); ctx.translate(w.x, w.y); ctx.scale(1, GROUND_Y);
+      ctx.strokeStyle = 'rgba(255,140,110,0.4)'; ctx.lineWidth = w.q.w; ctx.beginPath(); ctx.arc(0, 0, Math.max(0.1, R), 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
     }
     for (const e of World.enemies()) {  // 구속체 말뚝 · 꽂은 기둥: 어둠 속에서도 보이게 흐린 빛(남은 사슬이 짧으면 붉게)
       if (e.def.lab !== 'zero' || !live(e) || !e.lInit) continue;
@@ -1386,7 +1462,7 @@ const Lab = (() => {
     const lv = World.level;
     if (!lv || !lv.def.lab) return undefined;
     const ms = World.enemies().filter(e => e.def.lab && e.lInit && live(e)).map(e => [e.id, e.stitches ?? e.lid ?? 0, e.exposeT > 0 ? 1 : 0, Math.round((e.gazeA || 0) * 100) / 100, e.litI || 0, e.posts ? e.posts.map(q => [Math.round(q.x), Math.round(q.y)]) : 0]);
-    const out = { ms, tr: (lv.labTrail || []).map(w => [Math.round(w.x), Math.round(w.y), w.r, Math.round(w.t * 10) / 10, w.life, w.ri]) };
+    const out = { ms, tr: (lv.labTrail || []).map(w => [Math.round(w.x), Math.round(w.y), w.r, Math.round(w.t * 10) / 10, w.life, w.ri]), zw: (lv.zeroWaves || []).map(w => [Math.round(w.x), Math.round(w.y), Math.round(w.t * 100) / 100, w.ri]) };
     if (B && motherOf()) {
       out.b = bodiesOf().map(b => [b.id, b.col, b.lockT > 0 ? 1 : 0, b.next ?? -1]);
       out.r = B.res ? [B.res.col, B.res.braced ? 1 : 0] : null;
@@ -1403,6 +1479,7 @@ const Lab = (() => {
     if (!a) return;
     const byId = id => World.enemies().find(e => e.id === id);
     if (World.level && a.tr) World.level.labTrail = a.tr.map(([x, y, r, t, life, ri]) => ({ x, y, r, t, life, ri, dmg: 0 }));
+    if (World.level && a.zw) World.level.zeroWaves = a.zw.map(([x, y, t, ri]) => ({ x, y, t, ri, hit: [], q: ENEMIES.lab_zero.quake }));  // 그림만(맞히기는 방장)
     for (const [id, n, ex, ga, li, ps] of a.ms || []) {
       const e = byId(id); if (!e) continue;
       e.lInit = true; e.exposeT = ex ? 1 : 0; e.gazeA = ga; e.litI = li;
