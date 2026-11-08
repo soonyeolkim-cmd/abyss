@@ -683,7 +683,7 @@ const Lab = (() => {
     m.col = 0;
     B = { phase: 1, nextT: R.every[0], warned: false, res: null, since: 0, gapT: 0, floodT: R.flood.first, flood: null, pools: [] };
     spawnTwin(m, lv, 1);  // 2026-11-08: 복제체 하나가 어미 둘레를 돎 · 약물 배양조 없앰
-    World.say('분열의 어미 — 둘레를 도는 복제체와 색이 같을 때(공명)만 피해가 들어간다! 다른 색 몸을 치면 회복된다', 4.5);
+    World.say('분열의 어미 — 둘레를 도는 복제체와 색이 같을 때 한 대 치면 공명! 5초 동안 피해가 들어간다', 4.5);
   }
   function spawnTwin(m, lv, col) {
     const a = Math.random() * Math.PI * 2, t = World.spawn('lab_twin', m.x + Math.cos(a) * 40, m.y + Math.sin(a) * 26, { spawn: true });
@@ -706,12 +706,13 @@ const Lab = (() => {
     B.since = 0;
     const m = motherOf();
     if (m) World.text(m.x, m.y, m.h + 16, (big ? '큰 공명! ' : '공명! ') + RC[col][2], RC[col][0], true);
-    World.say((big ? '큰 공명 — ' : '공명 — ') + RC[col][3] + ' ' + RC[col][2] + ' 몸을 쳐라! 다른 색을 치면 회복된다', 2.4);
+    World.say((big ? '큰 공명 — ' : '공명 — ') + '5초 동안 마구 쳐라!', 2.4);
+    B.ready = null;
     Sfx.chest(); World.shake(3);
   }
   function endRes(quiet) {
     if (!B || !B.res) return;
-    B.res = null; B.gapT = BR().gap;
+    B.res = null; B.gapT = BR().gap; B.ready = null;
     rerollNow(false);
     B.nextT = BR().every[B.phase - 1]; B.warned = false;
     if (!quiet) { const m = motherOf(); if (m) World.text(m.x, m.y, m.h + 14, '다시 이어졌다', '#c8c8d4'); }
@@ -815,19 +816,21 @@ const Lab = (() => {
       return;
     }
     if (m.state === 'phaseShift') return;
-    // 잠김: 색 바꾸기(warn 초 전에 깜빡) · 같은 색이 생기면 공명
+    // 잠김: 색 바꾸기(warn 초 전에 깜빡) · 같은 색이 되면 '공명 준비'(B.ready) — 그때 한 대라도 치면 5초 공명(bodyCut, 2026-11-08 사용자). 안 치면 색은 그대로 바뀜
     const every = R.every[B.phase - 1];
     if (B.gapT <= 0) {
       if (!B.warned && (B.nextT -= dt) <= R.warn) { B.warned = true; pickNext(); }
       else if (B.warned && (B.nextT -= dt) <= 0) { applyNext(); B.nextT = every; B.warned = false; }
-      const g = groups(), c = g.indexOf(Math.max(...g));
-      if (g[c] >= 2) startRes(c, g[c]);
+      const g = groups(), c = g.indexOf(Math.max(...g)), rd = g[c] >= 2 ? c : null;
+      if (rd !== null && B.ready !== rd) { World.text(m.x, m.y, m.h + 16, '같은 색! 한 대 치면 공명', RC[rd][0], true); sayOnce(B, 'readySeen', '색이 같아졌다 — 아무 몸이나 한 대 치면 5초 동안 공명!', 2.4); Sfx.spell(); }
+      B.ready = rd;
     }
   }
-  // 몸 피해: 잠김 = 0 · 공명 색 = 그대로 · 다른 색 = 회복(× heal) · 버팀 = 0 · 단계 바뀌는 중 = 0
+  // 몸 피해: 잠김 = 0('팅') · 같은 색(공명 준비)일 때 맞으면 공명 시작 · 공명 색 = 그대로 · 다른 색 = 회복(× heal — 몸이 둘이라 지금은 거의 안 나옴) · 버팀 = 0 · 단계 바뀌는 중 = 0
   function bodyCut(e) {
     const m = motherOf();
     if (!B || !m || m.state === 'phaseShift' || e.spawnT > 0 || m.spawnT > 0) return { m: 0, s: '무적', armor: true };
+    if (!B.res && B.ready !== null && B.ready !== undefined && e.col === B.ready) startRes(B.ready, groups()[B.ready]);  // 같은 색일 때 한 대 = 공명 열림(이 한 대부터 들어감)
     if (!B.res) return { m: 0, s: '팅', armor: true };
     if (B.res.braced) return { m: 0, s: '버팀', armor: true };
     if (e.col === B.res.col) return { m: 1, s: '', armor: true };
@@ -1011,6 +1014,11 @@ const Lab = (() => {
       const sy = Math.round(y - (e.h + 6) - (d.brood ? 4 : 0));
       if (!(blink && Math.floor(time * 20) % 4 === 0)) Gfx.spr(ctx, 'lab_sym' + (c || 0), x, sy, { scale: d.brood ? 2 : 1.5 });
       if (e.lockT > 0) { ctx.save(); ctx.strokeStyle = RC[e.col || 0][0]; ctx.globalAlpha = 0.6; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(e.x, e.y, e.r + 4, (e.r + 4) * GROUND_Y, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+      const rdy = B && !B.res && B.ready === e.col && B.ready !== null;
+      if (rdy) {  // 공명 준비(같은 색 — 한 대 치면 열림): 발밑 그 색 고리가 맥동
+        ctx.save(); ctx.strokeStyle = RC[e.col][0]; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.5 + 0.4 * Math.sin(time * 12);
+        ctx.beginPath(); ctx.ellipse(e.x, e.y, e.r + 6, (e.r + 6) * GROUND_Y, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+      }
       const res = (B && B.res) || (World.mirror && snapRes);
       if (res && res.col === e.col && !res.braced) {  // 공명: 둘레 그 색 빛
         ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.45 + 0.2 * Math.sin(time * 8);
@@ -1179,6 +1187,7 @@ const Lab = (() => {
     if (B && motherOf()) {
       out.b = bodiesOf().map(b => [b.id, b.col, b.lockT > 0 ? 1 : 0, b.next ?? -1]);
       out.r = B.res ? [B.res.col, B.res.braced ? 1 : 0] : null;
+      out.rd = B.ready ?? null;
       out.w = B.warned ? 1 : 0;
       out.p = B.pools.map(w => [Math.round(w.x), Math.round(w.y), w.r, w.col, Math.round(w.t * 10) / 10]);
       out.f = B.flood ? [B.flood.col, B.flood.on ? 1 : 0, Math.round(B.flood.warn * 10) / 10, B.flood.pads.map(q => [Math.round(q.x), Math.round(q.y)])] : null;
@@ -1201,7 +1210,7 @@ const Lab = (() => {
       B = B || { phase: 1, pools: [], res: null };
       B.pools = (a.p || []).map(([x, y, r, col, t]) => ({ x, y, r, col, t }));
       B.flood = a.f ? { col: a.f[0], on: !!a.f[1], warn: a.f[2], pads: a.f[3].map(([x, y]) => ({ x, y })) } : null;
-      B.res = null; B.warned = false;
+      B.res = null; B.warned = false; B.ready = a.rd ?? null;
       for (const [id, col, br] of a.t || []) { const e = byId(id); if (e) { e.col = col; e.broken = !!br; } }
     }
   }
