@@ -217,7 +217,7 @@ const Lab = (() => {
     stitch: '봉합체 — 실밥은 큰 공격 뒤 틈(청록 빛)에만 끊어진다! 끊으면 실바늘이 다시 꿰매러 간다 — 닿기 전에 잡아라',
     brood: '배양 모체 — 등 뒤 청록 뚜껑을 깨면 낳기가 멈추고 드러난다! 몸은 천천히 돈다, 빙 돌아라',
     melt: '흘러내리는 자 — 녹아 흐르는 웅덩이는 빨아들이고 장판을 남긴다, 대시로 빠져나와라! 솟아오른 뒤 굳은(청록) 동안 쳐라',
-    zero: '구속체 — 몸의 방패를 깨뜨려라! 다시 생기는 방패까지 두 번 깨면 잠깐 쓰러진다',
+    zero: '구속체 — 말뚝에 사슬로 묶여 있다! 바닥 원(사슬 끝)에서 조금 떨어진 바깥에 서라 — 달려들다 사슬이 팽팽해지면 넘어진다',
     eye: '관찰체 — 청록으로 빛나는 눈만 터뜨려라(다른 눈은 표식)! 바라보는 부채꼴 안에 오래 서 있어도 표식 — 셋이면 응시 광선',
   };
   function midInit(e, lv) {
@@ -226,7 +226,7 @@ const Lab = (() => {
     if (k === 'stitch') e.stitches = d.stitch.n;
     if (k === 'brood') { e.lid = d.lid.hits; e.hatchT = 3; }
     if (k === 'melt') e.meltCd = 4;
-    if (k === 'zero') { e.shieldHp = d.shield.hits; e.breaks = 0; e.shieldT = 0; e.lashCd = 2; }
+    if (k === 'zero') { e.lashCd = 2; e.chargeCd = 2; }
     if (k === 'eye') { e.gazeA = Math.atan2(e.fv.y, e.fv.x); e.marks = new Map(); e.eyeA = 0; spawnEyes(e); }
     World.say(HINT[k], 3.4);
   }
@@ -239,6 +239,12 @@ const Lab = (() => {
     if (k === 'melt' && e.meltCd <= 0) {  // 웅덩이로 녹아듦
       e.state = 'meltSink'; e.t = d.melt.sink; e.under = true; e.kx = 0; e.ky = 0;
       World.text(e.x, e.y, e.h + 6, '녹아내린다…', ACID_HI); World.dust(e.x, e.y, 10); Sfx.spell();
+      return;
+    }
+    if (k === 'zero' && e.chargeCd <= 0 && e.state === 'move' && leashOut(e, p)) {  // 원(사슬 끝) 밖 사람에게 달려듦 → 사슬 끝에서 넘어짐(update)
+      const C = d.leash;
+      faceTo(e, p); e.chargeV = unit(p.x - e.x, p.y - e.y, e.fv);
+      e.state = 'chargeWind'; e.t = e.windupT = d.charge.windup; e.chargeCd = C.chargeCd[0] + Math.random() * (C.chargeCd[1] - C.chargeCd[0]); e.leashRun = true;
       return;
     }
     if (k === 'zero' && e.lashCd <= 0) {
@@ -450,28 +456,10 @@ const Lab = (() => {
       if (e.state === 'hardened') return { m: d.melt.mul, s: '' };
       return { m: d.melt.soft, s: '물렁', armor: true };
     }
-    if (k === 'zero') {  // 몸 방패: 있는 동안 × cut, 맞을 때마다(gap 초에 한 대) 한 칸씩 → 깨짐(need 번째면 쓰러짐)
-      const S = d.shield;
-      if (e.state === 'labDown') return { m: S.mul, s: '' };
-      if (e.shieldHp > 0) {
-        if (src && !(e.shT > now())) {
-          e.shT = now() + S.gap; e.shieldHp--;
-          World.sparks(e.x + e.fv.x * 6, e.y, e.h * 0.5, 6, TEAL, true);
-          if (!e.shieldHp) {
-            World.shake(4); Sfx.chest(); World.sparks(e.x, e.y, e.h * 0.5, 18, TEAL, true);
-            if (++e.breaks >= S.need) {
-              e.breaks = 0; e.state = 'labDown'; e.t = S.down; e.kx = 0; e.ky = 0; e.shieldT = S.down + 0.3;
-              World.text(e.x, e.y, e.h + 12, '방패가 또 깨졌다 — 쓰러졌다!', TEAL, true);
-              return { m: S.mul, s: '' };
-            }
-            e.shieldT = S.regrow;
-            World.text(e.x, e.y, e.h + 12, '방패가 깨졌다! (' + e.breaks + '/' + S.need + ')', TEAL, true);
-            sayOnce(e, 'shieldSeen', '방패가 곧 다시 생긴다 — 한 번 더 깨면 쓰러진다!', 2.6);
-          }
-        }
-        return { m: S.cut, s: '방패', armor: true };
-      }
-      return { m: S.open, s: '', armor: true };  // 방패가 다시 생기기 전
+    if (k === 'zero') {  // 단단함(× leash.cut) — 사슬 끝에서 넘어진 동안만 × mul
+      const L = d.leash;
+      if (e.state === 'labDown') return { m: L.mul, s: '' };
+      return { m: L.cut, s: '단단하다', armor: true };
     }
     if (k === 'eye') {
       if (e.state === 'labDown') return { m: d.eyes.mul, s: '' };
@@ -496,6 +484,9 @@ const Lab = (() => {
     o.hp = o.maxHp = N.hp; o.ri = e.ri; o.owner = e.id; o.spawnT = 0.35;
     World.sparks(x, y, 6, 8, '#c8c8d4', true);
   }
+  // 구속체: 말뚝 = 그 방 가운데(파티 손님도 같은 자리) · 사람이 사슬 끝 밖인지
+  const anchorOf = e => { const r = World.level.rooms[e.ri] || World.level.boss; return { x: r.cx * T + 8, y: r.cy * T + 8 }; };
+  const leashOut = (e, t) => { const a = anchorOf(e); return groundDist(t.x - a.x, t.y - a.y) > e.def.leash.r; };
   // 관찰체 눈: 빛나는 하나만 터짐(1대) — 다른 눈을 치면 친 사람에게 표식
   function eyeballCut(e, src) {
     const o = World.enemies().find(m => m.id === e.owner);
@@ -589,10 +580,20 @@ const Lab = (() => {
       if (k === 'melt' && e.meltCd > 0 && e.state !== 'hardened') e.meltCd -= dt;
       if (k === 'zero') {
         if (e.lashCd > 0) e.lashCd -= dt;
-        if (e.shieldHp === 0 && e.shieldT > 0 && (e.shieldT -= dt) <= 0) {  // 방패 다시 생김
-          e.shieldHp = d.shield.hits;
-          World.text(e.x, e.y, e.h + 10, '방패가 다시 생겼다', '#c8d0b8'); World.sparks(e.x, e.y, e.h * 0.5, 10, TEAL, true); Sfx.spell();
+        if (e.chargeCd > 0) e.chargeCd -= dt;
+        const L = d.leash, a = anchorOf(e), gx = e.x - a.x, gy = (e.y - a.y) / GROUND_Y, gd = Math.hypot(gx, gy);
+        if (gd > L.r) {  // 사슬 끝: 밖으로 못 나감 — 돌진하다 닿으면 팽팽해져 넘어짐
+          e.x = a.x + gx / gd * L.r; e.y = a.y + gy / gd * L.r * GROUND_Y;
+          if (e.state === 'charge' && (!e.leashRun || e.hitDone)) { e.state = 'recover'; e.t = 0.5; e.leashRun = false; }  // 원 안 사람에게 한 보통 돌진 · 사람을 맞힌 돌진은 그냥 멈춤(넘어지지 않음 — 사슬 끝 바로 앞은 위험, 조금 떨어져 서야)
+          else if (e.state === 'charge') {
+            e.leashRun = false;
+            e.state = 'labDown'; e.t = L.down; e.kx = 0; e.ky = 0;
+            World.text(e.x, e.y, e.h + 12, '사슬이 팽팽해졌다 — 넘어졌다!', TEAL, true); World.shake(5); World.dust(e.x, e.y, 14); Sfx.chest();
+            e.snapT = 0.4;
+          }
         }
+        if (e.snapT > 0) e.snapT -= dt;
+        if (e.state !== 'charge' && e.state !== 'chargeWind') e.leashRun = false;
       }
       if (k === 'brood' && !(e.exposeT > 0) && e.state !== 'dead' && (e.hatchT -= dt) <= 0) {  // 배양조에서 실험체(뚜껑이 깨진 동안은 멈춤)
         const B = d.nest;
@@ -988,22 +989,12 @@ const Lab = (() => {
       ctx.save(); ctx.strokeStyle = 'rgba(95,224,208,' + (0.5 + 0.25 * Math.sin(time * 6)) + ')'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.ellipse(e.x, e.y, R, R * GROUND_Y, 0, a - w, a + w); ctx.stroke(); ctx.restore();
     }
-    if (d.lab === 'zero' && e.state !== 'labDown') {  // 몸 방패(남은 칸만큼 진하게 · 금) + 머리 위 '방패 n/6 · 깨뜨림 n/2'
-      const S = d.shield, hp = e.shieldHp || 0;
-      if (hp > 0) {
-        const k = hp / S.hits, cy = y - e.h * 0.5, rx = e.r + 7, ry = e.h * 0.55;
-        ctx.save(); ctx.globalCompositeOperation = 'lighter';
-        ctx.fillStyle = 'rgba(95,224,208,' + (0.08 + 0.12 * k) + ')'; ctx.beginPath(); ctx.ellipse(x, cy, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = 'rgba(95,224,208,' + (0.45 + 0.35 * k + 0.1 * Math.sin(time * 6)) + ')'; ctx.lineWidth = 1.5; ctx.stroke();
-        ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1;
-        for (let i = 0; i < S.hits - hp; i++) { const a = i * 2.4 + 0.5, ox = Math.cos(a) * rx * 0.8, oy = Math.sin(a) * ry * 0.8; ctx.beginPath(); ctx.moveTo(x + ox, cy + oy); ctx.lineTo(x + ox * 0.55 + 2, cy + oy * 0.55 - 1); ctx.lineTo(x + ox * 0.3, cy + oy * 0.3 + 2); ctx.stroke(); }  // 금
-        ctx.restore();
-      }
-      ctx.save(); ctx.textAlign = 'center'; ctx.font = 'bold 8px ' + Gfx.FONT;
-      const line = (t, yy, col) => { ctx.fillStyle = '#000'; ctx.fillText(t, x + 0.5, yy + 0.5); ctx.fillStyle = col; ctx.fillText(t, x, yy); };
-      line(hp > 0 ? '방패 ' + hp + '/' + S.hits : '방패 다시 생기는 중', y - e.h - 6, hp > 0 ? TEAL : '#c8c8d4');
-      line('깨뜨림 ' + (e.breaks || 0) + '/' + S.need, y - e.h - 16, (e.breaks || 0) > 0 ? '#ffd36a' : '#c8c8d4');
-      ctx.restore();
+    if (d.lab === 'zero') {  // 말뚝 → 몸 사슬(팽팽할수록 붉게 · 넘어진 순간 번쩍)
+      const a = anchorOf(e), gd = groundDist(e.x - a.x, e.y - a.y), k = Math.min(1, gd / d.leash.r);
+      ctx.save(); ctx.lineWidth = 1; ctx.setLineDash(e.state === 'labDown' ? [2, 2] : []);
+      ctx.strokeStyle = e.snapT > 0 ? '#ffffff' : k > 0.85 ? 'rgba(255,120,90,0.9)' : 'rgba(168,168,184,0.85)';
+      const mx = (a.x + x) / 2, my = (a.y + y - e.h * 0.4) / 2 + (1 - k) * 14;  // 느슨하면 아래로 처짐
+      ctx.beginPath(); ctx.moveTo(a.x, a.y - 4); ctx.quadraticCurveTo(mx, my, x, y - e.h * 0.4); ctx.stroke(); ctx.restore();
     }
     if (d.lab === 'zero' && e.state === 'labDown') { ctx.fillStyle = '#ffe066'; for (let k = 0; k < 3; k++) { const a = time * 6 + k * 2.1; ctx.fillRect(Math.round(x + Math.cos(a) * 9), Math.round(y - e.h - 3 + Math.sin(a) * 2), 2, 2); } }
     if (d.lab === 'eye' && e.state === 'labDown') { ctx.fillStyle = TEAL; for (let k = 0; k < 3; k++) { const a = time * 6 + k * 2.1; ctx.fillRect(Math.round(x + Math.cos(a) * 10), Math.round(y - e.h - 3 + Math.sin(a) * 2), 2, 2); } }
@@ -1088,6 +1079,15 @@ const Lab = (() => {
       ctx.save(); ctx.globalAlpha = 0.75 * a;
       ctx.fillStyle = '#2e5a14'; ctx.beginPath(); ctx.ellipse(w.x, w.y, w.r * k, w.r * k * GROUND_Y, 0, 0, Math.PI * 2); ctx.fill();
       ctx.globalAlpha = 0.8 * a; ctx.fillStyle = ACID; ctx.beginPath(); ctx.ellipse(w.x - 1, w.y, w.r * 0.6 * k, w.r * 0.6 * k * GROUND_Y, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    for (const e of World.enemies()) {  // 구속체 사슬 끝(판정 = 이 원: 밖에 서 있으면 달려들다 넘어짐) · 가운데 말뚝
+      if (e.ri !== ri || !live(e) || e.def.lab !== 'zero') continue;
+      const a = anchorOf(e), R = e.def.leash.r;
+      ctx.save(); ctx.strokeStyle = 'rgba(220,220,236,' + (0.6 + 0.2 * Math.sin(time * 3)) + ')'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 3]);
+      ctx.beginPath(); ctx.ellipse(a.x, a.y, R, R * GROUND_Y, 0, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = '#3e3e4a'; ctx.fillRect(Math.round(a.x) - 2, Math.round(a.y) - 9, 4, 10); ctx.fillStyle = '#6e6e7e'; ctx.fillRect(Math.round(a.x) - 2, Math.round(a.y) - 9, 4, 2);
+      ctx.fillStyle = '#2a1a24'; ctx.beginPath(); ctx.ellipse(a.x, a.y + 1, 5, 2, 0, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     }
     for (const e of World.enemies()) {
@@ -1185,7 +1185,7 @@ const Lab = (() => {
   function snap() {
     const lv = World.level;
     if (!lv || !lv.def.lab) return undefined;
-    const ms = World.enemies().filter(e => e.def.lab && e.lInit && live(e)).map(e => [e.id, e.stitches ?? e.lid ?? e.shieldHp ?? 0, e.exposeT > 0 ? 1 : 0, Math.round((e.gazeA || 0) * 100) / 100, e.litI || 0]);
+    const ms = World.enemies().filter(e => e.def.lab && e.lInit && live(e)).map(e => [e.id, e.stitches ?? e.lid ?? 0, e.exposeT > 0 ? 1 : 0, Math.round((e.gazeA || 0) * 100) / 100, e.litI || 0]);
     const out = { ms, tr: (lv.labTrail || []).map(w => [Math.round(w.x), Math.round(w.y), w.r, Math.round(w.t * 10) / 10, w.life, w.ri]) };
     if (B && motherOf()) {
       out.b = bodiesOf().map(b => [b.id, b.col, b.lockT > 0 ? 1 : 0, b.next ?? -1]);
@@ -1205,7 +1205,7 @@ const Lab = (() => {
     for (const [id, n, ex, ga, li] of a.ms || []) {
       const e = byId(id); if (!e) continue;
       e.lInit = true; e.exposeT = ex ? 1 : 0; e.gazeA = ga; e.litI = li;
-      if (e.def.lab === 'stitch') e.stitches = n; if (e.def.lab === 'brood') e.lid = n; if (e.def.lab === 'zero') e.shieldHp = n;
+      if (e.def.lab === 'stitch') e.stitches = n; if (e.def.lab === 'brood') e.lid = n; 
     }
     if (a.b) {
       for (const [id, col, lk, nx] of a.b) { const e = byId(id); if (e) { e.col = col; e.lockT = lk ? 1 : 0; e.next = nx >= 0 ? nx : undefined; e.snapWarn = !!a.w; } }

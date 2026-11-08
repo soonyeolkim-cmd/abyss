@@ -714,7 +714,7 @@ Object.assign(ENEMIES, {
   //        (2026-11-08 사용자 '끊기가 너무 쉬워 — A안 실바늘': 예전엔 작은 휘두르기 뒤 틈에도 끊기고 셋을 1초 안에 끊으면 바로 드러남)
   //   brood 배양 모체: every 초마다 배양조 실험체 n 마리. 등 뒤 뚜껑(뒤 ± cone)이 있으면 피해 × cut — 등 뒤에서 lid 대 치면 뚜껑이 깨져 expose 초 드러남(× mul, 낳기 멈춤) · regrow 초 뒤 다시. 몸은 초당 turn 라디안으로만 돎(빙 돌아 등을 노리기)
   //   melt 흘러내리는 자: 물렁한 동안 피해 × soft → every 초마다 웅덩이로 녹아듦(안 맞음) under 초 동안 노리는 사람 쪽으로 흘러옴 → rise 초 바닥 예고(r = 판정) 뒤 솟아오름 → hard 초 굳음(청록, × mul)
-  //   zero 구속체(예전 이름 '격리 번호 0' — 2026-11-08 사용자가 바꿈): 몸 방패를 두 번 깨면 잠깐 쓰러짐(shield) · 사슬 채찍(lash). 예전 사슬 단계 · 자물쇠는 없앰(2026-11-08 사용자)
+  //   zero 구속체(예전 이름 '격리 번호 0' — 2026-11-08 사용자가 바꿈): 방 가운데 말뚝에 사슬로 묶임 — 사슬 끝 밖으로 꾀어 돌진하게 하면 사슬이 팽팽해져 넘어짐(leash) · 사슬 채찍(lash)
   //   eye 관찰체: 유리병 속 눈 n 개(부품, 둘레를 돎) 중 청록으로 빛나는 하나만 터뜨릴 수 있음 — 하나를 터뜨리면 relight 초 뒤 남은 눈 중 하나가 무작위로 빛남(그사이 · 다른 눈을 치면 표식). 다 터뜨리면 병이 깨져 expose 초 드러남(× mul), regrow 초 뒤 다시.
   //        바라보는 부채꼴(gaze r · arc 도, 초당 turn 라디안으로 돎) 안에 hold 초 서 있으면 표식 하나 — max 개면 응시 광선(최대 체력 pct, 못 피함) · 밖에 decay 초 있으면 하나씩 사라짐
   lab_stitch: { name: '봉합체', sprite: 'lab_stitch', pix: true, idle: false, boss: true, lab: 'stitch', scale: 1.25, speed: 34, range: 26, superArmor: true, launchMul: 0.2, r: 12,
@@ -734,10 +734,12 @@ Object.assign(ENEMIES, {
     atk: { windup: 0.55, active: 0.12, recovery: 0.7, knock: 180, reach: [0, 30], arc: 100, lunge: 150 },
     slam: { windup: 0.8, radius: 50 }, charge: { windup: 0.55, speed: 250, time: 0.6 }, fan: { windup: 0.65, count: 9, speed: 115, color: '#c8ff6a' }, summon: 'lab_bloat' },
   lab_zero: { name: '구속체', sprite: 'lab_zero', pix: true, idle: false, boss: true, lab: 'zero', scale: 1.25, speed: 32, range: 26, superArmor: true, launchMul: 0.15, r: 12,
-    // 2026-11-08 사용자 '사슬은 무슨 의미인지 전혀 모르겠어 — 몸에 방패를 부서뜨리면 재생성, 2번 하면 딜 타임 · 딜 타임은 줄여서': 사슬 단계 · 자물쇠 없앰
-    //   shield = 몸 방패(hits 대 — gap 초에 한 대씩, 있는 동안 피해 × cut) → 깨지면 regrow 초 뒤 다시(그사이 × open). need 번째로 깨면 down 초 쓰러짐(× mul) → 그 뒤 방패 다시
-    //   lash = 사슬 채찍(보통 공격 — 노린 쪽 길이 len · 반폭 w 띠, 예고 띠 = 판정)
-    shield: { hits: 6, gap: 0.15, cut: 0.1, open: 0.5, regrow: 2.5, need: 2, down: 2.5, mul: 1.4 }, lash: { len: 90, wind: 0.7, w: 8, dmg: 1.0, knock: 230, cd: 4 },
+    // 2026-11-08 사용자 '방패 두 번 깨기는 이름과 안 어울리고 제자리 말뚝딜로 잡힘 — A안 사슬 끝 유인'(그 전: 사슬 단계 · 자물쇠 → 방패 두 번 깨기):
+    //   leash = 방 가운데 말뚝에 사슬로 묶임 — 말뚝에서 바닥 거리 r 밖으로는 못 나감(바닥 원 = 사슬 끝). 피해는 늘 × cut(단단함).
+    //   노리는 사람이 원 밖에 있으면 chargeCd 초마다 그쪽으로 돌진 → 사슬 끝에서 팽팽해져 down 초 넘어짐(× mul) = 딜 타임. 돌진이 사람을 맞히면 넘어지지 않음 — 원 끝 바로 앞이 아니라 조금 떨어진 바깥에 서야(시험: 붙어 치기만 하는 봇도 보스를 원 끝까지 끌고 가 넘어뜨려서)
+    //   sweep = 원 안에 붙으면 사슬을 휘둘러 밀쳐 냄 · lash = 사슬 채찍(보통 공격 — 노린 쪽 길이 len · 반폭 w 띠, 예고 띠 = 판정)
+    leash: { r: 110, cut: 0.25, down: 2.5, mul: 1.4, chargeCd: [1.6, 2.6] }, lash: { len: 90, wind: 0.7, w: 8, dmg: 1.0, knock: 230, cd: 4 },
+    sweep: { r: 56, arc: 200, wind: 0.6, active: 0.18, dmg: 1.1, knock: 110, cd: 4.5, rec: 0.9 },  // 시험: 밀침 320 이면 붙어 치기만 해도 원 밖으로 밀려 저절로 넘어뜨림 → 110
     atk: { windup: 0.6, active: 0.12, recovery: 0.75, knock: 220, reach: [0, 32], arc: 110, lunge: 150 },
     slam: { windup: 0.85, radius: 56 }, charge: { windup: 0.6, speed: 260, time: 0.6 }, summon: 'lab_bloat' },
   lab_eye: { name: '관찰체', sprite: 'lab_eye', pix: true, idle: false, boss: true, lab: 'eye', scale: 1.25, speed: 28, range: 24, superArmor: true, launchMul: 0.1, r: 13,
