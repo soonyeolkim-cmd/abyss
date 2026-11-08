@@ -42,7 +42,7 @@ function spend(p, n) {
 // p = 누구의 입력인가: 파티 방장 쪽 손님 몸(remote)은 손님이 보낸 스틱 값, 내 몸은 키보드 · 패드 · 터치(창이 열려 있으면 없음)
 function moveInput(p) {
   if (p && p.remote) return Sunken.jailOf(p) || p.bindT > 0 ? null : p.rmove || null;
-  if (World.inputLock || Sunken.jailOf(p) || p.bindT > 0) return null;  // 구속(구속체 충격파 — bindT 초): 걷기 · 대시 못 함, 공격 · 기술은 됨  // 거품 감옥: 방향은 연타에만(제자리 걷는 그림 안 나오게)
+  if (World.inputLock || Sunken.jailOf(p) || (p && p.bindT > 0)) return null;  // 구속(구속체 충격파 — bindT 초): 걷기 · 대시 못 함, 공격 · 기술은 됨  // 거품 감옥: 방향은 연타에만(제자리 걷는 그림 안 나오게)
   const m = Input.move();
   if (!m.x && !m.y) return null;
   const l = Math.hypot(m.x, m.y);
