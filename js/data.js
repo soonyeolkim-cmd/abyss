@@ -548,7 +548,8 @@ const KING_RULE = { hpMul: 5.5, essence: 12, cores: 0, pearls: 1, orbSpeed: 170,
 //   공격(그림 = 판정): 본체 — 살덩이 내려찍기(flesh: 노리는 사람 발밑 원 예고) · 새끼 뱉기(spit — 분열체, 드롭 없음) / 복제체 — 돌진(dash 붉은 띠) · 산성 침(acid 부채꼴 탄)
 //   보상 = 심연의 씨앗 seeds(Lv.120 업그레이드에만 — 2026-11-08 사용자 '보스 잡으면 전용 재료 1개씩') · 정수 essence
 // 체력 hpMul(2026-11-08 시험): 6 이면 Lv.120 +10 유니크 한 벌(보석 · 속성석 없이) 기본 공격 봇이 공명 한 번에 0.85%(상한 10%) — 10분 안에 못 깸 → 2.4(봇 약 2%, 기술 · 속성석을 쓰면 몇 배). 손맛 보고 다시
-const BROOD_RULE = { hpMul: 2.4, essence: 14, cores: 0, pearls: 0, seeds: 1, cap: 0.1, bigCap: 1.5, heal: 0.5, deal: 5, every: [6, 6, 4], warn: 0.8, match: 0.4, force: 9, gap: 2.5, shift: 1.5, phases: [0.7, 0.4],
+//   → 2026-11-08 사용자 기준 캐릭터(태초 속성석 · 보석): 2.4 면 공명마다 상한 10% 를 꽉 채워 146초(최소 시간) — 상한 없이 재면 한 번에 약 15% → 7.2(봇 공명 한 번 약 5% · 약 5분, 기술을 쓰면 더 빠름)
+const BROOD_RULE = { hpMul: 7.2, essence: 14, cores: 0, pearls: 0, seeds: 1, cap: 0.1, bigCap: 1.5, heal: 0.5, deal: 5, every: [6, 6, 4], warn: 0.8, match: 0.4, force: 9, gap: 2.5, shift: 1.5, phases: [0.7, 0.4],
   tank: { hits: 3, r: 34, pool: 8, lock: 4, refill: 14 }, flood: { every: 24, first: 10, warn: 2.2, t: 6, pads: 3, padR: 26, pct: 0.04 }, lonely: { speed: 1.6, cd: 0.55 },
   flesh: { wind: 1.0, follow: 0.4, r: 34, dmg: 1.2 }, spit: { n: 2, max: 4 },
   twin: { dash: { wind: 0.7, speed: 280, time: 0.45, dmg: 1.0 }, acid: { wind: 0.6, n: 5, speed: 120, dmg: 0.6 }, swing: 0.8 } };
@@ -691,7 +692,7 @@ Object.assign(ENEMIES, {
 // rage = 체력이 at 아래면 약물이 끓어 붉게(속도 × speed · 준비 × wind) · burst = 쓰러지면 delay 초 뒤 둘레 r 약물 폭발(예고 원 = 판정)
 // bound = 사슬에 묶여 처음 자리 둘레 leash 안에서만 움직임 → 체력이 snapHp 아래이거나 깨어난 뒤 snapT 초가 지나면 사슬이 끊겨 날뜀(속도 × speed · 준비 × wind) — 묶였을 때 잡는 게 수
 Object.assign(ENEMIES, {
-  lab_vat: { name: '배양조', sprite: 'lab_vat', pix: true, idle: false, rooted: true, poise: 99, solo: 2, hatch: { n: 3, every: 2.4, first: 0.8 }, r: 8,
+  lab_vat: { name: '배양조', sprite: 'lab_vat', pix: true, idle: false, rooted: true, poise: 99, solo: 2, hatch: { n: 2, every: 3, first: 0.8 }, r: 8,
     atk: { windup: 9, active: 0, recovery: 0, knock: 0, reach: [0, 0], arc: 0, lunge: 0 } },
   lab_spawn: { name: '배양조 실험체', sprite: 'lab_spawn', pix: true, idle: false, speed: 44, range: 16, poise: 3, r: 6,
     atk: { windup: 0.45, active: 0.1, recovery: 0.6, knock: 120, reach: [0, 19], arc: 70, lunge: 150 } },
@@ -724,7 +725,7 @@ Object.assign(ENEMIES, {
     atk: { windup: 0.55, active: 0.12, recovery: 0.7, knock: 180, reach: [0, 30], arc: 100, lunge: 150 },
     slam: { windup: 0.8, radius: 50 }, charge: { windup: 0.55, speed: 250, time: 0.6 }, fan: { windup: 0.65, count: 9, speed: 115, color: '#c8ff6a' }, summon: 'lab_bloat' },
   lab_zero: { name: '격리 번호 0', sprite: 'lab_zero', pix: true, idle: false, boss: true, lab: 'zero', scale: 1.25, speed: 32, range: 26, superArmor: true, launchMul: 0.15, r: 12,
-    chains: { cut: 0.35, max: 3, every: 8, len: [56, 80, 104, 130], wind: [0.8, 0.7, 0.6, 0.5], w: 8, dmg: 1.3, knock: 230, cd: [4, 3.4, 2.8, 2.2] }, lock: { cone: 0.3, hits: 4, stunAt: 2, bind: [0, 0, 2.5, 3.5], mul: 1.5 },
+    chains: { cut: 0.5, max: 3, every: 10, len: [56, 80, 104, 130], wind: [0.8, 0.7, 0.6, 0.5], w: 8, dmg: 1.0, knock: 230, cd: [4.5, 4, 3.5, 3] },  // 2026-11-08 기준 캐릭터 시험: 4분 · 초당 14% → 2분 남짓 · 11%(갑옷 0.35 → 0.5 · 채찍 1.3 → 1.0 · 간격 늘림 · 끊김 8 → 10초) lock: { cone: 0.3, hits: 4, stunAt: 2, bind: [0, 0, 2.5, 3.5], mul: 1.5 },
     atk: { windup: 0.6, active: 0.12, recovery: 0.75, knock: 220, reach: [0, 32], arc: 110, lunge: 150 },
     slam: { windup: 0.85, radius: 56 }, charge: { windup: 0.6, speed: 260, time: 0.6 }, summon: 'lab_bloat' },
   lab_eye: { name: '관찰체', sprite: 'lab_eye', pix: true, idle: false, boss: true, lab: 'eye', scale: 1.25, speed: 28, range: 24, superArmor: true, launchMul: 0.1, r: 13,
@@ -937,7 +938,11 @@ for (const F of SUNKEN.floors) Object.assign(ENEMIES[F.boss], { cdMul: SUNKEN.mi
 // 해금 = 삼지창의 왕 unlock 번 처치(파티 포함) → 만렙 129. 몹 Lv.120 · 입장 Lv.115 · 떨어지는 장비는 늘 Lv.100(규칙) — Lv.120 장비는 업그레이드로만.
 // 세기(2026-11-08 계산, 손맛은 다시): 몹만 세지는 곡선이 Lv.110 → 120 에 체력 ×2.50 · 공격 ×2.19, 주인공(장비 · 기본치)은 ×1.79 →
 //   2단계 값 × 0.9(체력) · × 0.94(공격) = 주인공 기준 2단계의 약 1.25배 · 1.15배(2단계가 1단계에 한 것과 같은 걸음)
-const LAB = { stage: 3, max: 5, diff: 2, lv: 120, entry: 115, ilvl: [100, 104], stepHp: SUNKEN.stepHp * 0.9, stepDmg: SUNKEN.stepDmg * 0.94, bossHp: SUNKEN.bossHp * 0.9, bossDmg: SUNKEN.bossDmg * 0.94,
+// 2026-11-08 사용자 '난이도는 올 Lv.100 장비 · 7레벨(태초) 속성석 · 보석 가득 · 10강으로 쉽지 않게 깰 수 있을 정도': 위 계산(×0.9 · ×0.94)은 Lv.120 업그레이드 장비를 가정 →
+//   기준 캐릭터(Lv.120 · Lv.100 +10 유니크 · 기술 칸 넷 태초 화염석 · 장비마다 태초 보석, 체력 19만 · 공격 2.1만)로 재서 2단계(같은 장비 Lv.110)와 견줌(기본 공격 봇, 피하지 않음):
+//   5층 잔몹방 2단계 29초 · 받은 피해 286% → 3단계 처음 71초 · 1258% → 체력 × 0.4 · 공격 × 0.38 로 41초 · 290%(1층 28초 · 158%, 2단계 27초 · 83%)
+//   중간 보스 내려찍기 한 방 2단계 33~38% → 3단계 37~43%(bossDmg × 0.49), 체력 bossHp × 0.54(5층 4,681만, 2단계 브란 3,462만). 받는 피해 초당 5~12%(2단계 기사 7~16%)
+const LAB = { stage: 3, max: 5, diff: 2, lv: 120, entry: 115, ilvl: [100, 104], stepHp: SUNKEN.stepHp * 0.4, stepDmg: SUNKEN.stepDmg * 0.38, bossHp: SUNKEN.bossHp * 0.54, bossDmg: SUNKEN.bossDmg * 0.49,
   hp: 1.06, dmg: 1.04, reward: 0.05, packs: 1, packAdd: 7, mid: { hp: 3.9, dmg: 1.4, cd: 0.6, rec: 0.6 }, unlock: 10, flatMobs: true,
   loot: { gear: 1, chests: 1, bigItems: 3, bigGold: 1.8, gold: 2.2, boost: 0.35 },  // 2단계보다 골드 · 등급 조금 더
   zones: ['배양실', '개조실', '폐수 처리실', '격리실', '관찰실'],
