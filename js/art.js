@@ -271,7 +271,8 @@ const Art = (() => {
       ctx.save();
       ctx.strokeStyle = 'rgba(255,60,40,' + (0.35 + 0.35 * Math.sin(time * 30)) + ')';
       ctx.lineWidth = e.r * 2;
-      ctx.beginPath(); ctx.moveTo(e.x, e.y - 4); ctx.lineTo(e.x + e.chargeV.x * 160, e.y - 4 + e.chargeV.y * 160); ctx.stroke();
+      const len = d.lab === 'zero' ? Lab.chargeReach(e, 160) : 160;  // 구속체: 사슬 끝에서 멈추는 만큼만(그림 = 판정)
+      ctx.beginPath(); ctx.moveTo(e.x, e.y - 4); ctx.lineTo(e.x + e.chargeV.x * len, e.y - 4 + e.chargeV.y * len); ctx.stroke();
       ctx.restore();
     }
     const tele = e.state === 'windup' && (committed(e) || d.superArmor) || ['slam', 'leapWind', 'chargeWind', 'fan', 'orbWind', 'ringWind', 'anchorWind', 'waveWind', 'spinWind', 'rushWind', 'jailWind', 'sweepWind', 'thrustWind', 'meltRise', 'lashWind', 'gazeWind', 'fleshWind', 'spitWind', 'dashWind', 'acidWind', 'swingWind'].includes(e.state);

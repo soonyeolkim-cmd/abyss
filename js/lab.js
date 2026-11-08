@@ -99,6 +99,7 @@ const Lab = (() => {
     '......offfFFFFFX', '.....offfffFFFFX', '.....ooffffffffx', '....ooffffffffff', '...ooffffFffffff', '...offfffffffxff',
     '...offsfffffsfff', '...ooffffffffffx', '....oooooooooooo', '................']);
   const TWIN = mir(['..........', '......oooo', '....ooFFFF', '...oFhhFFF', '..oFhFoooo', '..oFFFFoyy', '..oFFFFoyk', '..oFFFFFoo', '.oFFFFFFFX', '.oFFFFFsws', '.ofFFFFFFX', '.offFFFFFx', '..offfffff', '..offo.off', '...oo...oo']);
+  const BLOB = ['...FFF...', '..FhhFF..', '.FhFFFFF.', 'FFFkyFFFf', 'FFFkkFFff', '.fFFFsFf.', '..fsfff..'];  // 어미 살점(꿈틀대는 살덩이 · 작은 눈)
   const RC = [['#ff6a5a', '#9a2028', '●', '붉은'], ['#6a9cff', '#24408e', '▲', '푸른'], ['#ffd84a', '#9a7418', '■', '노란']];
   const SYM = {
     '●': ['..ooo..', '.oXXXo.', 'oXXXXXo', 'oXXXXXo', 'oXXXXXo', '.oXXXo.', '..ooo..'],
@@ -133,6 +134,7 @@ const Lab = (() => {
     mid('lab_zero', ZERO, 13); mid('lab_zero_bound', ZERO_BOUND, 13);
     mid('lab_eye', EYE, 15); mid('lab_eye_open', EYE_OPEN, 15);
     anim('lab_eyeball', ol(EYEBALL));
+    anim('lab_blob', ol(BLOB), ol(breath(BLOB, 3)));
     anim('lab_needle', ol(NEEDLE), ol(over(NEEDLE, 0, 3, ['c.c.c.C.c..', '.c...c.c.c.'])));
     // 분열의 어미 · 복제체: 색마다 잠김(어둡게) · 공명(밝게) + 버팀(하얀 실루엣)
     for (const [nm, rows, at] of [['lab_mother', MOTHER, 14], ['lab_twin', TWIN, 7]]) {
@@ -217,7 +219,7 @@ const Lab = (() => {
     stitch: '봉합체 — 실밥은 큰 공격 뒤 틈(청록 빛)에만 끊어진다! 끊으면 실바늘이 다시 꿰매러 간다 — 닿기 전에 잡아라',
     brood: '배양 모체 — 등 뒤 청록 뚜껑을 깨면 낳기가 멈추고 드러난다! 몸은 천천히 돈다, 빙 돌아라',
     melt: '흘러내리는 자 — 녹아 흐르는 웅덩이는 빨아들이고 장판을 남긴다, 대시로 빠져나와라! 솟아오른 뒤 굳은(청록) 동안 쳐라',
-    zero: '구속체 — 말뚝에 사슬로 묶여 있다! 바닥 원(사슬 끝)에서 조금 떨어진 바깥에 서라 — 달려들다 사슬이 팽팽해지면 넘어진다',
+    zero: '구속체 — 돌진할 때마다 기둥을 꽂아 사슬이 감긴다! 멀리 서서 길게 달리게 하라 — 사슬이 짧아진 채 돌진하면 장력에 끌려 넘어진다',
     eye: '관찰체 — 청록으로 빛나는 눈만 터뜨려라(다른 눈은 표식)! 바라보는 부채꼴 안에 오래 서 있어도 표식 — 셋이면 응시 광선',
   };
   function midInit(e, lv) {
@@ -226,7 +228,7 @@ const Lab = (() => {
     if (k === 'stitch') e.stitches = d.stitch.n;
     if (k === 'brood') { e.lid = d.lid.hits; e.hatchT = 3; }
     if (k === 'melt') e.meltCd = 4;
-    if (k === 'zero') { e.lashCd = 2; e.chargeCd = 2; }
+    if (k === 'zero') { e.lashCd = 2; e.chargeCd = 2; e.posts = []; e.taut = false; }
     if (k === 'eye') { e.gazeA = Math.atan2(e.fv.y, e.fv.x); e.marks = new Map(); e.eyeA = 0; spawnEyes(e); }
     World.say(HINT[k], 3.4);
   }
@@ -241,10 +243,10 @@ const Lab = (() => {
       World.text(e.x, e.y, e.h + 6, '녹아내린다…', ACID_HI); World.dust(e.x, e.y, 10); Sfx.spell();
       return;
     }
-    if (k === 'zero' && e.chargeCd <= 0 && e.state === 'move' && leashOut(e, p)) {  // 원(사슬 끝) 밖 사람에게 달려듦 → 사슬 끝에서 넘어짐(update)
+    if (k === 'zero' && e.chargeCd <= 0 && e.state === 'move' && groundDist(p.x - e.x, p.y - e.y) > d.leash.far) {  // 떨어진 사람에게 달려듦(기둥 꽂기 · 장력은 update)
       const C = d.leash;
       faceTo(e, p); e.chargeV = unit(p.x - e.x, p.y - e.y, e.fv);
-      e.state = 'chargeWind'; e.t = e.windupT = d.charge.windup; e.chargeCd = C.chargeCd[0] + Math.random() * (C.chargeCd[1] - C.chargeCd[0]); e.leashRun = true;
+      e.state = 'chargeWind'; e.t = e.windupT = d.charge.windup; e.chargeCd = C.chargeCd[0] + Math.random() * (C.chargeCd[1] - C.chargeCd[0]);
       return;
     }
     if (k === 'zero' && e.lashCd <= 0) {
@@ -424,7 +426,8 @@ const Lab = (() => {
   const OPEN_STATES = ['recover', 'tired'];
   function cut(e, src) {
     const d = e.def;
-    if (d.brood || d.part === 'twin') return bodyCut(e);
+    if (d.brood || d.part === 'twin') return bodyCut(e, src);
+    if (d.part === 'blob') return { m: 1e-9, s: '', armor: true };  // 어미 살점: 한 대에 1씩(hp 대)
     if (d.part === 'tank') { if (src) tankHit(e); return { m: 0, s: '', armor: true }; }
     if (d.part === 'eye') return eyeballCut(e, src);
     if (d.part === 'needle') return { m: 1e-9, s: '', armor: true };  // 실바늘: 한 대에 1씩(hp 대)
@@ -490,7 +493,37 @@ const Lab = (() => {
   }
   // 구속체: 말뚝 = 그 방 가운데(파티 손님도 같은 자리) · 사람이 사슬 끝 밖인지
   const anchorOf = e => { const r = World.level.rooms[e.ri] || World.level.boss; return { x: r.cx * T + 8, y: r.cy * T + 8 }; };
-  const leashOut = (e, t) => { const a = anchorOf(e); return groundDist(t.x - a.x, t.y - a.y) > e.def.leash.r; };
+  // 사슬: 말뚝 → 꽂은 기둥들(e.posts) → 몸. 끝(tail) = 마지막 기둥, 남은 길이(free) = len − 말뚝부터 끝까지 꺾인 길이
+  const chainTail = e => (e.posts && e.posts.length ? e.posts[e.posts.length - 1] : anchorOf(e));
+  function chainFree(e) {
+    let q = anchorOf(e), used = 0;
+    for (const s of e.posts || []) { used += groundDist(s.x - q.x, s.y - q.y); q = s; }
+    return Math.max(0, e.def.leash.len - used);
+  }
+  // 돌진 예고 띠 길이: chargeV 쪽으로 사슬 끝(마지막 기둥에서 남은 길이 — 바닥 타원)까지, max 넘지 않게
+  function chargeReach(e, max) {
+    if (!e.chargeV) return max;
+    const s = chainTail(e), R = chainFree(e), v = e.chargeV;
+    const px = e.x - s.x, py = (e.y - s.y) / GROUND_Y, vx = v.x, vy = v.y / GROUND_Y;
+    const A = vx * vx + vy * vy, Bq = 2 * (px * vx + py * vy), C = px * px + py * py - R * R;
+    if (A < 1e-9) return max;
+    const disc = Bq * Bq - 4 * A * C;
+    if (disc < 0) return 0;
+    return Math.max(0, Math.min(max, (-Bq + Math.sqrt(disc)) / (2 * A)));
+  }
+  // 장력: 스스로 다치고(최대 체력 self) 넘어짐 → 기둥이 모두 부서짐
+  function zeroSnap(e) {
+    const L = e.def.leash;
+    e.taut = false;
+    for (const s of e.posts) { World.dust(s.x, s.y, 8); World.sparks(s.x, s.y, 8, 6, '#c8c8d4', true); }
+    e.posts = [];
+    const dmg = Math.round(e.maxHp * L.self);
+    e.hp -= dmg; World.number(e.x, e.y, e.h + 4, dmg, '#ff7a5a', true);
+    World.shake(6); World.dust(e.x, e.y, 14); Sfx.chest();
+    if (e.hp <= 0) { e.dying = true; e.state = 'dead'; e.t = 0; World.onKill(e); return; }
+    e.state = 'labDown'; e.t = L.down; e.kx = 0; e.ky = 0; e.snapT = 0.4; e.reel = true;
+    World.text(e.x, e.y, e.h + 12, '사슬 장력에 끌려 넘어졌다 — 지금!', TEAL, true);
+  }
   // 관찰체 눈: 빛나는 하나만 터짐(1대) — 다른 눈을 치면 친 사람에게 표식
   function eyeballCut(e, src) {
     const o = World.enemies().find(m => m.id === e.owner);
@@ -531,6 +564,7 @@ const Lab = (() => {
     }
     if (d.part === 'twin') { const m = motherOf(); if (m && live(m) && pool && pool.hp <= 0) killMother(m); }
     if (d.part === 'needle') { World.sparks(e.x, e.y, 6, 10, '#c8c8d4', true); Sfx.stone(); World.text(e.x, e.y, 24, '실바늘을 잡았다!', TEAL); }
+    if (d.part === 'blob') { World.sparks(e.x, e.y, 4, 10, '#c8306a', true); Sfx.stone(); }
   }
   // 실험장 부품(enemy.js updateEnemy): 눈 = 관찰체 둘레를 돎 · 복제체 = 따로 움직임 · 배양조 = 다시 차기
   function part(e, dt, lv, p) {
@@ -553,6 +587,22 @@ const Lab = (() => {
       if (dd < o.r + e.r + 2) {
         o.stitches = Math.min(o.def.stitch.n, (o.stitches || 0) + 1);
         World.text(o.x, o.y, o.h + 10, '실바늘이 실밥을 다시 꿰맸다!', '#ff9a6a', true); World.sparks(o.x, o.y, o.h * 0.55, 10, TEAL, true); Sfx.spell();
+        e.dying = true; e.hp = 0; e.state = 'dead'; e.t = 0.6;
+      }
+      return;
+    }
+    if (e.def.part === 'blob') {  // 어미 살점: 어미에게 기어가 닿으면 다시 붙어 어미 회복
+      const m = motherOf();
+      if (!m || !pool) { e.dying = true; e.hp = 0; e.state = 'dead'; e.t = 0.6; return; }
+      if (e.spawnT > 0) return;
+      const dx = m.x - e.x, dy = m.y - e.y, dd = Math.max(1, Math.hypot(dx, dy));
+      e.fv = unit(dx, dy, e.fv); e.moving = true;
+      Dungeon.move(lv, e, dx / dd * e.def.speed * dt, dy / dd * e.def.speed * dt, e.r);
+      if (dd < m.r + e.r + 2) {
+        const h = Math.round(pool.max * BR().split.heal);
+        pool.hp = Math.min(pool.max, pool.hp + h);
+        World.number(m.x, m.y, m.h + 4, '+' + h, '#7dff8a', true);
+        World.text(m.x, m.y, m.h + 14, '살점이 다시 붙었다 — 회복!', '#ff9a6a'); World.sparks(m.x, m.y, m.h * 0.5, 10, '#c8306a', true); Sfx.spell();
         e.dying = true; e.hp = 0; e.state = 'dead'; e.t = 0.6;
       }
       return;
@@ -585,19 +635,31 @@ const Lab = (() => {
       if (k === 'zero') {
         if (e.lashCd > 0) e.lashCd -= dt;
         if (e.chargeCd > 0) e.chargeCd -= dt;
-        const L = d.leash, a = anchorOf(e), gx = e.x - a.x, gy = (e.y - a.y) / GROUND_Y, gd = Math.hypot(gx, gy);
-        if (gd > L.r) {  // 사슬 끝: 밖으로 못 나감 — 돌진하다 닿으면 팽팽해져 넘어짐
-          e.x = a.x + gx / gd * L.r; e.y = a.y + gy / gd * L.r * GROUND_Y;
-          if (e.state === 'charge' && (!e.leashRun || e.hitDone)) { e.state = 'recover'; e.t = 0.5; e.leashRun = false; }  // 원 안 사람에게 한 보통 돌진 · 사람을 맞힌 돌진은 그냥 멈춤(넘어지지 않음 — 사슬 끝 바로 앞은 위험, 조금 떨어져 서야)
-          else if (e.state === 'charge') {
-            e.leashRun = false;
-            e.state = 'labDown'; e.t = L.down; e.kx = 0; e.ky = 0;
-            World.text(e.x, e.y, e.h + 12, '사슬이 팽팽해졌다 — 넘어졌다!', TEAL, true); World.shake(5); World.dust(e.x, e.y, 14); Sfx.chest();
-            e.snapT = 0.4;
+        const L = d.leash;
+        if (e.state === 'chargeWind' && e.zPrev !== 'chargeWind') {  // 돌진 준비: 발밑에 기둥을 꽂음(사슬이 감김) — 남은 길이가 short 아래면 이번 돌진은 장력에 끌림
+          const s = chainTail(e);
+          if (groundDist(e.x - s.x, e.y - s.y) > L.minPost) {
+            e.posts.push({ x: e.x, y: e.y });
+            World.dust(e.x, e.y, 8); World.sparks(e.x, e.y, 4, 6, '#c8c8d4', true); Sfx.stone();
+          }
+          e.taut = chainFree(e) < L.short;
+          if (e.taut) World.text(e.x, e.y, e.h + 10, '사슬이 짧다!', '#ff7a5a', true);
+        }
+        e.zPrev = e.state;
+        const s = chainTail(e), free = chainFree(e), gx = e.x - s.x, gy = (e.y - s.y) / GROUND_Y, gd = Math.hypot(gx, gy);
+        if (gd > free) {  // 사슬 끝: 마지막 기둥에서 남은 길이 밖으로 못 나감
+          if (gd > 0.001) { e.x = s.x + gx / gd * free; e.y = s.y + gy / gd * free * GROUND_Y; }
+          if (e.state === 'charge') {
+            if (e.taut) zeroSnap(e);
+            else { e.state = 'recover'; e.t = 0.5; World.dust(e.x, e.y, 6); }  // 사슬이 넉넉하면 그냥 멈춤
           }
         }
+        if (e.taut && e.state !== 'charge' && e.state !== 'chargeWind' && e.state !== 'labDown' && !e.dying) zeroSnap(e);  // 벽 · 시간으로 돌진이 끝나도 장력
+        if (e.state === 'labDown' && e.reel) {  // 넘어진 동안 풀린 사슬이 되감겨 가운데 말뚝 쪽으로 끌려감(다음 판은 가운데에서 — 기둥 하나 만에 짧아지지 않게)
+          const a = anchorOf(e), dx = a.x - e.x, dy = a.y - e.y, dd = Math.hypot(dx, dy);
+          if (dd > L.reelStop) { const st = Math.min(dd - L.reelStop, L.reel * dt); mobMove(lv, e, dx / dd * st, dy / dd * st); if (Math.random() < dt * 10) World.dust(e.x, e.y, 3); }
+        } else e.reel = false;
         if (e.snapT > 0) e.snapT -= dt;
-        if (e.state !== 'charge' && e.state !== 'chargeWind') e.leashRun = false;
       }
       if (k === 'brood' && !(e.exposeT > 0) && e.state !== 'dead' && (e.hatchT -= dt) <= 0) {  // 배양조에서 실험체(뚜껑이 깨진 동안은 멈춤)
         const B = d.nest;
@@ -689,7 +751,7 @@ const Lab = (() => {
     B = { phase: 1, nextT: R.every[0], warned: false, res: null, since: 0, gapT: 0, floodT: R.flood.first, flood: null, pools: [] };
     spawnTwin(m, lv, 1);  // 2026-11-08: 복제체 하나가 어미 둘레를 돎 · 약물 배양조 없앰
     B.fuseT = BR().fuse.first; B.fuse = null;
-    World.say('분열의 어미 — 둘레를 도는 복제체를 쳐서 색을 바꿔라! 어미와 같은 색이 되면 한 대 쳐서 공명(5초)', 4.5);
+    World.say('분열의 어미 — 둘레를 도는 복제체만 쳐서 색을 바꿔라(어미를 치면 살점이 떨어진다)! 같은 색이 되면 한 대 쳐서 공명(5초)', 4.5);
   }
   function spawnTwin(m, lv, col) {
     const a = Math.random() * Math.PI * 2, t = World.spawn('lab_twin', m.x + Math.cos(a) * 40, m.y + Math.sin(a) * 26, { spawn: true });
@@ -777,6 +839,10 @@ const Lab = (() => {
     const R = BR();
     B.since += dt;
     if (B.gapT > 0) B.gapT -= dt;
+    if (m.splitPend && now() >= m.splitPend.at) {  // 어미만 맞은 휘두름이었으면 살점(그사이 복제체가 맞았거나 공명이 열렸으면 없던 일)
+      const sp = m.splitPend; m.splitPend = null;
+      if (!B.res && !B.fuse && !(B.twinHitAt > sp.at - 2 * R.split.pend)) splitOff(m, sp);
+    }
     const bodies = bodiesOf();
     for (const b of bodies) if (b.lockT > 0) b.lockT -= dt;
     for (let i = 0; i < bodies.length; i++) for (let j = i + 1; j < bodies.length; j++) {  // 몸끼리 겹치지 않게(부품이라 enemy.js 밀어내기에서 빠짐)
@@ -842,7 +908,7 @@ const Lab = (() => {
     }
   }
   // 몸 피해: 잠김 = 0('팅') · 같은 색(공명 준비)일 때 맞으면 공명 시작 · 공명 색 = 그대로 · 다른 색 = 회복(× heal — 몸이 둘이라 지금은 거의 안 나옴) · 버팀 = 0 · 단계 바뀌는 중 = 0
-  function bodyCut(e) {
+  function bodyCut(e, src) {
     const m = motherOf();
     if (!B || !m || m.state === 'phaseShift' || e.spawnT > 0 || m.spawnT > 0) return { m: 0, s: '무적', armor: true };
     if (B.fuse) {  // 합체 막기: 복제체를 hits 대 치면 떼어 냄(피해 없음)
@@ -855,6 +921,7 @@ const Lab = (() => {
       return { m: 0, s: '', armor: true };
     }
     if (!B.res && B.ready !== null && B.ready !== undefined && e.col === B.ready) startRes(B.ready, groups()[B.ready]);  // 같은 색일 때 한 대 = 공명 열림(이 한 대부터 들어감)
+    if (e.def.part === 'twin') B.twinHitAt = now();  // 같은 휘두름에 복제체도 맞았으면 어미 살점은 안 떨어짐(splitOff 예약 확인)
     if (!B.res && e.def.part === 'twin' && !(B.flood && B.flood.on)) {  // A: 복제체를 치면 색이 다음으로(● → ▲ → ■)
       if (!(e.cycT > now())) {
         e.cycT = now() + BR().twin.cycleGap; e.col = (e.col + 1) % 3;
@@ -863,10 +930,33 @@ const Lab = (() => {
       }
       return { m: 0, s: '', armor: true };
     }
-    if (!B.res) return { m: 0, s: '팅', armor: true };
+    if (!B.res) {
+      // B: 공명 아닐 때 어미'만' 치면 살점이 떨어져 나감 — 같은 휘두름에 복제체도 맞았는지 보려고 pend 초 뒤에 정함(broodUpdate)
+      if (e.def.brood && src && !m.splitPend && !(B.twinHitAt > now() - BR().split.pend)) m.splitPend = { at: now() + BR().split.pend, x: src.x, y: src.y };
+      return { m: 0, s: '팅', armor: true };
+    }
     if (B.res.braced) return { m: 0, s: '버팀', armor: true };
     if (e.col === B.res.col) return { m: 1, s: '', armor: true };
     return { m: -BR().heal, s: '회복!', armor: true };
+  }
+  // B: 어미 살점 — 친 사람 반대쪽(어미 뒤)으로 fling 만큼 튀어나감(걸을 수 있는 보스 방 자리), gap 초에 한 번 · 한 번에 max 개까지
+  const blobsOf = () => World.enemies().filter(o => o.def.part === 'blob' && live(o));
+  function splitOff(m, src) {
+    const S = BR().split, lv = World.level;
+    if (m.splitT > now() || blobsOf().length >= S.max) return;
+    m.splitT = now() + S.gap;
+    const a0 = src && src.x !== undefined ? Math.atan2(m.y - src.y, m.x - src.x) : Math.random() * Math.PI * 2;
+    const fl = S.fling[0] + Math.random() * (S.fling[1] - S.fling[0]);
+    let x = m.x, y = m.y + 6;
+    for (let i = 0; i < 12; i++) {
+      const a = a0 + (Math.random() - 0.5) * 0.9 + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 0.45, nx = m.x + Math.cos(a) * fl, ny = m.y + Math.sin(a) * fl * GROUND_Y;
+      if (Dungeon.walkable(lv, nx, ny, 5) && Dungeon.roomIdx(lv, nx, ny) === m.ri) { x = nx; y = ny; break; }
+    }
+    const o = World.spawn('lab_blob', x, y, { spawn: true });
+    o.hp = o.maxHp = S.hp; o.ri = m.ri; o.owner = m.id; o.spawnT = 0.3;
+    World.sparks(m.x, m.y, m.h * 0.5, 8, '#c8306a', true); World.sparks(x, y, 4, 6, '#b47a72', true); Sfx.stone();
+    World.text(m.x, m.y, m.h + 10, '살점이 떨어져 나왔다!', '#ff7ab0');
+    sayOnce(B, 'blobSeen', '공명이 아닐 때 어미를 치면 살점이 떨어진다 — 어미에게 닿으면 회복! 복제체만 골라 쳐라', 3);
   }
   // D: 합체 막기 — first · every 초마다 어미가 복제체를 끌어당김(t 초). 막으면 휘청 + 공명, 못 막으면 둘레 폭발 + 회복
   function fuseTick(dt, m) {
@@ -1049,8 +1139,8 @@ const Lab = (() => {
       ctx.save(); ctx.strokeStyle = 'rgba(95,224,208,' + (0.5 + 0.25 * Math.sin(time * 6)) + ')'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.ellipse(e.x, e.y, R, R * GROUND_Y, 0, a - w, a + w); ctx.stroke(); ctx.restore();
     }
-    if (d.lab === 'zero') {  // 말뚝 → 몸 사슬(팽팽할수록 붉게 · 넘어진 순간 번쩍)
-      const a = anchorOf(e), gd = groundDist(e.x - a.x, e.y - a.y), k = Math.min(1, gd / d.leash.r);
+    if (d.lab === 'zero') {  // 마지막 기둥 → 몸 사슬(팽팽할수록 붉게 · 넘어진 순간 번쩍)
+      const a = chainTail(e), free = chainFree(e), gd = groundDist(e.x - a.x, e.y - a.y), k = free > 1 ? Math.min(1, gd / free) : 1;
       ctx.save(); ctx.lineWidth = 1; ctx.setLineDash(e.state === 'labDown' ? [2, 2] : []);
       ctx.strokeStyle = e.snapT > 0 ? '#ffffff' : k > 0.85 ? 'rgba(255,120,90,0.9)' : 'rgba(168,168,184,0.85)';
       const mx = (a.x + x) / 2, my = (a.y + y - e.h * 0.4) / 2 + (1 - k) * 14;  // 느슨하면 아래로 처짐
@@ -1058,6 +1148,13 @@ const Lab = (() => {
     }
     if (d.lab === 'zero' && e.state === 'labDown') { ctx.fillStyle = '#ffe066'; for (let k = 0; k < 3; k++) { const a = time * 6 + k * 2.1; ctx.fillRect(Math.round(x + Math.cos(a) * 9), Math.round(y - e.h - 3 + Math.sin(a) * 2), 2, 2); } }
     if (d.lab === 'eye' && e.state === 'labDown') { ctx.fillStyle = TEAL; for (let k = 0; k < 3; k++) { const a = time * 6 + k * 2.1; ctx.fillRect(Math.round(x + Math.cos(a) * 10), Math.round(y - e.h - 3 + Math.sin(a) * 2), 2, 2); } }
+    if (d.part === 'blob' && !e.dying) {  // 어미 살점: 발밑 분홍 고리(맥동) + 어미 쪽 흐린 점선 — 닿으면 어미 회복
+      const m = motherOf();
+      ctx.save(); ctx.strokeStyle = 'rgba(255,90,160,' + (0.55 + 0.35 * Math.sin(time * 10 + e.id)) + ')'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.ellipse(x, y, 8, 3.5, 0, 0, Math.PI * 2); ctx.stroke();
+      if (m) { ctx.strokeStyle = 'rgba(255,90,160,0.35)'; ctx.lineWidth = 1; ctx.setLineDash([2, 3]); ctx.lineDashOffset = time * 12; ctx.beginPath(); ctx.moveTo(x, y - 3); ctx.lineTo(m.x, m.y - 6); ctx.stroke(); }
+      ctx.restore();
+    }
     if (d.part === 'eye') {  // 빛나는 눈(지금 터뜨릴 것): 청록 빛
       const o = World.enemies().find(m => m.id === e.owner);
       if (o && e.idx === o.litI) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.5 + 0.3 * Math.sin(time * 9); const g = ctx.createRadialGradient(x, y - e.z, 0, x, y - e.z, 9); g.addColorStop(0, 'rgba(95,224,208,0.9)'); g.addColorStop(1, 'rgba(95,224,208,0)'); ctx.fillStyle = g; ctx.fillRect(x - 9, y - e.z - 9, 18, 18); ctx.restore(); }
@@ -1156,13 +1253,31 @@ const Lab = (() => {
       ctx.globalAlpha = 0.8 * a; ctx.fillStyle = ACID; ctx.beginPath(); ctx.ellipse(w.x - 1, w.y, w.r * 0.6 * k, w.r * 0.6 * k * GROUND_Y, 0, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     }
-    for (const e of World.enemies()) {  // 구속체 사슬 끝(판정 = 이 원: 밖에 서 있으면 달려들다 넘어짐) · 가운데 말뚝
+    for (const e of World.enemies()) {  // 구속체: 가운데 말뚝 · 꽂은 기둥들 · 바닥에 깔린 사슬 · 사슬 끝 원(판정 = 마지막 기둥에서 남은 길이)
       if (e.ri !== ri || !live(e) || e.def.lab !== 'zero') continue;
-      const a = anchorOf(e), R = e.def.leash.r;
-      ctx.save(); ctx.strokeStyle = 'rgba(220,220,236,' + (0.6 + 0.2 * Math.sin(time * 3)) + ')'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 3]);
-      ctx.beginPath(); ctx.ellipse(a.x, a.y, R, R * GROUND_Y, 0, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      const L = e.def.leash, a = anchorOf(e), posts = e.posts || [], s = chainTail(e), R = chainFree(e), short = R < L.short;
+      ctx.save();
+      ctx.strokeStyle = short ? 'rgba(255,110,80,' + (0.7 + 0.25 * Math.sin(time * 10)) + ')' : 'rgba(220,220,236,' + (0.6 + 0.2 * Math.sin(time * 3)) + ')';
+      ctx.lineWidth = 1.5; ctx.setLineDash([5, 3]);
+      ctx.beginPath(); ctx.ellipse(s.x, s.y, Math.max(1, R), Math.max(1, R) * GROUND_Y, 0, 0, Math.PI * 2); ctx.stroke();
+      if (posts.length) {  // 말뚝 → 기둥 → 기둥: 바닥에 깔린 사슬(고리 무늬)
+        const path = () => { ctx.beginPath(); ctx.moveTo(a.x, a.y); for (const q of posts) ctx.lineTo(q.x, q.y); ctx.stroke(); };
+        ctx.setLineDash([]); ctx.strokeStyle = '#120a14'; ctx.lineWidth = 4; path();
+        ctx.setLineDash([3, 2]); ctx.strokeStyle = '#9a9aa8'; ctx.lineWidth = 2.5; path();
+        ctx.strokeStyle = '#e4e4f0'; ctx.lineWidth = 1; ctx.lineDashOffset = 2.5; path();
+      }
+      ctx.setLineDash([]);
       ctx.fillStyle = '#3e3e4a'; ctx.fillRect(Math.round(a.x) - 2, Math.round(a.y) - 9, 4, 10); ctx.fillStyle = '#6e6e7e'; ctx.fillRect(Math.round(a.x) - 2, Math.round(a.y) - 9, 4, 2);
       ctx.fillStyle = '#2a1a24'; ctx.beginPath(); ctx.ellipse(a.x, a.y + 1, 5, 2, 0, 0, Math.PI * 2); ctx.fill();
+      for (const q of posts) {  // 꽂은 기둥(쇠기둥 + 감긴 사슬 고리)
+        const px = Math.round(q.x), py = Math.round(q.y);
+        ctx.fillStyle = '#120a14'; ctx.beginPath(); ctx.ellipse(q.x, q.y + 1, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillRect(px - 4, py - 19, 9, 20);
+        ctx.fillStyle = '#6e6e7e'; ctx.fillRect(px - 3, py - 18, 7, 18); ctx.fillStyle = '#b4b4c4'; ctx.fillRect(px - 3, py - 18, 2, 18); ctx.fillStyle = '#3e3e4a'; ctx.fillRect(px + 2, py - 18, 2, 18);
+        ctx.fillStyle = '#ececf4'; ctx.fillRect(px - 3, py - 19, 7, 2);
+        ctx.strokeStyle = '#e4e4f0'; ctx.lineWidth = 1;
+        for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.ellipse(q.x + 0.5, py - 4 - k * 3, 5, 1.6, 0, 0, Math.PI * 2); ctx.stroke(); }
+      }
       ctx.restore();
     }
     for (const e of World.enemies()) {
@@ -1202,6 +1317,16 @@ const Lab = (() => {
       const r = L.r + Math.sin(time * 2 + L.x) * 2, g = ctx.createRadialGradient(L.x, L.y, 0, L.x, L.y, r);
       g.addColorStop(0, 'rgba(160,230,80,' + L.a + ')'); g.addColorStop(1, 'rgba(160,230,80,0)');
       ctx.fillStyle = g; ctx.fillRect(L.x - r, L.y - r, r * 2, r * 2);
+    }
+    for (const e of World.enemies()) {  // 구속체 말뚝 · 꽂은 기둥: 어둠 속에서도 보이게 흐린 빛(남은 사슬이 짧으면 붉게)
+      if (e.def.lab !== 'zero' || !live(e) || !e.lInit) continue;
+      const hot = chainFree(e) < e.def.leash.short, col = hot ? '255,110,80' : '200,200,230';
+      for (const q of [anchorOf(e), ...(e.posts || [])]) {
+        if (!inViewOf(q.x, q.y)) continue;
+        const g = ctx.createRadialGradient(q.x, q.y - 6, 0, q.x, q.y - 6, 26);
+        g.addColorStop(0, 'rgba(' + col + ',0.28)'); g.addColorStop(1, 'rgba(' + col + ',0)');
+        ctx.fillStyle = g; ctx.fillRect(q.x - 26, q.y - 32, 52, 52);
+      }
     }
     ctx.restore();
   }
@@ -1260,7 +1385,7 @@ const Lab = (() => {
   function snap() {
     const lv = World.level;
     if (!lv || !lv.def.lab) return undefined;
-    const ms = World.enemies().filter(e => e.def.lab && e.lInit && live(e)).map(e => [e.id, e.stitches ?? e.lid ?? 0, e.exposeT > 0 ? 1 : 0, Math.round((e.gazeA || 0) * 100) / 100, e.litI || 0]);
+    const ms = World.enemies().filter(e => e.def.lab && e.lInit && live(e)).map(e => [e.id, e.stitches ?? e.lid ?? 0, e.exposeT > 0 ? 1 : 0, Math.round((e.gazeA || 0) * 100) / 100, e.litI || 0, e.posts ? e.posts.map(q => [Math.round(q.x), Math.round(q.y)]) : 0]);
     const out = { ms, tr: (lv.labTrail || []).map(w => [Math.round(w.x), Math.round(w.y), w.r, Math.round(w.t * 10) / 10, w.life, w.ri]) };
     if (B && motherOf()) {
       out.b = bodiesOf().map(b => [b.id, b.col, b.lockT > 0 ? 1 : 0, b.next ?? -1]);
@@ -1278,9 +1403,10 @@ const Lab = (() => {
     if (!a) return;
     const byId = id => World.enemies().find(e => e.id === id);
     if (World.level && a.tr) World.level.labTrail = a.tr.map(([x, y, r, t, life, ri]) => ({ x, y, r, t, life, ri, dmg: 0 }));
-    for (const [id, n, ex, ga, li] of a.ms || []) {
+    for (const [id, n, ex, ga, li, ps] of a.ms || []) {
       const e = byId(id); if (!e) continue;
       e.lInit = true; e.exposeT = ex ? 1 : 0; e.gazeA = ga; e.litI = li;
+      if (ps) e.posts = ps.map(([x, y]) => ({ x, y }));
       if (e.def.lab === 'stitch') e.stitches = n; if (e.def.lab === 'brood') e.lid = n; 
     }
     if (a.b) {
@@ -1297,6 +1423,6 @@ const Lab = (() => {
   // 새 레이드 · 새 층: 이전 판 상태 지움(world.js descend · start 뒤 populate 전에 불러도 되고, 어미가 처음 생각할 때 다시 만든다)
   function reset() { pool = null; B = null; snapRes = null; }
 
-  return { think, state, cut, onKill, part, partDied, update, spriteOf, drawMob, drawOver, ground, labels, light, paintLab, drawLab, snap, unsnap, reset, isLab, RC,
+  return { think, state, cut, onKill, part, partDied, update, spriteOf, drawMob, drawOver, ground, labels, light, paintLab, drawLab, snap, unsnap, reset, isLab, RC, chargeReach,
     get brood() { return B; }, get pool() { return pool; } };
 })();

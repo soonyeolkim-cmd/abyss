@@ -560,7 +560,13 @@ const BROOD_RULE = { hpMul: 9.6, essence: 14, cores: 0, pearls: 0, seeds: 1, cap
   //   A = 복제체를 칠 때마다 색이 다음으로(● → ▲ → ■, cycleGap 초에 한 번) — 어미 색만 저절로 바뀜(every 초, 바뀌기 warn 초 전 깜빡). 둘이 같은 색이면 한 대 쳐서 공명
   //   D = 합체 막기(fuse): first 초 뒤부터 every 초마다 어미가 복제체를 t 초 동안 끌어당김(도는 반지름이 줄어듦, 이어진 줄 · 막대) —
   //       그사이 복제체를 hits 대 치면 떼어 냄 → 어미 down 초 휘청 + 바로 공명. 못 막으면 마지막 warn 초 붉은 원(r, 판정) 뒤 둘레가 터짐(최대 체력 pct, 못 피함 — 원 밖이면 안 맞음) · 어미 체력 heal 회복
-  twin: { orbit: 48, spin: [1.4, 2.0, 2.0], flip: [6, 9], move: 240, acid: { wind: 0.6, n: 5, speed: 120, dmg: 0.6 }, swing: 0.8, cd: [2.4, 3.2], cycleGap: 0.35 },
+  // 2026-11-08 사용자 '말뚝딜하다 보면 결국 공명 오고 딜하고 의미 없어짐 — B 잘못 치면 분열':
+  //   split = 공명이 아닐 때(같은 색 한 대로 공명을 여는 때 빼고) 어미를 치면 gap 초에 한 번 살점(lab_blob)이 친 사람 반대쪽으로 fling 만큼 튀어나감(한 번에 max 개까지).
+  //   살점은 hp 대 맞으면 터지고, 어미에게 기어가 닿으면 다시 붙어 어미 체력 heal 회복. → 복제체만 골라 쳐서 색을 맞추고, 맞으면 어미를 한 대
+  //   같은 휘두름에 복제체도 맞았으면 봐줌(어미 맞은 뒤 pend 초 기다려 복제체가 맞았는지 봄) — 어미'만' 노리고 친 것만 살점.
+  //   복제체가 어미에게서 떨어져 골라 칠 수 있게 orbit 48 → 64(도는 빠르기는 거의 그대로가 되게 spin 을 줄임)
+  split: { gap: 0.6, max: 5, fling: [60, 90], hp: 2, heal: 0.015, pend: 0.12 },
+  twin: { orbit: 64, spin: [1.05, 1.5, 1.5], flip: [6, 9], move: 240, acid: { wind: 0.6, n: 5, speed: 120, dmg: 0.6 }, swing: 0.8, cd: [2.4, 3.2], cycleGap: 0.35 },
   fuse: { first: 40, every: 55, t: 6, hits: 6, gap: 0.15, warn: 1.5, r: 80, pct: 0.35, heal: 0.05, down: 2 } };
 const raidRule = stage => (stage === 3 ? Object.assign({}, RAID_RULE, BROOD_RULE) : stage === 2 ? Object.assign({}, RAID_RULE, KING_RULE) : RAID_RULE);
 const SEED_COLOR = '#b8e84a';  // 심연의 씨앗(3단계 레이드 보상, Lv.120 업그레이드에만)
@@ -720,7 +726,7 @@ Object.assign(ENEMIES, {
   //        (2026-11-08 사용자 '끊기가 너무 쉬워 — A안 실바늘': 예전엔 작은 휘두르기 뒤 틈에도 끊기고 셋을 1초 안에 끊으면 바로 드러남)
   //   brood 배양 모체: every 초마다 배양조 실험체 n 마리. 등 뒤 뚜껑(뒤 ± cone)이 있으면 피해 × cut — 등 뒤에서 lid 대 치면 뚜껑이 깨져 expose 초 드러남(× mul, 낳기 멈춤) · regrow 초 뒤 다시. 몸은 초당 turn 라디안으로만 돎(빙 돌아 등을 노리기)
   //   melt 흘러내리는 자: 물렁한 동안 피해 × soft → every 초마다 웅덩이로 녹아듦(안 맞음) under 초 동안 노리는 사람 쪽으로 흘러옴 → rise 초 바닥 예고(r = 판정) 뒤 솟아오름 → hard 초 굳음(청록, × mul)
-  //   zero 구속체(예전 이름 '격리 번호 0' — 2026-11-08 사용자가 바꿈): 방 가운데 말뚝에 사슬로 묶임 — 사슬 끝 밖으로 꾀어 돌진하게 하면 사슬이 팽팽해져 넘어짐(leash) · 사슬 채찍(lash)
+  //   zero 구속체(예전 이름 '격리 번호 0' — 2026-11-08 사용자가 바꿈): 방 가운데 말뚝에 사슬로 묶임 — 돌진할 때마다 기둥을 꽂아 사슬이 감기고, 남은 사슬이 짧은 채 돌진하면 장력에 끌려 스스로 다치고 넘어짐(leash) · 사슬 채찍(lash)
   //   eye 관찰체: 유리병 속 눈 n 개(부품, 둘레를 돎) 중 청록으로 빛나는 하나만 터뜨릴 수 있음 — 하나를 터뜨리면 relight 초 뒤 남은 눈 중 하나가 무작위로 빛남(그사이 · 다른 눈을 치면 표식). 다 터뜨리면 병이 깨져 expose 초 드러남(× mul), regrow 초 뒤 다시.
   //        바라보는 부채꼴(gaze r · arc 도, 초당 turn 라디안으로 돎) 안에 hold 초 서 있으면 표식 하나 — max 개면 응시 광선(최대 체력 pct, 못 피함) · 밖에 decay 초 있으면 하나씩 사라짐
   lab_stitch: { name: '봉합체', sprite: 'lab_stitch', pix: true, idle: false, boss: true, lab: 'stitch', scale: 1.25, speed: 34, range: 26, superArmor: true, launchMul: 0.2, r: 12,
@@ -740,11 +746,14 @@ Object.assign(ENEMIES, {
     atk: { windup: 0.55, active: 0.12, recovery: 0.7, knock: 180, reach: [0, 30], arc: 100, lunge: 150 },
     slam: { windup: 0.8, radius: 50 }, charge: { windup: 0.55, speed: 250, time: 0.6 }, fan: { windup: 0.65, count: 9, speed: 115, color: '#c8ff6a' }, summon: 'lab_bloat' },
   lab_zero: { name: '구속체', sprite: 'lab_zero', pix: true, idle: false, boss: true, lab: 'zero', scale: 1.25, speed: 32, range: 26, superArmor: true, launchMul: 0.15, r: 12,
-    // 2026-11-08 사용자 '방패 두 번 깨기는 이름과 안 어울리고 제자리 말뚝딜로 잡힘 — A안 사슬 끝 유인'(그 전: 사슬 단계 · 자물쇠 → 방패 두 번 깨기):
-    //   leash = 방 가운데 말뚝에 사슬로 묶임 — 말뚝에서 바닥 거리 r 밖으로는 못 나감(바닥 원 = 사슬 끝). 피해는 늘 × cut(단단함).
-    //   노리는 사람이 원 밖에 있으면 chargeCd 초마다 그쪽으로 돌진 → 사슬 끝에서 팽팽해져 down 초 넘어짐(× mul) = 딜 타임. 돌진이 사람을 맞히면 넘어지지 않음 — 원 끝 바로 앞이 아니라 조금 떨어진 바깥에 서야(시험: 붙어 치기만 하는 봇도 보스를 원 끝까지 끌고 가 넘어뜨려서)
-    //   sweep = 원 안에 붙으면 사슬을 휘둘러 밀쳐 냄 · lash = 사슬 채찍(보통 공격 — 노린 쪽 길이 len · 반폭 w 띠, 예고 띠 = 판정)
-    leash: { r: 110, cut: 0.25, down: 2.5, mul: 1.4, chargeCd: [1.6, 2.6] }, lash: { len: 90, wind: 0.7, w: 8, dmg: 1.0, knock: 230, cd: 4 },
+    // 2026-11-08 사용자 '돌진할 때 기둥을 꽂아 사슬이 감기고, 남은 길이가 짧아지면 장력으로 스스로 다치고 딜 타임'(그 전: 가운데 말뚝 둘레 r 110 원 끝에서 넘어짐 · 방패 두 번 깨기 · 사슬 단계):
+    //   leash = 사슬(길이 len)이 방 가운데 말뚝 → 꽂은 기둥들 → 몸으로 이어짐. 돌진할 때마다 발밑에 기둥을 꽂음(사슬이 감김, 마지막 기둥에서 minPost 안이면 안 꽂음).
+    //   남은 길이 = len − (말뚝부터 마지막 기둥까지 꺾인 길이). 몸은 마지막 기둥에서 남은 길이 안(바닥 점선 원 = 판정)에서만 움직임 — 사슬 끝에 닿은 돌진은 그냥 멈춤.
+    //   남은 길이가 short 아래인 채로 돌진하면 사슬 끝에서 장력에 끌려 최대 체력 self 만큼 스스로 다치고 down 초 넘어짐(× mul) = 딜 타임 → 기둥이 모두 부서져 사슬이 풀림.
+    //   멀리 서서 길게 달리게 할수록 사슬이 빨리 줄어든다. 사람이 몸에서 far 넘게 떨어져 있으면 chargeCd 초마다 돌진. 피해는 늘 × cut(단단함).
+    //   sweep = 붙으면 사슬을 휘둘러 밀쳐 냄 · lash = 사슬 채찍(보통 공격 — 노린 쪽 길이 len · 반폭 w 띠, 예고 띠 = 판정)
+    //   넘어진 동안 사슬이 되감겨 가운데 말뚝 쪽으로 reel 속도로 끌려감(reelStop 안까지) — 다음 판이 기둥 하나 만에 짧아지지 않게
+    leash: { len: 330, short: 90, self: 0.06, minPost: 14, far: 60, reel: 90, reelStop: 30, cut: 0.25, down: 2.5, mul: 1.4, chargeCd: [1.6, 2.6] }, lash: { len: 90, wind: 0.7, w: 8, dmg: 1.0, knock: 230, cd: 4 },
     sweep: { r: 56, arc: 200, wind: 0.6, active: 0.18, dmg: 1.1, knock: 110, cd: 4.5, rec: 0.9 },  // 시험: 밀침 320 이면 붙어 치기만 해도 원 밖으로 밀려 저절로 넘어뜨림 → 110
     atk: { windup: 0.6, active: 0.12, recovery: 0.75, knock: 220, reach: [0, 32], arc: 110, lunge: 150 },
     slam: { windup: 0.85, radius: 56 }, charge: { windup: 0.6, speed: 260, time: 0.6 }, summon: 'lab_bloat' },
@@ -764,6 +773,9 @@ Object.assign(ENEMIES, {
   lab_twin: { name: '분열의 어미 복제체', sprite: 'lab_twin', pix: true, idle: false, part: 'twin', labPart: true, scale: 1.2, speed: 46, range: 20, poise: 99, superArmor: true, r: 9, hp: 1, exp: 0, gold: [0, 0],
     atk: { windup: 0.5, active: 0.12, recovery: 0.6, dmg: 0, knock: 160, reach: [0, 24], arc: 90, lunge: 150 } },
   lab_tank: { name: '약물 배양조', sprite: 'lab_tank0', pix: true, idle: false, part: 'tank', labPart: true, rooted: true, hp: 1, exp: 0, gold: [0, 0], speed: 0, range: 0, poise: 99, r: 8,
+    atk: { windup: 9, active: 0, recovery: 0, dmg: 0, knock: 0, reach: [0, 0], arc: 0, lunge: 0 } },
+  // 어미 살점(BROOD_RULE.split): 공명 아닐 때 어미를 치면 떨어져 나와 어미에게 기어감 — 닿으면 어미 회복. 한 대에 1씩
+  lab_blob: { name: '어미 살점', sprite: 'lab_blob', pix: true, idle: false, part: 'blob', labPart: true, scale: 1.4, hp: 2, exp: 0, gold: [0, 0], speed: 34, range: 0, poise: 99, r: 5,
     atk: { windup: 9, active: 0, recovery: 0, dmg: 0, knock: 0, reach: [0, 0], arc: 0, lunge: 0 } },
 });
 // 몹 서 있는 그림 이름(0x72 몸은 _idle_anim, 코드 도트 몸은 _anim) — 고르기 줄 · 이야기 창처럼 몹 그림만 따로 그릴 때
