@@ -1051,8 +1051,8 @@ const Lab = (() => {
     const band = (e, len, w, k, hot) => {
       const a = Math.atan2(e.chargeV.y, e.chargeV.x);
       ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(a);
-      ctx.fillStyle = hot ? 'rgba(200,255,106,0.45)' : 'rgba(255,40,30,' + (0.12 + 0.2 * k) + ')';
-      ctx.strokeStyle = hot ? 'rgba(255,255,255,0.9)' : 'rgba(255,80,60,' + (0.5 + 0.5 * k) + ')'; ctx.lineWidth = 1;
+      ctx.fillStyle = hot ? 'rgba(255,50,30,0.55)' : 'rgba(255,40,30,' + (0.12 + 0.2 * k) + ')';  // 2026-11-08 사용자: 때리는 순간도 빨강(예전 연두) — 예고와 한 띠로, 때릴 땐 진하게
+      ctx.strokeStyle = hot ? 'rgba(255,120,90,1)' : 'rgba(255,80,60,' + (0.5 + 0.5 * k) + ')'; ctx.lineWidth = hot ? 1.5 : 1;
       ctx.fillRect(0, -w, len, w * 2); ctx.strokeRect(0, -w, len, w * 2);
       if (!hot) { ctx.beginPath(); ctx.moveTo(len * k, -w); ctx.lineTo(len * k, w); ctx.stroke(); }
       ctx.restore();
