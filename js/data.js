@@ -756,7 +756,12 @@ Object.assign(ENEMIES, {
     atk: { windup: 0.55, active: 0.12, recovery: 0.7, knock: 190, reach: [0, 30], arc: 120, lunge: 120 },
     slam: { windup: 0.85, radius: 50 }, charge: { windup: 0.6, speed: 240, time: 0.6 }, fan: { windup: 0.65, count: 9, speed: 110, color: '#c8ff6a' }, summon: 'lab_spawn' },
   lab_melt: { name: '흘러내리는 자', sprite: 'lab_melt', pix: true, idle: false, boss: true, lab: 'melt', scale: 1.25, speed: 34, range: 22, superArmor: true, launchMul: 0.15, r: 12,
-    melt: { soft: 0.25, every: 6, sink: 0.5, under: 3, flow: 125, rise: 0.85, follow: 0.5, r: 38, dmg: 1.5, hard: 3.5, mul: 1.5,
+    melt: { soft: 0.25, every: 6, sink: 0.5, under: 9, flow: 90, rise: 0.85, follow: 0.5, r: 38, dmg: 1.5, mul: 1.5,
+      // 2026-11-08 사용자 A안 '숨어서 달려오다 그냥 나오게 하지 말고 졸개를 부수면 나오게': 녹을 때마다 폭주체 bloat.n 마리(방에 살아 있는 폭주체가 bloat.cap 마리 넘으면 안 부름 · 체력 66 · 33% 소환은 안 함)
+      //   폭주체 죽음 폭발(원 burst.r)이 웅덩이 몸(pool.r)에 닿으면 끌려 나와 pop.hard 초 굳음 · 못 끌어내면 under 초(예전 3 → 9) 뒤 스스로 솟아 × self.dmg 로 세게 치고 self.hard 초만 굳음
+      //   오래 숨어 있으니 흘러옴 125 → 90px/초(걷기 82 — 대시로 따돌리며 폭주체 쪽으로 끌고 갈 틈)
+      //   lure = 폭주체가 죽어 터지기 전(0.9초) 폭발 원 + 웅덩이 + lure 안의 웅덩이는 사람 대신 그 약물 쪽으로 흘러감(사람을 따라 폭발 밖으로 빠져나가지 않게)
+      bloat: { n: 2, cap: 4, lure: 30 }, pop: { hard: 4.5 }, self: { dmg: 1.5, hard: 2 },
       // 2026-11-08 사용자 '3층 보스 너무 쉬워 — 녹아내리면 빠르고 장판으로 대미지 주고 빨아들이는 효과': 녹아 있는 동안(under 2.2 → 3초, 흘러옴 70 → 125px/초 — 걷기 82보다 빠름)
       //   pool = 웅덩이 몸(반지름 r) 위에 있으면 every 초마다 내려찍기 × dmg · pull = 둘레 r 안을 speed px/초로 끌어당김(대시 중엔 안 끌림) · trail = 지나간 자리에 every 초마다 약물 장판(r, life 초, 0.5초마다 × dmg)
       pool: { r: 24, every: 0.4, dmg: 0.3 }, pull: { r: 90, speed: 60 }, trail: { every: 0.2, r: 16, life: 3.5, dmg: 0.15 } },  // 시험: 웅덩이 0.12 = 한 번 2.4%(기준 캐릭터) → 0.3 · 장판 0.06 → 0.15

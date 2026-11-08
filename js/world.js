@@ -777,6 +777,7 @@ const World = (() => {
         addFx({ type: 'nova', x: f.x, y: f.y, r: f.r, col: f.voidBlast ? '#c06aff' : f.zap ? '#ffe45a' : f.seaBlast ? '#6a9ad8' : f.acidBlast ? '#6cb02a' : ELEMENTS.fire.color, el: f.voidBlast || f.seaBlast ? '' : f.zap ? 'thunder' : f.acidBlast ? 'poison' : 'fire', tier: 0, bare: true, seed: Math.random() * 1000, t: 0, life: 0.35 });  // 화염 강화 몹 죽음 폭발(판정 r 그대로)
         Sfx.blast(); shake(3);
         for (const t of [World.player, ...rps]) if (!t.dead && groundDist(t.x - f.x, t.y - f.y) < f.r + BODY_R) hurtPlayer(t, f, f.dmg, 160);
+        if (f.acidBlast) Lab.acidBlast(f);  // 폭주체 폭발이 녹은 흘러내리는 자 웅덩이에 닿으면 끌어냄
       }
       // 레이드 파동(패턴이 바뀔 때 포효): delay 뒤 고리가 speed 로 퍼짐 — 고리 띠(두께 w, art.js 그림 그대로)가 지나가는 사람마다 한 번(대시 무적이면 피함)
       if (f.wave && f.t >= f.delay) {

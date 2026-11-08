@@ -168,6 +168,7 @@ const Lab = (() => {
   const pickOf = a => a[Math.floor(Math.random() * a.length)];
   const dot = (e, src) => { const tp = unit(src.x - e.x, src.y - e.y, e.fv); return e.fv.x * tp.x + e.fv.y * tp.y; };  // 친 사람이 앞(+1) · 등 뒤(-1)
   const sayOnce = (e, key, s, t = 3) => { if (e[key]) return; e[key] = 1; World.say(s, t); };
+  let fuses = [];  // 죽어서 터지려는 폭주체 자리(흘러내리는 자 웅덩이를 끌어당김) — acidBlast 가 지움
   const isLab = () => !!(World.level && World.level.def.lab);
 
   // ── 몹 생각(enemy.js move 상태) — 처리했으면 true ──
@@ -221,7 +222,7 @@ const Lab = (() => {
   const HINT = {
     stitch: '봉합체 — 실밥은 큰 공격 뒤 틈(청록 빛)에만 끊어진다! 끊으면 실바늘이 다시 꿰매러 간다 — 닿기 전에 잡아라',
     brood: '배양 모체 — 배양조에 약물을 넣는 동안만 등 뒤 청록 뚜껑이 깨진다! 앞에서 치면 산성 거품이 쌓여 터진다',
-    melt: '흘러내리는 자 — 녹아 흐르는 웅덩이는 빨아들이고 장판을 남긴다, 대시로 빠져나와라! 솟아오른 뒤 굳은(청록) 동안 쳐라',
+    melt: '흘러내리는 자 — 녹은 웅덩이는 폭주체를 터뜨려야 끌려 나온다! 웅덩이를 폭주체 곁으로 끌고 가 잡고, 폭발 전에 대시로 빠져라',
     zero: '구속체 — 돌진할 때마다 기둥을 꽂아 사슬이 감긴다! 멀리 서서 길게 달리게 하라 — 사슬이 짧아진 채 돌진하면 장력에 끌려 넘어진다',
     eye: '관찰체 — 청록으로 빛나는 눈만 터뜨려라(다른 눈 · 부채꼴은 표식)! 본체를 세 번 치면 섬광 — 예고가 뜨면 관찰체를 등져라',
   };
@@ -230,7 +231,7 @@ const Lab = (() => {
     e.lInit = true; e.sweepCd = 1; e.exposeT = 0;
     if (k === 'stitch') e.stitches = d.stitch.n;
     if (k === 'brood') { e.lid = d.lid.hits; e.hatchT = 3; e.injCd = d.inject.first; e.foam = 0; }
-    if (k === 'melt') e.meltCd = 4;
+    if (k === 'melt') { e.meltCd = 4; e.summoned = 2; }  // 체력 66 · 33% 소환 대신 녹을 때마다 폭주체(meltStart)
     if (k === 'zero') { e.lashCd = 2; e.chargeCd = 2; e.posts = []; e.taut = false; }
     if (k === 'eye') { e.gazeA = Math.atan2(e.fv.y, e.fv.x); e.marks = new Map(); e.eyeA = 0; e.glare = 0; spawnEyes(e); }
     World.say(HINT[k], 3.4);
@@ -244,6 +245,9 @@ const Lab = (() => {
     if (k === 'melt' && e.meltCd <= 0) {  // 웅덩이로 녹아듦
       e.state = 'meltSink'; e.t = d.melt.sink; e.under = true; e.kx = 0; e.ky = 0;
       World.text(e.x, e.y, e.h + 6, '녹아내린다…', ACID_HI); World.dust(e.x, e.y, 10); Sfx.spell();
+      const B = d.melt.bloat, have = World.enemies().filter(o => o.type === 'lab_bloat' && o.ri === e.ri && live(o)).length;
+      if (have < B.cap) World.summon('lab_bloat', e, Math.min(B.n, B.cap - have));  // 웅덩이에서 폭주체가 튀어나옴 — 죽음 폭발로 끌어낼 몫
+      sayOnce(e, 'meltSeen', '웅덩이는 스스로 안 나온다 — 폭주체를 웅덩이 곁에서 터뜨려 끌어내라!', 3);
       return;
     }
     if (k === 'zero' && e.chargeCd <= 0 && e.state === 'move' && groundDist(p.x - e.x, p.y - e.y) > d.leash.far) {  // 떨어진 사람에게 달려듦(기둥 꽂기 · 장력은 update)
@@ -355,7 +359,12 @@ const Lab = (() => {
       case 'melted': {  // 웅덩이째 노리는 사람 쪽으로 흘러옴(안 맞음)
         const M = d.melt;
         e.t -= dt; e.moving = true; e.walkT += dt;
-        if (!p.dead) { const u = unit(p.x - e.x, p.y - e.y, e.fv); mobMove(lv, e, u.x * M.flow * dt, u.y * M.flow * dt); }
+        // 곁에서 폭주체가 터지려 하면(폭발 원 + 웅덩이 + lure 안) 새어 나온 약물을 빨아들이러 그쪽으로 — 사람을 따라 폭발 밖으로 빠져나가지 않게
+        const fz = fuses.find(z => z.ri === e.ri && z.at > World.time && groundDist(z.x - e.x, z.y - e.y) <= z.r + M.pool.r + M.bloat.lure);
+        const goal = fz || (!p.dead ? p : null);
+        if (goal && (!fz || groundDist(fz.x - e.x, fz.y - e.y) > 2)) { const u = unit(goal.x - e.x, goal.y - e.y, e.fv); mobMove(lv, e, u.x * M.flow * dt, u.y * M.flow * dt); }
+        if (fz && !e.fuseSeen) { e.fuseSeen = 1; World.text(e.x, e.y, 26, '약물에 끌려간다!', ACID_HI); }
+        if (!fz) e.fuseSeen = 0;
         if (Math.random() < dt * 8) World.sparks(e.x + (Math.random() - 0.5) * 20, e.y, 2, 1, ACID_HI, false);
         e.poolT = (e.poolT || 0) - dt;
         const hurtNow = e.poolT <= 0;
@@ -370,7 +379,7 @@ const Lab = (() => {
           e.trailT = M.trail.every;
           (lv.labTrail || (lv.labTrail = [])).push({ x: e.x, y: e.y, r: M.trail.r, t: M.trail.life, life: M.trail.life, ri: e.ri, dmg: d.slam.dmg * e.dmgMul * M.trail.dmg });
         }
-        if (e.t <= 0) { e.state = 'meltRise'; e.t = e.windupT = d.melt.rise; e.lx = p.x; e.ly = p.y; Sfx.spell(); }
+        if (e.t <= 0) { e.state = 'meltRise'; e.t = e.windupT = d.melt.rise; e.lx = p.x; e.ly = p.y; Sfx.spell(); World.text(e.x, e.y, 30, '스스로 솟아오른다 — 피해라!', '#ff8a5a', true); }  // 못 끌어냄 = 세게 치고 잠깐만 굳음
         return true;
       }
       case 'meltRise': {  // 바닥 예고(판정 r) — 앞 follow 몫은 노리는 사람을 따라감 → 그 자리에서 솟아 굳음
@@ -382,9 +391,9 @@ const Lab = (() => {
           e.under = false;
           World.shake(5); World.dust(e.x, e.y, 14); Sfx.blast();
           World.fx({ type: 'nova', x: e.x, y: e.y, r: M.r, col: ACID, el: '', tier: 0, bare: true, seed: Math.random() * 1000, t: 0, life: 0.35 });
-          for (const t of peopleOf()) if (groundDist(t.x - e.x, t.y - e.y) <= M.r + BODY_R) hurtPlayer(t, e, d.slam.dmg * e.dmgMul * M.dmg, 220);
-          e.state = 'hardened'; e.t = M.hard; e.meltCd = M.every;
-          World.text(e.x, e.y, e.h + 10, '굳었다 — 지금!', TEAL, true);
+          for (const t of peopleOf()) if (groundDist(t.x - e.x, t.y - e.y) <= M.r + BODY_R) hurtPlayer(t, e, d.slam.dmg * e.dmgMul * M.dmg * M.self.dmg, 220);
+          e.state = 'hardened'; e.t = M.self.hard; e.meltCd = M.every;
+          World.text(e.x, e.y, e.h + 10, '잠깐 굳었다!', TEAL, true);
         }
         return true;
       }
@@ -648,8 +657,27 @@ const Lab = (() => {
       }
       World.text(e.x, e.y, e.h + 6, '조각이 떨어져 나왔다!', '#ff7ab0'); World.sparks(e.x, e.y, 8, 10, '#b47a72', true);
     }
-    if (d.burst) World.field({ blast: true, acidBlast: true, x: e.x, y: e.y, r: d.burst.r, delay: d.burst.delay, life: d.burst.delay + 0.3, dmg: d.atk.dmg * e.dmgMul * d.burst.dmg, tick: 99 });  // 폭주체: 예고 원 = 판정
+    if (d.burst) {
+      World.field({ blast: true, acidBlast: true, x: e.x, y: e.y, r: d.burst.r, delay: d.burst.delay, life: d.burst.delay + 0.3, dmg: d.atk.dmg * e.dmgMul * d.burst.dmg, tick: 99 });  // 폭주체: 예고 원 = 판정
+      fuses.push({ x: e.x, y: e.y, r: d.burst.r, ri: e.ri, at: World.time + d.burst.delay });  // 터지기 전 약물 — 가까운 웅덩이를 끌어당김(melted)
+    }
     return false;
+  }
+  // 폭주체 약물 폭발이 터진 순간(world.js 필드): 폭발 원(f.r)이 녹은 흘러내리는 자의 웅덩이 몸(pool.r)에 닿으면 끌려 나와 오래 굳음
+  function acidBlast(f) {
+    fuses = fuses.filter(z => z.at > World.time + 0.05 && !(z.x === f.x && z.y === f.y));
+    if (World.mirror) return;  // 파티 손님: 방장 쪽에서
+    for (const e of World.enemies()) {
+      const d = e.def;
+      if (d.lab !== 'melt' || !live(e) || !(e.state === 'meltSink' || e.state === 'melted' || e.state === 'meltRise')) continue;
+      const M = d.melt;
+      if (groundDist(e.x - f.x, e.y - f.y) > f.r + M.pool.r) continue;
+      e.under = false; e.kx = 0; e.ky = 0;
+      e.state = 'hardened'; e.t = M.pop.hard; e.meltCd = M.every;
+      World.shake(6); World.dust(e.x, e.y, 16); World.hitstop(0.12); Sfx.chest();
+      World.sparks(e.x, e.y, 14, 16, TEAL, true);
+      World.text(e.x, e.y, e.h + 12, '끌려 나왔다 — 지금!', TEAL, true); World.say('지금 쳐라!', 1.6);
+    }
   }
   function partDied(e) {
     const d = e.def;
@@ -1688,8 +1716,8 @@ const Lab = (() => {
     }
   }
   // 새 레이드 · 새 층: 이전 판 상태 지움(world.js descend · start 뒤 populate 전에 불러도 되고, 어미가 처음 생각할 때 다시 만든다)
-  function reset() { pool = null; B = null; snapRes = null; }
+  function reset() { pool = null; B = null; snapRes = null; fuses = []; }
 
-  return { think, state, cut, onKill, part, partDied, update, spriteOf, drawMob, drawOver, ground, labels, light, paintLab, drawLab, snap, unsnap, reset, isLab, RC, chargeReach, hardHit,
+  return { think, state, cut, onKill, acidBlast, part, partDied, update, spriteOf, drawMob, drawOver, ground, labels, light, paintLab, drawLab, snap, unsnap, reset, isLab, RC, chargeReach, hardHit,
     get brood() { return B; }, get pool() { return pool; } };
 })();
