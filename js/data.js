@@ -1010,11 +1010,12 @@ const LAB = { stage: 3, max: 5, diff: 2, lv: 120, entry: 115, ilvl: [100, 104], 
   loot: { gear: 1, chests: 1, bigItems: 3, bigGold: 1.8, gold: 2.2, boost: 0.35 },  // 2단계보다 골드 · 등급 조금 더
   zones: ['배양실', '개조실', '폐수 처리실', '격리실', '관찰실'],
   floors: [
-    { pool: ['lab_spawn', 'lab_spawn', 'lab_vat'], boss: 'lab_stitch', music: 'plague', summon: 'lab_spawn' },
-    { pool: ['lab_spawn', 'lab_graft', 'lab_vat'], boss: 'lab_brood', music: 'plague', summon: 'lab_graft' },
-    { pool: ['lab_spawn', 'lab_graft', 'lab_bloat', 'lab_vat'], boss: 'lab_melt', music: 'crypt', summon: 'lab_bloat' },
-    { pool: ['lab_spawn', 'lab_graft', 'lab_bloat', 'lab_chain', 'lab_vat'], boss: 'lab_zero', music: 'crypt', summon: 'lab_bloat' },
-    { pool: ['lab_spawn', 'lab_graft', 'lab_bloat', 'lab_chain', 'lab_vat'], boss: 'lab_eye', music: 'abyss', summon: 'lab_graft' },
+    // 곡 lab = Horror Atmosphere(Juhani Junkala, CC0 — 2026-11-08 사용자 '3단계 새 곡': 그 전엔 1단계 곡 plague · crypt · abyss 를 빌려 씀). 중간 보스와 싸우는 동안은 lord(game.js musicFor)
+    { pool: ['lab_spawn', 'lab_spawn', 'lab_vat'], boss: 'lab_stitch', music: 'lab', summon: 'lab_spawn' },
+    { pool: ['lab_spawn', 'lab_graft', 'lab_vat'], boss: 'lab_brood', music: 'lab', summon: 'lab_graft' },
+    { pool: ['lab_spawn', 'lab_graft', 'lab_bloat', 'lab_vat'], boss: 'lab_melt', music: 'lab', summon: 'lab_bloat' },
+    { pool: ['lab_spawn', 'lab_graft', 'lab_bloat', 'lab_chain', 'lab_vat'], boss: 'lab_zero', music: 'lab', summon: 'lab_bloat' },
+    { pool: ['lab_spawn', 'lab_graft', 'lab_bloat', 'lab_chain', 'lab_vat'], boss: 'lab_eye', music: 'lab', summon: 'lab_graft' },
   ] };
 for (const F of LAB.floors) Object.assign(ENEMIES[F.boss], { cdMul: LAB.mid.cd, recMul: LAB.mid.rec, summon: F.summon });
 // 풍경 '심연 실험장': 0x72 벽돌에 차가운 회록빛을 곱하고(tint) 벽 앞 배양조 줄 · 약물 관 · 철창 · 실험대 · 배수 철망 · 사슬 · 표본 병(lab — js/lab.js paintLab). 함정 = 약물 웅덩이(독 · 느려짐)
@@ -1067,7 +1068,7 @@ function raidDef(stage = 1) {
   const S = STAGE_DEFS[stage] || ENDLESS, R = raidRule(stage), dl = endlessDef(S.max, stage);
   const two = stage === 2, three = stage === 3;
   return Object.assign({}, dl, { raid: true, stage, floor: S.max + 1, timeId: three ? 'labRaid' : two ? 'sunkenRaid' : 'endlessRaid', name: '최종 보스 — ' + (three ? '분열의 어미' : two ? '삼지창의 왕' : '심연의 파수꾼'),
-    boss: three ? 'lab_mother' : two ? 'sunken_king' : 'abyss_raid', pool: [], hazard: null, music: three ? 'boss' : two ? 'lord' : 'order', line: false, sea: two, lab: three, veins: false,
+    boss: three ? 'lab_mother' : two ? 'sunken_king' : 'abyss_raid', pool: [], hazard: null, music: three ? 'labboss' : two ? 'lord' : 'order', bossMusic: three ? 'labboss' : undefined, line: false, sea: two, lab: three, veins: false,
     ease: Object.assign({}, dl.ease, { bhp: dl.ease.bhp / S.mid.hp * R.hpMul, bdmg: dl.ease.bdmg / S.mid.dmg }), desc: three ? '실험장의 가장 가까웠던 그릇.' : two ? '가라앉은 왕국의 마지막 왕.' : '심연의 밑바닥을 지키는 파수꾼.' });
 }
 

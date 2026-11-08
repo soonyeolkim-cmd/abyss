@@ -7,7 +7,7 @@ CC0 = 상업적 사용 · 고쳐 쓰기 · 다시 배포 모두 허락, 출처 �
 All third-party art, music and sound effects in this game are CC0 (public domain dedication).
 Credits (not required by CC0, given with thanks):
   Art:   16x16 DungeonTileset II by 0x72 (Robert)
-  Music: Juhani Junkala (SubspaceAudio), cynicmusic
+  Music: Juhani Junkala (SubspaceAudio), cynicmusic, MintoDog
   Sound effects: Kenney (kenney.nl), JaggedStone, Ogrebane
 
 
@@ -41,6 +41,12 @@ INFO.txt 에 작곡가가 직접: "These music tracks have been released under C
 | Aquaria | https://opengameart.org/content/aquaria | 페이지 License(s): CC0 (wav 하나라 글 파일 없음 — 페이지 사본 _downloads/sound/aquaria/pages/aquaria.html) |
 페이지 표기: "Copyright/Attribution Notice: http://cynicmusic.com http://pixelsphere.org" (CC0 라 의무는 아님, 감사 표기로 위 Credits 에 이름을 넣음)
 게임 안: assets/music/sunken.mp3 (TylerSong3_Normal.wav → 96kbps, 소리 크기 ×0.68) = 가라앉은 심연 1 · 2층
+
+2-3. 음악 — 심연 실험장(2026-11-08 추가)
+| Horror Atmosphere (Juhani Junkala - Post Apocalyptic Wastelands [Loop Ready]) | SubspaceAudio | https://opengameart.org/content/horror-atmosphere | 페이지 License(s): CC0 (ogg 하나라 글 파일 없음 — 페이지 사본 _downloads/music-lab/pages/horror-atmosphere.html) |
+| Hard Boss Battle 1 (hard_boss_battle_1_bpm200.mp3) | MintoDog | https://opengameart.org/content/hard-boss-battle-1 | 페이지 License(s): CC0 (mp3 하나라 글 파일 없음 — 페이지 사본 _downloads/music-lab/pages/hard-boss-battle-1.html) |
+게임 안: assets/music/lab.mp3 (ogg → 96kbps, 소리 크기 ×1.2 — 조용한 분위기 곡이라 다른 곡보다 조금 작음) = 심연 실험장 1 ~ 5층
+        assets/music/labboss.mp3 (320kbps mp3 → 96kbps, 소리 크기 ×0.72) = 분열의 어미(레이드 방 · 싸우는 동안)
 
 
 3. 효과음

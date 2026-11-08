@@ -182,7 +182,7 @@ const Game = (() => {
     if (scene === 'splash' || scene === 'title') return 'title';
     if (scene === 'run' && World.level) {
       const def = World.level.def;
-      if (World.bossFight) return def.id === 'abyss' || def.endless ? 'lord' : 'boss';
+      if (World.bossFight) return def.bossMusic || (def.id === 'abyss' || def.endless ? 'lord' : 'boss');  // bossMusic = 분열의 어미 labboss(2026-11-08)
       return def.music || def.id;  // 끝없는 심연은 층마다 빌린 곡(ENDLESS.floors music)
     }
     return Town.where === 'silvane' ? 'silvane' : 'belloc';
